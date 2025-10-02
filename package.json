@@ -1,0 +1,23 @@
+{
+  "scripts": {
+    "build": "tsc -b",
+    "plan": "cdk synth && cdk diff",
+    "deploy": "npm run build && cdk deploy --all --require-approval never",
+    "destroy": "cdk destroy --all --force",
+    "check": "bash scripts/check-prereqs.sh || scripts/check-prereqs.cmd",
+    "postdeploy": "node scripts/write-outputs.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.899.0",
+    "@aws-sdk/s3-request-presigner": "^3.899.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.153",
+    "aws-cdk-lib": "^2.218.0",
+    "constructs": "^10.4.2",
+    "esbuild": "^0.21.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

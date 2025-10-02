@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Signed in • Styling Adventures</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      margin: 2rem;
+      display: grid;
+      place-items: start;
+      background: #fff;
+      color: #111827;
+    }
+    .container { max-width: 42rem; width: 100%; }
+    .card {
+      padding: 1.2rem 1.4rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      background: #fff;
+    }
+    h1 { margin: 0 0 .6rem; font-size: 1.5rem; }
+    p { margin: .4rem 0; line-height: 1.5; }
+    .hint { color: #6b7280; font-size: .95rem; }
+    .codewrap { margin-top: .8rem; display: none; }
+    code {
+      background: #f3f4f6;
+      padding: .2rem .4rem;
+      border-radius: 6px;
+      word-break: break-all;
+    }
+    button {
+      margin-left: .5rem;
+      padding: .35rem .6rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #f9fafb;
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #0b0f13; color: #e5e7eb; }
+      .card { background: #0b0f13; border-color: #1f2937; box-shadow: none; }
+      code { background: #111827; }
+      button { background: #111827; border-color: #1f2937; color: #e5e7eb; }
+      .hint { color: #9ca3af; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Signed in successfully 🎉</h1>
+      <p>You can close this tab/window.</p>
+      <p class="hint">If you're running local tests, copy the <code>?code=...</code> from this URL into your terminal when prompted.</p>
+
+      <div class="codewrap" id="codeWrap">
+        <p>
+          <strong>Detected code:</strong> <code id="codeValue"></code>
+          <button id="copyBtn" type="button" aria-live="polite">Copy</button>
+        </p>
+      </div>
+    </div>
+
+    <p style="margin-top:.8rem">
+      <a href="/" style="text-decoration:none;color:#2563eb">← Back to home</a>
+    </p>
+  </div>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        document.getElementById('codeValue').textContent = code;
+        document.getElementById('codeWrap').style.display = 'block';
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(code);
+            const btn = document.getElementById('copyBtn');
+            const prev = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => (btn.textContent = prev), 1200);
+          } catch { /* ignore */ }
+        });
+      }
+
+      // Optional: auto-close if no code and opened by your app
+      if (window.opener && !code) {
+        setTimeout(() => { window.close(); }, 1500);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "IdentityStack": {
+    "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00": "arn:aws:cognito-idp:us-east-1:637423256673:userpool/us-east-1_aXLKIxbqK",
+    "UserPoolClientId": "7bkph1q2q1dgpk0497gk41t7tc",
+    "UserPoolId": "us-east-1_aXLKIxbqK",
+    "ExportsOutputRefUserPool6BA7E5F296FD7236": "us-east-1_aXLKIxbqK",
+    "IdentityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
+    "HostedUiUrl": "https://stylingadventures-256673.auth.us-east-1.amazoncognito.com/login?client_id=7bkph1q2q1dgpk0497gk41t7tc&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html",
+    "HostedUiDomainName": "stylingadventures-256673"
+  }
+}
