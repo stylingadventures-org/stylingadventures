@@ -1,0 +1,138 @@
+{
+ "Resources": {
+  "GraphqlApi1B6CF24C": {
+   "Type": "AWS::AppSync::GraphQLApi",
+   "Properties": {
+    "AuthenticationType": "AMAZON_COGNITO_USER_POOLS",
+    "Name": "stylingadventures-api",
+    "UserPoolConfig": {
+     "AwsRegion": "us-east-1",
+     "DefaultAction": "ALLOW",
+     "UserPoolId": {
+      "Fn::ImportValue": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+     }
+    },
+    "XrayEnabled": true
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/Resource"
+   }
+  },
+  "GraphqlApiSchema1B71CE4F": {
+   "Type": "AWS::AppSync::GraphQLSchema",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "GraphqlApi1B6CF24C",
+      "ApiId"
+     ]
+    },
+    "Definition": "type Query {\r\n  hello: String!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n}\r\n"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/Schema"
+   }
+  },
+  "GraphqlApiNone33969EDD": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "GraphqlApi1B6CF24C",
+      "ApiId"
+     ]
+    },
+    "Name": "None",
+    "Type": "NONE"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/None/Resource"
+   }
+  },
+  "GraphqlApiHelloResolverD526A893": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "GraphqlApi1B6CF24C",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "None",
+    "FieldName": "hello",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{ \"version\":\"2018-05-29\" }",
+    "ResponseMappingTemplate": "\"world\"",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "GraphqlApiNone33969EDD",
+    "GraphqlApiSchema1B71CE4F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/HelloResolver/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WKyw6CMBREv4V9uQJxoUujiRuiET7AXMs1FEpb+4AYwr8bMCS6mjlnJoMs3UES4eBiXrWxFA8YS4+8ZTi4Oxrj3orDeLZo6pc8GMGOT7XQLf+nktfUIbtoRSf0WOpgOc37DxXktOzJznrt02LX8zV4E/zElK4IGrfpswTSPWyjxgkR26C86AiKb34AIAd9zr4AAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "AppSyncApiId": {
+   "Value": {
+    "Fn::GetAtt": [
+     "GraphqlApi1B6CF24C",
+     "ApiId"
+    ]
+   }
+  },
+  "AppSyncUrl": {
+   "Value": {
+    "Fn::GetAtt": [
+     "GraphqlApi1B6CF24C",
+     "GraphQLUrl"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
