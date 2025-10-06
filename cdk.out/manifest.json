@@ -229,7 +229,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/8fb6fdf239eaa15ba49a8d971f0fdfa5a1c7d52bf0f59de5d0dfea34c592875e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/926dc96a9af4ecb65673ec4a88cc9132aa524b11a4202d80732ee554a0e45ea3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -321,7 +321,7 @@
         "/UploadsStack/UploadsApi/Deployment/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "UploadsApiDeployment4A67E04Ce6320e5510a1df3ccba83626bbb254a5"
+            "data": "UploadsApiDeployment4A67E04C034fd4d5525ea340ecfa963249b99b92"
           }
         ],
         "/UploadsStack/UploadsApi/DeploymentStage.prod/Resource": [
@@ -402,6 +402,18 @@
             "data": "UploadsApilistGET6FEA2B99"
           }
         ],
+        "/UploadsStack/UploadsApi/Default4xx/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApiDefault4xx1F60FA48"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default5xx/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApiDefault5xx381C5459"
+          }
+        ],
         "/UploadsStack/CognitoAuthorizer/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -458,7 +470,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/4146fe6c88ebb427fc9f6e35fb781b3cd0843e16f81599ff21897e6eb9d9a01a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/104787763c66167afea609619262ecf24327a2565736daa0c8264c343a3b1702.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

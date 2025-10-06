@@ -21,6 +21,20 @@ export class UploadsStack extends cdk.Stack {
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+
+      cors: [
+        {
+          allowedOrigins: ['*'], // 🔒 later, replace with your CloudFront domain
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.HEAD,
+          ],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
+          maxAge: 3000,
+        },
+      ],
     });
 
     const fn = new node.NodejsFunction(this, 'PresignFn', {
@@ -28,10 +42,14 @@ export class UploadsStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
-      environment: { BUCKET: bucket.bucketName },
+      environment: {
+        BUCKET: bucket.bucketName,
+        // TODO: tighten to your CF domain: e.g. 'https://d1682i07dc1r3k.cloudfront.net'
+        WEB_ORIGIN: '*',
+      },
     });
 
-    // Least-privilege: allow ListBucket only for the user's prefix, and read/write only under users/*
+    // Least-privilege S3 access
     fn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['s3:ListBucket'],
       resources: [bucket.bucketArn],
@@ -46,8 +64,26 @@ export class UploadsStack extends cdk.Stack {
       deployOptions: { stageName: 'prod' },
       defaultCorsPreflightOptions: {
         allowHeaders: ['Authorization', 'Content-Type'],
-        allowOrigins: apigw.Cors.ALL_ORIGINS, // (tighten to CloudFront domain after first deploy)
+        allowOrigins: apigw.Cors.ALL_ORIGINS, // tighten later to your CloudFront URL
         allowMethods: ['GET', 'POST', 'OPTIONS'],
+      },
+    });
+
+    // Ensure error responses also include CORS
+    api.addGatewayResponse('Default4xx', {
+      type: apigw.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Authorization,Content-Type'",
+        'Access-Control-Allow-Methods': "'GET,POST,PUT,OPTIONS'",
+      },
+    });
+    api.addGatewayResponse('Default5xx', {
+      type: apigw.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Authorization,Content-Type'",
+        'Access-Control-Allow-Methods': "'GET,POST,PUT,OPTIONS'",
       },
     });
 
@@ -59,10 +95,16 @@ export class UploadsStack extends cdk.Stack {
     const integration = new apigw.LambdaIntegration(fn);
 
     const presign = api.root.addResource('presign');
-    presign.addMethod('POST', integration, { authorizer, authorizationType: apigw.AuthorizationType.COGNITO });
+    presign.addMethod('POST', integration, {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    });
 
     const list = api.root.addResource('list');
-    list.addMethod('GET', integration, { authorizer, authorizationType: apigw.AuthorizationType.COGNITO });
+    list.addMethod('GET', integration, {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    });
 
     new cdk.CfnOutput(this, 'UploadsBucketName', { value: bucket.bucketName });
     new cdk.CfnOutput(this, 'ApiGatewayUrl', { value: api.url });

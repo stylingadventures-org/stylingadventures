@@ -12,6 +12,27 @@
       }
      ]
     },
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "GET",
+        "PUT",
+        "HEAD"
+       ],
+       "AllowedOrigins": [
+        "*"
+       ],
+       "ExposedHeaders": [
+        "ETag"
+       ],
+       "MaxAge": 3000
+      }
+     ]
+    },
     "PublicAccessBlockConfiguration": {
      "BlockPublicAcls": true,
      "BlockPublicPolicy": true,
@@ -303,13 +324,14 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "a8d1aae06230c729fa8fc647d53d03e47c75cce5102eec94f12d0c2e95cbd2c5.zip"
+     "S3Key": "ee5b0b869942f1e5bca97616fa93dd89bb5b425cba3f53c58eeb31435dbee67e.zip"
     },
     "Environment": {
      "Variables": {
       "BUCKET": {
        "Ref": "UploadsBucket5E5E9B64"
-      }
+      },
+      "WEB_ORIGIN": "*"
      }
     },
     "Handler": "index.handler",
@@ -329,7 +351,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.a8d1aae06230c729fa8fc647d53d03e47c75cce5102eec94f12d0c2e95cbd2c5",
+    "aws:asset:path": "asset.ee5b0b869942f1e5bca97616fa93dd89bb5b425cba3f53c58eeb31435dbee67e",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -398,7 +420,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04Ce6320e5510a1df3ccba83626bbb254a5": {
+  "UploadsApiDeployment4A67E04C034fd4d5525ea340ecfa963249b99b92": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -413,7 +435,9 @@
     "UploadsApiOPTIONS016D7C40",
     "UploadsApipresignOPTIONSB65EB223",
     "UploadsApipresignPOSTD80E85B8",
-    "UploadsApipresignE1161A2C"
+    "UploadsApipresignE1161A2C",
+    "UploadsApiDefault4xx1F60FA48",
+    "UploadsApiDefault5xx381C5459"
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Deployment/Resource",
@@ -424,7 +448,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04Ce6320e5510a1df3ccba83626bbb254a5"
+     "Ref": "UploadsApiDeployment4A67E04C034fd4d5525ea340ecfa963249b99b92"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -826,6 +850,40 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/GET/Resource"
    }
   },
+  "UploadsApiDefault4xx1F60FA48": {
+   "Type": "AWS::ApiGateway::GatewayResponse",
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'*'",
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,PUT,OPTIONS'"
+    },
+    "ResponseType": "DEFAULT_4XX",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default4xx/Resource"
+   }
+  },
+  "UploadsApiDefault5xx381C5459": {
+   "Type": "AWS::ApiGateway::GatewayResponse",
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'*'",
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,PUT,OPTIONS'"
+    },
+    "ResponseType": "DEFAULT_5XX",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default5xx/Resource"
+   }
+  },
   "CognitoAuthorizerF3215DBC": {
    "Type": "AWS::ApiGateway::Authorizer",
    "Properties": {
@@ -848,7 +906,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy27CMBD8Fu7G5dFDewyg3tqioJ6RcZawkHgj7xpEo/x7ZSeFIvU0Mx5rdnZnejZ90ZORufDYFqdxhTvdbsTYkzIX3rY81+0i2BOIWu7dwHpYU4X2en8edC8WhqFTlal3hdk6KuDI+iPBW3BWkJxCU+s2pwpiRMJ7Ys86xfOtYQZhnUUYAnW73LtbTvwOvkZmJNcp02BpBC7mqtscWLIG04A7zayl4EStoKnoWoNLu/1RGzFlatWTHJiCtxB3Uu8gByqiObBfdxgycCodCn0x+DVRxVmQA3n8Bp8K3FTXqWVgofr/lAdr7emMBfhUI50j1kNXPlT4DNIE6VS8uT7y03k20dNX/Tw6MuLYBydYg857/AFitn7U/gEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Ry07DMBD8lt5d0wcHOKZFcAKqVJwr11nSbRNv5F23KlH+HdkJLRWcZsZjzc7aMz2bPujJyJx4bIvDuMKtbtdi7EGZE29anut2EewBRC0/3cB6WFGF9nw9HnQvFoahU5Wpt4XZOCpgz/otwXNwVpCcQlPrNqcKYkTCa2LPOsXzjWEGYZ1FGAJ1u/x0l5x4HXyNzEiuU6bB0giczFm3ObBkDaYBV5pZS8GJeoKmonMNLu32S63FlKlVT3JgCt5C3Em9guyoiObAftxhSM9f+gY5cEOOk/fniEqHQh8MfkVUcRZkRx6/wKeOF9V1ahlYqP530K218nTEAnxqml4sboCuvGn5HqQJ0qn4LXrPd8fZRE8f9f1oz4hjH5xgDTrv8RtnMvtAIQIAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/CDKMetadata/Default"

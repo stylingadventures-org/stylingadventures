@@ -9,7 +9,18 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts", "lambda/**/*.ts"]
+  "include": [
+    "bin/**/*.ts",
+    "lib/**/*.ts",
+    "lambda/**/*.ts"
+  ],
+  "exclude": [
+    "lib/stacks/web/**",
+    "node_modules",
+    "cdk.out"
+  ]
 }
+

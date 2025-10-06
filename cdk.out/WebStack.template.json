@@ -207,20 +207,10 @@
      ]
     },
     "SourceBucketNames": [
-     "cdk-hnb659fds-assets-637423256673-us-east-1",
      "cdk-hnb659fds-assets-637423256673-us-east-1"
     ],
     "SourceObjectKeys": [
-     "6107be2cc15c96d37ff77b98b29c487b9a0ec943a4ba11c38f97f7bcb995604e.zip",
-     "e48eeac152ccc9819d129acf522339766d6785b87dcf9893d1faf466c3c3b028.zip"
-    ],
-    "SourceMarkers": [
-     {},
-     {}
-    ],
-    "SourceMarkersConfig": [
-     {},
-     {}
+     "20795d8b6d2e3af2f7f7fcb6401f8509074129ca72a55b8cc757c0aff34d8517.zip"
     ],
     "DestinationBucketName": {
      "Ref": "SiteBucket397A1860"
