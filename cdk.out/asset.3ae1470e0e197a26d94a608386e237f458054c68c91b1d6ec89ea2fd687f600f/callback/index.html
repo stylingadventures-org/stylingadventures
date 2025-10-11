@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signing you in…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="sa-body">
+  <div id="ok" class="sr-only">Signing you in…</div>
+
+  <div id="err" class="sa-error hidden">
+    <h2>Sign-in error</h2>
+    <p><strong>Token exchange failed.</strong></p>
+    <pre id="e" class="sa-pre"></pre>
+    <p><a href="/">Return to the app</a></p>
+  </div>
+
+  <!-- Use a module so we can import the refresh helper -->
+  <script type="module">
+    import { scheduleRotation } from '/auth/refresh.js';
+
+    (async () => {
+      try {
+        const params = new URLSearchParams(location.search);
+        const code = params.get('code');
+        if (!code) throw new Error('Missing ?code param');
+
+        // Load app config (domain, region, clientId, redirectUri)
+        const cfg = await fetch('/config.json', { cache: 'no-store' }).then(r => r.json());
+
+        const verifier = sessionStorage.getItem('pkce_verifier');
+        if (!verifier) throw new Error('Missing pkce_verifier in sessionStorage (start login from the app)');
+
+        const domain = `https://${cfg.domain}.auth.${cfg.region}.amazoncognito.com`;
+        const tokenUrl = `${domain}/oauth2/token`;
+
+        const body = new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: cfg.clientId,
+          code,
+          redirect_uri: cfg.redirectUri,
+          code_verifier: verifier
+        });
+
+        const res = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+        const tok = await res.json();
+
+        // Save a single "tokens" bundle for the refresh helper
+        const tokens = {
+          id_token: tok.id_token,
+          access_token: tok.access_token,
+          refresh_token: tok.refresh_token ?? sessionStorage.getItem('refresh_token') ?? '',
+          expires_in: tok.expires_in
+        };
+        sessionStorage.setItem('tokens', JSON.stringify(tokens));
+
+        // Backwards-compat (keep these if your app reads individual keys)
+        if (tok.id_token)     sessionStorage.setItem('id_token', tok.id_token);
+        if (tok.access_token) sessionStorage.setItem('access_token', tok.access_token);
+        if (tok.refresh_token)sessionStorage.setItem('refresh_token', tok.refresh_token);
+
+        // 🔒 Clear PKCE verifier now that it’s used
+        sessionStorage.removeItem('pkce_verifier');
+
+        // Start auto-rotation (5 min before expiry)
+        scheduleRotation(tokens, { domain, clientId: cfg.clientId });
+
+        // Go home
+        location.replace('/');
+      } catch (err) {
+        document.getElementById('err').classList.remove('hidden');
+        document.getElementById('e').textContent = String(err?.message || err);
+      }
+    })();
+  </script>
+</body>
+</html>

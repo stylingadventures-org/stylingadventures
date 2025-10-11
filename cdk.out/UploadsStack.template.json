@@ -12,24 +12,17 @@
       }
      ]
     },
-    "CorsConfiguration": {
-     "CorsRules": [
+    "LifecycleConfiguration": {
+     "Rules": [
       {
-       "AllowedHeaders": [
-        "*"
-       ],
-       "AllowedMethods": [
-        "GET",
-        "PUT",
-        "HEAD"
-       ],
-       "AllowedOrigins": [
-        "*"
-       ],
-       "ExposedHeaders": [
-        "ETag"
-       ],
-       "MaxAge": 3000
+       "ExpirationInDays": 90,
+       "Prefix": "users/",
+       "Status": "Enabled"
+      },
+      {
+       "ExpirationInDays": 30,
+       "Prefix": "thumbnails/",
+       "Status": "Enabled"
       }
      ]
     },
@@ -38,16 +31,10 @@
      "BlockPublicPolicy": true,
      "IgnorePublicAcls": true,
      "RestrictPublicBuckets": true
-    },
-    "Tags": [
-     {
-      "Key": "aws-cdk:auto-delete-objects",
-      "Value": "true"
-     }
-    ]
+    }
    },
-   "UpdateReplacePolicy": "Delete",
-   "DeletionPolicy": "Delete",
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsBucket/Resource"
    }
@@ -93,23 +80,92 @@
          ]
         }
        ]
-      },
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsBucket/Policy/Resource"
+   }
+  },
+  "ThumbDlqB425C70E": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "MessageRetentionPeriod": 1209600
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ThumbDlq/Resource"
+   }
+  },
+  "ThumbQueueB1CB3F96": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "RedrivePolicy": {
+     "deadLetterTargetArn": {
+      "Fn::GetAtt": [
+       "ThumbDlqB425C70E",
+       "Arn"
+      ]
+     },
+     "maxReceiveCount": 5
+    },
+    "VisibilityTimeout": 60
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ThumbQueue/Resource"
+   }
+  },
+  "ThumbnailerFnServiceRole368D8473": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
       {
-       "Action": [
-        "s3:PutBucketPolicy",
-        "s3:GetBucket*",
-        "s3:List*",
-        "s3:DeleteObject*"
-       ],
+       "Action": "sts:AssumeRole",
        "Effect": "Allow",
        "Principal": {
-        "AWS": {
-         "Fn::GetAtt": [
-          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
-          "Arn"
-         ]
-        }
-       },
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ThumbnailerFn/ServiceRole/Resource"
+   }
+  },
+  "ThumbnailerFnServiceRoleDefaultPolicy3EC6C0A9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
        "Resource": [
         {
          "Fn::GetAtt": [
@@ -127,47 +183,152 @@
              "Arn"
             ]
            },
-           "/*"
+           "/users/*"
           ]
          ]
         }
        ]
+      },
+      {
+       "Action": [
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "UploadsBucket5E5E9B64",
+            "Arn"
+           ]
+          },
+          "/thumbnails/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "ThumbQueueB1CB3F96",
+         "Arn"
+        ]
+       }
       }
      ],
      "Version": "2012-10-17"
-    }
+    },
+    "PolicyName": "ThumbnailerFnServiceRoleDefaultPolicy3EC6C0A9",
+    "Roles": [
+     {
+      "Ref": "ThumbnailerFnServiceRole368D8473"
+     }
+    ]
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsBucket/Policy/Resource"
+    "aws:cdk:path": "UploadsStack/ThumbnailerFn/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "UploadsBucketAutoDeleteObjectsCustomResourceFFD11C72": {
-   "Type": "Custom::S3AutoDeleteObjects",
+  "ThumbnailerFnEDCB14F0": {
+   "Type": "AWS::Lambda::Function",
    "Properties": {
-    "ServiceToken": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "05495265241bde9f7a1391c64caff1b3ed6eaf94fb3d53e2626cdab4f65a2609.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "BUCKET": {
+       "Ref": "UploadsBucket5E5E9B64"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
      "Fn::GetAtt": [
-      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "ThumbnailerFnServiceRole368D8473",
       "Arn"
      ]
     },
-    "BucketName": {
-     "Ref": "UploadsBucket5E5E9B64"
-    }
+    "Runtime": "nodejs18.x",
+    "Timeout": 30
    },
    "DependsOn": [
-    "UploadsBucketPolicy34A32B0B"
+    "ThumbnailerFnServiceRoleDefaultPolicy3EC6C0A9",
+    "ThumbnailerFnServiceRole368D8473"
    ],
-   "UpdateReplacePolicy": "Delete",
-   "DeletionPolicy": "Delete",
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsBucket/AutoDeleteObjectsCustomResource/Default"
+    "aws:cdk:path": "UploadsStack/ThumbnailerFn/Resource",
+    "aws:asset:path": "asset.05495265241bde9f7a1391c64caff1b3ed6eaf94fb3d53e2626cdab4f65a2609",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
    }
   },
-  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+  "ThumbnailerFnLogRetention7DF9B692": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "ThumbnailerFnEDCB14F0"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 7
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ThumbnailerFn/LogRetention/Resource"
+   }
+  },
+  "ThumbnailerFnSqsEventSourceD5801B53": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "BatchSize": 5,
+    "Enabled": true,
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "ThumbQueueB1CB3F96",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "ThumbnailerFnEDCB14F0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ThumbnailerFn/SqsEventSource/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
-     "Version": "2012-10-17",
      "Statement": [
       {
        "Action": "sts:AssumeRole",
@@ -176,54 +337,80 @@
         "Service": "lambda.amazonaws.com"
        }
       }
-     ]
+     ],
+     "Version": "2012-10-17"
     },
     "ManagedPolicyArns": [
      {
-      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+    "aws:cdk:path": "UploadsStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource"
    }
   },
-  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "Roles": [
+     {
+      "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
+    "Handler": "index.handler",
+    "Runtime": "nodejs22.x",
+    "Timeout": 900,
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+     "S3Key": "2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d.zip"
     },
-    "Timeout": 900,
-    "MemorySize": 128,
-    "Handler": "index.handler",
     "Role": {
      "Fn::GetAtt": [
-      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
       "Arn"
-     ]
-    },
-    "Runtime": "nodejs22.x",
-    "Description": {
-     "Fn::Join": [
-      "",
-      [
-       "Lambda function for auto-deleting objects in ",
-       {
-        "Ref": "UploadsBucket5E5E9B64"
-       },
-       " S3 bucket."
-      ]
      ]
     }
    },
    "DependsOn": [
-    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
    ],
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
-    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:cdk:path": "UploadsStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource",
+    "aws:asset:path": "asset.2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d",
+    "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
   },
@@ -267,6 +454,80 @@
     "PolicyDocument": {
      "Statement": [
       {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "UploadsBucket5E5E9B64",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "UploadsBucket5E5E9B64",
+             "Arn"
+            ]
+           },
+           "/users/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "UploadsBucket5E5E9B64",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "UploadsBucket5E5E9B64",
+             "Arn"
+            ]
+           },
+           "/thumbnails/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
        "Action": "s3:ListBucket",
        "Condition": {
         "StringLike": {
@@ -285,23 +546,15 @@
       },
       {
        "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject"
+        "sqs:SendMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
        ],
        "Effect": "Allow",
        "Resource": {
-        "Fn::Join": [
-         "",
-         [
-          {
-           "Fn::GetAtt": [
-            "UploadsBucket5E5E9B64",
-            "Arn"
-           ]
-          },
-          "/users/*"
-         ]
+        "Fn::GetAtt": [
+         "ThumbQueueB1CB3F96",
+         "Arn"
         ]
        }
       }
@@ -324,14 +577,27 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "ee5b0b869942f1e5bca97616fa93dd89bb5b425cba3f53c58eeb31435dbee67e.zip"
+     "S3Key": "c11295a39c44123c77c092790ec1917913b3f1e2c4267a91aa28e2124bf60ef4.zip"
     },
     "Environment": {
      "Variables": {
       "BUCKET": {
        "Ref": "UploadsBucket5E5E9B64"
       },
-      "WEB_ORIGIN": "*"
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30"
+         }
+        ]
+       ]
+      },
+      "THUMB_QUEUE_URL": {
+       "Ref": "ThumbQueueB1CB3F96"
+      }
      }
     },
     "Handler": "index.handler",
@@ -342,8 +608,8 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs20.x",
-    "Timeout": 10
+    "Runtime": "nodejs18.x",
+    "Timeout": 15
    },
    "DependsOn": [
     "PresignFnServiceRoleDefaultPolicyA1C82940",
@@ -351,15 +617,41 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.ee5b0b869942f1e5bca97616fa93dd89bb5b425cba3f53c58eeb31435dbee67e",
+    "aws:asset:path": "asset.c11295a39c44123c77c092790ec1917913b3f1e2c4267a91aa28e2124bf60ef4",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
+   }
+  },
+  "PresignFnLogRetention51016138": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "PresignFnA38D425B"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 7
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/PresignFn/LogRetention/Resource"
    }
   },
   "UploadsApiF6E592E7": {
    "Type": "AWS::ApiGateway::RestApi",
    "Properties": {
-    "Name": "UploadsApi"
+    "Name": "Uploads API"
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Resource"
@@ -420,7 +712,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04C034fd4d5525ea340ecfa963249b99b92": {
+  "UploadsApiDeployment4A67E04Cffa4e575e09aba28ee4cb256267c57a5": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -429,15 +721,23 @@
     }
    },
    "DependsOn": [
-    "UploadsApilistGET6FEA2B99",
-    "UploadsApilistOPTIONSA1D1A8A2",
-    "UploadsApilist04BFB266",
     "UploadsApiOPTIONS016D7C40",
-    "UploadsApipresignOPTIONSB65EB223",
-    "UploadsApipresignPOSTD80E85B8",
-    "UploadsApipresignE1161A2C",
-    "UploadsApiDefault4xx1F60FA48",
-    "UploadsApiDefault5xx381C5459"
+    "UploadsApiproddeleteDELETEC5FD34C3",
+    "UploadsApiproddeleteOPTIONS37296AAE",
+    "UploadsApiproddeleteB47ED429",
+    "UploadsApiprodlistGET737693EC",
+    "UploadsApiprodlistOPTIONS6DBE0914",
+    "UploadsApiprodlist1C6588AA",
+    "UploadsApiprodOPTIONS3E7C7B0B",
+    "UploadsApiprodpresignOPTIONS32D322C1",
+    "UploadsApiprodpresignPOSTE8C75116",
+    "UploadsApiprodpresign47A764B0",
+    "UploadsApiprod12BA7432",
+    "UploadsApiprodthumbOPTIONS0E0EF1D9",
+    "UploadsApiprodthumbPOSTD302051E",
+    "UploadsApiprodthumbEF58DBF1",
+    "UploadsApiDefault4XXF627BD67",
+    "UploadsApiDefault5XXBDD43D3A"
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Deployment/Resource",
@@ -448,7 +748,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04C034fd4d5525ea340ecfa963249b99b92"
+     "Ref": "UploadsApiDeployment4A67E04Cffa4e575e09aba28ee4cb256267c57a5"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -472,9 +772,9 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
         "method.response.header.Access-Control-Allow-Origin": "'*'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,OPTIONS'"
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "StatusCode": "204"
       }
@@ -508,7 +808,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/OPTIONS/Resource"
    }
   },
-  "UploadsApipresignE1161A2C": {
+  "UploadsApiprod12BA7432": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
     "ParentId": {
@@ -517,16 +817,16 @@
       "RootResourceId"
      ]
     },
-    "PathPart": "presign",
+    "PathPart": "prod",
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/Resource"
    }
   },
-  "UploadsApipresignOPTIONSB65EB223": {
+  "UploadsApiprodOPTIONS3E7C7B0B": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "ApiKeyRequired": false,
@@ -536,9 +836,9 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
         "method.response.header.Access-Control-Allow-Origin": "'*'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,OPTIONS'"
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "StatusCode": "204"
       }
@@ -559,134 +859,21 @@
      }
     ],
     "ResourceId": {
-     "Ref": "UploadsApipresignE1161A2C"
+     "Ref": "UploadsApiprod12BA7432"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/OPTIONS/Resource"
    }
   },
-  "UploadsApipresignPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSTpresign5C1AE409": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "PresignFnA38D425B",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":execute-api:us-east-1:637423256673:",
-       {
-        "Ref": "UploadsApiF6E592E7"
-       },
-       "/",
-       {
-        "Ref": "UploadsApiDeploymentStageprod1839106B"
-       },
-       "/POST/presign"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..presign"
-   }
-  },
-  "UploadsApipresignPOSTApiPermissionTestUploadsStackUploadsApiC6DB0904POSTpresign17E05DE7": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "PresignFnA38D425B",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":execute-api:us-east-1:637423256673:",
-       {
-        "Ref": "UploadsApiF6E592E7"
-       },
-       "/test-invoke-stage/POST/presign"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/POST/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.POST..presign"
-   }
-  },
-  "UploadsApipresignPOSTD80E85B8": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "CognitoAuthorizerF3215DBC"
-    },
-    "HttpMethod": "POST",
-    "Integration": {
-     "IntegrationHttpMethod": "POST",
-     "Type": "AWS_PROXY",
-     "Uri": {
-      "Fn::Join": [
-       "",
-       [
-        "arn:",
-        {
-         "Ref": "AWS::Partition"
-        },
-        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
-        {
-         "Fn::GetAtt": [
-          "PresignFnA38D425B",
-          "Arn"
-         ]
-        },
-        "/invocations"
-       ]
-      ]
-     }
-    },
-    "ResourceId": {
-     "Ref": "UploadsApipresignE1161A2C"
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/POST/Resource"
-   }
-  },
-  "UploadsApilist04BFB266": {
+  "UploadsApiprodlist1C6588AA": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
     "ParentId": {
-     "Fn::GetAtt": [
-      "UploadsApiF6E592E7",
-      "RootResourceId"
-     ]
+     "Ref": "UploadsApiprod12BA7432"
     },
     "PathPart": "list",
     "RestApiId": {
@@ -694,10 +881,10 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/list/Resource"
    }
   },
-  "UploadsApilistOPTIONSA1D1A8A2": {
+  "UploadsApiprodlistOPTIONS6DBE0914": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "ApiKeyRequired": false,
@@ -707,9 +894,9 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
         "method.response.header.Access-Control-Allow-Origin": "'*'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,OPTIONS'"
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "StatusCode": "204"
       }
@@ -730,17 +917,17 @@
      }
     ],
     "ResourceId": {
-     "Ref": "UploadsApilist04BFB266"
+     "Ref": "UploadsApiprodlist1C6588AA"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/OPTIONS/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/list/OPTIONS/Resource"
    }
   },
-  "UploadsApilistGETApiPermissionUploadsStackUploadsApiC6DB0904GETlist488F6896": {
+  "UploadsApiprodlistGETApiPermissionUploadsStackUploadsApiC6DB0904GETprodlistE031B2A5": {
    "Type": "AWS::Lambda::Permission",
    "Properties": {
     "Action": "lambda:InvokeFunction",
@@ -767,16 +954,16 @@
        {
         "Ref": "UploadsApiDeploymentStageprod1839106B"
        },
-       "/GET/list"
+       "/GET/prod/list"
       ]
      ]
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..list"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/list/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..prod.list"
    }
   },
-  "UploadsApilistGETApiPermissionTestUploadsStackUploadsApiC6DB0904GETlistE8338BB3": {
+  "UploadsApiprodlistGETApiPermissionTestUploadsStackUploadsApiC6DB0904GETprodlistF701AC82": {
    "Type": "AWS::Lambda::Permission",
    "Properties": {
     "Action": "lambda:InvokeFunction",
@@ -799,21 +986,21 @@
        {
         "Ref": "UploadsApiF6E592E7"
        },
-       "/test-invoke-stage/GET/list"
+       "/test-invoke-stage/GET/prod/list"
       ]
      ]
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/GET/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.GET..list"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/list/GET/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.GET..prod.list"
    }
   },
-  "UploadsApilistGET6FEA2B99": {
+  "UploadsApiprodlistGET737693EC": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "AuthorizationType": "COGNITO_USER_POOLS",
     "AuthorizerId": {
-     "Ref": "CognitoAuthorizerF3215DBC"
+     "Ref": "ApiAuthAB1782FE"
     },
     "HttpMethod": "GET",
     "Integration": {
@@ -840,23 +1027,527 @@
      }
     },
     "ResourceId": {
-     "Ref": "UploadsApilist04BFB266"
+     "Ref": "UploadsApiprodlist1C6588AA"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/GET/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/list/GET/Resource"
    }
   },
-  "UploadsApiDefault4xx1F60FA48": {
+  "UploadsApiprodpresign47A764B0": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "UploadsApiprod12BA7432"
+    },
+    "PathPart": "presign",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/presign/Resource"
+   }
+  },
+  "UploadsApiprodpresignOPTIONS32D322C1": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "UploadsApiprodpresign47A764B0"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/presign/OPTIONS/Resource"
+   }
+  },
+  "UploadsApiprodpresignPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSTprodpresignF164AAEF": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/POST/prod/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/presign/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..prod.presign"
+   }
+  },
+  "UploadsApiprodpresignPOSTApiPermissionTestUploadsStackUploadsApiC6DB0904POSTprodpresign1AD3720A": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/POST/prod/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/presign/POST/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.POST..prod.presign"
+   }
+  },
+  "UploadsApiprodpresignPOSTE8C75116": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Ref": "ApiAuthAB1782FE"
+    },
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "PresignFnA38D425B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApiprodpresign47A764B0"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/presign/POST/Resource"
+   }
+  },
+  "UploadsApiproddeleteB47ED429": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "UploadsApiprod12BA7432"
+    },
+    "PathPart": "delete",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/delete/Resource"
+   }
+  },
+  "UploadsApiproddeleteOPTIONS37296AAE": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "UploadsApiproddeleteB47ED429"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/delete/OPTIONS/Resource"
+   }
+  },
+  "UploadsApiproddeleteDELETEApiPermissionUploadsStackUploadsApiC6DB0904DELETEproddelete6FB36216": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/DELETE/prod/delete"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/delete/DELETE/ApiPermission.UploadsStackUploadsApiC6DB0904.DELETE..prod.delete"
+   }
+  },
+  "UploadsApiproddeleteDELETEApiPermissionTestUploadsStackUploadsApiC6DB0904DELETEproddeleteD038E02B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/DELETE/prod/delete"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/delete/DELETE/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.DELETE..prod.delete"
+   }
+  },
+  "UploadsApiproddeleteDELETEC5FD34C3": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Ref": "ApiAuthAB1782FE"
+    },
+    "HttpMethod": "DELETE",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "PresignFnA38D425B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApiproddeleteB47ED429"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/delete/DELETE/Resource"
+   }
+  },
+  "UploadsApiprodthumbEF58DBF1": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "UploadsApiprod12BA7432"
+    },
+    "PathPart": "thumb",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/thumb/Resource"
+   }
+  },
+  "UploadsApiprodthumbOPTIONS0E0EF1D9": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "UploadsApiprodthumbEF58DBF1"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/thumb/OPTIONS/Resource"
+   }
+  },
+  "UploadsApiprodthumbPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSTprodthumb6AD360D6": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/POST/prod/thumb"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/thumb/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..prod.thumb"
+   }
+  },
+  "UploadsApiprodthumbPOSTApiPermissionTestUploadsStackUploadsApiC6DB0904POSTprodthumb07A890F3": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/POST/prod/thumb"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/thumb/POST/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.POST..prod.thumb"
+   }
+  },
+  "UploadsApiprodthumbPOSTD302051E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Ref": "ApiAuthAB1782FE"
+    },
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "PresignFnA38D425B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApiprodthumbEF58DBF1"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/prod/thumb/POST/Resource"
+   }
+  },
+  "UploadsApiDefault4XXF627BD67": {
    "Type": "AWS::ApiGateway::GatewayResponse",
    "Properties": {
     "ResponseParameters": {
      "gatewayresponse.header.Access-Control-Allow-Origin": "'*'",
-     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
-     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,PUT,OPTIONS'"
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'*'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'"
     },
     "ResponseType": "DEFAULT_4XX",
     "RestApiId": {
@@ -864,16 +1555,16 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default4xx/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default4XX/Resource"
    }
   },
-  "UploadsApiDefault5xx381C5459": {
+  "UploadsApiDefault5XXBDD43D3A": {
    "Type": "AWS::ApiGateway::GatewayResponse",
    "Properties": {
     "ResponseParameters": {
      "gatewayresponse.header.Access-Control-Allow-Origin": "'*'",
-     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
-     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,PUT,OPTIONS'"
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'*'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'"
     },
     "ResponseType": "DEFAULT_5XX",
     "RestApiId": {
@@ -881,14 +1572,14 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default5xx/Resource"
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default5XX/Resource"
    }
   },
-  "CognitoAuthorizerF3215DBC": {
+  "ApiAuthAB1782FE": {
    "Type": "AWS::ApiGateway::Authorizer",
    "Properties": {
     "IdentitySource": "method.request.header.Authorization",
-    "Name": "UploadsStackCognitoAuthorizerEBC3029F",
+    "Name": "UploadsStackApiAuth9D004E89",
     "ProviderARNs": [
      {
       "Fn::ImportValue": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
@@ -900,13 +1591,13 @@
     "Type": "COGNITO_USER_POOLS"
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/CognitoAuthorizer/Resource"
+    "aws:cdk:path": "UploadsStack/ApiAuth/Resource"
    }
   },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Ry07DMBD8lt5d0wcHOKZFcAKqVJwr11nSbRNv5F23KlH+HdkJLRWcZsZjzc7aMz2bPujJyJx4bIvDuMKtbtdi7EGZE29anut2EewBRC0/3cB6WFGF9nw9HnQvFoahU5Wpt4XZOCpgz/otwXNwVpCcQlPrNqcKYkTCa2LPOsXzjWEGYZ1FGAJ1u/x0l5x4HXyNzEiuU6bB0giczFm3ObBkDaYBV5pZS8GJeoKmonMNLu32S63FlKlVT3JgCt5C3Em9guyoiObAftxhSM9f+gY5cEOOk/fniEqHQh8MfkVUcRZkRx6/wKeOF9V1ahlYqP530K218nTEAnxqml4sboCuvGn5HqQJ0qn4LXrPd8fZRE8f9f1oz4hjH5xgDTrv8RtnMvtAIQIAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Ry3LCMAz8Fu5G5dELx0Afl9LSMD0zxhHBkFhpJMPQTP69EyclzNDT7kq2tF5PYDKewWigzzw0yXGY2S1Ua9HmqPSZNxVPoZp7c0RRi53rWAsryqy59OVOt2KuGWvF3wzVp0ePzbFAapXpfJvojaMEDwzvAV68M2LJKatzqGLKwoWA/ZqW1YqnG82MwhA10A2EarFz1znPJ3SyJl8aXOqisC5tJvxfXWGZW2ZLrlYZpQxvlMYo6MIkXdhUC571BaoYWaLCBm89jYwh70Q9YZHRJUcXsrpRa9FpeFBLYuRgoclILVH2lDTNjv11uyUtf20dxMgFOQ69uxKlzgp9MZYroowjL3sq7Q+WweNV1XW/IuTXmOqSuN394aXwUqvmn+DAD6fJCMYzeBwc2Nph6Z3YHCFu8RdQy6xuRwIAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/CDKMetadata/Default"
@@ -936,12 +1627,7 @@
     ]
    }
   },
-  "UploadsBucketName": {
-   "Value": {
-    "Ref": "UploadsBucket5E5E9B64"
-   }
-  },
-  "ApiGatewayUrl": {
+  "UploadsApiUrl": {
    "Value": {
     "Fn::Join": [
      "",
@@ -961,6 +1647,16 @@
       "/"
      ]
     ]
+   }
+  },
+  "UploadsBucketName": {
+   "Value": {
+    "Ref": "UploadsBucket5E5E9B64"
+   }
+  },
+  "ThumbQueueUrl": {
+   "Value": {
+    "Ref": "ThumbQueueB1CB3F96"
    }
   }
  },

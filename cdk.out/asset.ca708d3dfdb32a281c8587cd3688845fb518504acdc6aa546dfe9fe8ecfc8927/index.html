@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body class="sa-body">
+  <h1>StylingAdventures</h1>
+
+  <div style="margin: .5rem 0;">
+    <a id="signin" href="#" class="sa-link">Sign in</a>
+    <button id="signout" class="sa-btn sa-btn-outline" style="margin-left:.5rem;">Sign out</button>
+    <button id="signout-global" class="sa-btn sa-btn-outline" style="margin-left:.5rem;">Sign out everywhere</button>
+  </div>
+
+  <h2>Status</h2>
+  <div id="status" class="sa-card">Loading…</div>
+
+  <h3>Debug</h3>
+  <pre id="dbg" class="sa-pre sa-muted"></pre>
+
+  <script type="module">
+    // -------- utils --------
+    const cfg = await fetch('/config.json', { cache: 'no-store' }).then(r => r.json());
+    const domain = `https://${cfg.domain}.auth.${cfg.region}.amazoncognito.com`;
+    const authorizeUrl = `${domain}/oauth2/authorize`;
+    const logoutUrl = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(cfg.logoutUri)}`;
+
+    const $ = (s) => document.querySelector(s);
+    const enc = new TextEncoder();
+
+    function base64Url(uint8) {
+      return btoa(String.fromCharCode(...uint8))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function randBytes(n) {
+      const a = new Uint8Array(n);
+      crypto.getRandomValues(a);
+      return a;
+    }
+    function randomString(n=32) { return base64Url(randBytes(n)); }
+
+    async function sha256(str) {
+      const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
+      return new Uint8Array(hash);
+    }
+
+    // -------- PKCE + login --------
+    async function startLogin() {
+      const verifier = randomString(64);
+      sessionStorage.setItem('pkce_verifier', verifier);
+
+      const challenge = base64Url(await sha256(verifier));
+      const state = randomString(24);
+      sessionStorage.setItem('oauth_state', state);
+
+      const url = new URL(authorizeUrl);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('client_id', cfg.clientId);
+      url.searchParams.set('redirect_uri', cfg.redirectUri);
+      url.searchParams.set('scope', 'openid email profile');   // refresh token is enabled by client setting, no scope required
+      url.searchParams.set('code_challenge', challenge);
+      url.searchParams.set('code_challenge_method', 'S256');
+      url.searchParams.set('state', state);
+      window.location.assign(url.toString());
+    }
+
+    // -------- Sign out (local only) --------
+    function signOutLocal() {
+      sessionStorage.clear();
+      // keep UI consistent
+      render();
+    }
+
+    // -------- Global sign out (revoke + Hosted UI logout) --------
+    async function signOutEverywhere() {
+      try {
+        const refresh = sessionStorage.getItem('refresh_token')
+          || (JSON.parse(sessionStorage.getItem('tokens') || '{}').refresh_token);
+        if (refresh) {
+          const body = new URLSearchParams({
+            token: refresh,
+            token_type_hint: 'refresh_token',
+            client_id: cfg.clientId,
+          });
+          await fetch(`${domain}/oauth2/revoke`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          }).catch(() => {});
+        }
+      } finally {
+        sessionStorage.clear();
+        window.location.replace(logoutUrl);
+      }
+    }
+
+    // -------- Status / Debug --------
+    function parseJwt(token) {
+      if (!token) return null;
+      try {
+        const payload = token.split('.')[1];
+        const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(json);
+      } catch { return null; }
+    }
+    function secondsLeft(idToken) {
+      const p = parseJwt(idToken);
+      if (!p?.exp) return 0;
+      return Math.max(0, p.exp - Math.floor(Date.now()/1000));
+    }
+
+    function render() {
+      const id = sessionStorage.getItem('id_token');
+      const at = sessionStorage.getItem('access_token');
+      const rt = sessionStorage.getItem('refresh_token');
+
+      // Buttons visibility
+      $('#signin').style.display  = id ? 'none' : 'inline';
+      $('#signout').style.display = id ? 'inline-block' : 'none';
+      $('#signout-global').style.display = id ? 'inline-block' : 'none';
+
+      // Status
+      const left = secondsLeft(id);
+      const mins = Math.floor(left/60);
+      const secs = String(left%60).padStart(2,'0');
+
+      $('#status').textContent = id
+        ? `Signed in as ${parseJwt(id)?.email || 'unknown'} · ID token expires in ${mins}:${secs}`
+        : 'Not signed in';
+
+      // Debug (claims)
+      const claims = parseJwt(id) || {};
+      $('#dbg').textContent = id ? JSON.stringify(claims, null, 2) : '';
+    }
+
+    // Wire up buttons
+    $('#signin') .addEventListener('click', (e) => { e.preventDefault(); startLogin(); });
+    $('#signout').addEventListener('click', (e) => { e.preventDefault(); signOutLocal(); });
+    $('#signout-global').addEventListener('click', (e) => { e.preventDefault(); signOutEverywhere(); });
+
+    // Backfill the new tokens bundle once for legacy sessions
+    (function backfill() {
+      if (!sessionStorage.getItem('tokens')) {
+        const id = sessionStorage.getItem('id_token');
+        const at = sessionStorage.getItem('access_token');
+        const rt = sessionStorage.getItem('refresh_token');
+        if (id && at && rt) {
+          sessionStorage.setItem('tokens', JSON.stringify({ id_token: id, access_token: at, refresh_token: rt, expires_in: 3600 }));
+        }
+      }
+    })();
+
+    // Show
+    render();
+    setInterval(render, 1000);
+  </script>
+</body>
+</html>

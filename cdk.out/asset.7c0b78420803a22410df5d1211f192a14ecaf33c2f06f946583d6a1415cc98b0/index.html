@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body class="sa-body">
+  <h1>StylingAdventures</h1>
+
+  <div class="actions">
+    <a id="signin" href="#" class="sa-link">Sign in</a>
+    <button id="signout" class="sa-btn sa-btn-outline ml-2">Sign out</button>
+    <button id="signout-global" class="sa-btn sa-btn-outline ml-2">Sign out everywhere</button>
+  </div>
+
+  <h2>Status</h2>
+  <div id="status" class="sa-card">Loading…</div>
+  <button id="refresh-now" class="sa-btn mt-2" aria-label="Refresh tokens now">Refresh tokens now</button>
+
+  <h3>Debug</h3>
+  <pre id="dbg" class="sa-pre sa-muted"></pre>
+
+  <!-- AppSync hello -->
+  <h2>AppSync hello</h2>
+  <div class="sa-card">
+    <button id="btn-hello" class="sa-btn">Call { hello }</button>
+    <span id="hello-out" class="ml-2 sa-muted" aria-live="polite"></span>
+  </div>
+
+  <!-- Uploads -->
+  <h2>Uploads</h2>
+  <div class="sa-card">
+    <div class="form-row">
+      <label for="upload-key" class="sa-label">Key</label>
+      <input id="upload-key" name="key" placeholder="test.txt" class="sa-input" />
+    </div>
+
+    <div class="form-row">
+      <label for="upload-file" class="sa-label">File</label>
+      <input id="upload-file" name="file" type="file" class="sa-input" />
+    </div>
+
+    <button id="btn-upload" class="sa-btn mt-2" aria-label="Upload file and list existing uploads">
+      Upload + List
+    </button>
+
+    <ul id="upload-list" class="sa-muted mt-2"></ul>
+    <p id="uploads-msg" class="sa-muted mt-2" aria-live="polite"></p>
+    <progress id="upload-progress" value="0" max="100" class="mt-2" style="width:100%; display:none;"></progress>
+  </div>
+
+  <script type="module">
+    // -------- utils --------
+    const cfg = await fetch(`/config.json?ts=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    const domain = `https://${cfg.domain}.auth.${cfg.region}.amazoncognito.com`;
+    const authorizeUrl = `${domain}/oauth2/authorize`;
+    const logoutUrl = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(cfg.logoutUri)}`;
+    const api = cfg.uploadsUrl.replace(/\/+$/, ''); // normalize trailing slash
+
+    const $ = (s) => document.querySelector(s);
+    const enc = new TextEncoder();
+
+    // --- Light validation rules (added) ---
+    const MAX_MB = 50;
+    const ALLOW_TYPES = [
+      'text/plain', 'image/png', 'image/jpeg', 'image/gif', 'application/pdf', 'video/mp4'
+    ];
+
+    function base64Url(uint8) {
+      return btoa(String.fromCharCode(...uint8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function randBytes(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+    function randomString(n=32) { return base64Url(randBytes(n)); }
+
+    async function sha256(str) {
+      const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
+      return new Uint8Array(hash);
+    }
+
+    // -------- PKCE + login --------
+    async function startLogin() {
+      const verifier = randomString(64);
+      sessionStorage.setItem('pkce_verifier', verifier);
+
+      const challenge = base64Url(await sha256(verifier));
+      const state = randomString(24);
+      sessionStorage.setItem('oauth_state', state);
+
+      const url = new URL(authorizeUrl);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('client_id', cfg.clientId);
+      url.searchParams.set('redirect_uri', cfg.redirectUri);
+      url.searchParams.set('scope', 'openid email profile');
+      url.searchParams.set('code_challenge', challenge);
+      url.searchParams.set('code_challenge_method', 'S256');
+      url.searchParams.set('state', state);
+      window.location.assign(url.toString());
+    }
+
+    // -------- Sign out (local only) --------
+    function signOutLocal() {
+      sessionStorage.clear();
+      render();
+    }
+
+    // -------- Global sign out (revoke + Hosted UI logout) --------
+    async function signOutEverywhere() {
+      try {
+        const refresh = sessionStorage.getItem('refresh_token')
+          || (JSON.parse(sessionStorage.getItem('tokens') || '{}').refresh_token);
+        if (refresh) {
+          const body = new URLSearchParams({ token: refresh, token_type_hint: 'refresh_token', client_id: cfg.clientId });
+          await fetch(`${domain}/oauth2/revoke`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          }).catch(() => {});
+        }
+      } finally {
+        sessionStorage.clear();
+        window.location.replace(logoutUrl);
+      }
+    }
+
+    // -------- Status / Debug --------
+    function parseJwt(token) {
+      if (!token) return null;
+      try {
+        const json = atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(json);
+      } catch { return null; }
+    }
+    function secondsLeft(idToken) {
+      const p = parseJwt(idToken);
+      return p?.exp ? Math.max(0, p.exp - Math.floor(Date.now()/1000)) : 0;
+    }
+
+    // ✅ Ensure we have a fresh ID token (refresh if < 60s left)
+    async function ensureFreshIdToken(minSeconds = 60) {
+      let id = sessionStorage.getItem('id_token');
+      if (!id) return null;
+
+      if (secondsLeft(id) > minSeconds) return id;
+
+      const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
+      const out = await refreshTokens({ domain, clientId: cfg.clientId });
+      scheduleRotation(out, { domain, clientId: cfg.clientId });
+      render(); // update countdown
+      return out.id_token || sessionStorage.getItem('id_token');
+    }
+
+    function render() {
+      const id = sessionStorage.getItem('id_token');
+
+      $('#signin').style.display  = id ? 'none' : 'inline';
+      $('#signout').style.display = id ? 'inline-block' : 'none';
+      $('#signout-global').style.display = id ? 'inline-block' : 'none';
+
+      const left = secondsLeft(id);
+      const mins = Math.floor(left/60);
+      const secs = String(left%60).padStart(2,'0');
+      $('#status').textContent = id
+        ? `Signed in as ${parseJwt(id)?.email || 'unknown'} · ID token expires in ${mins}:${secs}`
+        : 'Not signed in';
+
+      $('#dbg').textContent = id ? JSON.stringify(parseJwt(id) || {}, null, 2) : '';
+    }
+
+    // ===== AppSync { hello } =====
+    async function callHello() {
+      // make sure we have a fresh ID token before calling
+      const id = await ensureFreshIdToken();
+      if (!id) { alert('Please sign in first'); return; }
+
+      const query = `query Hello { hello }`;
+      const res = await fetch(cfg.appsyncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': id },
+        body: JSON.stringify({ query })
+      });
+      if (!res.ok) { throw new Error(`AppSync ${res.status}: ${await res.text()}`); }
+      const json = await res.json();
+      $('#hello-out').textContent = json.data?.hello ?? '(no data)';
+    }
+
+    // --- Small JS additions (toast / progress / key autofill) ---
+    function toast(text, type = 'info') {
+      const el = document.getElementById('uploads-msg');
+      el.textContent = text;
+      el.className = `sa-muted mt-2 ${type === 'error' ? 'sa-error' : ''}`;
+    }
+
+    function setProgress(pct) {
+      const prog = document.getElementById('upload-progress');
+      if (pct == null) { prog.style.display = 'none'; prog.value = 0; return; }
+      prog.style.display = 'block';
+      prog.value = Math.max(0, Math.min(100, Math.round(pct)));
+    }
+
+    // default key = selected filename
+    document.getElementById('upload-file')?.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const keyInput = document.getElementById('upload-key');
+      if (!keyInput.value) keyInput.value = f.name;
+    });
+
+    // ===== Uploads: presign + PUT + list =====
+    async function listUploads() {
+      const id = sessionStorage.getItem('id_token');
+      if (!id) return;
+      const res = await fetch(`${api}/list`, { headers: { 'Authorization': id } });
+      if (!res.ok) return;
+      const data = await res.json();
+      const keys = Array.isArray(data) ? data : (data.keys ?? []);
+      const ul = document.getElementById('upload-list');
+      ul.innerHTML = '';
+      keys.forEach(k => { const li = document.createElement('li'); li.textContent = k; ul.appendChild(li); });
+    }
+
+    // Replaced uploadAndList with progress + validation + nicer UX
+    async function uploadAndList() {
+      const btn = document.getElementById('btn-upload');
+      const fileInput = /** @type {HTMLInputElement} */ (document.getElementById('upload-file'));
+      const keyInput  = /** @type {HTMLInputElement} */ (document.getElementById('upload-key'));
+
+      try {
+        btn.disabled = true;
+        toast('Preparing…'); setProgress(null);
+
+        // keep token fresh
+        const id = await ensureFreshIdToken();
+        if (!id) { toast('Please sign in first', 'error'); return; }
+
+        const key = (keyInput.value || '').trim();
+        if (!key) { toast('Enter a key like "test.txt"', 'error'); return; }
+
+        const file = fileInput.files?.[0];
+        if (!file) { toast('Choose a file to upload', 'error'); return; }
+
+        // validation
+        if (file.size > MAX_MB * 1024 * 1024) {
+          toast(`File too large. Max ${MAX_MB} MB.`, 'error'); return;
+        }
+        const typeOk = ALLOW_TYPES.some(t => file.type === t || (t.endsWith('/*') && file.type.startsWith(t.slice(0,-1))));
+        if (!typeOk) {
+          toast(`File type not allowed (${file.type || 'unknown'}).`, 'error'); return;
+        }
+
+        // presign
+        toast('Requesting presigned URL…');
+        const presignRes = await fetch(`${api}/presign`, {
+          method: 'POST',
+          headers: { 'Authorization': id, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' })
+        });
+        const presignText = await presignRes.text();
+        let presign; try { presign = JSON.parse(presignText); } catch {}
+        if (!presignRes.ok) throw new Error(`presign ${presignRes.status}: ${presignText}`);
+        if (!presign?.url) throw new Error(`presign returned no url: ${presignText}`);
+
+        // upload (progress with XHR)
+        toast('Uploading…'); setProgress(0);
+        const uploadWithProgress = (url, headers) => new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', url);
+          Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+          xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress((e.loaded / e.total) * 100); };
+          xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(null) : reject(new Error(`S3 PUT ${xhr.status}: ${xhr.responseText}`));
+          xhr.onerror = () => reject(new Error('Network error during upload'));
+          xhr.send(file);
+        });
+
+        if (presign.fields) {
+          // (not expected with your Lambda, but kept for compatibility)
+          const fd = new FormData();
+          for (const [k,v] of Object.entries(presign.fields)) fd.append(k, v);
+          fd.append('file', file);
+          const r = await fetch(presign.url, { method: 'POST', body: fd, mode: 'cors' });
+          if (!r.ok) throw new Error(`S3 POST ${r.status}: ${await r.text()}`);
+        } else {
+          const putHeaders = presign.headers ?? { 'Content-Type': file.type || 'application/octet-stream' };
+          await uploadWithProgress(presign.url, putHeaders);
+        }
+
+        // list
+        toast('Listing…'); setProgress(null);
+        await listUploads();
+        toast('Upload complete ✔');
+      } catch (err) {
+        console.error(err);
+        toast(err?.message || String(err), 'error');
+      } finally {
+        setProgress(null);
+        btn.disabled = false;
+      }
+    }
+
+    // ---- Wire up UI ----
+    $('#signin').addEventListener('click', (e) => { e.preventDefault(); startLogin(); });
+    $('#signout').addEventListener('click', (e) => { e.preventDefault(); signOutLocal(); });
+    $('#signout-global').addEventListener('click', (e) => { e.preventDefault(); signOutEverywhere(); });
+    document.getElementById('btn-hello')?.addEventListener('click', (e) => {
+      e.preventDefault(); callHello().catch(err => $('#hello-out').textContent = `Error: ${err.message}`);
+    });
+    document.getElementById('btn-upload')?.addEventListener('click', (e) => {
+      e.preventDefault(); uploadAndList().catch(err => alert(err.message));
+    });
+
+    // Backfill tokens bundle for older sessions
+    (function backfill() {
+      if (!sessionStorage.getItem('tokens')) {
+        const id = sessionStorage.getItem('id_token');
+        const at = sessionStorage.getItem('access_token');
+        const rt = sessionStorage.getItem('refresh_token');
+        if (id && at && rt) {
+          sessionStorage.setItem('tokens', JSON.stringify({ id_token: id, access_token: at, refresh_token: rt, expires_in: 3600 }));
+        }
+      }
+    })();
+
+    // Start token rotation when homepage loads
+    (async function ensureRotation() {
+      const raw = sessionStorage.getItem('tokens');
+      if (!raw) return;
+      const tokens = JSON.parse(raw);
+      const { scheduleRotation } = await import('/auth/refresh.js');
+      scheduleRotation(tokens, { domain, clientId: cfg.clientId });
+    })();
+
+    // Manual refresh (debug)
+    document.getElementById('refresh-now')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
+      try {
+        const out = await refreshTokens({ domain, clientId: cfg.clientId });
+        scheduleRotation(out, { domain, clientId: cfg.clientId });
+        render();
+      } catch (err) {
+        alert(`Refresh failed: ${err.message || err}`);
+      }
+    });
+
+    // Initial render + periodic update
+    render();
+    setInterval(render, 1000);
+
+    // Load list on first render if signed in
+    if (sessionStorage.getItem('id_token')) listUploads();
+  </script>
+</body>
+</html>
+

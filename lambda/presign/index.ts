@@ -1,68 +1,155 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+// lambda/presign/index.ts
+import {
+  S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+
+type APIGWEvent = {
+  httpMethod?: string;
+  path?: string;
+  headers?: Record<string, string | undefined>;
+  body?: string | null;
+  queryStringParameters?: Record<string, string | undefined> | null;
+  // keep requestContext loose so we can read Cognito claims
+  requestContext?: any;
+};
 
 const s3 = new S3Client({});
-const BUCKET = process.env.BUCKET!;
-const ORIGIN = process.env.WEB_ORIGIN || '*';
+const sqs = new SQSClient({});
 
-const cors = () => ({
-  'Access-Control-Allow-Origin': ORIGIN,
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
+const BUCKET = process.env.BUCKET || '';
+const QUEUE_URL = process.env.THUMB_QUEUE_URL || ''; // may be unset; still return 202
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key',
+  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+};
+
+const json = (data: unknown) =>
+  typeof data === 'string' ? data : JSON.stringify(data);
+
+const ok = (data: unknown, statusCode = 200) => ({
+  statusCode,
+  headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  body: json(data),
 });
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+const txt = (text = '', statusCode = 200) => ({
+  statusCode,
+  headers: CORS_HEADERS,
+  body: text,
+});
+
+const err = (message: string, statusCode = 500) =>
+  ok({ message }, statusCode);
+
+export const handler = async (event: APIGWEvent) => {
+  // ✅ Let CORS preflight through fast
+  if ((event.httpMethod || '').toUpperCase() === 'OPTIONS') {
+    return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+  }
+
   try {
-    // Let API Gateway preflight succeed quickly too (useful if you ever proxy OPTIONS through)
-    if (event.httpMethod === 'OPTIONS') {
-      return { statusCode: 204, headers: cors(), body: '' };
+    if (!BUCKET) {
+      return err('Server is not configured (missing BUCKET)', 500);
     }
 
-    const claims = (event.requestContext.authorizer as any)?.claims;
-    const sub = claims?.sub;
+    const method = (event.httpMethod || 'GET').toUpperCase();
+    const path = (event.path || '').toLowerCase();
+
+    // Pull Cognito subject (user id) from the JWT-verified authorizer claims
+    const sub: string | undefined =
+      (event as any)?.requestContext?.authorizer?.claims?.sub;
+
     if (!sub) {
-      return { statusCode: 401, headers: cors(), body: 'Unauthorized' };
+      return err('Unauthorized', 401);
     }
 
-    // GET /list
-    if (event.httpMethod === 'GET' && event.path.endsWith('/list')) {
+    // === GET /list  ->  { prefix, items: [{ key, size, lastModified }] }
+    if (method === 'GET' && path.endsWith('/list')) {
       const Prefix = `users/${sub}/`;
-      const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix }));
-      const keys = (data.Contents || [])
-        .map(o => o.Key)
-        .filter((k): k is string => Boolean(k));
-
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json', ...cors() },
-        body: JSON.stringify({ prefix: Prefix, items: keys }),
-      };
+      const data = await s3.send(
+        new ListObjectsV2Command({ Bucket: BUCKET, Prefix })
+      );
+      const items = (data.Contents || [])
+        .filter((o) => o.Key)
+        .map((o) => ({
+          key: o!.Key!,
+          size: o!.Size ?? 0,
+          lastModified: o!.LastModified ? o!.LastModified.toISOString() : null,
+        }));
+      return ok({ prefix: Prefix, items });
     }
 
-    // POST /presign
-    if (event.httpMethod === 'POST' && event.path.endsWith('/presign')) {
+    // === POST /presign  { key, contentType } -> { url, key, headers? }
+    if (method === 'POST' && path.endsWith('/presign')) {
       const body = event.body ? JSON.parse(event.body) : {};
       const keyInput: string = String(body.key || 'file.bin');
-      const contentType: string = String(body.contentType || 'application/octet-stream');
+      const contentType: string = String(
+        body.contentType || 'application/octet-stream'
+      );
+      // Ensure key is namespaced to the caller
       const Key = `users/${sub}/${keyInput.replace(/^\/*/, '')}`;
 
+      // Generate a PUT presigned URL
       const url = await getSignedUrl(
         s3,
         new PutObjectCommand({ Bucket: BUCKET, Key, ContentType: contentType }),
         { expiresIn: 900 }
       );
 
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json', ...cors() },
-        body: JSON.stringify({ url, key: Key }),
-      };
+      // Optionally surface headers clients should send for PUT
+      const headers = { 'Content-Type': contentType };
+
+      return ok({ url, key: Key, headers });
     }
 
-    return { statusCode: 404, headers: cors(), body: 'Not Found' };
+    // === DELETE /delete?key=users/<sub>/...
+    if (method === 'DELETE' && path.endsWith('/delete')) {
+      const key = String(event.queryStringParameters?.key || '');
+      const expectedPrefix = `users/${sub}/`;
+      if (!key.startsWith(expectedPrefix)) {
+        return err('Forbidden key', 403);
+      }
+      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+      return txt('', 204);
+    }
+
+    // === POST /thumb  { key } -> enqueue job (202)
+    if (method === 'POST' && path.endsWith('/thumb')) {
+      const body = event.body ? JSON.parse(event.body) : {};
+      const key: string = String(body.key || '');
+
+      // Guard: only allow enqueuing for the caller's own namespace
+      const expectedPrefix = `users/${sub}/`;
+      if (!key.startsWith(expectedPrefix)) {
+        return err('Forbidden key', 403);
+      }
+
+      // If queue isn't configured yet, still return 202 for a smooth UX
+      if (QUEUE_URL) {
+        await sqs.send(
+          new SendMessageCommand({
+            QueueUrl: QUEUE_URL,
+            MessageBody: JSON.stringify({ key }),
+          })
+        );
+      }
+      return txt('', 202);
+    }
+
+    return err('Not found', 404);
   } catch (e: any) {
-    console.error(e);
-    return { statusCode: 500, headers: cors(), body: 'Server error' };
+    console.error('UPLOADS ERROR', {
+      path: event.path,
+      method: event.httpMethod,
+      headers: event.headers,
+      message: e?.message,
+      stack: e?.stack,
+    });
+    return err(e?.message || 'Internal server error', 500);
   }
 };
+

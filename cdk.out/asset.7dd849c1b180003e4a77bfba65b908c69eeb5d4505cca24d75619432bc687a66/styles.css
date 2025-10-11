@@ -1,0 +1,162 @@
+/* Minimal, framework-free styles for Styling Adventures */
+:root {
+  --bg: #0b1020;
+  --card: #101a32;
+  --text: #e6ecff;
+  --muted: #9db0d8;
+  --accent: #7aa2ff;
+  --accent-2: #34d399;
+  --ring: rgba(122,162,255,.35);
+  color-scheme: light dark;
+}
+
+/* Base */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: #0b1020;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+/* Layout helpers the app uses */
+.max-w-3xl { max-width: 48rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.p-6 { padding: 1.5rem; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-3 { gap: .75rem; }
+.text-sm { font-size: .875rem; }
+.text-xs { font-size: .75rem; }
+.break-all { word-break: break-all; }
+.list-disc { list-style: disc; }
+.pl-5 { padding-left: 1.25rem; }
+
+/* Cards, headings */
+.card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  backdrop-filter: blur(4px);
+}
+.card-title {
+  margin: 0 0 .5rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Buttons & inputs */
+.btn,
+.btn-primary {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,.18);
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  padding: .55rem .9rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: .2px;
+  transition: transform .06s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.btn:hover,
+.btn-primary:hover { border-color: var(--ring); }
+.btn:active,
+.btn-primary:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--accent) 85%, white 12%),
+    color-mix(in oklab, var(--accent) 75%, black 12%));
+  color: #0c1535;
+  border-color: color-mix(in oklab, var(--accent) 55%, black 25%);
+  box-shadow: 0 8px 26px color-mix(in oklab, var(--accent) 30%, black 70%);
+}
+
+.input {
+  background: rgba(0,0,0,.2);
+  border: 1px solid rgba(255,255,255,.15);
+  color: var(--text);
+  padding: .45rem .6rem;
+  border-radius: 10px;
+  outline: none;
+}
+.input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px rgba(122,162,255,.15); }
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+  body { background: #f7f7fb; color: #0b1225; }
+  .card { background: #fff; border-color: rgba(0,0,0,.08); }
+  .btn, .btn-primary {
+    color: #0b1225;
+    border-color: rgba(0,0,0,.12);
+    background: linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.04));
+  }
+  .input { background: #fff; border-color: rgba(0,0,0,.12); color: #0b1225; }
+}
+/* generic page baseline used by callback */
+.sa-body {
+  margin: 0;
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.sr-only {
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px);
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important; width: 1px !important;
+  overflow: hidden;
+}
+.hidden { display: none; }
+
+.sa-error {
+  color: #b91c1c;
+  background: #fff;
+  padding: 24px;
+  max-width: 720px;
+  margin: 10vh auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.06);
+}
+.sa-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #1118270d; /* subtle */
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+/* simple layout helpers for homepage actions */
+.actions { margin: .5rem 0; }
+.ml-2 { margin-left: .5rem; }
+
+/* optional: subtler muted text class if not present already */
+.sa-muted { color: #6b7280; }
+
+/* optional: button/link base classes, if not already in your styles.css */
+.sa-btn {
+  padding: .4rem .75rem;
+  border-radius: .5rem;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+}
+.sa-btn-outline {
+  background: #fff;
+}
+.sa-link { color: #3b82f6; text-decoration: underline; }
+.sa-card {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: .5rem;
+}
+.sa-pre {
+  white-space: pre-wrap;
+  background: #eef0f3;
+  padding: 1rem;
+  border-radius: .5rem;
+}
