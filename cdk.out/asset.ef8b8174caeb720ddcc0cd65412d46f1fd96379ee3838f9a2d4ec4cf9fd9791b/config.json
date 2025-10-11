@@ -1,0 +1,12 @@
+{
+  "region": "us-east-1",
+  "clientId": "7bkph1q2q1dgpk0497gk41t7tc",
+  "domain": "stylingadventures-256673",
+
+  "redirectUri": "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+  "logoutUri":  "https://d1682i07dc1r3k.cloudfront.net/logout/index.html",
+
+  "appsyncUrl": "https://r62zvb4xbjeydbwpwx677sgwc4.appsync-api.us-east-1.amazonaws.com/graphql",
+
+  "uploadsUrl": "https://02vsmdtge6.execute-api.us-east-1.amazonaws.com/prod/"
+}

@@ -1,9 +1,52 @@
 {
  "Resources": {
+  "GraphqlApiApiLogsRoleBB9E6BAD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/ApiLogsRole/Resource"
+   }
+  },
   "GraphqlApi1B6CF24C": {
    "Type": "AWS::AppSync::GraphQLApi",
    "Properties": {
     "AuthenticationType": "AMAZON_COGNITO_USER_POOLS",
+    "LogConfig": {
+     "CloudWatchLogsRoleArn": {
+      "Fn::GetAtt": [
+       "GraphqlApiApiLogsRoleBB9E6BAD",
+       "Arn"
+      ]
+     },
+     "FieldLogLevel": "ERROR"
+    },
     "Name": "stylingadventures-api",
     "UserPoolConfig": {
      "AwsRegion": "us-east-1",
@@ -31,6 +74,34 @@
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/GraphqlApi/Schema"
+   }
+  },
+  "GraphqlApiLogRetention082A7017": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/appsync/apis/",
+       {
+        "Fn::GetAtt": [
+         "GraphqlApi1B6CF24C",
+         "ApiId"
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GraphqlApi/LogRetention/Resource"
    }
   },
   "GraphqlApiNone33969EDD": {
@@ -73,10 +144,99 @@
     "aws:cdk:path": "ApiStack/GraphqlApi/HelloResolver/Resource"
    }
   },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "Roles": [
+     {
+      "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Handler": "index.handler",
+    "Runtime": "nodejs22.x",
+    "Timeout": 900,
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d.zip"
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource",
+    "aws:asset:path": "asset.2819175352ad1ce0dae768e83fc328fb70fb5f10b4a8ff0ccbcb791f02b0716d",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WKyw6CMBREv4V9uQJxoUujiRuiET7AXMs1FEpb+4AYwr8bMCS6mjlnJoMs3UES4eBiXrWxFA8YS4+8ZTi4Oxrj3orDeLZo6pc8GMGOT7XQLf+nktfUIbtoRSf0WOpgOc37DxXktOzJznrt02LX8zV4E/zElK4IGrfpswTSPWyjxgkR26C86AiKb34AIAd9zr4AAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOwW7CMBBEv4W7s4XQC0dopV5QgeQD0GK2wcSxTXYNQlH+HdmIqj3NvJ2RdkooZwuYTvDGhT62hTUHGGpB3Sq88X7AEPjuNAxfPYbTxS6DUR8/LtNu/Z9qfaIO1bd39ImCtY+9ppT/oYrY2yv16fzyozLYwVB5m9tZt94afU/4dKOyvmFY+6YiISfGO8XzPTKTMCyTKJ7DKuqWZIVMY371WvDrc7MWbIxrUrCJEqKMyvkjwZnfruUUZgt4n5zZmKKPTkxHUD31AewQsH0tAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"

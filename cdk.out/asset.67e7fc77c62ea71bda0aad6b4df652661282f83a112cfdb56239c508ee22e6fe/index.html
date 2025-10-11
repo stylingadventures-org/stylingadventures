@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body class="sa-body">
+  <h1>StylingAdventures</h1>
+
+  <div class="actions">
+    <a id="signin" href="#" class="sa-link">Sign in</a>
+    <button id="signout" class="sa-btn sa-btn-outline ml-2">Sign out</button>
+    <button id="signout-global" class="sa-btn sa-btn-outline ml-2">Sign out everywhere</button>
+  </div>
+
+  <h2>Status</h2>
+  <div id="status" class="sa-card">Loading…</div>
+  <button id="refresh-now" class="sa-btn mt-2" aria-label="Refresh tokens now">Refresh tokens now</button>
+
+  <h3>Debug</h3>
+  <pre id="dbg" class="sa-pre sa-muted"></pre>
+
+  <!-- AppSync hello -->
+  <h2>AppSync hello</h2>
+  <div class="sa-card">
+    <button id="btn-hello" class="sa-btn">Call { hello }</button>
+    <span id="hello-out" class="ml-2 sa-muted" aria-live="polite"></span>
+  </div>
+
+  <!-- Uploads -->
+  <h2>Uploads</h2>
+  <div class="sa-card">
+    <div class="form-row">
+      <label for="upload-key" class="sa-label">Key prefix (optional)</label>
+      <input id="upload-key" name="key" placeholder="e.g. photos/2025/" class="sa-input" />
+    </div>
+
+    <div class="form-row">
+      <label for="upload-file" class="sa-label">Files</label>
+      <input id="upload-file" name="file" type="file" multiple class="sa-input" />
+    </div>
+
+    <div id="dropzone" class="sa-card sa-muted" style="padding: 20px; border: 2px dashed #bbb; border-radius: 10px;">
+      Drag & drop files here, or use the file picker above.
+    </div>
+
+    <button id="btn-upload" class="sa-btn mt-2" aria-label="Upload file(s) and list existing uploads">
+      Upload selected files
+    </button>
+
+    <p id="uploads-msg" class="sa-muted mt-2" aria-live="polite"></p>
+
+    <ul id="upload-list" class="sa-muted mt-2"></ul>
+  </div>
+
+  <script type="module">
+    // -------- config / urls --------
+    const cfg = await fetch(`/config.json?ts=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    const domain = `https://${cfg.domain}.auth.${cfg.region}.amazoncognito.com`;
+    const authorizeUrl = `${domain}/oauth2/authorize`;
+    const logoutUrl = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(cfg.logoutUri)}`;
+    const api = cfg.uploadsUrl.replace(/\/+$/, '');
+
+    const $ = (s) => document.querySelector(s);
+    const enc = new TextEncoder();
+
+    function base64Url(uint8){ return btoa(String.fromCharCode(...uint8)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+    function randBytes(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+    function randomString(n=32){ return base64Url(randBytes(n)); }
+    async function sha256(str){ const hash = await crypto.subtle.digest('SHA-256', enc.encode(str)); return new Uint8Array(hash); }
+
+    // -------- PKCE + login --------
+    async function startLogin() {
+      const verifier = randomString(64);
+      sessionStorage.setItem('pkce_verifier', verifier);
+      const challenge = base64Url(await sha256(verifier));
+      const state = randomString(24);
+      sessionStorage.setItem('oauth_state', state);
+
+      const url = new URL(authorizeUrl);
+      url.searchParams.set('response_type','code');
+      url.searchParams.set('client_id', cfg.clientId);
+      url.searchParams.set('redirect_uri', cfg.redirectUri);
+      url.searchParams.set('scope','openid email profile');
+      url.searchParams.set('code_challenge', challenge);
+      url.searchParams.set('code_challenge_method','S256');
+      url.searchParams.set('state', state);
+      location.assign(url.toString());
+    }
+
+    function signOutLocal(){ sessionStorage.clear(); render(); }
+
+    async function signOutEverywhere(){
+      try {
+        const refresh = sessionStorage.getItem('refresh_token') || (JSON.parse(sessionStorage.getItem('tokens')||'{}').refresh_token);
+        if (refresh){
+          const body = new URLSearchParams({ token: refresh, token_type_hint: 'refresh_token', client_id: cfg.clientId });
+          await fetch(`${domain}/oauth2/revoke`, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).catch(()=>{});
+        }
+      } finally {
+        sessionStorage.clear();
+        location.replace(logoutUrl);
+      }
+    }
+
+    function parseJwt(t){ if(!t) return null; try{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));}catch{return null;} }
+    function secondsLeft(id){ const p=parseJwt(id); return p?.exp ? Math.max(0, p.exp - Math.floor(Date.now()/1000)) : 0; }
+
+    async function ensureFreshIdToken(minSeconds=60){
+      let id = sessionStorage.getItem('id_token');
+      if (!id) return null;
+      if (secondsLeft(id) > minSeconds) return id;
+      const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
+      const out = await refreshTokens({ domain, clientId: cfg.clientId });
+      scheduleRotation(out, { domain, clientId: cfg.clientId });
+      render();
+      return out.id_token || sessionStorage.getItem('id_token');
+    }
+
+    function render(){
+      const id = sessionStorage.getItem('id_token');
+      $('#signin').style.display = id ? 'none' : 'inline';
+      $('#signout').style.display = id ? 'inline-block' : 'none';
+      $('#signout-global').style.display = id ? 'inline-block' : 'none';
+      const left = secondsLeft(id);
+      const mins = Math.floor(left/60);
+      const secs = String(left%60).padStart(2,'0');
+      $('#status').textContent = id ? `Signed in as ${parseJwt(id)?.email || 'unknown'} · ID token expires in ${mins}:${secs}` : 'Not signed in';
+      $('#dbg').textContent = id ? JSON.stringify(parseJwt(id) || {}, null, 2) : '';
+    }
+
+    // ===== AppSync { hello } =====
+    async function callHello(){
+      const id = await ensureFreshIdToken();
+      if (!id){ alert('Please sign in first'); return; }
+      const res = await fetch(cfg.appsyncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': id },
+        body: JSON.stringify({ query: `query Hello { hello }` })
+      });
+      if (!res.ok) throw new Error(`AppSync ${res.status}: ${await res.text()}`);
+      const json = await res.json();
+      $('#hello-out').textContent = json.data?.hello ?? '(no data)';
+    }
+
+    // --- UI helpers ---
+    function toast(text, type='info'){
+      const el = $('#uploads-msg');
+      el.textContent = text;
+      el.className = `sa-muted mt-2 ${type==='error' ? 'sa-error' : ''}`;
+    }
+
+    function liRow(displayName, meta = ''){
+      const li = document.createElement('li');
+      li.className = 'upload-row';
+      li.innerHTML = `
+        <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <strong style="word-break:break-all;">${displayName}</strong>
+          <span class="sa-muted">${meta}</span>
+          <progress max="100" value="0" class="row-progress" style="width:240px;"></progress>
+          <span class="sa-muted status" aria-live="polite"></span>
+          <button class="sa-btn sa-btn-outline sa-sm delete" style="margin-left:auto; display:none;">Delete</button>
+        </div>
+      `;
+      return li;
+    }
+
+    async function listUploads(){
+      const id = sessionStorage.getItem('id_token');
+      if (!id) return;
+      const res = await fetch(`${api}/list`, { headers:{ Authorization: id } });
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.items ?? data.keys ?? []);
+      const ul = $('#upload-list');
+      ul.innerHTML = '';
+      items.forEach((it) => {
+        const display = typeof it === 'string' ? it : it.key;
+        const size = typeof it === 'string' ? '' : (it.size ?? 0);
+        const type = display.split('.').pop()?.toLowerCase() || '';
+        const meta = size ? `· ${Math.ceil(size/1024)} KB · ${type}` : '';
+        const li = liRow(display, meta);
+        li.querySelector('.row-progress').style.display = 'none';
+        const delBtn = li.querySelector('.delete');
+        delBtn.style.display = 'inline-block';
+        delBtn.addEventListener('click', async () => {
+          const idTok = await ensureFreshIdToken();
+          if (!confirm(`Delete "${display}"?`)) return;
+          const r = await fetch(`${api}/delete?key=${encodeURIComponent(display)}`, { method:'DELETE', headers:{ Authorization: idTok }});
+          if (!r.ok){ alert(`Delete failed: ${r.status} ${await r.text()}`); return; }
+          li.remove();
+        });
+        ul.appendChild(li);
+      });
+    }
+
+    // Drag & drop
+    const drop = $('#dropzone');
+    ;['dragenter','dragover','dragleave','drop'].forEach(ev=>{
+      drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+    drop.addEventListener('dragover', () => drop.style.borderColor = '#666');
+    drop.addEventListener('dragleave', () => drop.style.borderColor = '#bbb');
+    drop.addEventListener('drop', e => {
+      drop.style.borderColor = '#bbb';
+      const files = [...(e.dataTransfer?.files || [])];
+      if (files.length) startUpload(files);
+    });
+
+    // mirror first filename into key prefix? (we keep it user-controlled)
+    document.getElementById('upload-file')?.addEventListener('change', () => {});
+
+    // Uploads with concurrency and per-file progress
+    const MAX_MB = 50;
+    const ALLOW_TYPES = ['text/plain','image/png','image/jpeg','image/gif','application/pdf','video/mp4'];
+    const CONCURRENCY = 4;
+
+    async function presign(id, key, type){
+      const r = await fetch(`${api}/presign`, {
+        method:'POST',
+        headers:{ Authorization: id, 'Content-Type':'application/json' },
+        body: JSON.stringify({ key, contentType: type || 'application/octet-stream' })
+      });
+      const txt = await r.text();
+      let json; try{ json = JSON.parse(txt); }catch{}
+      if (!r.ok || !json?.url) throw new Error(`presign ${r.status}: ${txt}`);
+      return json;
+    }
+
+    async function startUpload(filesArg){
+      const input = /** @type {HTMLInputElement} */ (document.getElementById('upload-file'));
+      const files = filesArg ?? [...(input?.files || [])];
+      const prefix = (/** @type {HTMLInputElement} */(document.getElementById('upload-key'))).value.trim();
+
+      if (!files.length){ toast('Choose or drop files first', 'error'); return; }
+
+      for (const f of files){
+        if (f.size > MAX_MB*1024*1024){ toast(`"${f.name}" too large. Max ${MAX_MB} MB.`, 'error'); return; }
+        const ok = ALLOW_TYPES.includes(f.type) || ALLOW_TYPES.some(t => t.endsWith('/*') && f.type.startsWith(t.slice(0,-1)));
+        if (!ok){ toast(`"${f.name}": type not allowed (${f.type||'unknown'}).`, 'error'); return; }
+      }
+
+      const id = await ensureFreshIdToken();
+      if (!id){ toast('Please sign in first', 'error'); return; }
+
+      const ul = $('#upload-list');
+      const rows = files.map(f => {
+        const safePrefix = prefix ? prefix.replace(/^\/*/,'').replace(/\/+$/,'')+'/' : '';
+        const key = `${safePrefix}${f.name}`;
+        const meta = `${Math.ceil(f.size/1024)} KB · ${(f.type||'unknown').split('/').pop()}`;
+        const li = liRow(f.name, meta);
+        ul.prepend(li);
+        const prog = li.querySelector('.row-progress');
+        const status = li.querySelector('.status');
+        const delBtn = li.querySelector('.delete');
+        delBtn.disabled = true; // disable delete while uploading
+        status.textContent = 'preparing…';
+        return { f, key, li, prog, status, delBtn };
+      });
+
+      let active = 0, idx = 0, errors = 0;
+      toast(`Uploading ${files.length} file(s)…`);
+
+      await new Promise((done) => {
+        const next = async () => {
+          if (idx >= rows.length){ if (active===0) done(); return; }
+          const row = rows[idx++]; active++;
+          try {
+            row.status.textContent = 'presigning…';
+            const { url, headers } = await presign(id, row.key, row.f.type || 'application/octet-stream');
+            row.status.textContent = 'uploading…';
+
+            await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open('PUT', url);
+              const hdrs = headers || { 'Content-Type': row.f.type || 'application/octet-stream' };
+              Object.entries(hdrs).forEach(([k,v]) => xhr.setRequestHeader(k, v as string));
+              xhr.upload.onprogress = e => { if (e.lengthComputable) row.prog.value = Math.round((e.loaded/e.total)*100); };
+              xhr.onload = () => (xhr.status>=200 && xhr.status<300) ? resolve(null) : reject(new Error(`S3 PUT ${xhr.status}: ${xhr.responseText}`));
+              xhr.onerror = () => reject(new Error('Network error'));
+              xhr.send(row.f);
+            });
+
+            // queue thumbnail job
+            try {
+              const idTok = await ensureFreshIdToken();
+              await fetch(`${api}/thumb`, {
+                method: 'POST',
+                headers: { Authorization: idTok, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: `users/${parseJwt(idTok)?.sub}/${row.key}`.replace(/^users\/[^/]+\//,'users/'+(parseJwt(idTok)?.sub)+'/') }) // normalized server-side anyway
+              }).catch(()=>{});
+              row.status.textContent = 'done (thumb queued)';
+            } catch {
+              row.status.textContent = 'done';
+            }
+
+            row.prog.style.display = 'none';
+            row.delBtn.style.display = 'inline-block';
+            row.delBtn.disabled = false;
+          } catch (e){
+            errors++; console.error(e);
+            row.status.textContent = `error: ${e.message || e}`;
+            row.prog.style.display = 'none';
+            row.li.style.color = '#b00020';
+          } finally {
+            active--; next();
+          }
+        };
+        for (let i=0; i<CONCURRENCY && i<rows.length; i++) next();
+      });
+
+      if (errors) toast(`Finished with ${errors} error(s)`, 'error'); else toast('All uploads complete ✔');
+      await listUploads();
+    }
+
+    // Wire up
+    $('#signin').addEventListener('click', e => { e.preventDefault(); startLogin(); });
+    $('#signout').addEventListener('click', e => { e.preventDefault(); signOutLocal(); });
+    $('#signout-global').addEventListener('click', e => { e.preventDefault(); signOutEverywhere(); });
+    $('#btn-hello')?.addEventListener('click', e => { e.preventDefault(); callHello().catch(err => $('#hello-out').textContent = `Error: ${err.message}`); });
+    $('#btn-upload')?.addEventListener('click', e => { e.preventDefault(); startUpload().catch(err => alert(err.message)); });
+
+    // Backfill tokens bundle for older sessions
+    (function backfill(){
+      if (!sessionStorage.getItem('tokens')){
+        const id = sessionStorage.getItem('id_token');
+        const at = sessionStorage.getItem('access_token');
+        const rt = sessionStorage.getItem('refresh_token');
+        if (id && at && rt) sessionStorage.setItem('tokens', JSON.stringify({ id_token:id, access_token:at, refresh_token:rt, expires_in:3600 }));
+      }
+    })();
+    // Start rotation if tokens exist
+    (async function ensureRotation(){
+      const raw = sessionStorage.getItem('tokens'); if (!raw) return;
+      const tokens = JSON.parse(raw);
+      const { scheduleRotation } = await import('/auth/refresh.js');
+      scheduleRotation(tokens, { domain, clientId: cfg.clientId });
+    })();
+    // Manual refresh
+    $('#refresh-now')?.addEventListener('click', async e => {
+      e.preventDefault();
+      const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
+      try{
+        const out = await refreshTokens({ domain, clientId: cfg.clientId });
+        scheduleRotation(out, { domain, clientId: cfg.clientId });
+        render();
+      }catch(err){ alert(`Refresh failed: ${err.message||err}`); }
+    });
+
+    render();
+    setInterval(render, 1000);
+    if (sessionStorage.getItem('id_token')) listUploads();
+  </script>
+</body>
+</html>
+
+

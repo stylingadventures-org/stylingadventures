@@ -1,0 +1,36 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signed out • Styling Adventures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="p-8">
+  <div class="card">
+    <h1 class="card-title">Signed out</h1>
+    <p>You can close this tab/window.</p>
+    <p class="mt-2"><a href="/" class="text-blue-600">← Back to home</a></p>
+  </div>
+
+  <script>
+    // Clear any local app auth/PKCE state just in case
+    try {
+      sessionStorage.removeItem('id_token');
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('pkce_verifier');
+      sessionStorage.removeItem('pkce_last_code');
+      sessionStorage.removeItem('tokens_expires_at');
+    } catch {}
+
+    // If opened by the app (popup/tab), auto-close shortly
+    if (window.opener) {
+      setTimeout(() => { window.close(); }, 1500);
+    }
+  </script>
+</body>
+</html>

@@ -1,79 +1,81 @@
-import * as cdk from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as path from 'path';
 
-export class WebStack extends cdk.Stack {
+export class WebStack extends Stack {
   public readonly distribution: cloudfront.Distribution;
   public readonly siteBucket: s3.Bucket;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // Private site bucket
+    // Private S3 bucket (only CloudFront can read)
     this.siteBucket = new s3.Bucket(this, 'SiteBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
-      versioned: true,
       enforceSSL: true,
+      versioned: false,
     });
 
-    // Allow CloudFront to read from the bucket
-    const oai = new cloudfront.OriginAccessIdentity(this, 'OAI');
-    this.siteBucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        actions: ['s3:GetObject'],
-        resources: [this.siteBucket.arnForObjects('*')],
-        principals: [
-          new iam.CanonicalUserPrincipal(
-            oai.cloudFrontOriginAccessIdentityS3CanonicalUserId
-          ),
-        ],
-      })
-    );
+    // Origin Access Identity for CloudFront -> S3
+    const oai = new cloudfront.OriginAccessIdentity(this, 'Oai');
+    this.siteBucket.grantRead(oai);
 
-    const s3Origin = new origins.S3Origin(this.siteBucket, {
-      originAccessIdentity: oai,
+    // Rewrite "/folder" and "/folder/" to "/folder/index.html"
+    const dirIndexFn = new cloudfront.Function(this, 'DirIndexRewriteFn', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var req = event.request;
+  var uri = req.uri || '/';
+  if (uri.endsWith('/')) {
+    req.uri = uri + 'index.html';
+    return req;
+  }
+  if (uri.indexOf('.') === -1) {
+    req.uri = uri + '/index.html';
+    return req;
+  }
+  return req;
+}
+      `),
     });
 
-    // CloudFront
+    // Use S3Origin (works with OAI in all CDK v2 versions)
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultRootObject: 'index.html',
       defaultBehavior: {
-        origin: s3Origin,
+        origin: new origins.S3Origin(this.siteBucket, { originAccessIdentity: oai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        functionAssociations: [
+          {
+            function: dirIndexFn,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
       },
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    // Ensure fresh pages for auth round-trips
-    this.distribution.addBehavior('/callback/*', s3Origin, {
-      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-    });
-    this.distribution.addBehavior('/logout/*', s3Origin, {
-      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-    });
-
-    // Deploy exactly what’s under lib/stacks/web/
+    // Deploy web assets and invalidate CloudFront
     new s3deploy.BucketDeployment(this, 'DeploySite', {
       destinationBucket: this.siteBucket,
       distribution: this.distribution,
-      distributionPaths: ['/*', '/callback/*', '/logout/*'],
-      sources: [s3deploy.Source.asset(path.resolve(__dirname, 'web'))],
-      // Prune default (true) cleans up removed files on next deploy
+      distributionPaths: ['/*'],
+      sources: [s3deploy.Source.asset('lib/stacks/web')],
     });
 
-    new cdk.CfnOutput(this, 'CloudFrontDistributionDomainName', {
+    new CfnOutput(this, 'CloudFrontDistributionDomainName', {
       value: this.distribution.domainName,
     });
-    new cdk.CfnOutput(this, 'StaticSiteBucketName', {
+    new CfnOutput(this, 'StaticSiteBucketName', {
       value: this.siteBucket.bucketName,
     });
   }
 }
+
+

@@ -5,8 +5,14 @@
   <title>Signing you in…</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate icon" href="/favicon.ico" />
 </head>
 <body class="sa-body">
+  <noscript>
+    <p class="sa-error">JavaScript is required to complete sign-in.</p>
+  </noscript>
+
   <div id="ok" class="sr-only">Signing you in…</div>
 
   <div id="err" class="sa-error hidden">
@@ -16,45 +22,82 @@
     <p><a href="/">Return to the app</a></p>
   </div>
 
-  <script>
-  (async () => {
-    try {
+  <script type="module">
+    import { scheduleRotation } from '/auth/refresh.js';
+
+    async function exchangeCodeForTokens() {
       const params = new URLSearchParams(location.search);
       const code = params.get('code');
       if (!code) throw new Error('Missing ?code param');
 
-      const cfg = await fetch('/config.json', {cache:'no-store'}).then(r => r.json());
-      const verifier = sessionStorage.getItem('pkce_verifier');
-      if (!verifier) throw new Error('Missing pkce_verifier in sessionStorage (you must start login from the app)');
+      // Load config (cache-busted)
+      const cfg = await fetch(`/config.json?ts=${Date.now()}`, { cache: 'no-store' })
+        .then(r => r.json());
 
-      const tokenUrl = `https://${cfg.domain}.auth.${cfg.region}.amazoncognito.com/oauth2/token`;
+      // Accept either "domain" or "hostedUiDomain"
+      const hosted = cfg.domain || cfg.hostedUiDomain;
+      if (!hosted) throw new Error('config.json missing "domain"/"hostedUiDomain"');
+
+      // CSRF guard (optional)
+      const state = params.get('state');
+      const expected = sessionStorage.getItem('oauth_state');
+      if (expected && state && state !== expected) {
+        throw new Error('State mismatch. Please start sign-in from the app again.');
+      }
+      sessionStorage.removeItem('oauth_state');
+
+      // PKCE verifier must be present
+      const verifier = sessionStorage.getItem('pkce_verifier');
+      if (!verifier) throw new Error('Missing pkce_verifier in sessionStorage (start login from the app)');
+
+      const domain = `https://${hosted}.auth.${cfg.region}.amazoncognito.com`;
+      const tokenUrl = `${domain}/oauth2/token`;
+
       const body = new URLSearchParams({
-        grant_type:    'authorization_code',
-        client_id:     cfg.clientId,
+        grant_type: 'authorization_code',
+        client_id: cfg.clientId,
         code,
-        redirect_uri:  cfg.redirectUri,
+        redirect_uri: cfg.redirectUri || `${location.origin}/callback/index.html`,
         code_verifier: verifier
       });
 
       const res = await fetch(tokenUrl, {
         method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
 
       const tok = await res.json();
-      if (tok.id_token)     sessionStorage.setItem('id_token', tok.id_token);
-      if (tok.access_token) sessionStorage.setItem('access_token', tok.access_token);
-      if (tok.refresh_token)sessionStorage.setItem('refresh_token', tok.refresh_token);
 
-      history.replaceState(null, '', '/');
+      // Store tokens
+      const tokens = {
+        id_token: tok.id_token,
+        access_token: tok.access_token,
+        refresh_token: tok.refresh_token ?? sessionStorage.getItem('refresh_token') ?? '',
+        expires_in: tok.expires_in
+      };
+      sessionStorage.setItem('tokens', JSON.stringify(tokens));
+      if (tok.id_token)      sessionStorage.setItem('id_token', tok.id_token);
+      if (tok.access_token)  sessionStorage.setItem('access_token', tok.access_token);
+      if (tok.refresh_token) sessionStorage.setItem('refresh_token', tok.refresh_token);
+
+      sessionStorage.removeItem('pkce_verifier');
+
+      // Start auto-rotation and go home
+      scheduleRotation(tokens, { domain, clientId: cfg.clientId });
       location.replace('/');
-    } catch (err) {
-      document.getElementById('err').classList.remove('hidden');
-      document.getElementById('e').textContent = String(err?.message || err);
     }
-  })();
+
+    (async () => {
+      try {
+        await exchangeCodeForTokens();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('err')?.classList.remove('hidden');
+        document.getElementById('e').textContent = String(err?.message || err);
+      }
+    })();
   </script>
 </body>
 </html>

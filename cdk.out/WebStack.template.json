@@ -23,10 +23,7 @@
       "Key": "aws-cdk:cr-owned:ac28870b",
       "Value": "true"
      }
-    ],
-    "VersioningConfiguration": {
-     "Status": "Enabled"
-    }
+    ]
    },
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
@@ -77,12 +74,50 @@
        ]
       },
       {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "Oai29B41E8C",
+          "S3CanonicalUserId"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SiteBucket397A1860",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SiteBucket397A1860",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
        "Action": "s3:GetObject",
        "Effect": "Allow",
        "Principal": {
         "CanonicalUser": {
          "Fn::GetAtt": [
-          "OAIE1EFC67F",
+          "Oai29B41E8C",
           "S3CanonicalUserId"
          ]
         }
@@ -110,7 +145,7 @@
     "aws:cdk:path": "WebStack/SiteBucket/Policy/Resource"
    }
   },
-  "OAIE1EFC67F": {
+  "Oai29B41E8C": {
    "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
    "Properties": {
     "CloudFrontOriginAccessIdentityConfig": {
@@ -118,32 +153,43 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "WebStack/OAI/Resource"
+    "aws:cdk:path": "WebStack/Oai/Resource"
+   }
+  },
+  "DirIndexRewriteFn951FA463": {
+   "Type": "AWS::CloudFront::Function",
+   "Properties": {
+    "AutoPublish": true,
+    "FunctionCode": "\nfunction handler(event) {\n  var req = event.request;\n  var uri = req.uri || '/';\n  if (uri.endsWith('/')) {\n    req.uri = uri + 'index.html';\n    return req;\n  }\n  if (uri.indexOf('.') === -1) {\n    req.uri = uri + '/index.html';\n    return req;\n  }\n  return req;\n}\n      ",
+    "FunctionConfig": {
+     "Comment": "us-east-1WebStackDirIndexRewriteFnB90BEA1B",
+     "Runtime": "cloudfront-js-1.0"
+    },
+    "Name": "us-east-1WebStackDirIndexRewriteFnB90BEA1B"
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebStack/DirIndexRewriteFn/Resource"
    }
   },
   "Distribution830FAC52": {
    "Type": "AWS::CloudFront::Distribution",
    "Properties": {
     "DistributionConfig": {
-     "CacheBehaviors": [
-      {
-       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
-       "Compress": true,
-       "PathPattern": "/callback/*",
-       "TargetOriginId": "WebStackDistributionOrigin128332BA7",
-       "ViewerProtocolPolicy": "redirect-to-https"
-      },
-      {
-       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
-       "Compress": true,
-       "PathPattern": "/logout/*",
-       "TargetOriginId": "WebStackDistributionOrigin128332BA7",
-       "ViewerProtocolPolicy": "redirect-to-https"
-      }
-     ],
      "DefaultCacheBehavior": {
       "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
       "Compress": true,
+      "FunctionAssociations": [
+       {
+        "EventType": "viewer-request",
+        "FunctionARN": {
+         "Fn::GetAtt": [
+          "DirIndexRewriteFn951FA463",
+          "FunctionARN"
+         ]
+        }
+       }
+      ],
+      "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03",
       "TargetOriginId": "WebStackDistributionOrigin128332BA7",
       "ViewerProtocolPolicy": "redirect-to-https"
      },
@@ -167,14 +213,15 @@
           [
            "origin-access-identity/cloudfront/",
            {
-            "Ref": "OAIE1EFC67F"
+            "Ref": "Oai29B41E8C"
            }
           ]
          ]
         }
        }
       }
-     ]
+     ],
+     "PriceClass": "PriceClass_100"
     }
    },
    "Metadata": {
@@ -210,7 +257,7 @@
      "cdk-hnb659fds-assets-637423256673-us-east-1"
     ],
     "SourceObjectKeys": [
-     "20795d8b6d2e3af2f7f7fcb6401f8509074129ca72a55b8cc757c0aff34d8517.zip"
+     "964b7c21c9ee5d4d1dc65beea352f9a1c6c773c0253aa8e50c7a22184fdacf13.zip"
     ],
     "DestinationBucketName": {
      "Ref": "SiteBucket397A1860"
@@ -221,9 +268,7 @@
      "Ref": "Distribution830FAC52"
     },
     "DistributionPaths": [
-     "/*",
-     "/callback/*",
-     "/logout/*"
+     "/*"
     ],
     "OutputObjectKeys": true
    },
@@ -406,7 +451,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21QTWvDMAz9Lb27WtfusB3blMJg0NHCrsF1lKDWsYslLxST/z6c9Ouw0/vgSU9oDvPXd5hNdMdTU52mlg6Q9qLNSemOy8QLSKtoTiiqqN2VjfDtLZnLw77qUaw0Y6+M9bGqg3cCaRuoIbc0Bpk/K3RCMgwXObPJmX8Ta2IJdIhC3uX4s+4VL8pU4dn6S4tOYOxe3w2lmVEYlhl6ZXV7qDSkonZf+oLhBwPntXtyjUXxbhOdGYrupKjvZq9It5B23mK2B3z8YGT9raS0uaDUHRtLsOy4sDR0quGWveiGXKOKyOLbHbKPwYxrb/zZ3EY5R+mV8xXCkV9+5zN4/YC3yZGJpiE6oRZhN+If2IcyC9MBAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy4oCMRD8Fu+x18dePOqIsLDgorDXIWbaoTWTSLqzg4T59yUzvg6eqrpS6Sp6BrPpAiYj3fLYVOexpQOkvWhzVrrlMvEc0iqaM4oqju7GBvjxlsz1Kd/mYVhpxk4Z62N1DN4JpG2gmtzSGGT+qtAJSf+5yJ5N9rx1bKIzQt5l64OviSXQId4fXudO8bxMFV6svzboBIZC64egNDMKwzJDp6xuDpWGVBzdt75i+MXAee2eXG1R/DP1XZVOkW4g7bzFLPf4PMzAuntIaXNAqVs2lmDZcmGpz1R9l73omlytisjimx2yj8EMa+/8VdxGuUTplPMVwok//mYTmC7gc3RionGITqhB2A34D1JmbhvoAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/CDKMetadata/Default"
@@ -425,6 +470,17 @@
   "StaticSiteBucketName": {
    "Value": {
     "Ref": "SiteBucket397A1860"
+   }
+  },
+  "ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30": {
+   "Value": {
+    "Fn::GetAtt": [
+     "Distribution830FAC52",
+     "DomainName"
+    ]
+   },
+   "Export": {
+    "Name": "WebStack:ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30"
    }
   }
  },

@@ -56,9 +56,10 @@
     "aws:cdk:path": "IdentityStack/UserPool/Resource"
    }
   },
-  "UserPoolClient2F5918F7": {
+  "WebClient697086FD": {
    "Type": "AWS::Cognito::UserPoolClient",
    "Properties": {
+    "AccessTokenValidity": 60,
     "AllowedOAuthFlows": [
      "code"
     ],
@@ -72,23 +73,31 @@
      "https://d1682i07dc1r3k.cloudfront.net/callback/index.html"
     ],
     "ExplicitAuthFlows": [
-     "ALLOW_USER_PASSWORD_AUTH",
-     "ALLOW_USER_SRP_AUTH",
      "ALLOW_REFRESH_TOKEN_AUTH"
     ],
     "GenerateSecret": false,
+    "IdTokenValidity": 60,
     "LogoutURLs": [
-     "https://d1682i07dc1r3k.cloudfront.net/logout/index.html"
+     "https://d1682i07dc1r3k.cloudfront.net/logout/index.html",
+     "https://d1682i07dc1r3k.cloudfront.net/logout/",
+     "https://d1682i07dc1r3k.cloudfront.net/"
     ],
+    "PreventUserExistenceErrors": "ENABLED",
+    "RefreshTokenValidity": 43200,
     "SupportedIdentityProviders": [
      "COGNITO"
     ],
+    "TokenValidityUnits": {
+     "AccessToken": "minutes",
+     "IdToken": "minutes",
+     "RefreshToken": "minutes"
+    },
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "IdentityStack/UserPoolClient/Resource"
+    "aws:cdk:path": "IdentityStack/WebClient/Resource"
    }
   },
   "HostedUiDomain": {
@@ -110,7 +119,7 @@
     "CognitoIdentityProviders": [
      {
       "ClientId": {
-       "Ref": "UserPoolClient2F5918F7"
+       "Ref": "WebClient697086FD"
       },
       "ProviderName": {
        "Fn::GetAtt": [
@@ -128,7 +137,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XJywrCMBCF4WfpPhnb4ELXdeNKUVxLTKJMLzPSTCxS+u4SRBFcnZ/vGDDVCsrCjlE73+oOLzAdxbpW2TGeHd8IhWE6xTDsmTtVX+nbn6g7DCS/179suLdIWbY+kKA8s84ZdknuSWZF7AM0cfEwJVRrWBZNRNRDIsE+wOG9L3zgLsuxAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XJMQvCMBCG4d/SPTnb4NK5Lk6K4iwxiXJteifN1SKl/12CKILT9/J8BkxVQ1nYKWnnOx3xAvNRrOuUndLZ8Y1QGOZTCsOeOarmSt/+RBMxkPxe/7Lh3iJl2fpAgvLMumTYjXIfZVHEPkCbVg9TQlXDumgToh5GEuwDHN77AuuVvhSxAAAA"
    },
    "Metadata": {
     "aws:cdk:path": "IdentityStack/CDKMetadata/Default"
@@ -136,14 +145,14 @@
   }
  },
  "Outputs": {
-  "UserPoolId": {
+  "CognitoUserPoolId": {
    "Value": {
     "Ref": "UserPool6BA7E5F2"
    }
   },
-  "UserPoolClientId": {
+  "CognitoWebClientId": {
    "Value": {
-    "Ref": "UserPoolClient2F5918F7"
+    "Ref": "WebClient697086FD"
    }
   },
   "IdentityPoolId": {
@@ -154,14 +163,14 @@
   "HostedUiDomainName": {
    "Value": "stylingadventures-256673"
   },
-  "HostedUiUrl": {
+  "HostedUiLoginUrl": {
    "Value": {
     "Fn::Join": [
      "",
      [
       "https://stylingadventures-256673.auth.us-east-1.amazoncognito.com/login?client_id=",
       {
-       "Ref": "UserPoolClient2F5918F7"
+       "Ref": "WebClient697086FD"
       },
       "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html"
      ]

@@ -1,40 +1,50 @@
-import * as cdk from 'aws-cdk-lib';
+import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as appsync from 'aws-cdk-lib/aws-appsync';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as path from 'path';
 
-interface ApiStackProps extends cdk.StackProps {
+// ✅ custom props so we can pass a user pool from bin/
+export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
 }
 
-export class ApiStack extends cdk.Stack {
+export class ApiStack extends Stack {
   public readonly api: appsync.GraphqlApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    this.api = new appsync.GraphqlApi(this, 'GraphqlApi', {
+    const { userPool } = props;
+
+    // Simple “hello” lambda (reuse yours if you already had one)
+    const helloFn = new lambda.Function(this, 'HelloFn', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/hello')),
+    });
+
+    // AppSync API protected by Cognito User Pool auth
+    this.api = new appsync.GraphqlApi(this, 'StylingApi', {
       name: 'stylingadventures-api',
-      schema: appsync.SchemaFile.fromAsset('lib/stacks/schema.graphql'),
+      schema: appsync.SchemaFile.fromAsset(
+        path.join(__dirname, '../graphql/schema.graphql')
+      ),
       authorizationConfig: {
         defaultAuthorization: {
           authorizationType: appsync.AuthorizationType.USER_POOL,
-          userPoolConfig: { userPool: props.userPool },
+          userPoolConfig: { userPool },
         },
       },
       xrayEnabled: true,
     });
 
-    // NONE data source + "hello" resolver (returns "world")
-    const none = this.api.addNoneDataSource('None');
-    none.createResolver('HelloResolver', {
+    // Resolver for:  query hello: String!
+    const ds = this.api.addLambdaDataSource('HelloDS', helloFn);
+    ds.createResolver('HelloResolver', {
       typeName: 'Query',
       fieldName: 'hello',
-      requestMappingTemplate: appsync.MappingTemplate.fromString('{ "version":"2018-05-29" }'),
-      responseMappingTemplate: appsync.MappingTemplate.fromString('"world"'),
     });
-
-    new cdk.CfnOutput(this, 'AppSyncApiId', { value: this.api.apiId });
-    new cdk.CfnOutput(this, 'AppSyncUrl', { value: this.api.graphqlUrl });
   }
 }
