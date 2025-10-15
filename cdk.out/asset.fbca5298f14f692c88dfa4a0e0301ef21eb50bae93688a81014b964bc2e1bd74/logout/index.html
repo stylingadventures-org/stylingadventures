@@ -1,0 +1,55 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signed out • Styling Adventures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <!-- No meta refresh here (axe rule: no timed refresh/redirect under 20h) -->
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="p-8">
+  <div class="sa-card">
+    <h1>Signed out</h1>
+    <p id="msg" class="mt-2" aria-live="polite">
+      You’re signed out. You can safely close this tab or return to the homepage.
+    </p>
+
+    <div class="mt-4" style="display:flex; gap:12px; flex-wrap:wrap;">
+      <a href="/" class="sa-btn">← Back to home</a>
+      <button id="btn-close" class="sa-btn sa-btn-outline">Close this window</button>
+    </div>
+
+    <noscript>
+      <p class="mt-4 sa-muted">Note: JavaScript is off, so we can’t auto-clear session data. Close this tab manually.</p>
+    </noscript>
+  </div>
+
+  <script>
+    // Clear any locally cached tokens/state
+    try {
+      const keys = [
+        'id_token','access_token','refresh_token',
+        'pkce_verifier','oauth_state','tokens'
+      ];
+      keys.forEach(k => sessionStorage.removeItem(k));
+    } catch {}
+
+    // Try to close immediately if this window was opened by another (no delay = axe-compliant)
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.close();
+      }
+    } catch {}
+
+    // Provide an explicit control for users/agents
+    document.getElementById('btn-close')?.addEventListener('click', () => {
+      try { window.close(); } catch {}
+      // If the browser blocks window.close(), tell the user what to do
+      const m = document.getElementById('msg');
+      if (m) m.textContent = 'If this tab did not close, please close it manually or use the Back to home button.';
+    });
+  </script>
+</body>
+</html>
+

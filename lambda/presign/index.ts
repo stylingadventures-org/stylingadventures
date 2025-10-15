@@ -1,9 +1,12 @@
-// lambda/presign/index.ts
 import {
-  S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 type APIGWEvent = {
   httpMethod?: string;
@@ -11,124 +14,153 @@ type APIGWEvent = {
   headers?: Record<string, string | undefined>;
   body?: string | null;
   queryStringParameters?: Record<string, string | undefined> | null;
-  // keep requestContext loose so we can read Cognito claims
-  requestContext?: any;
+  requestContext?: any; // authorizer claims
 };
 
 const s3 = new S3Client({});
 const sqs = new SQSClient({});
 
-const BUCKET = process.env.BUCKET || '';
-const QUEUE_URL = process.env.THUMB_QUEUE_URL || ''; // may be unset; still return 202
+// Required
+const BUCKET = process.env.BUCKET || "";
+// Optional: CloudFront domain for thumbs (e.g. https://dxxxx.cloudfront.net)
+const THUMBS_CDN = process.env.THUMBS_CDN || "";
+// Optional: enqueue thumbnail job manually via /thumb
+const QUEUE_URL = process.env.THUMB_QUEUE_URL || "";
+// Frontend origin to allow for CORS (in addition to localhost)
+const WEB_ORIGIN = process.env.WEB_ORIGIN || "";
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key',
-  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-};
+function pickOrigin(h: Record<string, string | undefined> | undefined) {
+  if (!h) return undefined;
+  // API Gateway may pass either casing
+  const origin = h["origin"] || h["Origin"];
+  if (!origin) return undefined;
+  const allow = new Set([WEB_ORIGIN, "http://localhost:5173"]);
+  return allow.has(origin) ? origin : undefined;
+}
 
-const json = (data: unknown) =>
-  typeof data === 'string' ? data : JSON.stringify(data);
+function corsHeaders(origin?: string) {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers":
+      "Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+  };
+  if (origin) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
 
-const ok = (data: unknown, statusCode = 200) => ({
+const json = (x: unknown) => (typeof x === "string" ? x : JSON.stringify(x));
+const ok = (data: unknown, statusCode = 200, origin?: string) => ({
   statusCode,
-  headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
   body: json(data),
 });
-
-const txt = (text = '', statusCode = 200) => ({
+const txt = (text = "", statusCode = 200, origin?: string) => ({
   statusCode,
-  headers: CORS_HEADERS,
+  headers: corsHeaders(origin),
   body: text,
 });
-
-const err = (message: string, statusCode = 500) =>
-  ok({ message }, statusCode);
+const err = (message: string, statusCode = 500, origin?: string) =>
+  ok({ message }, statusCode, origin);
 
 export const handler = async (event: APIGWEvent) => {
-  // ✅ Let CORS preflight through fast
-  if ((event.httpMethod || '').toUpperCase() === 'OPTIONS') {
-    return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+  const origin = pickOrigin(event.headers);
+
+  // Preflight
+  if ((event.httpMethod || "").toUpperCase() === "OPTIONS") {
+    return { statusCode: 204, headers: corsHeaders(origin), body: "" };
   }
 
   try {
-    if (!BUCKET) {
-      return err('Server is not configured (missing BUCKET)', 500);
-    }
+    if (!BUCKET) return err("Server misconfigured: missing BUCKET", 500, origin);
 
-    const method = (event.httpMethod || 'GET').toUpperCase();
-    const path = (event.path || '').toLowerCase();
+    const method = (event.httpMethod || "GET").toUpperCase();
+    const path = (event.path || "").toLowerCase();
 
-    // Pull Cognito subject (user id) from the JWT-verified authorizer claims
+    // user id (verified by API GW authorizer)
     const sub: string | undefined =
       (event as any)?.requestContext?.authorizer?.claims?.sub;
+    if (!sub) return err("Unauthorized", 401, origin);
 
-    if (!sub) {
-      return err('Unauthorized', 401);
-    }
-
-    // === GET /list  ->  { prefix, items: [{ key, size, lastModified }] }
-    if (method === 'GET' && path.endsWith('/list')) {
+    // === GET /list
+    if (method === "GET" && path.endsWith("/list")) {
       const Prefix = `users/${sub}/`;
       const data = await s3.send(
         new ListObjectsV2Command({ Bucket: BUCKET, Prefix })
       );
-      const items = (data.Contents || [])
-        .filter((o) => o.Key)
-        .map((o) => ({
-          key: o!.Key!,
-          size: o!.Size ?? 0,
-          lastModified: o!.LastModified ? o!.LastModified.toISOString() : null,
-        }));
-      return ok({ prefix: Prefix, items });
+
+      const items = await Promise.all(
+        (data.Contents || [])
+          .filter((o) => o.Key)
+          .map(async (o) => {
+            const key = o!.Key!;
+
+            // Presigned GET for original
+            const viewUrl = await getSignedUrl(
+              s3,
+              new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+              { expiresIn: 900 }
+            );
+
+            // Optional CDN thumb: thumbs/<sub>/<filename>.jpg
+            let thumbUrl: string | undefined;
+            if (THUMBS_CDN) {
+              const baseName = key.replace(`users/${sub}/`, "");
+              thumbUrl = `${THUMBS_CDN}/thumbs/${sub}/${baseName}`.replace(
+                /\.(png|gif|webp|avif)$/i,
+                ".jpg"
+              );
+            }
+
+            return {
+              key,
+              size: o!.Size ?? 0,
+              lastModified: o!.LastModified
+                ? o!.LastModified.toISOString()
+                : null,
+              viewUrl,
+              ...(thumbUrl ? { thumbUrl } : {}),
+            };
+          })
+      );
+
+      return ok({ prefix: Prefix, items }, 200, origin);
     }
 
-    // === POST /presign  { key, contentType } -> { url, key, headers? }
-    if (method === 'POST' && path.endsWith('/presign')) {
+    // === POST /presign  { key, contentType } -> { url, key, headers }
+    if (method === "POST" && path.endsWith("/presign")) {
       const body = event.body ? JSON.parse(event.body) : {};
-      const keyInput: string = String(body.key || 'file.bin');
+      const keyInput: string = String(body.key || "file.bin");
       const contentType: string = String(
-        body.contentType || 'application/octet-stream'
+        body.contentType || "application/octet-stream"
       );
-      // Ensure key is namespaced to the caller
-      const Key = `users/${sub}/${keyInput.replace(/^\/*/, '')}`;
+      const Key = `users/${sub}/${keyInput.replace(/^\/*/, "")}`;
 
-      // Generate a PUT presigned URL
       const url = await getSignedUrl(
         s3,
         new PutObjectCommand({ Bucket: BUCKET, Key, ContentType: contentType }),
         { expiresIn: 900 }
       );
 
-      // Optionally surface headers clients should send for PUT
-      const headers = { 'Content-Type': contentType };
-
-      return ok({ url, key: Key, headers });
+      return ok({ url, key: Key, headers: { "Content-Type": contentType } }, 200, origin);
     }
 
     // === DELETE /delete?key=users/<sub>/...
-    if (method === 'DELETE' && path.endsWith('/delete')) {
-      const key = String(event.queryStringParameters?.key || '');
+    if (method === "DELETE" && path.endsWith("/delete")) {
+      const key = String(event.queryStringParameters?.key || "");
       const expectedPrefix = `users/${sub}/`;
-      if (!key.startsWith(expectedPrefix)) {
-        return err('Forbidden key', 403);
-      }
+      if (!key.startsWith(expectedPrefix)) return err("Forbidden key", 403, origin);
+
       await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
-      return txt('', 204);
+      return txt("", 204, origin);
     }
 
-    // === POST /thumb  { key } -> enqueue job (202)
-    if (method === 'POST' && path.endsWith('/thumb')) {
+    // === POST /thumb  { key } -> enqueue job (optional)
+    if (method === "POST" && path.endsWith("/thumb")) {
       const body = event.body ? JSON.parse(event.body) : {};
-      const key: string = String(body.key || '');
-
-      // Guard: only allow enqueuing for the caller's own namespace
+      const key: string = String(body.key || "");
       const expectedPrefix = `users/${sub}/`;
-      if (!key.startsWith(expectedPrefix)) {
-        return err('Forbidden key', 403);
-      }
+      if (!key.startsWith(expectedPrefix)) return err("Forbidden key", 403, origin);
 
-      // If queue isn't configured yet, still return 202 for a smooth UX
       if (QUEUE_URL) {
         await sqs.send(
           new SendMessageCommand({
@@ -137,19 +169,18 @@ export const handler = async (event: APIGWEvent) => {
           })
         );
       }
-      return txt('', 202);
+      return txt("", 202, origin);
     }
 
-    return err('Not found', 404);
+    return err("Not found", 404, origin);
   } catch (e: any) {
-    console.error('UPLOADS ERROR', {
+    console.error("UPLOADS ERROR", {
       path: event.path,
       method: event.httpMethod,
       headers: event.headers,
       message: e?.message,
       stack: e?.stack,
     });
-    return err(e?.message || 'Internal server error', 500);
+    return err(e?.message || "Internal server error", 500, pickOrigin(event.headers));
   }
 };
-

@@ -1,4 +1,5 @@
 {
+ "Description": "Cognito (user pool, app client, hosted UI, identity pool)",
  "Resources": {
   "UserPool6BA7E5F2": {
    "Type": "AWS::Cognito::UserPool",
@@ -40,6 +41,9 @@
      }
     ],
     "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolTags": {
+     "App": "stylingadventures"
+    },
     "UsernameAttributes": [
      "email"
     ],
@@ -103,7 +107,7 @@
   "HostedUiDomain": {
    "Type": "AWS::Cognito::UserPoolDomain",
    "Properties": {
-    "Domain": "stylingadventures-256673",
+    "Domain": "stylingadventures-id.4]}",
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
@@ -128,6 +132,12 @@
        ]
       }
      }
+    ],
+    "IdentityPoolTags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     }
     ]
    },
    "Metadata": {
@@ -141,7 +151,8 @@
    },
    "Metadata": {
     "aws:cdk:path": "IdentityStack/CDKMetadata/Default"
-   }
+   },
+   "Condition": "CDKMetadataAvailable"
   }
  },
  "Outputs": {
@@ -161,28 +172,24 @@
    }
   },
   "HostedUiDomainName": {
-   "Value": "stylingadventures-256673"
+   "Value": "stylingadventures-id.4]}"
   },
   "HostedUiLoginUrl": {
    "Value": {
     "Fn::Join": [
      "",
      [
-      "https://stylingadventures-256673.auth.us-east-1.amazoncognito.com/login?client_id=",
+      "https://stylingadventures-id.4]}.auth.",
+      {
+       "Ref": "AWS::Region"
+      },
+      ".amazoncognito.com/login?client_id=",
       {
        "Ref": "WebClient697086FD"
       },
       "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html"
      ]
     ]
-   }
-  },
-  "ExportsOutputRefUserPool6BA7E5F296FD7236": {
-   "Value": {
-    "Ref": "UserPool6BA7E5F2"
-   },
-   "Export": {
-    "Name": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
    }
   },
   "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00": {
@@ -195,6 +202,272 @@
    "Export": {
     "Name": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
    }
+  }
+ },
+ "Conditions": {
+  "CDKMetadataAvailable": {
+   "Fn::Or": [
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "af-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-3"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-4"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-northwest-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-2"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "il-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "sa-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-1"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AWS::Region"
+      },
+      "us-west-2"
+     ]
+    }
+   ]
   }
  },
  "Parameters": {

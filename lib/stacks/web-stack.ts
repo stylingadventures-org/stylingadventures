@@ -12,7 +12,7 @@ export class WebStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // Private S3 bucket (only CloudFront can read)
+    // Private S3 bucket for site
     this.siteBucket = new s3.Bucket(this, 'SiteBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -20,48 +20,38 @@ export class WebStack extends Stack {
       versioned: false,
     });
 
-    // Origin Access Identity for CloudFront -> S3
-    const oai = new cloudfront.OriginAccessIdentity(this, 'Oai');
-    this.siteBucket.grantRead(oai);
+    // OAI for site bucket
+    const siteOai = new cloudfront.OriginAccessIdentity(this, 'SiteOai');
+    this.siteBucket.grantRead(siteOai);
 
-    // Rewrite "/folder" and "/folder/" to "/folder/index.html"
+    // Pretty URLs -> index.html
     const dirIndexFn = new cloudfront.Function(this, 'DirIndexRewriteFn', {
       code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var req = event.request;
   var uri = req.uri || '/';
-  if (uri.endsWith('/')) {
-    req.uri = uri + 'index.html';
-    return req;
-  }
-  if (uri.indexOf('.') === -1) {
-    req.uri = uri + '/index.html';
-    return req;
-  }
+  if (uri.endsWith('/')) { req.uri = uri + 'index.html'; return req; }
+  if (uri.indexOf('.') === -1) { req.uri = uri + '/index.html'; return req; }
   return req;
 }
       `),
     });
 
-    // Use S3Origin (works with OAI in all CDK v2 versions)
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultRootObject: 'index.html',
       defaultBehavior: {
-        origin: new origins.S3Origin(this.siteBucket, { originAccessIdentity: oai }),
+        origin: new origins.S3Origin(this.siteBucket, { originAccessIdentity: siteOai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
         functionAssociations: [
-          {
-            function: dirIndexFn,
-            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-          },
+          { function: dirIndexFn, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
         ],
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    // Deploy web assets and invalidate CloudFront
+    // Deploy SPA and invalidate
     new s3deploy.BucketDeployment(this, 'DeploySite', {
       destinationBucket: this.siteBucket,
       distribution: this.distribution,
@@ -69,13 +59,10 @@ function handler(event) {
       sources: [s3deploy.Source.asset('lib/stacks/web')],
     });
 
-    new CfnOutput(this, 'CloudFrontDistributionDomainName', {
-      value: this.distribution.domainName,
-    });
-    new CfnOutput(this, 'StaticSiteBucketName', {
-      value: this.siteBucket.bucketName,
-    });
+    new CfnOutput(this, 'CloudFrontDistributionDomainName', { value: this.distribution.domainName });
+    new CfnOutput(this, 'StaticSiteBucketName', { value: this.siteBucket.bucketName });
   }
 }
+
 
 
