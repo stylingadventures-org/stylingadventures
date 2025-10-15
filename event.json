@@ -1,0 +1,10 @@
+{
+  "httpMethod": "GET",
+  "path": "/list",
+  "headers": {},
+  "requestContext": {
+    "authorizer": {
+      "claims": { "sub": "test-user-123" }
+    }
+  }
+}

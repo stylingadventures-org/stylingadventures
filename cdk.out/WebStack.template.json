@@ -1,4 +1,5 @@
 {
+ "Description": "Static web hosting (S3 + CloudFront for the site only)",
  "Resources": {
   "SiteBucket397A1860": {
    "Type": "AWS::S3::Bucket",
@@ -19,6 +20,10 @@
      "RestrictPublicBuckets": true
     },
     "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
      {
       "Key": "aws-cdk:cr-owned:ac28870b",
       "Value": "true"
@@ -83,7 +88,7 @@
        "Principal": {
         "CanonicalUser": {
          "Fn::GetAtt": [
-          "Oai29B41E8C",
+          "SiteOaiE31FB8B2",
           "S3CanonicalUserId"
          ]
         }
@@ -117,7 +122,7 @@
        "Principal": {
         "CanonicalUser": {
          "Fn::GetAtt": [
-          "Oai29B41E8C",
+          "SiteOaiE31FB8B2",
           "S3CanonicalUserId"
          ]
         }
@@ -145,7 +150,7 @@
     "aws:cdk:path": "WebStack/SiteBucket/Policy/Resource"
    }
   },
-  "Oai29B41E8C": {
+  "SiteOaiE31FB8B2": {
    "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
    "Properties": {
     "CloudFrontOriginAccessIdentityConfig": {
@@ -153,19 +158,39 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "WebStack/Oai/Resource"
+    "aws:cdk:path": "WebStack/SiteOai/Resource"
    }
   },
   "DirIndexRewriteFn951FA463": {
    "Type": "AWS::CloudFront::Function",
    "Properties": {
     "AutoPublish": true,
-    "FunctionCode": "\nfunction handler(event) {\n  var req = event.request;\n  var uri = req.uri || '/';\n  if (uri.endsWith('/')) {\n    req.uri = uri + 'index.html';\n    return req;\n  }\n  if (uri.indexOf('.') === -1) {\n    req.uri = uri + '/index.html';\n    return req;\n  }\n  return req;\n}\n      ",
+    "FunctionCode": "\nfunction handler(event) {\n  var req = event.request;\n  var uri = req.uri || '/';\n  if (uri.endsWith('/')) { req.uri = uri + 'index.html'; return req; }\n  if (uri.indexOf('.') === -1) { req.uri = uri + '/index.html'; return req; }\n  return req;\n}\n      ",
     "FunctionConfig": {
-     "Comment": "us-east-1WebStackDirIndexRewriteFnB90BEA1B",
+     "Comment": {
+      "Fn::Join": [
+       "",
+       [
+        {
+         "Ref": "AWS::Region"
+        },
+        "WebStackDirIndexRewriteFnB90BEA1B"
+       ]
+      ]
+     },
      "Runtime": "cloudfront-js-1.0"
     },
-    "Name": "us-east-1WebStackDirIndexRewriteFnB90BEA1B"
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       {
+        "Ref": "AWS::Region"
+       },
+       "WebStackDirIndexRewriteFnB90BEA1B"
+      ]
+     ]
+    }
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/DirIndexRewriteFn/Resource"
@@ -213,7 +238,7 @@
           [
            "origin-access-identity/cloudfront/",
            {
-            "Ref": "Oai29B41E8C"
+            "Ref": "SiteOaiE31FB8B2"
            }
           ]
          ]
@@ -222,7 +247,13 @@
       }
      ],
      "PriceClass": "PriceClass_100"
-    }
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     }
+    ]
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/Distribution/Resource"
@@ -232,7 +263,9 @@
    "Type": "AWS::Lambda::LayerVersion",
    "Properties": {
     "Content": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+     },
      "S3Key": "c49d356cac773d491c5f7ac148995a1181498a8e289429f8612a7f7e3814f535.zip"
     },
     "Description": "/opt/awscli/aws"
@@ -254,10 +287,12 @@
      ]
     },
     "SourceBucketNames": [
-     "cdk-hnb659fds-assets-637423256673-us-east-1"
+     {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+     }
     ],
     "SourceObjectKeys": [
-     "964b7c21c9ee5d4d1dc65beea352f9a1c6c773c0253aa8e50c7a22184fdacf13.zip"
+     "78ce8def1ffdb758d2f2f4d8b21d797babe67a6df8f9d443ac835185430f1703.zip"
     ],
     "DestinationBucketName": {
      "Ref": "SiteBucket397A1860"
@@ -306,6 +341,12 @@
        ]
       ]
      }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     }
     ]
    },
    "Metadata": {
@@ -333,7 +374,10 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":s3:::cdk-hnb659fds-assets-637423256673-us-east-1"
+           ":s3:::",
+           {
+            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+           }
           ]
          ]
         },
@@ -345,7 +389,11 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":s3:::cdk-hnb659fds-assets-637423256673-us-east-1/*"
+           ":s3:::",
+           {
+            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+           },
+           "/*"
           ]
          ]
         }
@@ -414,7 +462,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+     },
      "S3Key": "3423a042b818e31c1e34a19d6689ab2e5f9b70fcbe9e71df66f241b20a200bd9.zip"
     },
     "Environment": {
@@ -435,6 +485,12 @@
      ]
     },
     "Runtime": "python3.13",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     }
+    ],
     "Timeout": 900
    },
    "DependsOn": [
@@ -455,7 +511,8 @@
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/CDKMetadata/Default"
-   }
+   },
+   "Condition": "CDKMetadataAvailable"
   }
  },
  "Outputs": {
@@ -471,17 +528,272 @@
    "Value": {
     "Ref": "SiteBucket397A1860"
    }
-  },
-  "ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30": {
-   "Value": {
-    "Fn::GetAtt": [
-     "Distribution830FAC52",
-     "DomainName"
-    ]
-   },
-   "Export": {
-    "Name": "WebStack:ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30"
-   }
+  }
+ },
+ "Conditions": {
+  "CDKMetadataAvailable": {
+   "Fn::Or": [
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "af-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-3"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-4"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-northwest-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-2"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "il-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "sa-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-1"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Equals": [
+      {
+       "Ref": "AWS::Region"
+      },
+      "us-west-2"
+     ]
+    }
+   ]
   }
  },
  "Parameters": {

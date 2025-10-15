@@ -1,18 +1,17 @@
 {
   "version": "48.0.0",
   "files": {
-    "e2141db9c46efb6174660aa715d6808925defd954fb72ce35ec8f7bf0afd18f8": {
+    "49770450e91d14e6fc4ae3a602b8f839a6bfb32af93a0e6c6503c70d981e5631": {
       "displayName": "IdentityStack Template",
       "source": {
         "path": "IdentityStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-0c96dec6": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "e2141db9c46efb6174660aa715d6808925defd954fb72ce35ec8f7bf0afd18f8.json",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        "current_account-current_region-f80b4da5": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "49770450e91d14e6fc4ae3a602b8f839a6bfb32af93a0e6c6503c70d981e5631.json",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
         }
       }
     }
