@@ -1,0 +1,114 @@
+{
+ "Description": "Primary application table - dev",
+ "Resources": {
+  "AppTable815C50BC": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "sk",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "pk",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "sk",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "sa-dev-app",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "DataStack/AppTable/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/yXGSwqAIBAA0LO016mkjetuUO1j1Anso9BkEeHdg1q9p0DVGqoCL5bWLXL1Bp7+QLsIvHh0d8AtOgPPgGYl0U7hSxYdcUy7pSxCdAQzl6eqoNbQFDN7L/cUDr8RdL8vbOtYrWgAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "DataStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3": {
+   "Value": {
+    "Fn::GetAtt": [
+     "AppTable815C50BC",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+   }
+  },
+  "ExportsOutputRefAppTable815C50BC1988FCFB": {
+   "Value": {
+    "Ref": "AppTable815C50BC"
+   },
+   "Export": {
+    "Name": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

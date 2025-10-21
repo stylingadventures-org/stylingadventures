@@ -1,7 +1,79 @@
+"""Auth directive used in this API"""
+directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
+
+"""App base enums & types"""
+enum ClosetStatus { PENDING APPROVED REJECTED PUBLISHED }
+
+type ClosetItem {
+  id: ID!
+  ownerSub: String!
+  status: ClosetStatus!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  mediaKey: String
+  title: String
+  reason: String          # optional: why REJECTED
+}
+
+"""RBAC: roles & tiers"""
+enum Role { FAN BESTIE CREATOR COLLAB ADMIN }
+enum Tier { FREE PRIME }
+
+type User {
+  id: ID!
+  email: AWSEmail
+  role: Role!
+  tier: Tier
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input SetUserRoleInput {
+  userId: ID!
+  email: AWSEmail
+  role: Role!
+  tier: Tier
+}
+
+"""Paged list of users for admin UI"""
+type AdminUsersPage {
+  items: [User!]!
+  nextToken: String
+}
+
 type Query {
+  # existing
   hello: String!
+  myCloset: [ClosetItem!]!
+
+  # moved here from Mutation to fix resolver mismatch
+  adminListPending: [ClosetItem!]!
+    @aws_auth(cognito_groups: ["ADMIN","COLLAB","PRIME"])
+
+  # roles
+  me: User!
+
+  # existing: admin user search
+  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
+    @aws_auth(cognito_groups: ["ADMIN"])
+}
+
+type Mutation {
+  # existing
+  requestClosetApproval(id: ID!): String!  # returns executionArn
+  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth
+
+  # roles
+  setUserRole(input: SetUserRoleInput!): User!
+
+  # new moderation actions
+  adminApproveItem(id: ID!): ClosetItem!
+    @aws_auth(cognito_groups: ["ADMIN","COLLAB"])
+  adminRejectItem(id: ID!, reason: String): ClosetItem!
+    @aws_auth(cognito_groups: ["ADMIN","COLLAB"])
 }
 
 schema {
   query: Query
+  mutation: Mutation
 }

@@ -1,5 +1,5 @@
 {
- "Description": "Cognito (user pool, app client, hosted UI, identity pool)",
+ "Description": "Cognito (user pool, app client, hosted UI, identity pool) - dev",
  "Resources": {
   "UserPool6BA7E5F2": {
    "Type": "AWS::Cognito::UserPool",
@@ -42,7 +42,8 @@
     ],
     "SmsVerificationMessage": "The verification code to your new account is {####}",
     "UserPoolTags": {
-     "App": "stylingadventures"
+     "App": "stylingadventures",
+     "Env": "dev"
     },
     "UsernameAttributes": [
      "email"
@@ -104,16 +105,100 @@
     "aws:cdk:path": "IdentityStack/WebClient/Resource"
    }
   },
-  "HostedUiDomain": {
+  "HostedUiDomainA5D361B0": {
    "Type": "AWS::Cognito::UserPoolDomain",
    "Properties": {
-    "Domain": "stylingadventures-id.4]}",
+    "Domain": "sa-dev-637423256673",
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "IdentityStack/HostedUiDomain"
+    "aws:cdk:path": "IdentityStack/HostedUiDomain/Resource"
+   }
+  },
+  "FANGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "FAN group",
+    "GroupName": "FAN",
+    "Precedence": 10,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/FANGroup"
+   }
+  },
+  "BESTIEGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "BESTIE group",
+    "GroupName": "BESTIE",
+    "Precedence": 11,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/BESTIEGroup"
+   }
+  },
+  "CREATORGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "CREATOR group",
+    "GroupName": "CREATOR",
+    "Precedence": 12,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/CREATORGroup"
+   }
+  },
+  "COLLABGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "COLLAB group",
+    "GroupName": "COLLAB",
+    "Precedence": 13,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/COLLABGroup"
+   }
+  },
+  "ADMINGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "ADMIN group",
+    "GroupName": "ADMIN",
+    "Precedence": 1,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/ADMINGroup"
+   }
+  },
+  "PRIMEGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "PRIME group",
+    "GroupName": "PRIME",
+    "Precedence": 15,
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/PRIMEGroup"
    }
   },
   "IdentityPool": {
@@ -137,6 +222,10 @@
      {
       "Key": "App",
       "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
      }
     ]
    },
@@ -147,12 +236,11 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XJMQvCMBCG4d/SPTnb4NK5Lk6K4iwxiXJteifN1SKl/12CKILT9/J8BkxVQ1nYKWnnOx3xAvNRrOuUndLZ8Y1QGOZTCsOeOarmSt/+RBMxkPxe/7Lh3iJl2fpAgvLMumTYjXIfZVHEPkCbVg9TQlXDumgToh5GEuwDHN77AuuVvhSxAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XKTwuCQBAF8M/iXSeVLp4NolNSdI7N3WL8MyO7s0mI3z2WMoRO897vTQ55VkAaqdEltW6TDm8wnUXVbaxGd635QSgM08UZWzF3cXmnX15C2aEhWU9fWeqOe4W0fviXvWU/BDhoQ4LyCjgHOHoZvMwxsTbQuM0zTyErYBs1DjGxngR7A6fPfQNVrSIU0QAAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "IdentityStack/CDKMetadata/Default"
-   },
-   "Condition": "CDKMetadataAvailable"
+   }
   }
  },
  "Outputs": {
@@ -171,25 +259,26 @@
     "Ref": "IdentityPool"
    }
   },
-  "HostedUiDomainName": {
-   "Value": "stylingadventures-id.4]}"
-  },
   "HostedUiLoginUrl": {
    "Value": {
     "Fn::Join": [
      "",
      [
-      "https://stylingadventures-id.4]}.auth.",
-      {
-       "Ref": "AWS::Region"
-      },
-      ".amazoncognito.com/login?client_id=",
+      "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com/login?client_id=",
       {
        "Ref": "WebClient697086FD"
       },
       "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html"
      ]
     ]
+   }
+  },
+  "ExportsOutputRefUserPool6BA7E5F296FD7236": {
+   "Value": {
+    "Ref": "UserPool6BA7E5F2"
+   },
+   "Export": {
+    "Name": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
    }
   },
   "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00": {
@@ -202,272 +291,6 @@
    "Export": {
     "Name": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
    }
-  }
- },
- "Conditions": {
-  "CDKMetadataAvailable": {
-   "Fn::Or": [
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "af-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-3"
-       ]
-      }
-     ]
-    },
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-4"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-west-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-northwest-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-2"
-       ]
-      }
-     ]
-    },
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "il-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "sa-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-west-1"
-       ]
-      }
-     ]
-    },
-    {
-     "Fn::Equals": [
-      {
-       "Ref": "AWS::Region"
-      },
-      "us-west-2"
-     ]
-    }
-   ]
   }
  },
  "Parameters": {

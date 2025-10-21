@@ -5,32 +5,79 @@
   <title>Styling Adventures</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/css/thumbs.css" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="alternate icon" href="/favicon.ico" />
   <style>
     /* Dropzone */
     #dropzone.dz{padding:20px;border:2px dashed #bbb;border-radius:10px;transition:border-color .15s}
     #dropzone.dz.dragover{border-color:#666}
+
     /* Upload rows */
     .li-row{margin:6px 0}
     .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .row strong{min-width:220px;word-break:break-all}
     .row .size{min-width:90px}
     .row .ctype{min-width:150px}
-    .row progress{width:220px}
+    .row progress{width:220px;height:10px;border-radius:6px;overflow:hidden}
     .row .status{min-width:120px}
     .ml-auto{margin-left:auto}
     .hidden{display:none}
     .sa-error{color:#b00020}
+
+    /* Topbar & role badge */
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:.5rem}
+    .who{font:500 14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#475569}
+    .badge{display:inline-flex;align-items:center;gap:.35rem;font:600 12px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      padding:.25rem .5rem;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;margin-left:.5rem}
+    .badge .dot{width:.5rem;height:.5rem;border-radius:50%;background:#6366f1}
+    .badge.admin{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+    .badge.admin .dot{background:#ef4444}
+    .badge.creator{background:#ecfeff;border-color:#a5f3fc;color:#155e75}
+    .badge.creator .dot{background:#06b6d4}
+
+    /* Toast */
+    .toast-wrap{position:fixed;inset:auto 0 16px 0;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:9999;pointer-events:none}
+    .toast{pointer-events:auto;max-width:min(92vw,680px);width:fit-content;padding:.6rem .9rem;border-radius:10px;
+      background:#111827;color:#fff;font:500 14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .toast.ok{background:#065f46}
+    .toast.err{background:#7f1d1d}
+    .fade-in{animation:fadein .18s ease-out}
+    @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Thumbs */
+    .thumb{height:40px;border-radius:6px;cursor:pointer;display:none}
+    .thumb.show{display:inline-block}
+
+    /* Admin table */
+    .sa-table-wrap{overflow:auto}
+    .sa-table{width:100%;border-collapse:separate;border-spacing:0}
+    .sa-table th,.sa-table td{padding:.6rem .7rem;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
+    .sa-table thead th{font-weight:600;color:#334155;background:#f8fafc;position:sticky;top:0}
+    .pill{display:inline-block;padding:.15rem .45rem;border-radius:999px;font:600 11px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .pill.pending{background:#fdf4ff;color:#6b21a8;border:1px solid #f5d0fe}
+    .pill.approved{background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0}
+    .pill.rejected{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+    .pill.published{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+    .sa-btn.linklike{background:transparent;border:0;color:#2563eb;padding:0;cursor:pointer}
+    .nowrap{white-space:nowrap}
   </style>
 </head>
 <body class="sa-body">
-  <h1>StylingAdventures</h1>
-
-  <div class="actions">
-    <a id="signin" href="#" class="sa-link">Sign in</a>
-    <button id="signout" class="sa-btn sa-btn-outline ml-2">Sign out</button>
-    <button id="signout-global" class="sa-btn sa-btn-outline ml-2">Sign out everywhere</button>
+  <div class="topbar">
+    <h1 class="sa-h1 m-0">StylingAdventures
+      <span id="role-badge" class="badge"><span class="dot"></span><span class="txt">…</span></span>
+    </h1>
+    <div class="who">
+      <span id="who-email">Not signed in</span>
+      <span class="ml-2">
+        <a id="signin" href="#" class="sa-link">Sign in</a>
+        <button id="signout" class="sa-btn sa-btn-outline ml-2">Sign out</button>
+        <button id="signout-global" class="sa-btn sa-btn-outline ml-2">Sign out everywhere</button>
+        <!-- NEW: link to the Creator dashboard -->
+        <a href="/creator/" class="sa-btn ml-2">Creator dashboard</a>
+      </span>
+    </div>
   </div>
 
   <h2>Status</h2>
@@ -46,43 +93,103 @@
     <span id="hello-out" class="ml-2 sa-muted" aria-live="polite"></span>
   </div>
 
+  <!-- Roles UI -->
+  <h2>My role</h2>
+  <div class="sa-card" id="role-card">
+    <div class="sa-role-row">
+      <button id="btn-load-me" class="sa-btn">Load my role</button>
+      <label>Role
+        <select id="role" class="sa-input">
+          <option>FAN</option>
+          <option>BESTIE</option>
+          <option>CREATOR</option>
+          <option>COLLAB</option>
+          <option>ADMIN</option>
+        </select>
+      </label>
+      <label>Tier
+        <select id="tier" class="sa-input">
+          <option>FREE</option>
+          <option>PRIME</option>
+        </select>
+      </label>
+      <button id="btn-save-role" class="sa-btn">Save role</button>
+    </div>
+    <pre id="meOut" class="sa-pre sa-muted sa-me-pre"></pre>
+  </div>
+
   <h2>Uploads</h2>
   <div class="sa-card">
     <div class="form-row">
       <label for="upload-key" class="sa-label">Key prefix (optional)</label>
       <input id="upload-key" placeholder="e.g. photos/2025/" class="sa-input" />
     </div>
-
     <div class="form-row">
       <label for="upload-file" class="sa-label">Files</label>
       <input id="upload-file" type="file" multiple class="sa-input" />
     </div>
-
     <div id="dropzone" class="sa-card sa-muted dz" aria-label="Drop files here">
       Drag & drop files here, or use the file picker above.
     </div>
-
     <button id="btn-upload" class="sa-btn mt-2">Upload selected files</button>
     <p id="uploads-msg" class="sa-muted mt-2" aria-live="polite"></p>
     <ul id="upload-list" class="sa-muted mt-2"></ul>
   </div>
 
+  <!-- Creator/Admin containers -->
+  <section id="creator-tools" class="sa-card hidden">
+    <h2>Creator tools</h2>
+    <p>Stuff for CREATOR / COLLAB / ADMIN.</p>
+  </section>
+
+  <section id="admin-tools" class="sa-card hidden">
+    <h2>Admin</h2>
+    <div class="mb-2">
+      <button id="btn-list-pending" class="sa-btn">List pending uploads</button>
+    </div>
+    <div class="sa-table-wrap">
+      <table class="sa-table" id="pending-table" aria-live="polite">
+        <thead>
+          <tr><th>ID</th><th>Owner</th><th>Title</th><th>Status</th><th>When</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="pending-body"><tr><td colspan="6" class="sa-muted">No data</td></tr></tbody>
+      </table>
+    </div>
+    <pre id="admin-out" class="sa-pre sa-muted mt-2"></pre>
+  </section>
+
+  <!-- Toast container -->
+  <div class="toast-wrap" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
   <script type="module">
-    /* ========================== config & helpers ========================== */
+    import { decorateThumb } from '/js/thumbs-ui.js';
+
+    /* ========================== tiny helpers ========================== */
+    const q = (s, r=document) => r.querySelector(s);
+    const qq = (s, r=document) => Array.from(r.querySelectorAll(s));
+    const h = (html) => { const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
+    const copy = async (txt) => { try { await navigator.clipboard.writeText(String(txt)); return true; } catch { return false; } };
+    const fmtDate = (iso) => new Date(iso).toLocaleString();
+    const timeAgo = (iso) => {
+      const s = Math.floor((Date.now()-new Date(iso).getTime())/1000);
+      const u = [[60,'s'],[60,'m'],[24,'h'],[7,'d'],[4.345,'w'],[12,'mo'],[Number.POSITIVE_INFINITY,'y']];
+      let v=s, i=0; for (; i<u.length && v>=u[i][0]; i++) v/=u[i][0];
+      return `${Math.floor(v)}${u[Math.min(i,u.length-1)][1]} ago`;
+    };
+
+    /* ========================== config & auth ========================== */
     async function loadCfg(){
-      const res = await fetch('/config.json?ts=' + Date.now(), { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to load /config.json');
+      const res = await fetch('/config.v2.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to load /config.v2.json');
       return res.json();
     }
     const cfg = await loadCfg();
-    window._cfg = { ...cfg }; // for quick DevTools checks
+    window._cfg = { ...cfg };
 
-    // Hosted UI domain
     const hosted = cfg.domain || cfg.hostedUiDomain;
     if (!hosted) throw new Error('config.json missing "domain"/"hostedUiDomain"');
     const domain = `https://${hosted}.auth.${cfg.region}.amazoncognito.com`;
 
-    // Callback/logout URIs (exact match with Cognito)
     const ORIGIN   = location.origin;
     const CB_INDEX = `${ORIGIN}/callback/index.html`;
     const redirectUri = (cfg.redirectUri || CB_INDEX).trim();
@@ -91,10 +198,12 @@
     const authorizeUrl = `${domain}/oauth2/authorize`;
     const logoutUrl    = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`;
 
-    // uploads API base (normalize to no trailing slash)
     const apiBase = cfg.uploadsApiUrl || cfg.uploadsUrl || cfg.apiUrl;
     if (!apiBase) throw new Error('config.json missing "uploadsApiUrl"/"uploadsUrl"/"apiUrl"');
     const api = apiBase.replace(/\/+$/, '');
+
+    const getThumbsBase = () =>
+      (cfg.thumbsCdn || cfg.cdnUrl || cfg.webOrigin || location.origin).replace(/\/+$/, '');
 
     const $ = s => document.querySelector(s);
     const enc = new TextEncoder();
@@ -130,11 +239,18 @@
       s = s.replace(/^\/*/, '').replace(/\/+$/, '').replace(/[^A-Za-z0-9_\-\/]/g, '');
       return s ? s + '/' : '';
     };
-    const toast = (text, type='info') => {
-      const el = $('#uploads-msg');
+
+    /* Toasts */
+    function toast(text, type='info', ms=2800){
+      const wrap = $('#toasts');
+      const el = document.createElement('div');
+      el.className = `toast fade-in ${type==='error'?'err': type==='ok'?'ok':''}`;
       el.textContent = text;
-      el.className = `sa-muted mt-2 ${type==='error' ? 'sa-error' : ''}`;
-    };
+      wrap.appendChild(el);
+      setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(4px)'; }, ms);
+      setTimeout(()=>{ el.remove(); }, ms+250);
+      const sr = $('#uploads-msg'); if (sr) { sr.textContent = text; sr.className = `sa-muted mt-2 ${type==='error'?'sa-error':''}`; }
+    }
 
     /* ============================== auth ============================== */
     function parseJwt(t){ if(!t) return null; try{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));}catch{return null;} }
@@ -184,16 +300,43 @@
       return out.id_token || sessionStorage.getItem('id_token');
     }
 
+    /* ---------- Role badge helpers ---------- */
+    function setRoleBadge(role='…'){
+      const b = document.getElementById('role-badge');
+      const txt = b?.querySelector('.txt');
+      if (!b || !txt) return;
+      b.classList.remove('admin','creator');
+      if (role === 'ADMIN') b.classList.add('admin');
+      if (role === 'CREATOR' || role === 'COLLAB') b.classList.add('creator');
+      txt.textContent = String(role || 'FAN');
+    }
+
+    function roleFromJwtOrDefault(){
+      const p = parseJwt(sessionStorage.getItem('id_token') || '');
+      const groups = (p?.['cognito:groups'] || []);
+      if (groups.includes('ADMIN')) return 'ADMIN';
+      if (groups.includes('COLLAB')) return 'COLLAB';
+      if (groups.includes('CREATOR')) return 'CREATOR';
+      if (groups.includes('BESTIE'))  return 'BESTIE';
+      return 'FAN';
+    }
+
     function render(){
       const id  = sessionStorage.getItem('id_token');
+      const payload = parseJwt(id || '');
       $('#signin').style.display         = id ? 'none' : 'inline';
       $('#signout').style.display        = id ? 'inline-block' : 'none';
       $('#signout-global').style.display = id ? 'inline-block' : 'none';
+
       const left = secondsLeft(id);
       const mins = Math.floor(left/60);
       const secs = String(left%60).padStart(2,'0');
       $('#status').textContent = id ? `Signed in · token refreshes in ${mins}:${secs}` : 'You’re signed out. Click “Sign in” to start.';
-      $('#dbg').textContent    = id ? JSON.stringify(parseJwt(id) || {}, null, 2) : '';
+      $('#dbg').textContent    = id ? JSON.stringify(payload || {}, null, 2) : '';
+      $('#who-email').textContent = id ? (payload?.email || '(no email)') : 'Not signed in';
+      $('#role-card').style.opacity = id ? 1 : 0.5;
+
+      if (id) setRoleBadge(roleFromJwtOrDefault());
     }
 
     async function callHello(){
@@ -207,9 +350,134 @@
       if (!res.ok) throw new Error(`AppSync ${res.status}: ${await res.text()}`);
       const j = await res.json();
       $('#hello-out').textContent = j.data?.hello ?? '(no data)';
+      toast('Hello response received ✅','ok',1800);
     }
 
-    /* ============================ uploads ============================ */
+    /* ============================ Roles helpers ============================ */
+    function show(el, yes) { if (el) el.classList.toggle('hidden', !yes); }
+
+    function applyRoleUi(role) {
+      const isCreatorish = role === 'CREATOR' || role === 'COLLAB' || role === 'ADMIN';
+      const isAdmin      = role === 'ADMIN';
+
+      const uploadsHeader = Array.from(document.querySelectorAll('h2'))
+        .find(h => h.textContent?.trim().toLowerCase() === 'uploads');
+      const uploadsCard = uploadsHeader?.nextElementSibling;
+      show(uploadsHeader, isCreatorish);
+      show(uploadsCard, isCreatorish);
+
+      show(document.getElementById('creator-tools'), isCreatorish);
+      show(document.getElementById('admin-tools'), isAdmin);
+      setRoleBadge(role);
+    }
+
+    /* ============================ GraphQL helpers ============================ */
+    const appsyncUrl = cfg.appsyncUrl;
+    const jwtPayload = () => parseJwt(sessionStorage.getItem('id_token') || '');
+
+    async function gql(query, variables={}){
+      const id = await ensureFreshIdToken();
+      if (!id) throw new Error('Not signed in.');
+      const r = await fetch(appsyncUrl, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', Authorization: id },
+        body: JSON.stringify({ query, variables })
+      });
+      const j = await r.json();
+      if (!r.ok || j.errors) throw new Error((j.errors && j.errors[0]?.message) || JSON.stringify(j.errors || j));
+      return j.data;
+    }
+
+    async function loadMe(){
+      const data = await gql(`query { me { id email role tier createdAt updatedAt } }`);
+      $('#meOut').textContent = JSON.stringify(data.me, null, 2);
+      if (data.me?.role) $('#role').value = data.me.role;
+      if (data.me?.tier) $('#tier').value = data.me.tier;
+      if (data.me?.email) $('#who-email').textContent = data.me.email;
+      if (data.me?.role) applyRoleUi(data.me.role);
+    }
+
+    async function saveRole(){
+      const btn = $('#btn-save-role');
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Saving…';
+
+      try{
+        const payload = jwtPayload();
+        if (!payload?.sub) { toast('No user identity found. Please sign in.','error'); return; }
+
+        const input = {
+          userId: payload.sub,
+          email:  payload.email || null,
+          role:   $('#role').value,
+          tier:   $('#tier').value
+        };
+
+        const data = await gql(
+          `mutation($input:SetUserRoleInput!){
+            setUserRole(input:$input){ id email role tier updatedAt }
+          }`,
+          { input }
+        );
+        $('#meOut').textContent = JSON.stringify(data.setUserRole, null, 2);
+        applyRoleUi(data.setUserRole.role);
+        toast('Role updated','ok');
+      } catch (e) {
+        toast(String(e?.message||e),'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    async function loadMyRoleAndApplyUI() {
+      const id = await ensureFreshIdToken();
+      if (!id) return;
+      const res = await fetch(cfg.appsyncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: id },
+        body: JSON.stringify({ query: `query Me { me { id email role tier createdAt updatedAt } }` })
+      });
+      const me = (await res.json())?.data?.me;
+      if (me) {
+        if (me.email) $('#who-email').textContent = me.email;
+        applyRoleUi(me.role);
+      }
+    }
+
+    /* ============================ thumbs ============================ */
+    const openCdn = (key) => window.open(buildThumbUrl(key), '_blank', 'noopener,noreferrer');
+
+    function buildThumbUrl(key){
+      const base = getThumbsBase();
+      const jpg  = String(key).replace(/\.[^.]+$/, '.jpg');
+      const enc  = jpg.split('/').map(encodeURIComponent).join('/');
+      return `${base}/thumbs/${enc}`;
+    }
+
+    async function waitForThumb(key, imgEl, { tries = 12, delay = 1200 } = {}) {
+      const idTok = await ensureFreshIdToken();
+      for (let i = 0; i < tries; i++) {
+        try {
+          const r = await fetch(`${api}/thumb-head?key=${encodeURIComponent(key)}`, {
+            headers: { Authorization: idTok }
+          });
+          if (r.ok) {
+            const { ready } = await r.json();
+            if (ready) {
+              const url = buildThumbUrl(key) + `?v=${Date.now()}`;
+              imgEl.src = url;
+              imgEl.classList.add('show');
+              imgEl.onclick = () => openCdn(key);
+              decorateThumb(imgEl);
+              return;
+            }
+          }
+        } catch {}
+        await new Promise(res => setTimeout(res, delay));
+      }
+    }
+
+    /* ============================ uploads UI ============================ */
     function liRow(name, sizeText, typeText) {
       const li = document.createElement('li');
       li.className = 'li-row';
@@ -220,22 +488,10 @@
           <span class="sa-muted ctype">${typeText || ''}</span>
           <progress max="100" value="0" class="row-progress"></progress>
           <span class="sa-muted status"></span>
-          <img class="thumb ml-auto" style="height:40px; border-radius:6px; display:none" />
+          <img class="thumb ml-auto" loading="lazy" decoding="async" />
           <button class="sa-btn sa-btn-outline sa-sm delete" disabled>Delete</button>
         </div>`;
       return li;
-    }
-
-    // Poll the CDN for a generated thumb and reveal it as soon as it exists
-    function waitForThumb(url, imgEl, tries=12) {
-      const tryOnce = async (n) => {
-        try {
-          const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-          if (r.ok) { imgEl.src = url + `?v=${Date.now()}`; imgEl.style.display='inline-block'; return; }
-        } catch {}
-        if (n > 0) setTimeout(() => tryOnce(n-1), 1000);
-      };
-      tryOnce(tries);
     }
 
     async function listUploads(){
@@ -259,26 +515,19 @@
         const pg  = li.querySelector('.row-progress');
         pg.style.display = 'none';
 
-        // Build CloudFront URL for thumbnail (prefer cfg.cdnUrl if provided)
-        const cdnBase  = (cfg.cdnUrl || location.origin).replace(/\/+$/, '');
-        const thumbUrl = `${cdnBase}/thumbs/${key}`.replace(/\.[^.]+$/, '.jpg') + `?v=${Date.now()}`;
-
-        // Preview image with retry loop
         const img = li.querySelector('.thumb');
         img.alt = key;
         img.referrerPolicy = 'no-referrer';
-        img.onerror = () => { img.style.display = 'none'; };
-        img.onload  = () => { img.style.display = 'inline-block'; };
-        // Quick attempt + poll until Lambda writes the file
-        waitForThumb(thumbUrl, img);
+        img.onerror = () => { img.classList.remove('show'); };
+        img.onload  = () => { img.classList.add('show'); decorateThumb(img); };
 
-        // Delete wiring
+        waitForThumb(key, img, { tries: 1, delay: 0 });
+
         const delBtn = li.querySelector('.delete');
         delBtn.disabled = false;
         delBtn.addEventListener('click', async () => {
           if (!confirm(`Delete "${key}"?`)) return;
           const idTok = await ensureFreshIdToken();
-          delBtn.disabled = true;
           const r = await fetch(`${api}/delete?key=${encodeURIComponent(key)}`, {
             method:'DELETE',
             headers:{ Authorization: idTok }
@@ -289,7 +538,7 @@
             return;
           }
           li.remove();
-          toast(`Deleted ${key}`);
+          toast(`Deleted ${key}`,'ok');
         });
 
         ul.appendChild(li);
@@ -301,12 +550,15 @@
       if (!id){ toast('Please sign in first','error'); return; }
 
       const prefix = sanitizePrefix($('#upload-key').value);
+      localStorage.setItem('sa.prefix', prefix);
       const files  = Array.from($('#upload-file').files || []);
       if (files.length === 0){ toast('Select at least one file'); return; }
 
-      // build rows
+      const btn = $('#btn-upload');
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Uploading…';
+
       const ul = $('#upload-list');
-      ul.innerHTML = '';
       const rows = files.map(f => {
         const key  = prefix + f.name;
         const type = f.type || inferTypeFromKey(f.name);
@@ -314,14 +566,13 @@
         ul.appendChild(li);
         return { file:f, key, type, li };
       });
+      ul.lastElementChild?.scrollIntoView({ behavior:'smooth', block:'end' });
 
-      // basic client-side validation
       for (const r of rows){
-        if (r.file.size > MAX_MB*1024*1024){ r.li.querySelector('.status').textContent = 'Too large'; return; }
-        if (ALLOW_TYPES.length && !ALLOW_TYPES.includes(r.type)){ r.li.querySelector('.status').textContent = 'Blocked type'; return; }
+        if (r.file.size > MAX_MB*1024*1024){ r.li.querySelector('.status').textContent = 'Too large'; toast(`${r.file.name}: too large`,'error'); btn.disabled=false; btn.textContent=orig; return; }
+        if (ALLOW_TYPES.length && !ALLOW_TYPES.includes(r.type)){ r.li.querySelector('.status').textContent = 'Blocked type'; toast(`${r.file.name}: blocked type`,'error'); btn.disabled=false; btn.textContent=orig; return; }
       }
 
-      // upload with limited concurrency
       let idx = 0, okCount = 0;
       async function worker(){
         while (idx < rows.length){
@@ -329,7 +580,7 @@
 
           const st = me.li.querySelector('.status');
           const pg = me.li.querySelector('.row-progress');
-          st.textContent = 'presigning…'; pg.value = 2;
+          st.textContent = 'presigning…'; pg.style.display='inline-block'; pg.value = 4;
 
           const pre = await fetch(`${api}/presign`, {
             method:'POST',
@@ -337,7 +588,7 @@
             body: JSON.stringify({ key: me.key, contentType: me.type })
           }).then(r => r.ok ? r.json() : Promise.reject(new Error(`presign ${r.status}`)));
 
-          st.textContent = 'uploading…'; pg.value = 10;
+          st.textContent = 'uploading…'; pg.value = 18;
 
           await fetch(pre.url, {
             method: 'PUT',
@@ -345,37 +596,117 @@
             body: me.file
           }).then(r => { if (!r.ok) throw new Error(`put ${r.status}`); });
 
+          st.textContent = 'processing…'; pg.value = 66;
+
+          const img = me.li.querySelector('.thumb');
+          img.classList.remove('show');
+          await waitForThumb(me.key, img);
+
           st.textContent = 'done'; pg.value = 100;
-
-          // start polling for the thumbnail immediately after upload
-          const cdnBase  = (cfg.cdnUrl || location.origin).replace(/\/+$/, '');
-          const thumbUrl = `${cdnBase}/thumbs/${me.key}`;
-          const img      = me.li.querySelector('.thumb');
-          waitForThumb(thumbUrl, img);
-
           okCount++;
         }
       }
+
       const workers = Array.from({length: Math.min(CONCURRENCY, rows.length)}, worker);
       try{
         await Promise.all(workers);
-        toast(`Uploaded ${okCount}/${rows.length}`);
+        toast(`Uploaded ${okCount}/${rows.length}`,'ok');
         await listUploads();
       }catch(err){
         toast(String(err?.message || err), 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
       }
+    }
+
+    /* ============================ Admin: helpers + table ============================ */
+    function statusPill(status){
+      const s = String(status||'').toUpperCase();
+      const cls = s==='APPROVED'?'approved':s==='REJECTED'?'rejected':s==='PUBLISHED'?'published':'pending';
+      return `<span class="pill ${cls}">${s||'PENDING'}</span>`;
+    }
+
+    function renderPendingTable(items){
+      const tb = q('#pending-body');
+      if (!Array.isArray(items) || items.length===0){
+        tb.innerHTML = `<tr><td colspan="6" class="sa-muted">No data</td></tr>`;
+        return;
+      }
+      tb.innerHTML = '';
+      for (const it of items){
+        const when = it.updatedAt || it.createdAt;
+        const mediaKey = it.mediaKey || '';
+        const row = h(`
+          <tr data-id="${it.id}">
+            <td class="nowrap">
+              <code>${it.id.slice(0,8)}…</code>
+            </td>
+            <td>${it.ownerSub || ''}</td>
+            <td>${(it.title || '').replace(/</g,'&lt;')}</td>
+            <td>${statusPill(it.status)}</td>
+            <td class="nowrap"><span title="${fmtDate(when)}">${timeAgo(when)}</span></td>
+            <td class="nowrap">
+              <button class="sa-btn linklike js-copy">Copy ID</button>
+              ${mediaKey ? `<button class="sa-btn linklike js-open">Open media</button>`:''}
+              <button class="sa-btn linklike js-request" title="Ask pipeline to (re)publish">Request publish</button>
+              <span class="sa-muted ml-1">(Approve/Reject pending API)</span>
+            </td>
+          </tr>
+        `);
+        tb.appendChild(row);
+      }
+
+      // Wire row actions
+      qq('tr[data-id]').forEach(tr=>{
+        const id = tr.getAttribute('data-id');
+        tr.querySelector('.js-copy')?.addEventListener('click', async ()=>{
+          await copy(id); toast('Copied ID ✅','ok',1200);
+        });
+        tr.querySelector('.js-open')?.addEventListener('click', ()=>{
+          const item = items.find(x=>x.id===id);
+          if (!item?.mediaKey) return;
+          window.open(buildThumbUrl(item.mediaKey), '_blank', 'noopener,noreferrer');
+        });
+        tr.querySelector('.js-request')?.addEventListener('click', async ()=>{
+          try{
+            const out = await gql(
+              `mutation R($id:ID!){ requestClosetApproval(id:$id) }`,
+              { id }
+            );
+            toast('Requested publish 🚀','ok',1600);
+            console.log('requestClosetApproval:', out);
+          }catch(e){ toast(String(e?.message||e),'error'); }
+        });
+      });
     }
 
     /* ============================ wiring ============================ */
     $('#signin').addEventListener('click', e => { e.preventDefault(); startLogin(); });
     $('#signout').addEventListener('click', e => { e.preventDefault(); signOutLocal(); });
     $('#signout-global').addEventListener('click', e => { e.preventDefault(); signOutEverywhere(); });
-    $('#btn-hello')?.addEventListener('click', e => { e.preventDefault(); callHello().catch(err => $('#hello-out').textContent = `Error: ${err.message}`); });
+    $('#btn-hello')?.addEventListener('click', e => { e.preventDefault(); callHello().catch(err => toast(err.message,'error')); });
     $('#btn-upload')?.addEventListener('click', e => { e.preventDefault(); startUpload().catch(err => toast(String(err.message||err),'error')); });
 
-    // expose for any old inline handlers or other scripts
-    window.startUpload = startUpload;
-    window.listUploads = listUploads;
+    $('#btn-load-me')?.addEventListener('click', e => { e.preventDefault(); loadMe().then(()=>toast('Loaded profile','ok',1600)).catch(err => toast(String(err),'error')); });
+    $('#btn-save-role')?.addEventListener('click', e => { e.preventDefault(); saveRole().catch(err => toast(String(err),'error')); });
+
+    document.getElementById('btn-list-pending')?.addEventListener('click', async () => {
+      try {
+        const id = await ensureFreshIdToken();
+        const res = await fetch(cfg.appsyncUrl, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', Authorization: id },
+          body: JSON.stringify({ query: `query AdminList { adminListPending { id title status ownerSub createdAt updatedAt mediaKey } }` })
+        });
+        const json = await res.json();
+        document.getElementById('admin-out').textContent = JSON.stringify(json.data, null, 2);
+        renderPendingTable(json.data?.adminListPending || []);
+        toast('Loaded pending items','ok',1600);
+      } catch (e) {
+        document.getElementById('admin-out').textContent = String(e);
+        toast(String(e),'error');
+      }
+    });
 
     // Drag & drop
     const dz = $('#dropzone');
@@ -387,7 +718,7 @@
       if (files?.length){ $('#upload-file').files = files; }
     });
 
-    // token rotation bootstrap if tokens already exist
+    // token rotation bootstrap
     (function backfill(){
       if (!sessionStorage.getItem('tokens')){
         const id = sessionStorage.getItem('id_token');
@@ -410,12 +741,29 @@
         const out = await refreshTokens({ domain, clientId: cfg.clientId });
         scheduleRotation(out, { domain, clientId: cfg.clientId });
         render();
+        toast('Tokens refreshed','ok',1400);
       }catch(err){ toast(`Refresh failed: ${err.message||err}`, 'error'); }
     });
 
+    // Load saved prefix
+    const savedPrefix = localStorage.getItem('sa.prefix');
+    if (savedPrefix) $('#upload-key').value = savedPrefix;
+
+    // Initial paint
     render();
-    setInterval(render, 1000);
-    if (sessionStorage.getItem('id_token')) listUploads();
+
+    // Gate immediately with JWT fallback, then refine with me()
+    if (sessionStorage.getItem('id_token')) {
+      applyRoleUi(roleFromJwtOrDefault());
+      listUploads();
+      loadMe().catch(()=>{});
+      loadMyRoleAndApplyUI().catch(()=>{});
+    } else {
+      applyRoleUi('FAN');
+    }
   </script>
 </body>
 </html>
+
+
+
