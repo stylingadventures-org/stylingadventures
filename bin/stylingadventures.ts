@@ -3,47 +3,96 @@ import 'source-map-support/register';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
+import * as ddb from 'aws-cdk-lib/aws-dynamodb';
 
 import { IdentityStack } from '../lib/stacks/identity-stack';
+import { WorkflowsStack } from '../lib/stacks/workflows-stack';
+import { ApiStack } from '../lib/stacks/api-stack';
 import { UploadsStack } from '../lib/stacks/uploads-stack';
 import { WebStack } from '../lib/stacks/web-stack';
 
-// Load config.json from repo root (NOT from dist/)
+// ---- tiny config loader (optional) ----
 type Cfg = { webOrigin?: string };
 function loadConfig(): Cfg {
   try {
     const p = path.resolve(process.cwd(), 'config.json');
-    if (fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, 'utf8')) as Cfg;
-    }
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')) as Cfg;
   } catch {}
   return {};
 }
 
 const app = new cdk.App();
+const envName = app.node.tryGetContext('env') ?? 'dev';
+const env = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION ?? 'us-east-1',
+};
 const cfg = loadConfig();
 
-// 1) Identity (no changes)
+// ---- Data stack (holds the app table) ----
+class DataStack extends cdk.Stack {
+  public readonly table: ddb.Table;
+  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+    this.table = new ddb.Table(this, 'AppTable', {
+      tableName: `sa-${envName}-app`,
+      partitionKey: { name: 'pk', type: ddb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: ddb.AttributeType.STRING },
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy:
+        envName === 'prd' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+  }
+}
+
+// 1) Identity (Cognito)
 const identity = new IdentityStack(app, 'IdentityStack', {
-  description: 'Cognito (user pool, app client, hosted UI, identity pool)',
+  env,
+  description: `Cognito (user pool, app client, hosted UI, identity pool) - ${envName}`,
 });
 
-// 2) Uploads API + S3 + SQS + Thumbs CF distro (reads web origin from config/env)
+// 2) Data (DynamoDB)
+const data = new DataStack(app, 'DataStack', {
+  env,
+  description: `Primary application table - ${envName}`,
+});
+
+// 3) Workflows (Step Functions) – uses the table
+const wf = new WorkflowsStack(app, 'WorkflowsStack', {
+  env,
+  table: data.table,
+  description: `Closet approval workflow - ${envName}`,
+});
+
+// 4) AppSync API – needs user pool, table, and the approval state machine
+new ApiStack(app, 'ApiStack', {
+  env,
+  userPool: identity.userPool,
+  table: data.table,
+  closetApprovalSm: wf.closetApprovalSm,
+  description: `AppSync GraphQL API - ${envName}`,
+});
+
+// 5) Uploads API + thumbs CDN (optional; keep if you use it)
 const webOrigin =
   cfg.webOrigin ||
-  process.env.WEB_ORIGIN || // allow override via env if you want
+  process.env.WEB_ORIGIN ||
   'http://localhost:5173';
 
 new UploadsStack(app, 'UploadsStack', {
-  description: 'Private uploads bucket, API, SQS worker, and thumbs CDN',
+  env,
   userPool: identity.userPool,
-  webOrigin, // used for CORS on API Gateway
+  webOrigin,
+  description: `Uploads API, S3, SQS worker, thumbs CDN - ${envName}`,
 });
 
-// 3) Static web (NO reference to uploads; no thumbs behavior here)
+// 6) Static web
 new WebStack(app, 'WebStack', {
-  description: 'Static web hosting (S3 + CloudFront for the site only)',
+  env,
+  description: `Static web hosting (S3 + CloudFront) - ${envName}`,
 });
 
-// Optional tags
+// Tags
 cdk.Tags.of(app).add('App', 'stylingadventures');
+cdk.Tags.of(app).add('Env', envName);

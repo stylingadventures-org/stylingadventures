@@ -1,0 +1,4 @@
+{
+  "ssm:account=637423256673:parameterName=/sa/dev/web/callbackUrl:region=us-east-1": "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+  "ssm:account=637423256673:parameterName=/sa/dev/web/logoutRoot:region=us-east-1": "https://d1682i07dc1r3k.cloudfront.net"
+}

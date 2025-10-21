@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body class="sa-body">
+  <h1>Admin</h1>
+
+  <div class="sa-card">
+    <h2>Set user role</h2>
+    <form id="role-form" class="admin-form">
+      <label>User ID
+        <input id="user-id" class="sa-input" required />
+      </label>
+
+      <label>Email (optional)
+        <input id="user-email" class="sa-input" type="email" />
+      </label>
+
+      <label>Role
+        <select id="user-role" class="sa-input">
+          <option>FAN</option>
+          <option>BESTIE</option>
+          <option>CREATOR</option>
+          <option>COLLAB</option>
+          <option>ADMIN</option>
+        </select>
+      </label>
+
+      <label>Tier
+        <select id="user-tier" class="sa-input">
+          <option>FREE</option>
+          <option>PRIME</option>
+        </select>
+      </label>
+
+      <button class="sa-btn" id="btn-save" type="submit">Save</button>
+      <span id="admin-msg" class="sa-muted ml-2" aria-live="polite"></span>
+    </form>
+  </div>
+
+  <script type="module">
+    async function loadCfg() {
+      const r = await fetch('/config.v2.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('Failed to load config');
+      return r.json();
+    }
+    const cfg = await loadCfg();
+
+    const toast = (t, isErr = false) => {
+      const m = document.getElementById('admin-msg');
+      m.textContent = t;
+      m.className = 'sa-muted ml-2' + (isErr ? ' sa-error' : '');
+    };
+
+    const form = document.getElementById('role-form');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const idToken = sessionStorage.getItem('id_token');
+      if (!idToken) { toast('Sign in first', true); return; }
+
+      const userId = /** @type {HTMLInputElement} */(document.getElementById('user-id')).value.trim();
+      const email  = /** @type {HTMLInputElement} */(document.getElementById('user-email')).value.trim() || undefined;
+      const role   = /** @type {HTMLSelectElement} */(document.getElementById('user-role')).value;
+      const tier   = /** @type {HTMLSelectElement} */(document.getElementById('user-tier')).value;
+
+      try {
+        const res = await fetch(cfg.appsyncUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': idToken
+          },
+          body: JSON.stringify({
+            query: `
+              mutation SetUserRole($input: SetUserRoleInput!) {
+                setUserRole(input: $input) { id email role tier updatedAt }
+              }
+            `,
+            variables: { input: { userId, email, role, tier } }
+          })
+        });
+
+        if (!res.ok) { toast('Network error ' + res.status, true); return; }
+        const j = await res.json();
+        if (j.errors && j.errors.length) { toast(j.errors[0].message || 'GraphQL error', true); return; }
+
+        toast('Saved ✔');
+      } catch (err) {
+        toast(String(err?.message || err), true);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-// lib/stacks/uploads-stack.ts
 import {
   Stack,
   StackProps,
@@ -14,7 +13,7 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEvent from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -22,7 +21,6 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
 
-// Step Functions + tasks + CloudWatch
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as cw from 'aws-cdk-lib/aws-cloudwatch';
@@ -41,6 +39,13 @@ export class UploadsStack extends Stack {
     super(scope, id, props);
     const { userPool, webOrigin } = props;
 
+    /* =================== Lambda entry paths =================== */
+    const presignEntry = path.resolve(process.cwd(), 'lambda/presign/index.ts');
+    const listEntry    = path.resolve(process.cwd(), 'lambda/list/index.ts');
+    const triggerEntry = path.resolve(process.cwd(), 'lambda/trigger-thumbnail/index.ts');
+    const workerEntry  = path.resolve(process.cwd(), 'lambda/thumbnailer/index.ts');
+    const headEntry    = path.resolve(process.cwd(), 'lambda/thumb-head/index.ts');
+
     /* =================== S3 (private bucket) =================== */
     this.bucket = new s3.Bucket(this, 'UploadsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -50,17 +55,63 @@ export class UploadsStack extends Stack {
       autoDeleteObjects: false,
     });
 
-    /* ========== Thumbs-only CloudFront distribution ========== */
+    /* ========== Thumbs CloudFront (strict CORS, short 404 cache) ========== */
     const thumbsOai = new cloudfront.OriginAccessIdentity(this, 'ThumbsOai');
     this.bucket.grantRead(thumbsOai, 'thumbs/*');
+
+    // GET/HEAD for thumbs
+    this.bucket.addCorsRule({
+      allowedOrigins: [webOrigin],
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+      allowedHeaders: ['Origin', 'Accept', 'Referer', 'User-Agent', 'Range'],
+      exposedHeaders: ['ETag', 'Content-Type', 'Content-Length', 'Last-Modified', 'Accept-Ranges'],
+      maxAge: 86400,
+    });
+
+    // PUT for presigned uploads
+    this.bucket.addCorsRule({
+      allowedOrigins: [webOrigin],
+      allowedMethods: [s3.HttpMethods.PUT],
+      allowedHeaders: ['*'],
+      exposedHeaders: ['ETag', 'x-amz-version-id'],
+      maxAge: 86400,
+    });
+
+    const thumbsCors = new cloudfront.ResponseHeadersPolicy(this, 'ThumbsCors', {
+      corsBehavior: {
+        accessControlAllowOrigins: [webOrigin],
+        accessControlAllowMethods: ['GET', 'HEAD', 'OPTIONS'],
+        accessControlAllowHeaders: ['Origin', 'Accept', 'Referer', 'User-Agent', 'Range'],
+        accessControlExposeHeaders: ['ETag', 'Content-Type', 'Content-Length', 'Last-Modified', 'Accept-Ranges'],
+        accessControlAllowCredentials: false,
+        accessControlMaxAge: Duration.days(1),
+        originOverride: true,
+      },
+    });
+
+    const thumbsCache = new cloudfront.CachePolicy(this, 'ThumbsCache', {
+      comment: 'Thumbs cache with query strings allowed',
+      queryStringBehavior: cloudfront.CacheQueryStringBehavior.all(),
+      headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+      cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+      defaultTtl: Duration.minutes(10),
+      minTtl: Duration.seconds(0),
+      maxTtl: Duration.hours(1),
+    });
 
     const thumbsDist = new cloudfront.Distribution(this, 'ThumbsDistribution', {
       defaultBehavior: {
         origin: new origins.S3Origin(this.bucket, { originAccessIdentity: thumbsOai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        cachePolicy: thumbsCache,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        responseHeadersPolicy: thumbsCors,
         compress: true,
       },
+      errorResponses: [
+        { httpStatus: 404, ttl: Duration.seconds(5) },
+        { httpStatus: 403, ttl: Duration.seconds(5) },
+      ],
     });
 
     /* ========== SQS (DLQ + main) for thumb jobs ========== */
@@ -70,10 +121,11 @@ export class UploadsStack extends Stack {
       deadLetterQueue: { maxReceiveCount: 3, queue: dlq },
     });
 
-    /* ================= App Lambda (list/presign/delete) ================= */
-    const presignFn = new lambdaNode.NodejsFunction(this, 'PresignFn', {
-      entry: path.resolve(__dirname, '../../../lambda/presign/index.ts'),
+    /* ================= Presign Lambda ================= */
+    const presignFn = new NodejsFunction(this, 'PresignFn', {
+      entry: presignEntry,
       runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: { format: OutputFormat.CJS, externalModules: ['@aws-sdk/*'] },
       timeout: Duration.seconds(30),
       memorySize: 256,
       environment: {
@@ -98,11 +150,27 @@ export class UploadsStack extends Stack {
       })
     );
 
-    /* ======== Thumbnail worker (Lambda that actually resizes) ======== */
-    const thumbFn = new lambdaNode.NodejsFunction(this, 'ThumbnailerFn', {
-      entry: path.resolve(__dirname, '../../../lambda/thumbnailer/index.ts'),
+    /* ================= List Lambda ================= */
+    const listFn = new NodejsFunction(this, 'ListFn', {
+      entry: listEntry,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: { format: OutputFormat.CJS, externalModules: ['@aws-sdk/*'] },
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        BUCKET: this.bucket.bucketName,
+        WEB_ORIGIN: webOrigin,
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    this.bucket.grantRead(listFn);
+
+    /* ======== Thumbnail worker ======== */
+    const thumbFn = new NodejsFunction(this, 'ThumbnailerFn', {
+      entry: workerEntry,
       runtime: lambda.Runtime.NODEJS_18_X,
       architecture: lambda.Architecture.X86_64,
+      bundling: { format: OutputFormat.CJS, externalModules: ['@aws-sdk/*'] },
       timeout: Duration.seconds(60),
       memorySize: 512,
       environment: {
@@ -115,7 +183,7 @@ export class UploadsStack extends Stack {
     });
     this.bucket.grantReadWrite(thumbFn);
 
-    /* ======== Step Functions: pipeline that invokes thumbFn ======== */
+    /* ======== Step Functions pipeline ======== */
     const thumbTask = new tasks.LambdaInvoke(this, 'GenerateThumbnail', {
       lambdaFunction: thumbFn,
       payloadResponseOnly: true,
@@ -128,8 +196,6 @@ export class UploadsStack extends Stack {
     });
 
     const thumbSm = new sfn.StateMachine(this, 'ThumbStateMachine', {
-      // CDK will warn that "definition" is deprecated; it still works.
-      // To remove the warning later, swap to: definitionBody: sfn.DefinitionBody.fromChainable(thumbTask),
       definition: thumbTask,
       stateMachineType: sfn.StateMachineType.STANDARD,
       timeout: Duration.minutes(5),
@@ -137,16 +203,20 @@ export class UploadsStack extends Stack {
     });
 
     /* ======== SQS → starter Lambda → Step Functions ======== */
-    const startThumbFn = new lambdaNode.NodejsFunction(this, 'StartThumbFlowFn', {
-      entry: path.resolve(__dirname, '../../../lambda/trigger-thumbnail/index.ts'),
-      runtime: lambda.Runtime.NODEJS_18_X,
+    const startThumbFn = new NodejsFunction(this, 'StartThumbFlowFn', {
+      entry: triggerEntry,
+      runtime: lambda.Runtime.NODEJS_16_X, // uses aws-sdk v2 from runtime
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: ['aws-sdk'],
+      },
       timeout: Duration.seconds(30),
       memorySize: 256,
       environment: {
-        STATE_MACHINE_ARN: thumbSm.stateMachineArn,
+        THUMB_SM_ARN: thumbSm.stateMachineArn,
       },
-      // use runtime-provided AWS SDK v3; keep bundles small
-      bundling: { externalModules: ['@aws-sdk/*'] },
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
@@ -181,40 +251,55 @@ export class UploadsStack extends Stack {
           'X-Amz-Date',
           'X-Api-Key',
           'X-Amz-Security-Token',
+          'Cookie',
         ],
+        allowCredentials: true,
       },
     });
 
+    // Gateway error responses CORS
     const corsHeaders = {
       'Access-Control-Allow-Origin': `'${webOrigin}'`,
       'Access-Control-Allow-Headers':
-        "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+        "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key,Cookie'",
       'Access-Control-Allow-Methods': "'GET,POST,DELETE,OPTIONS'",
+      'Access-Control-Allow-Credentials': "'true'",
     };
-    this.api.addGatewayResponse('Default4XX', {
-      type: apigw.ResponseType.DEFAULT_4XX,
-      responseHeaders: corsHeaders,
-    });
-    this.api.addGatewayResponse('Default5XX', {
-      type: apigw.ResponseType.DEFAULT_5XX,
-      responseHeaders: corsHeaders,
-    });
+    this.api.addGatewayResponse('Default4XX', { type: apigw.ResponseType.DEFAULT_4XX, responseHeaders: corsHeaders });
+    this.api.addGatewayResponse('Default5XX', { type: apigw.ResponseType.DEFAULT_5XX, responseHeaders: corsHeaders });
 
-    // Routes using the presign lambda
-    const listRes = this.api.root.addResource('list');
+    // Resources
+    const listRes    = this.api.root.addResource('list');
     const presignRes = this.api.root.addResource('presign');
-    const delRes = this.api.root.addResource('delete');
+    const delRes     = this.api.root.addResource('delete');
 
-    const presignIntegration = new apigw.LambdaIntegration(presignFn);
-    listRes.addMethod('GET', presignIntegration, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+    // Integrations
+    const presignIntegration = new apigw.LambdaIntegration(presignFn, { proxy: true });
+    const listIntegration    = new apigw.LambdaIntegration(listFn,    { proxy: true });
+
+    // Methods (Cognito-protected)
+    listRes.addMethod('GET', listIntegration, { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
+    presignRes.addMethod('POST', presignIntegration, { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
+    delRes.addMethod('DELETE', presignIntegration, { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
+
+    /* ======== NEW: thumb-head Lambda & route (zero-404 polling) ======== */
+    const thumbHeadFn = new NodejsFunction(this, 'ThumbHeadFn', {
+      entry: headEntry,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: { format: OutputFormat.CJS, externalModules: ['@aws-sdk/*'] },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        BUCKET: this.bucket.bucketName,
+        WEB_ORIGIN: webOrigin, // ✅ pass origin so Lambda can set CORS
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
-    presignRes.addMethod('POST', presignIntegration, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
-    });
-    delRes.addMethod('DELETE', presignIntegration, {
+    this.bucket.grantRead(thumbHeadFn);
+
+    const thumbHeadIntegration = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
+    const headRes = this.api.root.addResource('thumb-head');
+    headRes.addMethod('GET', thumbHeadIntegration, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
@@ -224,45 +309,19 @@ export class UploadsStack extends Stack {
       dashboardName: `${this.stackName}-Uploads`,
     });
 
-    const qVisible = thumbQueue.metricApproximateNumberOfMessagesVisible({
-      statistic: 'Average',
-      period: Duration.minutes(1),
-    });
-    const qAge = thumbQueue.metricApproximateAgeOfOldestMessage({
-      statistic: 'Maximum',
-      period: Duration.minutes(1),
-    });
+    const qVisible = thumbQueue.metricApproximateNumberOfMessagesVisible({ statistic: 'Average', period: Duration.minutes(1) });
+    const qAge     = thumbQueue.metricApproximateAgeOfOldestMessage({ statistic: 'Maximum', period: Duration.minutes(1) });
 
-    const sfnSucceeded = thumbSm.metric('ExecutionsSucceeded', {
-      statistic: 'Sum',
-      period: Duration.minutes(5),
-    });
-    const sfnFailed = thumbSm.metric('ExecutionsFailed', {
-      statistic: 'Sum',
-      period: Duration.minutes(5),
-    });
+    const sfnSucceeded = thumbSm.metric('ExecutionsSucceeded', { statistic: 'Sum', period: Duration.minutes(5) });
+    const sfnFailed    = thumbSm.metric('ExecutionsFailed',    { statistic: 'Sum', period: Duration.minutes(5) });
 
-    const startErrors = startThumbFn.metricErrors({ period: Duration.minutes(1) });
+    const startErrors  = startThumbFn.metricErrors({ period: Duration.minutes(1) });
     const workerErrors = thumbFn.metricErrors({ period: Duration.minutes(1) });
 
     dashboard.addWidgets(
-      new cw.GraphWidget({
-        title: 'Thumb Queue Depth',
-        left: [qVisible],
-        right: [qAge],
-        leftYAxis: { min: 0 },
-        width: 24,
-      }),
-      new cw.GraphWidget({
-        title: 'Step Functions Executions',
-        left: [sfnSucceeded, sfnFailed],
-        width: 24,
-      }),
-      new cw.GraphWidget({
-        title: 'Lambda Errors',
-        left: [startErrors, workerErrors],
-        width: 24,
-      })
+      new cw.GraphWidget({ title: 'Thumb Queue Depth', left: [qVisible], right: [qAge], leftYAxis: { min: 0 }, width: 24 }),
+      new cw.GraphWidget({ title: 'Step Functions Executions', left: [sfnSucceeded, sfnFailed], width: 24 }),
+      new cw.GraphWidget({ title: 'Lambda Errors', left: [startErrors, workerErrors], width: 24 }),
     );
 
     /* ==================== Outputs ======================= */
