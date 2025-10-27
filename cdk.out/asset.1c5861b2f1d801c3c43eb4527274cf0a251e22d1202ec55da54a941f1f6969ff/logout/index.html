@@ -1,0 +1,24 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signed out</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:2rem}</style>
+</head>
+<body>
+  <h1>Signed out</h1>
+  <p>You can close this tab or <a id="home" href="/">return to the app</a>.</p>
+
+  <script>
+  (async () => {
+    const cfg = await fetch('/config.v2.json?ts=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+    // Clear anything left
+    try { sessionStorage.clear(); } catch {}
+    document.getElementById('home').href = cfg.webOrigin || '/';
+  })();
+  </script>
+</body>
+</html>
+
+

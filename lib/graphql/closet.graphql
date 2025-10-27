@@ -1,0 +1,39 @@
+# lib/graphql/closet.graphql
+scalar AWSDateTime
+
+enum ClosetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+type ClosetItem {
+  id: ID!
+  ownerSub: ID!
+  title: String
+  status: ClosetStatus!
+  mediaKey: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type Query {
+  # Always return a list (never null)
+  myCloset: [ClosetItem!]!
+
+  # Simple admin helper
+  adminListPending(limit: Int, nextToken: String): ClosetListPage!
+}
+
+type ClosetListPage {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+type Mutation {
+  createClosetItem(title: String, mediaKey: String): ClosetItem!
+  updateClosetItem(id: ID!, title: String, mediaKey: String): ClosetItem!
+  deleteClosetItem(id: ID!): Boolean!
+  requestClosetApproval(id: ID!): Boolean!
+}

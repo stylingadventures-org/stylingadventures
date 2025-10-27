@@ -13,7 +13,7 @@ const s3 = new S3Client({
 });
 
 const BUCKET = process.env.BUCKET!;
-const ORIGIN = process.env.WEB_ORIGIN ?? 'https://d1682i07dc1r3k.cloudfront.net';
+const ORIGIN = process.env.WEB_ORIGIN ?? 'https://stylingadventures.com';
 const THUMBS_CDN = process.env.THUMBS_CDN;
 
 type AnyEvent = any;
