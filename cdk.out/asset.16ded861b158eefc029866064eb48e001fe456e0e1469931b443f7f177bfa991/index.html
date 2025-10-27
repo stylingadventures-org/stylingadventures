@@ -86,10 +86,10 @@
 
     const ORIGIN   = location.origin;
     const CB_INDEX = `${ORIGIN}/callback/index.html`;
-    const redirectUri = (cfg.redirectUri || CB_INDEX).trim();
+    const redirectUri = (cfg.redirectUri || `${location.origin}/callback/`).trim();
     const logoutUri   = (cfg.logoutUri   || `${ORIGIN}/logout/index.html`).trim();
 
-    const authorizeUrl = `${domain}/oauth2/authorize`;
+    const authorizeUrl = `${domain}/login`;
     const logoutUrl    = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`;
 
     const apiBase = cfg.uploadsApiUrl || cfg.uploadsUrl || cfg.apiUrl;
@@ -154,7 +154,7 @@
       url.searchParams.set('response_type','code');
       url.searchParams.set('client_id', cfg.clientId);
       url.searchParams.set('redirect_uri', redirectUri);
-      url.searchParams.set('scope','openid email profile');
+      url.searchParams.set('scope','aws.cognito.signin.user.admin email openid profile');
       url.searchParams.set('code_challenge', challenge);
       url.searchParams.set('code_challenge_method','S256');
       url.searchParams.set('state', state);

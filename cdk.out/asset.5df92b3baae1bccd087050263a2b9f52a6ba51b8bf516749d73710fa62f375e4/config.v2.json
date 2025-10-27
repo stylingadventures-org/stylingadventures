@@ -1,0 +1,13 @@
+{
+  "region": "us-east-1",
+  "clientId": "51uc25i7ob3otrivgi66mpht79",
+  "domain": "sa-dev-637423256673",
+  "redirectUri": "https://stylingadventures.com/callback/index.html",
+  "logoutUri": "https://stylingadventures.com/logout/index.html",
+  "appsyncUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
+  "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
+  "cdnUrl": "https://stylingadventures.com",
+  "webOrigin": "https://stylingadventures.com",
+  "thumbsCdn": "https://d1682i07dc1r3k.cloudfront.net"
+}
+

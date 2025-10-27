@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body class="sa-body">
+  <div class="page-head">
+    <h1>Admin</h1>
+    <span class="badge" id="badge-admin" title="Admin only"><span class="dot"></span>ADMIN</span>
+    <span class="muted" id="who-line"></span>
+    <span class="ml-auto">
+      <a class="sa-link" href="/">← Back to app</a>
+    </span>
+  </div>
+
+  <div id="gate" class="sa-card hidden">
+    <h2>Access required</h2>
+    <p id="gate-msg" class="muted"></p>
+    <p><a class="sa-btn sa-btn-outline" href="/">Go back</a></p>
+  </div>
+
+  <div id="admin-block" class="sa-card hidden">
+    <h2>Set user role</h2>
+    <form id="role-form" class="admin-form" novalidate>
+      <div class="row">
+        <label>User ID
+          <input id="user-id" class="sa-input" required />
+        </label>
+
+        <label>Email (optional)
+          <input id="user-email" class="sa-input" type="email" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Role
+          <select id="user-role" class="sa-input">
+            <option>FAN</option>
+            <option>BESTIE</option>
+            <option>CREATOR</option>
+            <option>COLLAB</option>
+            <option>ADMIN</option>
+          </select>
+        </label>
+
+        <label>Tier
+          <select id="user-tier" class="sa-input">
+            <option>FREE</option>
+            <option>PRIME</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row">
+        <button class="sa-btn" id="btn-save" type="submit">Save</button>
+        <button class="sa-btn sa-btn-outline" id="btn-use-me" type="button" title="Fill with your own ID/email">Use my ID</button>
+        <button class="sa-btn sa-btn-outline" id="btn-promote-me" type="button" title="Set yourself to ADMIN quickly">Promote me to ADMIN</button>
+        <span id="admin-msg" class="muted ml-2" aria-live="polite"></span>
+      </div>
+
+      <p id="hint" class="hint muted">
+        Tip: you can deep-link here with <code>?userId=abc&amp;email=x@y.com</code> to pre-fill the form.
+      </p>
+    </form>
+  </div>
+
+  <script type="module">
+    /* ========================= minimal utils ========================= */
+    const $ = s => document.querySelector(s);
+    const parseJwt = (t) => {
+      if (!t) return null;
+      try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));} catch { return null; }
+    };
+    const secondsLeft = (id) => { const p=parseJwt(id); return p?.exp ? Math.max(0, p.exp - Math.floor(Date.now()/1000)) : 0; };
+    const show = (el, yes) => { if (el) el.classList.toggle('hidden', !yes); };
+    const setMsg = (txt, isErr=false) => { const m=$('#admin-msg'); m.textContent = txt || ''; m.className = 'ml-2 ' + (isErr?'err':'muted'); };
+
+    /* ========================== config & auth ========================= */
+    async function loadCfg() {
+      const r = await fetch('/config.v2.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('Failed to load config');
+      return r.json();
+    }
+    const cfg = await loadCfg();
+
+    const hosted = cfg.domain || cfg.hostedUiDomain;
+    if (!hosted) throw new Error('Missing Cognito Hosted UI domain in config');
+    const domain = `https://${hosted}.auth.${cfg.region}.amazoncognito.com`;
+
+    async function ensureFreshIdToken(minSeconds=60){
+      let id = sessionStorage.getItem('id_token');
+      if (!id) return null;
+      if (secondsLeft(id) > minSeconds) return id;
+      try{
+        const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
+        const out = await refreshTokens({ domain, clientId: cfg.clientId });
+        scheduleRotation(out, { domain, clientId: cfg.clientId });
+        return out.id_token || sessionStorage.getItem('id_token');
+      }catch{
+        return sessionStorage.getItem('id_token'); // best effort
+      }
+    }
+
+    async function gql(query, variables={}){
+      const id = await ensureFreshIdToken();
+      if (!id) throw new Error('Not signed in.');
+      const r = await fetch(cfg.appsyncUrl, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', Authorization: id },
+        body: JSON.stringify({ query, variables })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok) throw new Error(`GraphQL ${r.status}`);
+      if (j.errors?.length) throw new Error(j.errors[0]?.message || 'GraphQL error');
+      return j.data;
+    }
+
+    /* ============================ admin gate =========================== */
+    function looksAdminFromJwt(){
+      const p = parseJwt(sessionStorage.getItem('id_token') || '');
+      const groups = p?.['cognito:groups'] || [];
+      return Array.isArray(groups) ? groups.includes('ADMIN') : String(groups).includes('ADMIN');
+    }
+
+    async function isAdminAuthoritative(){
+      try{
+        const data = await gql(`query { me { id email role } }`);
+        const me = data?.me;
+        if (me?.email) $('#who-line').textContent = me.email;
+        return me?.role === 'ADMIN';
+      }catch{
+        return looksAdminFromJwt();
+      }
+    }
+
+    async function gate(){
+      const id = sessionStorage.getItem('id_token');
+      if (!id){
+        $('#gate-msg').textContent = 'You must be signed in to view this page.';
+        show($('#gate'), true);
+        return false;
+      }
+      const ok = await isAdminAuthoritative();
+      if (!ok){
+        $('#gate-msg').textContent = 'Admin role required. If you believe this is a mistake, sign out and back in after your role is updated.';
+        show($('#gate'), true);
+        return false;
+      }
+      show($('#admin-block'), true);
+      return true;
+    }
+
+    /* ============================ form QoL ============================ */
+    function prefillFromQuery(){
+      const qs = new URLSearchParams(location.search);
+      const uid = qs.get('userId'); if (uid) $('#user-id').value = uid;
+      const eml = qs.get('email');  if (eml) $('#user-email').value = eml;
+    }
+
+    async function useMyId(){
+      const id = await ensureFreshIdToken();
+      if (!id){ setMsg('Please sign in first', true); return; }
+      const p = parseJwt(id);
+      $('#user-id').value = p?.sub || '';
+      $('#user-email').value = p?.email || '';
+      setMsg('Filled with your ID');
+    }
+
+    async function promoteMe(){
+      const id = await ensureFreshIdToken();
+      if (!id){ setMsg('Please sign in first', true); return; }
+      const p = parseJwt(id);
+      if (!p?.sub){ setMsg('Could not find your user ID', true); return; }
+      try{
+        const out = await gql(
+          `mutation($input:SetUserRoleInput!){
+            setUserRole(input:$input){ id role updatedAt }
+          }`,
+          { input: { userId: p.sub, email: p.email || null, role: 'ADMIN', tier: 'FREE' } }
+        );
+        setMsg(`You are now ${out.setUserRole.role} ✅`);
+      }catch(e){
+        setMsg(String(e?.message||e), true);
+      }
+    }
+
+    /* ============================== submit ============================== */
+    const form = document.getElementById('role-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setMsg('');
+      const btn = $('#btn-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+
+      const idToken = await ensureFreshIdToken();
+      if (!idToken) { setMsg('Sign in first', true); btn.disabled=false; btn.textContent='Save'; return; }
+
+      const userId = /** @type {HTMLInputElement} */(document.getElementById('user-id')).value.trim();
+      const email  = /** @type {HTMLInputElement} */(document.getElementById('user-email')).value.trim() || undefined;
+      const role   = /** @type {HTMLSelectElement} */(document.getElementById('user-role')).value;
+      const tier   = /** @type {HTMLSelectElement} */(document.getElementById('user-tier')).value;
+
+      if (!userId){ setMsg('User ID is required', true); btn.disabled=false; btn.textContent='Save'; return; }
+
+      try {
+        await gql(`
+          mutation SetUserRole($input: SetUserRoleInput!) {
+            setUserRole(input: $input) { id email role tier updatedAt }
+          }
+        `, { input: { userId, email, role, tier }});
+
+        setMsg('Saved ✔');
+      } catch (err) {
+        setMsg(String(err?.message || err), true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+    });
+
+    // Buttons
+    $('#btn-use-me').addEventListener('click', useMyId);
+    $('#btn-promote-me').addEventListener('click', promoteMe);
+
+    // Boot
+    prefillFromQuery();
+    (async () => { await gate(); })();
+  </script>
+</body>
+</html>

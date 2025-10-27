@@ -466,7 +466,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d17bab6f62215ba8d87a6341cf898d17667b6083c7bf5a01178b9a2c2fd5b33b.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/bb1151452a19849ef78e0b46ae45ae41424fe0881fb5b3278a05786c15011e0e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -596,6 +596,18 @@
             "data": "StylingApiClosetDSA4B9B720"
           }
         ],
+        "/ApiStack/StylingApi/MyClosetResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMyClosetResolver38493114"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminListPendingResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminListPendingResolver16923FC0"
+          }
+        ],
         "/ApiStack/StylingApi/CreateClosetItem/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -710,7 +722,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a4e9c4b94c28beb92152a06bc275e269beae698ea64663a5769fae82bdda0b21.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d20d07c24d21f8c625bad864218271ac879ba0cf27e23b8f2af07b0f73444ffc.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -728,36 +740,6 @@
       ],
       "metadata": {
         "/UploadsStack": [
-          {
-            "type": "aws:cdk:warning",
-            "data": "Be aware that the NodeJS runtime of Node 16 will be deprecated by Lambda on June 12, 2024. Lambda runtimes Node 18 and higher include SDKv3 and not SDKv2. Updating your Lambda runtime will require bundling the SDK, or updating all SDK calls in your handler code to use SDKv3 (which is not a trivial update). Please account for this added complexity and update as soon as possible. [ack: aws-cdk-lib/aws-lambda-nodejs:runtimeUpdateSdkV2Breakage]",
-            "trace": [
-              "Annotations.addMessage (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1978)",
-              "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:896)",
-              "new Bundling (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:3070)",
-              "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1135)",
-              "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2352)",
-              "new UploadsStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\stacks\\uploads-stack.ts:206:26)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:83:1)",
-              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
-              "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
-              "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
-              "Object.require.extensions.<computed> [as .ts] (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1621:12)",
-              "Module.load (node:internal/modules/cjs/loader:1275:32)",
-              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
-              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
-              "phase4 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:649:14)",
-              "bootstrap (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:95:10)",
-              "main (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:55:10)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:800:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
-              "Object.Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
-              "Module.load (node:internal/modules/cjs/loader:1275:32)",
-              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
-              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
-              "node:internal/main/run_main_module:28:49"
-            ]
-          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -988,6 +970,30 @@
             "data": "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691"
           }
         ],
+        "/UploadsStack/ThumbHeadFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ThumbHeadFnServiceRole3E5C13F3"
+          }
+        ],
+        "/UploadsStack/ThumbHeadFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ThumbHeadFnServiceRoleDefaultPolicy91888102"
+          }
+        ],
+        "/UploadsStack/ThumbHeadFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ThumbHeadFn9C2B9FD0"
+          }
+        ],
+        "/UploadsStack/ThumbHeadFn/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ThumbHeadFnLogRetentionFCC64834"
+          }
+        ],
         "/UploadsStack/UploadsAuthorizer/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1015,7 +1021,7 @@
         "/UploadsStack/UploadsApi/Deployment/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "UploadsApiDeployment4A67E04Ce91748700bfc319a66e72f268c2c829e"
+            "data": "UploadsApiDeployment4A67E04Cae757e96f90654ad497e066fa7e3bd1d"
           }
         ],
         "/UploadsStack/UploadsApi/DeploymentStage.prod/Resource": [
@@ -1168,30 +1174,6 @@
             "data": "UploadsApiDefault5XXBDD43D3A"
           }
         ],
-        "/UploadsStack/ThumbHeadFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ThumbHeadFnServiceRole3E5C13F3"
-          }
-        ],
-        "/UploadsStack/ThumbHeadFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ThumbHeadFnServiceRoleDefaultPolicy91888102"
-          }
-        ],
-        "/UploadsStack/ThumbHeadFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ThumbHeadFn9C2B9FD0"
-          }
-        ],
-        "/UploadsStack/ThumbHeadFn/LogRetention/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ThumbHeadFnLogRetentionFCC64834"
-          }
-        ],
         "/UploadsStack/UploadsDashboard/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1276,7 +1258,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a9266d38915a55b3a3dad194f11f707b9223116dd58e874e0ed6be9a02ee363e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/9d1e2692d8932a22a44fe5364fc059290c05b8008687e21c725573045d3c9f92.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

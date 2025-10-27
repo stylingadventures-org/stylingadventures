@@ -1,9 +1,9 @@
 // lambda/thumb-head/index.ts
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3";
 
-const s3 = new S3Client({});
+const s3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const BUCKET = process.env.BUCKET!;
-const ORIGIN = process.env.WEB_ORIGIN || "*"; // set in stack; fallback for safety
+const ORIGIN = process.env.WEB_ORIGIN || 'https://stylingadventures.com';
 
 const baseHeaders = {
   "Content-Type": "application/json",

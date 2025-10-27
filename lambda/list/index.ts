@@ -7,7 +7,7 @@ const s3 = new S3Client({
 });
 
 const BUCKET = process.env.BUCKET!;
-const ORIGIN = process.env.WEB_ORIGIN!;
+const ORIGIN = process.env.WEB_ORIGIN || 'https://stylingadventures.com';
 
 const cors = {
   'Access-Control-Allow-Origin': ORIGIN,
@@ -15,11 +15,10 @@ const cors = {
   'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,OPTIONS',
   'Content-Type': 'application/json',
-  Vary: 'Origin',
+  'Vary': 'Origin',
 };
 
 export const handler = async (event: any) => {
-  // Handle CORS preflight defensively (API GW also does this)
   if ((event?.httpMethod || event?.requestContext?.http?.method) === 'OPTIONS') {
     return { statusCode: 204, headers: cors, body: '' };
   }
@@ -31,12 +30,11 @@ export const handler = async (event: any) => {
       {};
     const sub = claims?.sub as string | undefined;
 
-    // Client can pass ?prefix=foo/bar . We sanitize and *scope* to the caller's folder.
     const queryPrefix = (event?.queryStringParameters?.prefix ?? '')
       .replace(/\.\./g, '')
       .replace(/^[/\\]+/, '');
 
-    const userPrefix = sub ? `users/${sub}/` : ''; // if you ever allow service calls without a user
+    const userPrefix = sub ? `users/${sub}/` : '';
     const prefix = `${userPrefix}${queryPrefix}`;
 
     const res = await s3.send(
@@ -56,20 +54,11 @@ export const handler = async (event: any) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({
-        prefix,
-        items,
-        isTruncated: !!res.IsTruncated,
-        nextToken: res.NextContinuationToken ?? null,
-      }),
+      body: JSON.stringify({ prefix, items, isTruncated: !!res.IsTruncated, nextToken: res.NextContinuationToken ?? null }),
     };
   } catch (e: any) {
     console.error(e);
-    return {
-      statusCode: 500,
-      headers: cors,
-      body: JSON.stringify({ error: e?.message ?? String(e) }),
-    };
+    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: e?.message ?? String(e) }) };
   }
 };
 

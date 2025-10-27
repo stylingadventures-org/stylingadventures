@@ -1,7 +1,7 @@
-"""Auth directive used in this API"""
+"""Auth directive used in this API (mapped to Cognito user pools in AppSync)"""
 directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
 
-"""App base enums & types"""
+""" -------- App base enums & types -------- """
 enum ClosetStatus { PENDING APPROVED REJECTED PUBLISHED }
 
 type ClosetItem {
@@ -41,39 +41,54 @@ type AdminUsersPage {
   nextToken: String
 }
 
+""" -------- Queries -------- """
 type Query {
-  # existing
   hello: String!
+
+  """
+  Returns the signed-in creator’s items. Never null; empty list if none.
+  Implemented by lambda/graphql/closet.ts -> myCloset
+  """
   myCloset: [ClosetItem!]!
 
-  # moved here from Mutation to fix resolver mismatch
+  """
+  Items awaiting moderation. Move implemented resolver here (Query) to avoid
+  resolver/operation mismatches. Requires elevated groups.
+  """
   adminListPending: [ClosetItem!]!
-    @aws_auth(cognito_groups: ["ADMIN","COLLAB","PRIME"])
+    @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
 
-  # roles
+  # Roles / user directory
   me: User!
-
-  # existing: admin user search
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
 }
 
+""" -------- Mutations -------- """
 type Mutation {
-  # existing
-  requestClosetApproval(id: ID!): String!  # returns executionArn
+  """
+  Creates a new item in DRAFT. Implemented by lambda/graphql/closet.ts -> createClosetItem
+  """
   createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth
 
-  # roles
+  """
+  Marks item PENDING and starts the approval Step Function.
+  Returns the executionArn. Implemented by lambda/graphql/closet.ts -> requestClosetApproval
+  """
+  requestClosetApproval(id: ID!): String!
+
+  # Roles
   setUserRole(input: SetUserRoleInput!): User!
 
-  # new moderation actions
+  # Moderation actions (to implement next)
   adminApproveItem(id: ID!): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN","COLLAB"])
+    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
   adminRejectItem(id: ID!, reason: String): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN","COLLAB"])
+    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 }
 
 schema {
   query: Query
   mutation: Mutation
 }
+
