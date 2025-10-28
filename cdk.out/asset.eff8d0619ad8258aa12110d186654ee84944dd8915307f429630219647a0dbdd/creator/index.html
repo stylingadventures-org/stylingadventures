@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures — Creator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/css/thumbs.css" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    .pill{display:inline-block;padding:.15rem .45rem;border-radius:999px;font:600 11px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .pill.pending{background:#fdf4ff;color:#6b21a8;border:1px solid #f5d0fe}
+    .pill.approved{background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0}
+    .pill.rejected{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+    .pill.published{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+    .sa-table-wrap{overflow:auto}
+    .sa-table{width:100%;border-collapse:separate;border-spacing:0}
+    .sa-table th,.sa-table td{padding:.6rem .7rem;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
+    .sa-table thead th{font-weight:600;color:#334155;background:#f8fafc;position:sticky;top:0}
+    .sa-btn.link{background:transparent;border:0;color:#2563eb;padding:0;cursor:pointer}
+    .nowrap{white-space:nowrap}
+  </style>
+</head>
+<body class="sa-body">
+  <h1>Creator dashboard</h1>
+
+  <div class="sa-card">
+    <h2>New item</h2>
+    <form id="new-form" class="admin-form">
+      <label>Title
+        <input id="new-title" class="sa-input" required maxlength="120" />
+      </label>
+      <label>Media key (from Uploads)
+        <input id="new-key" class="sa-input" placeholder="users/{sub}/…/file.png" required />
+      </label>
+      <button class="sa-btn" type="submit">Create</button>
+      <span id="msg" class="sa-muted ml-2" aria-live="polite"></span>
+    </form>
+  </div>
+
+  <div class="sa-card">
+    <div class="mb-2">
+      <button id="btn-reload" class="sa-btn">Reload my items</button>
+    </div>
+    <div class="sa-table-wrap">
+      <table class="sa-table">
+        <thead>
+          <tr><th>Title</th><th>Status</th><th>When</th><th>Media</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="body"><tr><td colspan="5" class="sa-muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    const q=(s,r=document)=>r.querySelector(s);
+    const h=(html)=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;}
+    const fmt=(iso)=>new Date(iso).toLocaleString();
+    const esc=(s)=>String(s).replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]));
+    const toast=(t,e=false)=>{const m=q('#msg');m.textContent=t;m.className='sa-muted ml-2'+(e?' sa-error':'');}
+
+    async function cfg(){const r=await fetch('/config.v2.json?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('cfg');return r.json();}
+    const C = await cfg();
+
+    function parseJwt(t){ if(!t) return null; try{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));}catch{return null;} }
+    async function id(){return sessionStorage.getItem('id_token');}
+    async function gql(query,variables={}){
+      const tok=await id(); if(!tok) throw new Error('Sign in');
+      const r=await fetch(C.appsyncUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':tok},body:JSON.stringify({query,variables})});
+      const j=await r.json(); if(!r.ok||j.errors) throw new Error((j.errors&&j.errors[0]?.message)||'GraphQL error'); return j.data;
+    }
+
+    function pill(s){
+      s=String(s||'').toUpperCase();
+      const cls=s==='APPROVED'?'approved':s==='REJECTED'?'rejected':s==='PUBLISHED'?'published':'pending';
+      return `<span class="pill ${cls}">${s||'PENDING'}</span>`;
+    }
+
+    async function loadMine(){
+      const data=await gql(`query{ myCloset{ id title status mediaKey createdAt updatedAt } }`);
+      const items=data.myCloset||[];
+      const tb=q('#body'); tb.innerHTML='';
+      if(items.length===0){tb.innerHTML='<tr><td colspan="5" class="sa-muted">No items yet</td></tr>'; return;}
+      for(const it of items){
+        const mediaCell = it.mediaKey ? `<code>${esc(it.mediaKey.split('/').slice(-1)[0])}</code>` : '—';
+        const row=h(`
+          <tr data-id="${it.id}">
+            <td>${esc(it.title||'')}</td>
+            <td>${pill(it.status)}</td>
+            <td class="nowrap">${fmt(it.updatedAt||it.createdAt)}</td>
+            <td>${mediaCell}</td>
+            <td class="nowrap">
+              <button class="sa-btn link js-request">Request approval</button>
+              ${it.mediaKey?`<button class="sa-btn link js-open">Open media</button>`:''}
+              <button class="sa-btn link js-copy">Copy ID</button>
+            </td>
+          </tr>
+        `);
+        tb.appendChild(row);
+      }
+      // wire events after rows exist
+      tb.querySelectorAll('tr[data-id]').forEach(tr=>{
+        const id=tr.getAttribute('data-id');
+        tr.querySelector('.js-request')?.addEventListener('click', async ()=>{
+          try{ await gql(`mutation($id:ID!){ requestClosetApproval(id:$id) }`,{id}); toast('Requested approval ✔'); }
+          catch(e){ toast(String(e.message||e), true); }
+        });
+        tr.querySelector('.js-open')?.addEventListener('click', ()=>{
+          const key = items.find(x=>x.id===id)?.mediaKey || '';
+          if (!/^users\/[^/]+\/.+\.(png|jpg|jpeg|webp)$/i.test(key)) {
+            toast('This item has no valid media key yet.', true);
+            return;
+          }
+          const base = (C.thumbsCdn || C.cdnUrl || C.webOrigin || location.origin).replace(/\/+$/,'');
+          const jpg = key.replace(/\.[^.]+$/, '.jpg').split('/').map(encodeURIComponent).join('/');
+          window.open(`${base}/thumbs/${jpg}`, '_blank', 'noopener,noreferrer');
+        });
+        tr.querySelector('.js-copy')?.addEventListener('click', async ()=>{
+          try{ await navigator.clipboard.writeText(id); toast('Copied ✔'); } catch{ toast('Copy failed',true); }
+        });
+      });
+    }
+
+    q('#btn-reload').addEventListener('click', e=>{
+      e.preventDefault(); loadMine().catch(err=>toast(String(err.message||err),true));
+    });
+
+    // *** replaced submit handler with validated mediaKey ***
+    q('#new-form').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const title = q('#new-title').value.trim();
+      const mediaKey = q('#new-key').value.trim();
+      if (!title || !mediaKey) { toast('Title and media key required', true); return; }
+      if (!/^users\/[^/]+\/.+\.(png|jpg|jpeg|webp)$/i.test(mediaKey)) {
+        toast('Media key must look like users/{sub}/.../file.(png|jpg|jpeg|webp)', true);
+        return;
+      }
+      try {
+        await gql(`mutation($t:String,$k:String){ createClosetItem(title:$t, mediaKey:$k){ id } }`, { t:title, k:mediaKey });
+        toast('Created ✔');
+        q('#new-title').value=''; q('#new-key').value='';
+        await loadMine();
+      } catch (err) { toast(String(err.message||err), true); }
+    });
+
+    // Require creator-ish role (soft gate based on groups)
+    const groups=(parseJwt(sessionStorage.getItem('id_token')||'')?.['cognito:groups']||[]);
+    if(!(groups.includes('CREATOR')||groups.includes('COLLAB')||groups.includes('ADMIN'))){
+      document.body.innerHTML='<div class="sa-card"><h2>Access</h2><p class="sa-muted">This page is for creators only.</p></div>';
+    }else{
+      loadMine().catch(err=>toast(String(err.message||err),true));
+    }
+  </script>
+</body>
+</html>

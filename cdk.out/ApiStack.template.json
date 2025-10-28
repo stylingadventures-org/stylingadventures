@@ -123,7 +123,7 @@
       "ApiId"
      ]
     },
-    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync)\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n\"\"\" -------- App base enums & types -------- \"\"\"\r\nenum ClosetStatus { PENDING APPROVED REJECTED PUBLISHED }\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String          # optional: why REJECTED\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n\"\"\" -------- Queries -------- \"\"\"\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"\r\n  Returns the signed-in creator’s items. Never null; empty list if none.\r\n  Implemented by lambda/graphql/closet.ts -> myCloset\r\n  \"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"\r\n  Items awaiting moderation. Move implemented resolver here (Query) to avoid\r\n  resolver/operation mismatches. Requires elevated groups.\r\n  \"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Roles / user directory\r\n  me: User!\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n}\r\n\r\n\"\"\" -------- Mutations -------- \"\"\"\r\ntype Mutation {\r\n  \"\"\"\r\n  Creates a new item in DRAFT. Implemented by lambda/graphql/closet.ts -> createClosetItem\r\n  \"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth\r\n\r\n  \"\"\"\r\n  Marks item PENDING and starts the approval Step Function.\r\n  Returns the executionArn. Implemented by lambda/graphql/closet.ts -> requestClosetApproval\r\n  \"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): User!\r\n\r\n  # Moderation actions (to implement next)\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n\r\n"
+    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync)\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n\"\"\" -------- App base enums & types -------- \"\"\"\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String          # optional: why REJECTED\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n\"\"\" -------- Queries -------- \"\"\"\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"\r\n  Returns the signed-in creator’s items. Never null; empty list if none.\r\n  Implemented by lambda/graphql/closet.ts -> myCloset\r\n  \"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"\r\n  Items awaiting moderation. Requires elevated groups.\r\n  Implemented by lambda/graphql/closet.ts -> adminListPending\r\n  \"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Roles / user directory\r\n  me: User!\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n}\r\n\r\n\"\"\" -------- Mutations -------- \"\"\"\r\ntype Mutation {\r\n  \"\"\"\r\n  Creates a new item in DRAFT.\r\n  Implemented by lambda/graphql/closet.ts -> createClosetItem\r\n  \"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth\r\n\r\n  \"\"\"\r\n  Marks item PENDING and starts the approval Step Function.\r\n  Returns a string (execution request marker).\r\n  Implemented by lambda/graphql/closet.ts -> requestClosetApproval\r\n  \"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): User!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  \"\"\"\r\n  Admin/creator fix-up: update the media key on an item.\r\n  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey\r\n  \"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n\r\n"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Schema"
@@ -612,6 +612,78 @@
     "aws:cdk:path": "ApiStack/StylingApi/RequestClosetApproval/Resource"
    }
   },
+  "StylingApiAdminApproveItem0F267B42": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetDS",
+    "FieldName": "adminApproveItem",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetDSA4B9B720",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminApproveItem/Resource"
+   }
+  },
+  "StylingApiAdminRejectItemCC71EBDE": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetDS",
+    "FieldName": "adminRejectItem",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetDSA4B9B720",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminRejectItem/Resource"
+   }
+  },
+  "StylingApiUpdateClosetMediaKeyD01273A7": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetDS",
+    "FieldName": "updateClosetMediaKey",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetDSA4B9B720",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/UpdateClosetMediaKey/Resource"
+   }
+  },
   "RolesUserRolesTable5E79EE44": {
    "Type": "AWS::DynamoDB::Table",
    "Properties": {
@@ -854,7 +926,42 @@
          "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
         },
         {
-         "Ref": "AWS::NoValue"
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:PutItem"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
         }
        ]
       },
@@ -884,7 +991,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "4d3fb53b8fcde1b589789882f67bd06698eba21eb7891d2cc0c939e26deecd1b.zip"
+     "S3Key": "950f5ec91eeceaa8eb8b053ca4251bb2da6c96c85d11e4b6ed2adbfbb66572d4.zip"
     },
     "Environment": {
      "Variables": {
@@ -922,15 +1029,15 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.4d3fb53b8fcde1b589789882f67bd06698eba21eb7891d2cc0c939e26deecd1b",
-    "aws:asset:is-bundled": false,
+    "aws:asset:path": "asset.950f5ec91eeceaa8eb8b053ca4251bb2da6c96c85d11e4b6ed2adbfbb66572d4",
+    "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
   },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOy27CMBBFv4W9M4XQDUtoRTdIpUn3aOK4YOIXGRsUWf73yk4rtat7z8hXPjXUqw0sF/igivdDpWQHsfXIB4YPOkWFuusR4j4Y7qU17OXL/PbEJGqIjVUin0serZJ8yji3xGh9QiLhCbY5GK1hF/gg/A5JMHSOJsMhvo3oLje1dTKPC30c/lPLL0IjOxSlV/TY2jDy8vcfagRZdRdjUfrpifWTQW37DuIndrNvKSmVQVkWv9bjWZpzfvAevAs+MWN7AVd6utdLWG3geXElKasxGC+1gGbOb7JdO5JJAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy07DMBD8lt6dpU259NiC4FLxSLhHG8dtnTi2ydqtIsv/juyAgNPMrDSzMyWUmx2sV3ijgndDoWQLoXbIB4Y3aoLCse0QwpPX3Emj2cNJ//DIJI4QKqNEOmd8M0ryOcmFRUbbBomEI9gnYLSFg+eDcAckwdBamjWH8DyhvXyqvZXJnNX78b+q+UWMyI650iM6rI2feP79R1WCjLqKKVf65pF1s8bRdC2ED2yXvplEtixstOlET/CS4XdhSsixuXzt8Cz1OblfvbPeRZZ80NPdtVzDZgf3q56kLCavnRwFVAt+AVc3PoFmAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"

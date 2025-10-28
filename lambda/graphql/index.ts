@@ -1,27 +1,31 @@
 // lambda/graphql/index.ts
-import {
-  myCloset,
-  adminListPending,
-  createClosetItem,
-  requestClosetApproval,
-} from "./closet";
+import * as closet from "./closet";
 
-type AppSyncHandler = (event: any) => Promise<any>;
-
-const map: Record<string, AppSyncHandler> = {
-  // Queries
-  myCloset,
-  adminListPending,
-  // Mutations
-  createClosetItem,
-  requestClosetApproval,
-  // Optional smoke test if you ever route hello here
-  hello: async () => "Hello from Styling Adventures 👋",
+type AppSyncEvent = {
+  info: { fieldName: string; parentTypeName: string };
+  arguments: any;
+  identity?: any;
 };
 
-export const handler: AppSyncHandler = async (event) => {
-  const field = event?.info?.fieldName as string;
-  const fn = map[field];
-  if (!fn) throw new Error(`No resolver for field ${field}`);
-  return fn(event);
+export const handler = async (event: AppSyncEvent) => {
+  const f = event.info.fieldName;
+
+  // ---- Queries ----
+  if (f === "hello") return "Hello from Styling Adventures 👋";
+  if (f === "myCloset") return closet.myCloset(event);
+  if (f === "adminListPending") return closet.adminListPending(event);
+
+  // ---- Mutations ----
+  if (f === "createClosetItem") return closet.createClosetItem(event);
+
+  // Media key edit (support both names, route to the one you implemented)
+  if (f === "updateClosetMediaKey" || f === "editClosetMediaKey") {
+    return closet.updateClosetMediaKey(event);
+  }
+
+  if (f === "requestClosetApproval") return closet.requestClosetApproval(event);
+  if (f === "adminApproveItem") return closet.adminApproveItem(event);
+  if (f === "adminRejectItem") return closet.adminRejectItem(event);
+
+  throw new Error(`Unknown field: ${f}`);
 };

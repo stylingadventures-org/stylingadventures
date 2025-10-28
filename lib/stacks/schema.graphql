@@ -2,7 +2,13 @@
 directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
 
 """ -------- App base enums & types -------- """
-enum ClosetStatus { PENDING APPROVED REJECTED PUBLISHED }
+enum ClosetStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
 
 type ClosetItem {
   id: ID!
@@ -52,8 +58,8 @@ type Query {
   myCloset: [ClosetItem!]!
 
   """
-  Items awaiting moderation. Move implemented resolver here (Query) to avoid
-  resolver/operation mismatches. Requires elevated groups.
+  Items awaiting moderation. Requires elevated groups.
+  Implemented by lambda/graphql/closet.ts -> adminListPending
   """
   adminListPending: [ClosetItem!]!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
@@ -67,24 +73,32 @@ type Query {
 """ -------- Mutations -------- """
 type Mutation {
   """
-  Creates a new item in DRAFT. Implemented by lambda/graphql/closet.ts -> createClosetItem
+  Creates a new item in DRAFT.
+  Implemented by lambda/graphql/closet.ts -> createClosetItem
   """
   createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth
 
   """
   Marks item PENDING and starts the approval Step Function.
-  Returns the executionArn. Implemented by lambda/graphql/closet.ts -> requestClosetApproval
+  Returns a string (execution request marker).
+  Implemented by lambda/graphql/closet.ts -> requestClosetApproval
   """
   requestClosetApproval(id: ID!): String!
 
   # Roles
   setUserRole(input: SetUserRoleInput!): User!
 
-  # Moderation actions (to implement next)
+  # Moderation actions
   adminApproveItem(id: ID!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
   adminRejectItem(id: ID!, reason: String): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
+
+  """
+  Admin/creator fix-up: update the media key on an item.
+  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey
+  """
+  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
 }
 
 schema {
