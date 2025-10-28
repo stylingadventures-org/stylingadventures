@@ -8,13 +8,13 @@ import * as appsync from "aws-cdk-lib/aws-appsync";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as iam from "aws-cdk-lib/aws-iam";
+import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import { RolesConstruct } from "../roles/RolesConstruct";
 
 export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
-  /** Primary app table (single-table design) */
   table: dynamodb.ITable;
-  /** Closet approval state machine (Standard) */
   closetApprovalSm: sfn.IStateMachine;
 }
 
@@ -23,10 +23,9 @@ export class ApiStack extends Stack {
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
-
     const { userPool, table, closetApprovalSm } = props;
 
-    // ---- Hello Lambda (for Query.hello smoke test)
+    /* ---------------- Hello (smoke test) ---------------- */
     const helloFn = new lambda.Function(this, "HelloFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
@@ -34,7 +33,7 @@ export class ApiStack extends Stack {
       environment: { NODE_OPTIONS: "--enable-source-maps" },
     });
 
-    // ---- AppSync (schema from repo path)
+    /* ---------------- AppSync API ---------------- */
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
       schema: appsync.SchemaFile.fromAsset(
@@ -49,10 +48,10 @@ export class ApiStack extends Stack {
       xrayEnabled: true,
     });
 
-    // ---- Roles (attach roles/resources tied to this API)
+    // Roles (directive wiring etc.)
     new RolesConstruct(this, "Roles", { api: this.api });
 
-    // ---- Resolver: Query.hello -> helloFn
+    // Resolver: Query.hello -> helloFn
     const helloDs = this.api.addLambdaDataSource("HelloDS", helloFn);
     helloDs.createResolver("HelloResolver", {
       typeName: "Query",
@@ -61,31 +60,45 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // =========================
-    // Closet resolvers (Queries + Mutations) via ONE Lambda
-    // =========================
-    const closetFn = new lambda.Function(this, "ClosetResolverFn", {
+    /* ---------------- Closet resolvers (TS bundled) ----------------
+       We bundle lambda/graphql/index.ts so Lambda gets compiled JS.
+    ---------------------------------------------------------------- */
+    const closetFn = new NodejsFunction(this, "ClosetResolverFn", {
+      entry: path.join(process.cwd(), "lambda/graphql/index.ts"),
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "index.handler", // routes by event.info.fieldName
-      code: lambda.Code.fromAsset(path.join(process.cwd(), "lambda/graphql")),
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        target: "node20",
+      },
       environment: {
         TABLE_NAME: table.tableName,
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
-        // optional if you later pass index names, keep here:
-        // GSI1_NAME: "gsi1",
-        // GSI2_NAME: "gsi2",
         NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
-    // Permissions
+    // Permissions: table R/W + allow querying GSIs
     table.grantReadWriteData(closetFn);
+    closetFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem",
+        ],
+        resources: [table.tableArn, `${table.tableArn}/index/*`],
+      })
+    );
     closetApprovalSm.grantStartExecution(closetFn);
 
-    // One data source, multiple resolvers
     const closetDs = this.api.addLambdaDataSource("ClosetDS", closetFn);
 
-    // Queries
+    // -------- Queries --------
     closetDs.createResolver("MyClosetResolver", {
       typeName: "Query",
       fieldName: "myCloset",
@@ -100,7 +113,7 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // Mutations
+    // -------- Mutations --------
     closetDs.createResolver("CreateClosetItem", {
       typeName: "Mutation",
       fieldName: "createClosetItem",
@@ -115,9 +128,30 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // ---- Outputs
+    closetDs.createResolver("AdminApproveItem", {
+      typeName: "Mutation",
+      fieldName: "adminApproveItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    closetDs.createResolver("AdminRejectItem", {
+      typeName: "Mutation",
+      fieldName: "adminRejectItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // NEW: allow fixing a bad media key
+    closetDs.createResolver("UpdateClosetMediaKey", {
+      typeName: "Mutation",
+      fieldName: "updateClosetMediaKey",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    /* ---------------- Outputs ---------------- */
     new cdk.CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
     new cdk.CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }
 }
-

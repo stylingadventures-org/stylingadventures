@@ -34,14 +34,31 @@ class DataStack extends cdk.Stack {
   public readonly table: ddb.Table;
   constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
     this.table = new ddb.Table(this, 'AppTable', {
-      tableName: `sa-${envName}-app`,
+      tableName: `sa-${envName}-app`, // e.g. sa-dev-app
       partitionKey: { name: 'pk', type: ddb.AttributeType.STRING },
-      sortKey: { name: 'sk', type: ddb.AttributeType.STRING },
+      sortKey:      { name: 'sk', type: ddb.AttributeType.STRING },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
       removalPolicy:
         envName === 'prd' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // GSI #1 — by owner (used for myCloset)
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'gsi1',
+      partitionKey: { name: 'gsi1pk', type: ddb.AttributeType.STRING }, // OWNER#{sub}
+      sortKey:      { name: 'gsi1sk', type: ddb.AttributeType.STRING }, // ISO time
+      projectionType: ddb.ProjectionType.ALL,
+    });
+
+    // GSI #2 — by status (used for moderation queue)
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'gsi2',
+      partitionKey: { name: 'gsi2pk', type: ddb.AttributeType.STRING }, // STATUS#PENDING / #DRAFT / ...
+      sortKey:      { name: 'gsi2sk', type: ddb.AttributeType.STRING }, // ISO time
+      projectionType: ddb.ProjectionType.ALL,
     });
   }
 }
