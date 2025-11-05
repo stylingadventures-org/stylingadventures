@@ -1,21 +1,35 @@
 {
-  "Web": {
-    "cloudFrontUrl": null,
-    "staticBucket": null
+  "IdentityStack": {
+    "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00": "arn:aws:cognito-idp:us-east-1:637423256673:userpool/us-east-1_aXLKIxbqK",
+    "CognitoUserPoolId": "us-east-1_aXLKIxbqK",
+    "HostedUiLoginUrl": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com/login?client_id=51uc25i7ob3otirvgi66mpht79&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html",
+    "CognitoWebClientId": "51uc25i7ob3otirvgi66mpht79",
+    "ExportsOutputRefUserPool6BA7E5F296FD7236": "us-east-1_aXLKIxbqK",
+    "IdentityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8"
   },
-  "Identity": {
-    "userPoolId": "us-east-1_aXLKIxbqK",
-    "userPoolClientId": "7bkph1q2q1dgpk0497gk41t7tc",
-    "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
-    "hostedUiDomain": null,
-    "hostedUiUrl": "https://stylingadventures-256673.auth.us-east-1.amazoncognito.com/login?client_id=7bkph1q2q1dgpk0497gk41t7tc&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html"
+  "DataStack": {
+    "ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3": "arn:aws:dynamodb:us-east-1:637423256673:table/sa-dev-app",
+    "ExportsOutputRefAppTable815C50BC1988FCFB": "sa-dev-app"
   },
-  "Api": {
-    "appSyncApiId": null,
-    "appSyncUrl": null
+  "WorkflowsStack": {
+    "ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA": "arn:aws:states:us-east-1:637423256673:stateMachine:ClosetUploadApprovalDA1D2210-6A29DW3qzdej"
   },
-  "Uploads": {
-    "uploadsBucket": null,
-    "apiGatewayUrl": null
+  "ApiStack": {
+    "GraphQlApiUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
+    "RolesUserRolesTableNameC9E8D8C2": "ApiStack-RolesUserRolesTable5E79EE44-E3BLLKVX3LNZ",
+    "GraphQlApiId": "vwg5rspringxfega2jolrgu5jm"
+  },
+  "UploadsStack": {
+    "UploadsApiEndpoint8004A65B": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod/",
+    "UploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod/",
+    "ThumbStateMachineArn": "arn:aws:states:us-east-1:637423256673:stateMachine:ThumbStateMachineDAEB9766-glV0Ty736nKG",
+    "ThumbsCdnDomainName": "d22qf9lvvu7o8u.cloudfront.net",
+    "UploadsBucketName": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5",
+    "UploadsDashboardName": "UploadsStack-Uploads",
+    "ThumbQueueUrl": "https://sqs.us-east-1.amazonaws.com/637423256673/UploadsStack-ThumbQueueB1CB3F96-kkgR06qVtOts"
+  },
+  "WebStack": {
+    "CloudFrontDistributionDomainName": "d1682i07dc1r3k.cloudfront.net",
+    "StaticSiteBucketName": "webstack-sitebucket397a1860-fcyfyexgmerv"
   }
 }

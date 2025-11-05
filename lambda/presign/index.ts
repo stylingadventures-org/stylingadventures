@@ -1,104 +1,204 @@
-import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyEventV2,
+  APIGatewayProxyResult,
+} from "aws-lambda";
 import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// Path-style so host stays s3.us-east-1.amazonaws.com and avoids per-bucket DNS lookups.
+/* ---------------- S3 client (path-style) ---------------- */
 const s3 = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_REGION || "us-east-1",
   forcePathStyle: true,
 });
 
 const BUCKET = process.env.BUCKET!;
-const ORIGIN = process.env.WEB_ORIGIN ?? 'https://stylingadventures.com';
-const THUMBS_CDN = process.env.THUMBS_CDN;
 
-type AnyEvent = any;
+/* ============================== CORS helpers ============================== */
+const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': ORIGIN,
-  'Access-Control-Allow-Headers':
-    'Authorization,Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
-  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-  'Access-Control-Allow-Credentials': 'true',
-  Vary: 'Origin',
-};
+const FALLBACK_ORIGIN = process.env.WEB_ORIGIN || "";
 
-function ok(body: unknown, extra: Record<string, string> = {}): APIGatewayProxyResult {
-  return { statusCode: 200, headers: { ...corsHeaders, ...extra }, body: JSON.stringify(body) };
+// Include lowercase 'authorization' since browsers may send that in preflight.
+const ALLOW_HEADERS = [
+  "authorization",
+  "Authorization",
+  "Content-Type",
+  "X-Amz-Date",
+  "X-Api-Key",
+  "X-Amz-Security-Token",
+].join(",");
+
+function pickAllowedOrigin(event: any): string | undefined {
+  const reqOrigin = event?.headers?.origin || event?.headers?.Origin || "";
+  if (ALLOWED_ORIGINS.length) {
+    return ALLOWED_ORIGINS.includes(reqOrigin) ? reqOrigin : undefined;
+  }
+  return FALLBACK_ORIGIN || undefined; // back-compat single origin
 }
-function bad(status: number, msg: string): APIGatewayProxyResult {
-  return { statusCode: status, headers: corsHeaders, body: JSON.stringify({ message: msg }) };
+
+function baseCorsHeaders(origin?: string) {
+  const h: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Headers": ALLOW_HEADERS,
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+    // Help caches/proxies treat each origin/request-method/header set distinctly
+    Vary: "Origin, Access-Control-Request-Headers, Access-Control-Request-Method",
+  };
+  if (origin) h["Access-Control-Allow-Origin"] = origin; // EXACTLY one origin, only if allowed
+  return h;
 }
+
+function ok(
+  event: any,
+  body: unknown,
+  extra: Record<string, string> = {}
+): APIGatewayProxyResult {
+  const origin = pickAllowedOrigin(event);
+  return {
+    statusCode: 200,
+    headers: { ...baseCorsHeaders(origin), ...extra },
+    body: JSON.stringify(body),
+  };
+}
+
+function noContent(event: any): APIGatewayProxyResult {
+  const origin = pickAllowedOrigin(event);
+  return { statusCode: 204, headers: baseCorsHeaders(origin), body: "" };
+}
+
+function bad(
+  event: any,
+  status: number,
+  msg: string
+): APIGatewayProxyResult {
+  const origin = pickAllowedOrigin(event);
+  const hasReqOrigin = !!(event.headers?.origin || event.headers?.Origin);
+  if (hasReqOrigin && !origin) {
+    // Do NOT echo ACAO for disallowed origins
+    return {
+      statusCode: 403,
+      headers: baseCorsHeaders(undefined),
+      body: JSON.stringify({ message: "CORS: origin not allowed" }),
+    };
+  }
+  return {
+    statusCode: status,
+    headers: baseCorsHeaders(origin),
+    body: JSON.stringify({ message: msg }),
+  };
+}
+/* ============================ end CORS helpers ============================ */
+
+/* ----------------------------- utils ----------------------------- */
+type AnyEvent = APIGatewayProxyEvent | APIGatewayProxyEventV2 | any;
 
 function getMethod(e: AnyEvent): string {
-  return e.httpMethod ?? e.requestContext?.http?.method ?? 'GET';
+  return (e as any).httpMethod ?? e.requestContext?.http?.method ?? "GET";
 }
-function getPath(e: AnyEvent): string {
-  return e.resource ?? e.rawPath ?? e.path ?? '/';
-}
+
 function getClaims(e: AnyEvent): Record<string, any> {
-  return e.requestContext?.authorizer?.claims ?? e.requestContext?.authorizer?.jwt?.claims ?? {};
-}
-function parseBody(e: AnyEvent): any {
-  if (!e.body) return undefined;
-  const raw = e.isBase64Encoded ? Buffer.from(e.body, 'base64').toString() : e.body;
-  try { return JSON.parse(raw); } catch { return undefined; }
+  return (
+    (e as any).requestContext?.authorizer?.claims ??
+    (e as any).requestContext?.authorizer?.jwt?.claims ??
+    {}
+  );
 }
 
-export const handler = async (event: AnyEvent): Promise<APIGatewayProxyResult> => {
+function parseJsonBody(e: AnyEvent): any {
+  const raw = (e as any).body ?? "";
+  if (!raw) return {};
+  const txt =
+    (e as any).isBase64Encoded && typeof raw === "string"
+      ? Buffer.from(raw, "base64").toString()
+      : raw;
   try {
-    const method = getMethod(event);
-    const path = getPath(event);
+    return typeof txt === "string" ? JSON.parse(txt) : txt;
+  } catch {
+    return {};
+  }
+}
+
+/** Sanitize a user-provided key and enforce users/<sub>/ prefix */
+function scopeUserKey(sub: string, raw: string): string {
+  const safe = String(raw || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
+  // If caller passed a fully scoped key, keep it; otherwise prefix it
+  return safe.startsWith(`users/${sub}/`) ? safe : `users/${sub}/${safe}`;
+}
+
+/* ----------------------------- handler ----------------------------- */
+export const handler = async (
+  event: AnyEvent
+): Promise<APIGatewayProxyResult> => {
+  const method = getMethod(event);
+
+  // CORS preflight
+  if (method === "OPTIONS") {
+    const origin = pickAllowedOrigin(event);
+    if (!origin && (event.headers?.origin || event.headers?.Origin)) {
+      return { statusCode: 403, headers: baseCorsHeaders(undefined), body: "" };
+    }
+    return noContent(event);
+  }
+
+  try {
     const claims = getClaims(event);
-    const userSub = claims?.sub as string | undefined;
+    const sub = claims?.sub as string | undefined;
+    if (!sub) return bad(event, 401, "Not authorized");
 
-    // CORS preflight
-    if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' };
+    if (method === "POST") {
+      // Create a presigned PUT URL for user-scoped key
+      const body = parseJsonBody(event);
+      const rawKey: string = String(body.key || "");
+      const contentType: string = String(
+        body.contentType || "application/octet-stream"
+      );
+      if (!rawKey) return bad(event, 400, "Missing 'key'");
 
-    // --- POST /presign ---
-    if (method === 'POST' && /\/presign$/.test(path)) {
-      const body = parseBody(event);
-      if (!body) return bad(400, 'Missing body');
+      const key = scopeUserKey(sub, rawKey);
 
-      let { key, contentType } = body as { key?: string; contentType?: string };
-      if (!key || typeof key !== 'string') return bad(400, 'Invalid "key"');
-      if (!contentType || typeof contentType !== 'string') return bad(400, 'Invalid "contentType"');
-      if (key.includes('..')) return bad(400, 'Illegal key');
+      const cmd = new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        ContentType: contentType,
+      });
 
-      // Keep uploads in the caller’s folder unless client already specified full path
-      if (userSub && !key.startsWith('users/')) key = `users/${userSub}/${key}`;
-
-      const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType });
-      const url = await getSignedUrl(s3, cmd, { expiresIn: 900 });
-
-      return ok({ url, key, thumbsCdn: THUMBS_CDN });
+      const url = await getSignedUrl(s3, cmd, { expiresIn: 900 }); // 15 min
+      return ok(event, { key, url });
     }
 
-    // --- DELETE /delete ---
-    if (method === 'DELETE' && /\/delete$/.test(path)) {
-      const body = parseBody(event);
+    if (method === "DELETE") {
+      // Delete a user-scoped object
+      const rawKey =
+        event?.queryStringParameters?.key ??
+        (event as any).pathParameters?.key ??
+        "";
+      if (!rawKey) return bad(event, 400, "Missing 'key'");
 
-      // Accept key from JSON body OR from query string (?key=...)
-      const keyFromQuery = event?.queryStringParameters?.key
-        ? decodeURIComponent(event.queryStringParameters.key)
-        : undefined;
-      const key = (body?.key as string | undefined) ?? keyFromQuery;
+      const key = scopeUserKey(sub, String(rawKey));
 
-      if (!key || typeof key !== 'string') return bad(400, 'Invalid "key"');
-      if (userSub && !key.startsWith(`users/${userSub}/`)) return bad(403, 'Forbidden');
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET,
+          Key: key,
+        })
+      );
 
-      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
-      return ok({ deleted: key });
+      // 204 is typical for delete, but 200 with JSON is easier to consume.
+      return ok(event, { deleted: true, key });
     }
 
-    return bad(404, 'Not Found');
+    return bad(event, 405, "Method Not Allowed");
   } catch (e: any) {
-    console.error('handler error', e);
-    return bad(500, e?.message ?? 'Server error');
+    console.error(e);
+    return bad(event, 500, e?.message ?? String(e));
   }
 };

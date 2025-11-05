@@ -1,0 +1,15 @@
+{
+  "region": "us-east-1",
+  "hostedUiDomain": "sa-dev-637423256673",
+  "domain": "sa-dev-637423256673",
+  "clientId": "51uc25i7ob3otirvgi66mpht79",
+
+  "appSyncUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
+  "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod/",
+  "cloudFrontUrl": "https://d1682i07dc1r3k.cloudfront.net",
+
+  "redirectUri": "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+  "logoutUri":   "https://d1682i07dc1r3k.cloudfront.net/logout/index.html",
+
+  "generatedAt": "2025-10-30T00:00:00Z"
+}

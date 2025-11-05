@@ -36,54 +36,63 @@ class DataStack extends cdk.Stack {
     super(scope, id, props);
 
     this.table = new ddb.Table(this, 'AppTable', {
-      tableName: `sa-${envName}-app`, // e.g. sa-dev-app
+      tableName: `sa-${envName}-app`,
       partitionKey: { name: 'pk', type: ddb.AttributeType.STRING },
-      sortKey:      { name: 'sk', type: ddb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: ddb.AttributeType.STRING },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy:
         envName === 'prd' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    // GSI #1 — by owner (used for myCloset)
     this.table.addGlobalSecondaryIndex({
       indexName: 'gsi1',
-      partitionKey: { name: 'gsi1pk', type: ddb.AttributeType.STRING }, // OWNER#{sub}
-      sortKey:      { name: 'gsi1sk', type: ddb.AttributeType.STRING }, // ISO time
+      partitionKey: { name: 'gsi1pk', type: ddb.AttributeType.STRING },
+      sortKey: { name: 'gsi1sk', type: ddb.AttributeType.STRING },
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // GSI #2 — by status (used for moderation queue)
     this.table.addGlobalSecondaryIndex({
       indexName: 'gsi2',
-      partitionKey: { name: 'gsi2pk', type: ddb.AttributeType.STRING }, // STATUS#PENDING / #DRAFT / ...
-      sortKey:      { name: 'gsi2sk', type: ddb.AttributeType.STRING }, // ISO time
+      partitionKey: { name: 'gsi2pk', type: ddb.AttributeType.STRING },
+      sortKey: { name: 'gsi2sk', type: ddb.AttributeType.STRING },
       projectionType: ddb.ProjectionType.ALL,
     });
   }
 }
 
-// 1) Identity (Cognito)
+// 1) Web hosting FIRST so we know the final CloudFront origin
+const web = new WebStack(app, 'WebStack', {
+  env,
+  description: `Static web hosting (S3 + CloudFront) - ${envName}`,
+});
+const cloudFrontOrigin = `https://${web.distribution.domainName}`;
+
+// Prefer config.json WEB_ORIGIN if you have a custom domain wired; otherwise use CF
+const webOrigin = (cfg.webOrigin || process.env.WEB_ORIGIN || cloudFrontOrigin).replace(/\/+$/,'');
+
+// 2) Identity (Cognito) — receives webOrigin for callback/logout URLs
 const identity = new IdentityStack(app, 'IdentityStack', {
   env,
+  webOrigin,
   description: `Cognito (user pool, app client, hosted UI, identity pool) - ${envName}`,
 });
 
-// 2) Data (DynamoDB)
+// 3) Data (DynamoDB)
 const data = new DataStack(app, 'DataStack', {
   env,
   description: `Primary application table - ${envName}`,
 });
 
-// 3) Workflows (Step Functions) – uses the table
+// 4) Workflows (Step Functions)
 const wf = new WorkflowsStack(app, 'WorkflowsStack', {
   env,
   table: data.table,
   description: `Closet approval workflow - ${envName}`,
 });
 
-// 4) AppSync API – needs user pool, table, and the approval state machine
-new ApiStack(app, 'ApiStack', {
+// 5) AppSync API
+const api = new ApiStack(app, 'ApiStack', {
   env,
   userPool: identity.userPool,
   table: data.table,
@@ -91,25 +100,15 @@ new ApiStack(app, 'ApiStack', {
   description: `AppSync GraphQL API - ${envName}`,
 });
 
-// 5) Uploads API + thumbs CDN (optional; keep if you use it)
-const webOrigin =
-  cfg.webOrigin ||
-  process.env.WEB_ORIGIN ||
-  'http://localhost:5173';
-
+// 6) Uploads API + thumbs CDN
 new UploadsStack(app, 'UploadsStack', {
   env,
   userPool: identity.userPool,
   webOrigin,
-  description: `Uploads API, S3, SQS worker, thumbs CDN - ${envName}`,
+  cloudFrontOrigin, // connect the thumbs CDN to the same CF
+  description: `Uploads API, S3, and thumbs CDN - ${envName}`,
 });
 
-// 6) Static web
-new WebStack(app, 'WebStack', {
-  env,
-  description: `Static web hosting (S3 + CloudFront) - ${envName}`,
-});
-
-// Tags
+// ---- Tags ----
 cdk.Tags.of(app).add('App', 'stylingadventures');
 cdk.Tags.of(app).add('Env', envName);

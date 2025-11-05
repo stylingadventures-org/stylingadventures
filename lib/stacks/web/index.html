@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- Canonicalize host to non-www -->
+  <!-- Canonicalize host to non-www, but **never** on auth pages -->
   <script>
-    if (location.hostname === 'www.stylingadventures.com') {
-      location.replace(location.href.replace('://www.', '://'));
-    }
+    (function canonicalize(){
+      const p = location.pathname || "/";
+      const isAuthPage = p.startsWith("/callback") || p.startsWith("/logout");
+      if (!isAuthPage && location.hostname === "www.stylingadventures.com") {
+        location.replace(location.href.replace("://www.", "://"));
+      }
+    })();
   </script>
   <title>Styling Adventures</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -81,6 +85,7 @@
         <a id="signin" href="#" class="sa-link">Sign in</a>
         <button id="signout" class="sa-btn sa-btn-outline ml-2">Sign out</button>
         <button id="signout-global" class="sa-btn sa-btn-outline ml-2">Sign out everywhere</button>
+        <a href="/fan/" class="sa-btn ml-2">Fan dashboard</a>
         <a href="/creator/" class="sa-btn ml-2">Creator dashboard</a>
       </span>
     </div>
@@ -166,9 +171,9 @@
   <script type="module">
     import { decorateThumb } from '/js/thumbs-ui.js';
 
-    const q = (s, r=document) => r.querySelector(s);
+    const q  = (s, r=document) => r.querySelector(s);
     const qq = (s, r=document) => Array.from(r.querySelectorAll(s));
-    const h = (html) => { const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
+    const h  = (html) => { const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
     const copy = async (txt) => { try { await navigator.clipboard.writeText(String(txt)); return true; } catch { return false; } };
     const fmtDate = (iso) => new Date(iso).toLocaleString();
 
@@ -190,15 +195,33 @@
       return res.json();
     }
     const cfg = await loadCfg();
-    window._cfg = { ...cfg };
+    window._cfg = { ...cfg }; // for console debugging
+    // Fallback-friendly client id (supports cfg.clientId and cfg.clientID)
+    const CLIENT_ID = cfg.clientId || cfg.clientID;
 
-    const hosted = cfg.domain || cfg.hostedUiDomain;
-    if (!hosted) throw new Error('config.json missing "domain"/"hostedUiDomain"');
-    const domain = `https://${hosted}.auth.${cfg.region}.amazoncognito.com`;
+    // Resolve Hosted UI base (accepts several shapes, but *not* a user-pool ID)
+    function resolveHostedUiBase(c){
+      if (c.hostedUiDomain) return `https://${c.hostedUiDomain}.auth.${c.region}.amazoncognito.com`;
+      if (c.domain && c.domain.includes('amazoncognito.com')) return c.domain.replace(/\/+$/,'');
+      if (c.domain && !c.domain.includes('_')) return `https://${c.domain}.auth.${c.region}.amazoncognito.com`;
+      throw new Error('config.v2.json: Please provide "hostedUiDomain" (prefix) or full "domain" URL for Cognito Hosted UI. Do not use the user-pool ID here.');
+    }
+    const hostedBase = resolveHostedUiBase(cfg);
 
-    // MUST EXACTLY match Cognito app client's entry
-    const redirectUri = String(cfg.redirectUri).trim();   // e.g. https://stylingadventures.com/callback/
-    const logoutUri   = String(cfg.logoutUri).trim();
+    // Always end with a fallback to location.origin
+    const cfBase =
+      (cfg.cloudFrontUrl && cfg.cloudFrontUrl.replace(/\/+$/,'')) ||
+      location.origin.replace(/\/+$/,'');
+
+    const redirectUri = (
+      cfg.redirectUri || cfg.redirectURL || cfg.redirectUrl ||
+      `${cfBase}/callback/index.html`
+    ).trim();
+
+    const logoutUri = (
+      cfg.logoutUri || cfg.logoutURL || cfg.logoutUrl ||
+      `${cfBase}/logout/index.html`
+    ).trim();
 
     // ---------- PKCE helpers ----------
     const b64url = (buf) =>
@@ -209,7 +232,6 @@
     function genVerifier(){ return b64url(crypto.getRandomValues(new Uint8Array(32))); }
 
     async function buildLoginUrl(){
-      // state + pkce verifier
       const state = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
       sessionStorage.setItem('oauth_state', state);
 
@@ -219,28 +241,26 @@
 
       const p = new URLSearchParams({
         response_type: 'code',
-        client_id: cfg.clientId,
+        client_id: CLIENT_ID,
         redirect_uri: redirectUri,
         scope: 'email openid profile',
         state,
         code_challenge: challenge,
         code_challenge_method: 'S256'
       });
-      return `${domain}/oauth2/authorize?${p.toString()}`;
+      return `${hostedBase}/oauth2/authorize?${p.toString()}`;
     }
 
     // Precompute URL (and show it)
     const loginUrl = await buildLoginUrl();
-    const logoutUrl = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`;
+    const logoutUrl = `${hostedBase}/logout?client_id=${encodeURIComponent(CLIENT_ID)}&logout_uri=${encodeURIComponent(logoutUri)}`;
     q('#auth-url-out').innerHTML = `Auth URL: <code>${loginUrl}</code>`;
     q('#signin').href = loginUrl;
 
     function startLogin(e){
       e?.preventDefault();
-      // rebuild to refresh state/PKCE each time
       buildLoginUrl().then((url) => location.assign(url));
     }
-
     function signOutLocal(){ sessionStorage.clear(); render(); }
 
     async function signOutEverywhere(){
@@ -248,8 +268,8 @@
         const refresh = sessionStorage.getItem('refresh_token') ||
                         (JSON.parse(sessionStorage.getItem('tokens')||'{}').refresh_token);
         if (refresh){
-          const body = new URLSearchParams({ token: refresh, token_type_hint:'refresh_token', client_id: cfg.clientId });
-          await fetch(`${domain}/oauth2/revoke`, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).catch(()=>{});
+          const body = new URLSearchParams({ token: refresh, token_type_hint:'refresh_token', client_id: CLIENT_ID });
+          await fetch(`${hostedBase}/oauth2/revoke`, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).catch(()=>{});
         }
       } finally {
         sessionStorage.clear();
@@ -262,12 +282,12 @@
     q('#signout').addEventListener('click', e => { e.preventDefault(); signOutLocal(); });
     q('#signout-global').addEventListener('click', e => { e.preventDefault(); signOutEverywhere(); });
 
-    // ---- Refresh tokens now (wired) ----
+    // ---- Refresh tokens now ----
     q('#refresh-now').addEventListener('click', async () => {
       try{
         const { refreshTokens, scheduleRotation } = await import('/auth/refresh.js');
-        const out = await refreshTokens({ domain, clientId: cfg.clientId });
-        scheduleRotation(out, { domain, clientId: cfg.clientId });
+        const out = await refreshTokens({ domain: hostedBase, clientId: CLIENT_ID });
+        scheduleRotation(out, { domain: hostedBase, clientId: CLIENT_ID });
         toast('Tokens refreshed','ok',1400);
       }catch(e){
         toast('Could not refresh tokens. Try signing in again.','error');
@@ -277,7 +297,6 @@
     });
     /* ======================== end drop-in ======================== */
 
-    const $ = s => document.querySelector(s);
     const parseJwt = (t) => { if(!t) return null; try{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));}catch{return null;} };
     const secondsLeft = id => { const p=parseJwt(id); return p?.exp ? Math.max(0, p.exp - Math.floor(Date.now()/1000)) : 0; };
 
@@ -301,40 +320,79 @@
       return 'FAN';
     }
 
+    // GraphQL endpoint from config (new key: appSyncUrl; fallback: appsyncUrl)
+    const appsyncUrl = (cfg.appSyncUrl || cfg.appsyncUrl);
+    if (!appsyncUrl) console.warn('config.v2.json is missing "appSyncUrl"');
+
     function render(){
       const id  = sessionStorage.getItem('id_token');
       const payload = parseJwt(id || '');
-      $('#signin').style.display         = id ? 'none' : 'inline';
-      $('#signout').style.display        = id ? 'inline-block' : 'none';
-      $('#signout-global').style.display = id ? 'inline-block' : 'none';
+      q('#signin').style.display         = id ? 'none' : 'inline';
+      q('#signout').style.display        = id ? 'inline-block' : 'none';
+      q('#signout-global').style.display = id ? 'inline-block' : 'none';
 
       const left = secondsLeft(id);
       const mins = Math.floor(left/60);
       const secs = String(left%60).padStart(2,'0');
-      $('#status').textContent = id ? `Signed in · token refreshes in ${mins}:${secs}` : 'You’re signed out. Click “Sign in” to start.';
-      $('#dbg').textContent    = id ? JSON.stringify(payload || {}, null, 2) : '';
-      $('#who-email').textContent = id ? (payload?.email || '(no email)') : 'Not signed in';
-      $('#role-card').style.opacity = id ? 1 : 0.5;
+
+      const baseStatus = id
+        ? `Signed in · token refreshes in ${mins}:${secs}`
+        : 'You’re signed out. Click “Sign in” to start.';
+      const warn = !appsyncUrl
+        ? ` <span class="sa-error">· Missing <code>appSyncUrl</code> in config — GraphQL calls are disabled.</span>`
+        : '';
+      q('#status').innerHTML = baseStatus + warn;
+
+      // If missing AppSync, disable the demo call button
+      if (!appsyncUrl) {
+        q('#btn-hello')?.setAttribute('disabled', 'true');
+        q('#hello-out')?.classList.add('sa-error');
+      }
+
+      q('#dbg').textContent    = id ? JSON.stringify(payload || {}, null, 2) : '';
+      q('#who-email').textContent = id ? (payload?.email || '(no email)') : 'Not signed in';
+      q('#role-card').style.opacity = id ? 1 : 0.5;
 
       if (id) setRoleBadge(roleFromJwtOrDefault());
+    }
+
+    async function gql(query, variables={}){
+      const id = sessionStorage.getItem('id_token');
+      if (!id) throw new Error('Not signed in.');
+      const r = await fetch(appsyncUrl, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', Authorization: id },
+        body: JSON.stringify({ query, variables })
+      });
+      if (r.status === 401) {
+        console.error('AppSync 401 — check that AppSync authorization mode uses the SAME Cognito user pool that issued your id_token.');
+      }
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok || j?.errors) throw new Error((j?.errors && j.errors[0]?.message) || `AppSync ${r.status}`);
+      return j.data;
     }
 
     async function callHello(){
       const id = sessionStorage.getItem('id_token');
       if (!id){ toast('Please sign in first','error'); return; }
-      const res = await fetch(cfg.appsyncUrl,{
+      if (!appsyncUrl){ toast('AppSync URL missing in config','error'); return; }
+      const res = await fetch(appsyncUrl,{
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization': id },
         body: JSON.stringify({ query: `query Hello { hello }` })
       });
       if (!res.ok) throw new Error(`AppSync ${res.status}: ${await res.text()}`);
       const j = await res.json();
-      $('#hello-out').textContent = j.data?.hello ?? '(no data)';
+      q('#hello-out').textContent = j.data?.hello ?? '(no data)';
       toast('Hello response received ✅','ok',1800);
     }
 
     function show(el, yes) { if (el) el.classList.toggle('hidden', !yes); }
-    function applyRoleUi(role) {
+    function applyRoleUi(roleFromMe) {
+      // Fallback to group-based role if DB role isn't elevated
+      const jwtRole = roleFromJwtOrDefault(); // uses Cognito groups
+      const role = roleFromMe || jwtRole;
+
       const isCreatorish = role === 'CREATOR' || role === 'COLLAB' || role === 'ADMIN';
       const isAdmin      = role === 'ADMIN';
 
@@ -349,45 +407,40 @@
       setRoleBadge(role);
     }
 
-    const appsyncUrl = cfg.appsyncUrl;
-    const jwtPayload = () => parseJwt(sessionStorage.getItem('id_token') || '');
-
-    async function gql(query, variables={}){
-      const id = sessionStorage.getItem('id_token');
-      if (!id) throw new Error('Not signed in.');
-      const r = await fetch(appsyncUrl, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', Authorization: id },
-        body: JSON.stringify({ query, variables })
-      });
-      const j = await r.json();
-      if (!r.ok || j.errors) throw new Error((j.errors && j.errors[0]?.message) || JSON.stringify(j.errors || j));
-      return j.data;
-    }
-
     async function loadMe(){
-      const data = await gql(`query { me { id email role tier createdAt updatedAt } }`);
-      $('#meOut').textContent = JSON.stringify(data.me, null, 2);
-      if (data.me?.role) $('#role').value = data.me.role;
-      if (data.me?.tier) $('#tier').value = data.me.tier;
-      if (data.me?.email) $('#who-email').textContent = data.me.email;
-      if (data.me?.role) applyRoleUi(data.me.role);
+      try{
+        const data = await gql(`query { me { id email role tier createdAt updatedAt } }`);
+        q('#meOut').textContent = JSON.stringify(data.me, null, 2);
+        if (data.me?.role) q('#role').value = data.me.role;
+        if (data.me?.tier) q('#tier').value = data.me.tier;
+        if (data.me?.email) q('#who-email').textContent = data.me.email;
+
+        // Prefer JWT group if DB role is only FAN
+        const jwtRole = roleFromJwtOrDefault();
+        const effectiveRole = (data.me?.role && data.me.role !== 'FAN') ? data.me.role : jwtRole;
+        applyRoleUi(effectiveRole);
+      }catch(e){
+        q('#meOut').textContent = String(e?.message||e);
+        // Fallback to JWT-only
+        applyRoleUi(roleFromJwtOrDefault());
+        toast('Could not load profile','error');
+      }
     }
 
     async function saveRole(){
-      const btn = $('#btn-save-role');
+      const btn = q('#btn-save-role');
       const orig = btn.textContent;
       btn.disabled = true; btn.textContent = 'Saving…';
 
       try{
-        const payload = jwtPayload();
+        const payload = parseJwt(sessionStorage.getItem('id_token') || '');
         if (!payload?.sub) { toast('No user identity found. Please sign in.','error'); return; }
 
         const input = {
           userId: payload.sub,
           email:  payload.email || null,
-          role:   $('#role').value,
-          tier:   $('#tier').value
+          role:   q('#role').value,
+          tier:   q('#tier').value
         };
 
         const data = await gql(
@@ -396,7 +449,7 @@
           }`,
           { input }
         );
-        $('#meOut').textContent = JSON.stringify(data.setUserRole, null, 2);
+        q('#meOut').textContent = JSON.stringify(data.setUserRole, null, 2);
         applyRoleUi(data.setUserRole.role);
         toast('Role updated','ok');
       } catch (e) {
@@ -409,42 +462,57 @@
     async function loadMyRoleAndApplyUI() {
       const id = sessionStorage.getItem('id_token');
       if (!id) return;
-      const res = await fetch(cfg.appsyncUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: id },
-        body: JSON.stringify({ query: `query Me { me { id email role tier createdAt updatedAt } }` })
-      });
-      const me = (await res.json())?.data?.me;
-      if (me) {
-        if (me.email) $('#who-email').textContent = me.email;
-        applyRoleUi(me.role);
+      try{
+        const res = await fetch(appsyncUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: id },
+          body: JSON.stringify({ query: `query Me { me { id email role tier createdAt updatedAt } }` })
+        });
+        const me = (await res.json())?.data?.me;
+        const jwtRole = roleFromJwtOrDefault();
+
+        // Prefer JWT if DB role is FAN or missing
+        const effectiveRole = (me?.role && me.role !== 'FAN') ? me.role : jwtRole;
+
+        if (me?.email) q('#who-email').textContent = me.email;
+        applyRoleUi(effectiveRole);
+      }catch{
+        // fallback safely
+        applyRoleUi(roleFromJwtOrDefault());
       }
     }
 
-    /* ===== thumbs & uploads (unchanged) ===== */
+    /* ===== thumbs & uploads ===== */
     const getThumbsBase = () =>
       (cfg.thumbsCdn || cfg.cdnUrl || cfg.webOrigin || location.origin).replace(/\/+$/, '');
-    const openCdn = (key) => window.open(buildThumbUrl(key), '_blank', 'noopener,noreferrer');
+
+    // Build the final CDN URL for a given *source* key (users/.../file.ext)
     function buildThumbUrl(key){
-      const base = getThumbsBase();
-      const jpg  = String(key).replace(/\.[^.]+$/, '.jpg');
+      const base = getThumbsBase(); // e.g., https://<cf-domain>
+      const src  = String(key).replace(/^thumbs\//, ''); // strip if already a thumb key
+      const jpg  = src.replace(/\.[^.]+$/, '.jpg');
       const enc  = jpg.split('/').map(encodeURIComponent).join('/');
       return `${base}/thumbs/${enc}`;
     }
-    async function waitForThumb(key, imgEl, { tries = 12, delay = 1200 } = {}) {
+
+    const openCdn = (key) => window.open(buildThumbUrl(key), '_blank', 'noopener,noreferrer');
+
+    // Poll the API until the thumb exists; API expects the *source* key (users/...)
+    async function waitForThumb(srcKey, imgEl, { tries = 12, delay = 1200 } = {}) {
       const idTok = sessionStorage.getItem('id_token');
+      const api   = (cfg.uploadsApiUrl || cfg.uploadsUrl || cfg.apiUrl).replace(/\/+$/,'');
       for (let i = 0; i < tries; i++) {
         try {
-          const r = await fetch(`${(cfg.uploadsApiUrl||cfg.uploadsUrl||cfg.apiUrl).replace(/\/+$/,'')}/thumb-head?key=${encodeURIComponent(key)}`, {
+          const r = await fetch(`${api}/thumb-head?key=${encodeURIComponent(srcKey)}`, {
             headers: { Authorization: idTok }
           });
           if (r.ok) {
             const { ready } = await r.json();
             if (ready) {
-              const url = buildThumbUrl(key) + `?v=${Date.now()}`;
+              const url = buildThumbUrl(srcKey) + `?v=${Date.now()}`;
               imgEl.src = url;
               imgEl.classList.add('show');
-              imgEl.onclick = () => openCdn(key);
+              imgEl.onclick = () => openCdn(srcKey);
               decorateThumb(imgEl);
               return;
             }
@@ -492,7 +560,7 @@
 
     async function listUploads(){
       const id = sessionStorage.getItem('id_token');
-      if (!id) return;
+      if (!id) return; // guard when signed out
       const api = (cfg.uploadsApiUrl || cfg.uploadsUrl || cfg.apiUrl).replace(/\/+$/,'');
       const res = await fetch(`${api}/list`, { headers:{ Authorization: id }});
       if (!res.ok) return;
@@ -501,7 +569,7 @@
       const ul    = q('#upload-list');
       ul.innerHTML = '';
       items.forEach((rec) => {
-        const key      = typeof rec === 'string' ? rec : rec.key;
+        const key      = typeof rec === 'string' ? rec : rec.key; // source key
         const sizeText = typeof rec === 'string' ? ''  : prettySize(rec.size);
         const typeText = inferTypeFromKey(key);
         const li  = liRow(key, sizeText, typeText);
@@ -631,14 +699,14 @@
         const row = h(`
           <tr data-id="${it.id}">
             <td class="nowrap"><code>${it.id.slice(0,8)}…</code></td>
-            <td>${it.ownerSub || ''}</td>
+            <td>${(it.ownerSub || '')}</td>
             <td>${(it.title || '').replace(/</g,'&lt;')}</td>
             <td>${statusPill(it.status)}</td>
             <td class="nowrap"><span title="${fmtDate(when)}">${timeAgo(when)}</span></td>
             <td class="nowrap">
               <button class="sa-btn linklike js-copy">Copy ID</button>
               ${mediaKey ? `<button class="sa-btn linklike js-open">Open media</button>`:''}
-              <button class="sa-btn linklike js-request" title="Ask pipeline to (re)publish">Request publish</button>
+              <button class="sa-btn linklike js-request" title="Ask pipeline to (re)publish)">Request publish</button>
               <span class="sa-muted ml-1">(Approve/Reject pending API)</span>
             </td>
           </tr>
@@ -672,7 +740,7 @@
     document.getElementById('btn-list-pending')?.addEventListener('click', async () => {
       try {
         const id = sessionStorage.getItem('id_token');
-        const res = await fetch(cfg.appsyncUrl, {
+        const res = await fetch(appsyncUrl, {
           method: 'POST',
           headers: { 'Content-Type':'application/json', Authorization: id },
           body: JSON.stringify({ query: `query AdminList { adminListPending { id title status ownerSub createdAt updatedAt mediaKey } }` })
@@ -714,6 +782,7 @@
 
     // Post-sign-in conveniences
     if (sessionStorage.getItem('id_token')) {
+      // Prefer JWT immediately (fast), then reconcile with DB when it loads:
       applyRoleUi(roleFromJwtOrDefault());
       listUploads();
       loadMe().catch(()=>{});
@@ -722,5 +791,28 @@
       applyRoleUi('FAN');
     }
   </script>
+
+  <!-- Tiny admin-link injector (shown only for ADMIN group) -->
+  <script>
+  (function addAdminLink(){
+    try{
+      // Prefer sessionStorage (used by the app), fallback to an older localStorage key
+      const t = sessionStorage.getItem("id_token") || localStorage.getItem("sa_id_token");
+      if(!t) return;
+      const claims = JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+      const g = claims["cognito:groups"];
+      const isAdmin = Array.isArray(g) ? g.includes("ADMIN") : String(g||"").includes("ADMIN");
+      if(!isAdmin) return;
+      const nav = document.querySelector("nav, .sa-nav, header") || document.body;
+      const a = document.createElement("a");
+      a.href = "/admin/"; a.textContent = "Admin dashboard"; a.style.marginLeft = "0.75rem";
+      nav.appendChild(a);
+    }catch{}
+  })();
+  </script>
 </body>
 </html>
+
+
+
+

@@ -75,7 +75,8 @@
      "profile"
     ],
     "CallbackURLs": [
-     "https://d1682i07dc1r3k.cloudfront.net/callback/index.html"
+     "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+     "http://localhost:5173/callback/index.html"
     ],
     "ExplicitAuthFlows": [
      "ALLOW_REFRESH_TOKEN_AUTH"
@@ -85,7 +86,10 @@
     "LogoutURLs": [
      "https://d1682i07dc1r3k.cloudfront.net/logout/index.html",
      "https://d1682i07dc1r3k.cloudfront.net/logout/",
-     "https://d1682i07dc1r3k.cloudfront.net/"
+     "https://d1682i07dc1r3k.cloudfront.net/",
+     "http://localhost:5173/logout/index.html",
+     "http://localhost:5173/logout/",
+     "http://localhost:5173/"
     ],
     "PreventUserExistenceErrors": "ENABLED",
     "RefreshTokenValidity": 43200,

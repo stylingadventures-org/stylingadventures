@@ -1,11 +1,13 @@
 {
   "scripts": {
     "build": "tsc -b",
-    "plan": "cdk synth && cdk diff",
-    "deploy": "npm run build && cdk deploy --all --require-approval never",
-    "destroy": "cdk destroy --all --force",
+    "plan": "npx cdk synth && npx cdk diff",
+    "deploy": "npm run build && npx cdk deploy --concurrency 1 --require-approval never",
+    "destroy": "npx cdk destroy --force",
     "check": "bash scripts/check-prereqs.sh || scripts/check-prereqs.cmd",
-    "postdeploy": "node scripts/write-outputs.js"
+    "postdeploy": "node scripts/write-outputs.js",
+    "deploy:dev": "npm run build && npx cdk deploy --all --require-approval never",
+    "plan:dev": "npx cdk synth && npx cdk diff --all"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.913.0",

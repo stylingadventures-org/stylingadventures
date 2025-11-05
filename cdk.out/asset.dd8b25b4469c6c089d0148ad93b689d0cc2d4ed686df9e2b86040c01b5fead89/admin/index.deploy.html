@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; padding:24px; background:#fafafa; }
+    .top { margin: 0 0 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .badge { font-size: 12px; border-radius: 999px; padding: 2px 8px; border:1px solid #c7d2fe; color:#4338ca; background:#eef2ff; }
+    .btn { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 12px; font-size:14px; cursor:pointer; }
+    .muted { color:#6b7280 }
+    h1 { margin: 0 0 8px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; margin-top:16px; padding:14px; }
+    table { width:100%; border-collapse: collapse; background:#fff; border-radius: 12px; overflow:hidden; }
+    th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+    th { text-align: left; color:#111827 }
+    .row { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+  </style>
+
+  <!-- Inline config (these placeholders are replaced during deploy) -->
+  <script id="__cfg__" type="application/json">
+  {
+    "GraphqlUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
+    "loginUrl": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com/login?client_id=51uc25i7ob3otirvgi66mpht79&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html",
+    "logoutUrl": "/"
+  }
+  </script>
+  <script defer src="/admin/app.js"></script>
+</head>
+<body>
+  <div class="top">
+    <a href="/" class="muted">Home</a>
+    <a href="/fan/" class="muted">Fan dashboard</a>
+    <a href="/creator/" class="muted">Creator dashboard</a>
+    <button id="logoutLocal" class="btn">Sign out (local)</button>
+    <button id="logoutEverywhere" class="btn">Sign out everywhere</button>
+  </div>
+
+  <h1>Admin Dashboard <span class="badge">ADMIN</span></h1>
+  <p class="muted">Review pending creator submissions.</p>
+
+  <div class="card">
+    <div class="row">
+      <strong>Pending approvals</strong>
+      <button id="reload" class="btn">Reload</button>
+    </div>
+    <div style="margin-top:10px; overflow-x:auto;">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Owner (id)</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="5" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
+
+

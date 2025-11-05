@@ -5,8 +5,8 @@ function Login-CognitoPkce {
   [CmdletBinding()]
   param(
     [string]$Region   = "us-east-1",
-    [Parameter(Mandatory=$true)][string]$Domain,     # e.g. stylingadventures-256673
-    [Parameter(Mandatory=$true)][string]$ClientId,   # e.g. 7bkph1q2q1dgpk0497gk41t7tc
+    [Parameter(Mandatory=$true)][string]$Domain,     # e.g. sa-dev-637423256673
+    [Parameter(Mandatory=$true)][string]$ClientId,   # e.g. 51uc25i7ob3otirvgi66mpht79
     [Parameter(Mandatory=$true)][string]$Redirect    # e.g. https://<cloudfront>/callback/index.html
   )
 
@@ -68,10 +68,10 @@ function Refresh-CognitoToken {
 
   $tokens = Invoke-RestMethod -Method Post -Uri $tokenEndpoint -Headers @{ 'Content-Type'='application/x-www-form-urlencoded' } -Body $body
 
-  # Update globals in-place
-  if ($tokens.id_token)     { Set-Variable -Name ID     -Scope Global -Value $tokens.id_token }
-  if ($tokens.access_token) { Set-Variable -Name ACCESS -Scope Global -Value $tokens.access_token }
-  if ($tokens.refresh_token){ Set-Variable -Name REFRESH- Scope Global -Value $tokens.refresh_token }
+  # Update globals in-place (fixed typo on REFRESH line)
+  if ($tokens.id_token)     { Set-Variable -Name ID      -Scope Global -Value $tokens.id_token }
+  if ($tokens.access_token) { Set-Variable -Name ACCESS  -Scope Global -Value $tokens.access_token }
+  if ($tokens.refresh_token){ Set-Variable -Name REFRESH -Scope Global -Value $tokens.refresh_token }
 
   "Refreshed. New ID token prefix: " + $ID.Substring(0,30)
   return $tokens
@@ -87,8 +87,6 @@ function Build-CognitoLogoutUrl {
   )
   return "https://$Domain.auth.$Region.amazoncognito.com/logout?client_id=$ClientId&logout_uri=$([uri]::EscapeDataString($LogoutUri))&response_type=code"
 }
-
-# Optional tiny helpers used in your flow:
 
 function Invoke-AppSyncHello {
   [CmdletBinding()]
@@ -108,12 +106,11 @@ function Invoke-UploadsPresignList {
     [Parameter(Mandatory=$true)][string]$ApiBase,   # https://...execute-api.../prod/
     [Parameter(Mandatory=$true)][string]$IdToken
   )
+  $ApiBase = $ApiBase.TrimEnd('/') + '/'
   $r = Invoke-RestMethod -Method Post -Uri ($ApiBase + "presign") -Headers @{
     'Authorization'=$IdToken
     'Content-Type'='application/json'
   } -Body '{"key":"test.txt","contentType":"text/plain"}'
-  # PUT sample content
   Invoke-RestMethod -Method Put -Uri $r.url -Headers @{ 'Content-Type'='text/plain' } -Body 'hello lala'
-  # List
   Invoke-RestMethod -Method Get -Uri ($ApiBase + "list") -Headers @{ 'Authorization'=$IdToken }
 }

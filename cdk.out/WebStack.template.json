@@ -1,7 +1,7 @@
 {
  "Description": "Static web hosting (S3 + CloudFront) - dev",
  "Resources": {
-  "SiteBucket397A1860": {
+  "StaticSiteBucket8958EE3F": {
    "Type": "AWS::S3::Bucket",
    "Properties": {
     "BucketEncryption": {
@@ -37,14 +37,14 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "WebStack/SiteBucket/Resource"
+    "aws:cdk:path": "WebStack/StaticSiteBucket/Resource"
    }
   },
-  "SiteBucketPolicy3AC1D0F8": {
+  "StaticSiteBucketPolicy54AA1C72": {
    "Type": "AWS::S3::BucketPolicy",
    "Properties": {
     "Bucket": {
-     "Ref": "SiteBucket397A1860"
+     "Ref": "StaticSiteBucket8958EE3F"
     },
     "PolicyDocument": {
      "Statement": [
@@ -62,7 +62,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "SiteBucket397A1860",
+          "StaticSiteBucket8958EE3F",
           "Arn"
          ]
         },
@@ -72,7 +72,7 @@
           [
            {
             "Fn::GetAtt": [
-             "SiteBucket397A1860",
+             "StaticSiteBucket8958EE3F",
              "Arn"
             ]
            },
@@ -100,7 +100,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "SiteBucket397A1860",
+          "StaticSiteBucket8958EE3F",
           "Arn"
          ]
         },
@@ -110,7 +110,7 @@
           [
            {
             "Fn::GetAtt": [
-             "SiteBucket397A1860",
+             "StaticSiteBucket8958EE3F",
              "Arn"
             ]
            },
@@ -137,7 +137,7 @@
          [
           {
            "Fn::GetAtt": [
-            "SiteBucket397A1860",
+            "StaticSiteBucket8958EE3F",
             "Arn"
            ]
           },
@@ -151,7 +151,7 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "WebStack/SiteBucket/Policy/Resource"
+    "aws:cdk:path": "WebStack/StaticSiteBucket/Policy/Resource"
    }
   },
   "SiteOaiE31FB8B2": {
@@ -180,7 +180,7 @@
     "aws:cdk:path": "WebStack/DirIndexRewriteFn/Resource"
    }
   },
-  "Distribution830FAC52": {
+  "CloudFrontDistributionBA64CE3A": {
    "Type": "AWS::CloudFront::Distribution",
    "Properties": {
     "DistributionConfig": {
@@ -199,7 +199,7 @@
        }
       ],
       "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03",
-      "TargetOriginId": "WebStackDistributionOrigin128332BA7",
+      "TargetOriginId": "WebStackCloudFrontDistributionOrigin10DC0A5E0",
       "ViewerProtocolPolicy": "redirect-to-https"
      },
      "DefaultRootObject": "index.html",
@@ -210,11 +210,11 @@
       {
        "DomainName": {
         "Fn::GetAtt": [
-         "SiteBucket397A1860",
+         "StaticSiteBucket8958EE3F",
          "RegionalDomainName"
         ]
        },
-       "Id": "WebStackDistributionOrigin128332BA7",
+       "Id": "WebStackCloudFrontDistributionOrigin10DC0A5E0",
        "S3OriginConfig": {
         "OriginAccessIdentity": {
          "Fn::Join": [
@@ -244,7 +244,7 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "WebStack/Distribution/Resource"
+    "aws:cdk:path": "WebStack/CloudFrontDistribution/Resource"
    }
   },
   "DeploySiteAwsCliLayer88B0EBE2": {
@@ -276,15 +276,15 @@
      "cdk-hnb659fds-assets-637423256673-us-east-1"
     ],
     "SourceObjectKeys": [
-     "d3fa1d5004aff7144ffe2b3573aa5a6a8adf01f8db53c8757d3b625a19bbb815.zip"
+     "4f9e48ce7e9bcdc60537c43b6d9cafd5f26bedfb0e227324670542afb3e1811a.zip"
     ],
     "DestinationBucketName": {
-     "Ref": "SiteBucket397A1860"
+     "Ref": "StaticSiteBucket8958EE3F"
     },
     "WaitForDistributionInvalidation": true,
     "Prune": true,
     "DistributionId": {
-     "Ref": "Distribution830FAC52"
+     "Ref": "CloudFrontDistributionBA64CE3A"
     },
     "DistributionPaths": [
      "/*"
@@ -397,7 +397,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "SiteBucket397A1860",
+          "StaticSiteBucket8958EE3F",
           "Arn"
          ]
         },
@@ -407,7 +407,7 @@
           [
            {
             "Fn::GetAtt": [
-             "SiteBucket397A1860",
+             "StaticSiteBucket8958EE3F",
              "Arn"
             ]
            },
@@ -501,14 +501,25 @@
   "CloudFrontDistributionDomainName": {
    "Value": {
     "Fn::GetAtt": [
-     "Distribution830FAC52",
+     "CloudFrontDistributionBA64CE3A",
      "DomainName"
     ]
    }
   },
   "StaticSiteBucketName": {
    "Value": {
-    "Ref": "SiteBucket397A1860"
+    "Ref": "StaticSiteBucket8958EE3F"
+   }
+  },
+  "ExportsOutputFnGetAttCloudFrontDistributionBA64CE3ADomainName419F2BE7": {
+   "Value": {
+    "Fn::GetAtt": [
+     "CloudFrontDistributionBA64CE3A",
+     "DomainName"
+    ]
+   },
+   "Export": {
+    "Name": "WebStack:ExportsOutputFnGetAttCloudFrontDistributionBA64CE3ADomainName419F2BE7"
    }
   }
  },

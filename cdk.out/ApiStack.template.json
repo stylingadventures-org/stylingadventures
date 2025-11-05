@@ -123,13 +123,13 @@
       "ApiId"
      ]
     },
-    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync)\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n\"\"\" -------- App base enums & types -------- \"\"\"\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String          # optional: why REJECTED\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n\"\"\" -------- Queries -------- \"\"\"\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"\r\n  Returns the signed-in creator’s items. Never null; empty list if none.\r\n  Implemented by lambda/graphql/closet.ts -> myCloset\r\n  \"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"\r\n  Items awaiting moderation. Requires elevated groups.\r\n  Implemented by lambda/graphql/closet.ts -> adminListPending\r\n  \"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Roles / user directory\r\n  me: User!\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n}\r\n\r\n\"\"\" -------- Mutations -------- \"\"\"\r\ntype Mutation {\r\n  \"\"\"\r\n  Creates a new item in DRAFT.\r\n  Implemented by lambda/graphql/closet.ts -> createClosetItem\r\n  \"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth\r\n\r\n  \"\"\"\r\n  Marks item PENDING and starts the approval Step Function.\r\n  Returns a string (execution request marker).\r\n  Implemented by lambda/graphql/closet.ts -> requestClosetApproval\r\n  \"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): User!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  \"\"\"\r\n  Admin/creator fix-up: update the media key on an item.\r\n  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey\r\n  \"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n\r\n"
+    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync)\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n\"\"\" -------- App base enums & types -------- \"\"\"\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String          # optional: why REJECTED\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers (existing enum-backed user model)\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Phase-1 lightweight profile returned by Query.me (string-based)\"\"\"\r\ntype UserProfile {\r\n  id: ID!\r\n  email: String\r\n  role: String!\r\n  tier: String!\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n\"\"\" -------- Queries -------- \"\"\"\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"\r\n  Returns the signed-in creator’s items. Never null; empty list if none.\r\n  Implemented by lambda/graphql/closet.ts -> myCloset\r\n  \"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"\r\n  Items awaiting moderation. Requires elevated groups.\r\n  Implemented by lambda/graphql/closet.ts -> adminListPending\r\n  \"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Roles / user directory\r\n  # NOTE: now returns UserProfile (string role/tier) to match the NONE DS resolver.\r\n  me: UserProfile!\r\n\r\n  # Existing admin users listing remains enum-backed\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n}\r\n\r\n\"\"\" -------- Mutations -------- \"\"\"\r\ntype Mutation {\r\n  \"\"\"\r\n  Creates a new item in DRAFT.\r\n  Implemented by lambda/graphql/closet.ts -> createClosetItem\r\n  \"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth\r\n\r\n  \"\"\"\r\n  Marks item PENDING and starts the approval Step Function.\r\n  Returns a string (execution request marker).\r\n  Implemented by lambda/graphql/closet.ts -> requestClosetApproval\r\n  \"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  # Roles\r\n  # Return shape is now UserProfile to align with front-end expectations.\r\n  setUserRole(input: SetUserRoleInput!): UserProfile!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  \"\"\"\r\n  Admin/creator fix-up: update the media key on an item.\r\n  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey\r\n  \"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n\r\n"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Schema"
    }
   },
-  "StylingApiRolesDSServiceRole6309BB1F": {
+  "StylingApiRolesDsServiceRole42160415": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -156,10 +156,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/RolesDS/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/RolesDs/ServiceRole/Resource"
    }
   },
-  "StylingApiRolesDSServiceRoleDefaultPolicy31FB8C9C": {
+  "StylingApiRolesDsServiceRoleDefaultPolicy3799FB1B": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -170,7 +170,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "RolesRolesFn3CC83E37",
+          "RolesFn27BF2B8D",
           "Arn"
          ]
         },
@@ -180,7 +180,7 @@
           [
            {
             "Fn::GetAtt": [
-             "RolesRolesFn3CC83E37",
+             "RolesFn27BF2B8D",
              "Arn"
             ]
            },
@@ -193,18 +193,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiRolesDSServiceRoleDefaultPolicy31FB8C9C",
+    "PolicyName": "StylingApiRolesDsServiceRoleDefaultPolicy3799FB1B",
     "Roles": [
      {
-      "Ref": "StylingApiRolesDSServiceRole6309BB1F"
+      "Ref": "StylingApiRolesDsServiceRole42160415"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/RolesDS/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/RolesDs/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiRolesDSC3D586A1": {
+  "StylingApiRolesDs00C42927": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -216,25 +216,25 @@
     "LambdaConfig": {
      "LambdaFunctionArn": {
       "Fn::GetAtt": [
-       "RolesRolesFn3CC83E37",
+       "RolesFn27BF2B8D",
        "Arn"
       ]
      }
     },
-    "Name": "RolesDS",
+    "Name": "RolesDs",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiRolesDSServiceRole6309BB1F",
+      "StylingApiRolesDsServiceRole42160415",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/RolesDS/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/RolesDs/Resource"
    }
   },
-  "StylingApiMeResolver7B5FB3EB": {
+  "StylingApiSetUserRole87913D00": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -243,31 +243,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "RolesDS",
-    "FieldName": "me",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Query"
-   },
-   "DependsOn": [
-    "StylingApiRolesDSC3D586A1",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/MeResolver/Resource"
-   }
-  },
-  "StylingApiSetUserRoleResolver55497963": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "RolesDS",
+    "DataSourceName": "RolesDs",
     "FieldName": "setUserRole",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -275,14 +251,14 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiRolesDSC3D586A1",
+    "StylingApiRolesDs00C42927",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/SetUserRoleResolver/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/SetUserRole/Resource"
    }
   },
-  "StylingApiHelloDSServiceRoleEDCF88D7": {
+  "StylingApiHelloDsServiceRole44626254": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -309,10 +285,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDS/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/Resource"
    }
   },
-  "StylingApiHelloDSServiceRoleDefaultPolicy42C67BA4": {
+  "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -346,18 +322,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiHelloDSServiceRoleDefaultPolicy42C67BA4",
+    "PolicyName": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727",
     "Roles": [
      {
-      "Ref": "StylingApiHelloDSServiceRoleEDCF88D7"
+      "Ref": "StylingApiHelloDsServiceRole44626254"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDS/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiHelloDSD8F06B09": {
+  "StylingApiHelloDs58F1D645": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -374,20 +350,20 @@
       ]
      }
     },
-    "Name": "HelloDS",
+    "Name": "HelloDs",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiHelloDSServiceRoleEDCF88D7",
+      "StylingApiHelloDsServiceRole44626254",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDS/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/Resource"
    }
   },
-  "StylingApiHelloResolver27973C2F": {
+  "StylingApiHello5D556CAF": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -396,7 +372,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "HelloDS",
+    "DataSourceName": "HelloDs",
     "FieldName": "hello",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -404,14 +380,54 @@
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiHelloDSD8F06B09",
+    "StylingApiHelloDs58F1D645",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloResolver/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/Hello/Resource"
    }
   },
-  "StylingApiClosetDSServiceRole455891F3": {
+  "StylingApiNoneDsForMe1A76D286": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "Name": "NoneDsForMe",
+    "Type": "NONE"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/NoneDsForMe/Resource"
+   }
+  },
+  "StylingApiMe3282F680": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "NoneDsForMe",
+    "FieldName": "me",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\n  \"version\": \"2018-05-29\",\n  \"payload\": {}\n}",
+    "ResponseMappingTemplate": "$util.toJson({\n  \"id\": $ctx.identity.sub,\n  \"email\": $ctx.identity.claims.get(\"email\"),\n  \"role\": \"FAN\",\n  \"tier\": \"FREE\",\n  \"createdAt\": $util.time.nowISO8601(),\n  \"updatedAt\": $util.time.nowISO8601()\n})",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiNoneDsForMe1A76D286",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/Me/Resource"
+   }
+  },
+  "StylingApiClosetDsServiceRole61F98ADC": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -438,10 +454,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetDS/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetDs/ServiceRole/Resource"
    }
   },
-  "StylingApiClosetDSServiceRoleDefaultPolicyE9F47815": {
+  "StylingApiClosetDsServiceRoleDefaultPolicyE595E568": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -475,18 +491,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiClosetDSServiceRoleDefaultPolicyE9F47815",
+    "PolicyName": "StylingApiClosetDsServiceRoleDefaultPolicyE595E568",
     "Roles": [
      {
-      "Ref": "StylingApiClosetDSServiceRole455891F3"
+      "Ref": "StylingApiClosetDsServiceRole61F98ADC"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetDS/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetDs/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiClosetDSA4B9B720": {
+  "StylingApiClosetDs3024963C": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -503,20 +519,20 @@
       ]
      }
     },
-    "Name": "ClosetDS",
+    "Name": "ClosetDs",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiClosetDSServiceRole455891F3",
+      "StylingApiClosetDsServiceRole61F98ADC",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetDS/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetDs/Resource"
    }
   },
-  "StylingApiMyClosetResolver38493114": {
+  "StylingApiMyClosetC8373A07": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -525,7 +541,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "myCloset",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -533,11 +549,11 @@
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/MyClosetResolver/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/MyCloset/Resource"
    }
   },
   "StylingApiAdminListPendingResolver16923FC0": {
@@ -549,7 +565,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "adminListPending",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -557,7 +573,7 @@
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -573,7 +589,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "createClosetItem",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -581,7 +597,7 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -597,7 +613,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "requestClosetApproval",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -605,7 +621,7 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -621,7 +637,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "adminApproveItem",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -629,7 +645,7 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -645,7 +661,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "adminRejectItem",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -653,7 +669,7 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -669,7 +685,7 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetDS",
+    "DataSourceName": "ClosetDs",
     "FieldName": "updateClosetMediaKey",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
@@ -677,50 +693,14 @@
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetDSA4B9B720",
+    "StylingApiClosetDs3024963C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/UpdateClosetMediaKey/Resource"
    }
   },
-  "RolesUserRolesTable5E79EE44": {
-   "Type": "AWS::DynamoDB::Table",
-   "Properties": {
-    "AttributeDefinitions": [
-     {
-      "AttributeName": "id",
-      "AttributeType": "S"
-     }
-    ],
-    "BillingMode": "PAY_PER_REQUEST",
-    "KeySchema": [
-     {
-      "AttributeName": "id",
-      "KeyType": "HASH"
-     }
-    ],
-    "PointInTimeRecoverySpecification": {
-     "PointInTimeRecoveryEnabled": true
-    },
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "UpdateReplacePolicy": "Retain",
-   "DeletionPolicy": "Retain",
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/Roles/UserRolesTable/Resource"
-   }
-  },
-  "RolesRolesFnServiceRoleE0BF34F6": {
+  "RolesFnServiceRole774A669F": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -761,75 +741,26 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/Roles/RolesFn/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/RolesFn/ServiceRole/Resource"
    }
   },
-  "RolesRolesFnServiceRoleDefaultPolicyF68D6A51": {
-   "Type": "AWS::IAM::Policy",
-   "Properties": {
-    "PolicyDocument": {
-     "Statement": [
-      {
-       "Action": [
-        "dynamodb:BatchGetItem",
-        "dynamodb:GetRecords",
-        "dynamodb:GetShardIterator",
-        "dynamodb:Query",
-        "dynamodb:GetItem",
-        "dynamodb:Scan",
-        "dynamodb:ConditionCheckItem",
-        "dynamodb:BatchWriteItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:DescribeTable"
-       ],
-       "Effect": "Allow",
-       "Resource": [
-        {
-         "Fn::GetAtt": [
-          "RolesUserRolesTable5E79EE44",
-          "Arn"
-         ]
-        },
-        {
-         "Ref": "AWS::NoValue"
-        }
-       ]
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "PolicyName": "RolesRolesFnServiceRoleDefaultPolicyF68D6A51",
-    "Roles": [
-     {
-      "Ref": "RolesRolesFnServiceRoleE0BF34F6"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/Roles/RolesFn/ServiceRole/DefaultPolicy/Resource"
-   }
-  },
-  "RolesRolesFn3CC83E37": {
+  "RolesFn27BF2B8D": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "504879babee412f74f6e4e29cb20ac4186f8ed425f153979fbf0c85daaa14c59.zip"
+     "S3Key": "f83b809923daf3d79da12a0bd5ac93524cd1866ce8bf9ab7697d597390f6375d.zip"
     },
+    "Description": "Resolves Mutation.setUserRole",
     "Environment": {
      "Variables": {
-      "TABLE_NAME": {
-       "Ref": "RolesUserRolesTable5E79EE44"
-      },
       "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
     "Role": {
      "Fn::GetAtt": [
-      "RolesRolesFnServiceRoleE0BF34F6",
+      "RolesFnServiceRole774A669F",
       "Arn"
      ]
     },
@@ -846,13 +777,12 @@
     ]
    },
    "DependsOn": [
-    "RolesRolesFnServiceRoleDefaultPolicyF68D6A51",
-    "RolesRolesFnServiceRoleE0BF34F6"
+    "RolesFnServiceRole774A669F"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/Roles/RolesFn/Resource",
-    "aws:asset:path": "asset.504879babee412f74f6e4e29cb20ac4186f8ed425f153979fbf0c85daaa14c59",
-    "aws:asset:is-bundled": false,
+    "aws:cdk:path": "ApiStack/RolesFn/Resource",
+    "aws:asset:path": "asset.f83b809923daf3d79da12a0bd5ac93524cd1866ce8bf9ab7697d597390f6375d",
+    "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
   },
@@ -993,6 +923,7 @@
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "950f5ec91eeceaa8eb8b053ca4251bb2da6c96c85d11e4b6ed2adbfbb66572d4.zip"
     },
+    "Description": "GraphQL field resolver for closet queries/mutations",
     "Environment": {
      "Variables": {
       "TABLE_NAME": {
@@ -1037,7 +968,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy07DMBD8lt6dpU259NiC4FLxSLhHG8dtnTi2ydqtIsv/juyAgNPMrDSzMyWUmx2sV3ijgndDoWQLoXbIB4Y3aoLCse0QwpPX3Emj2cNJ//DIJI4QKqNEOmd8M0ryOcmFRUbbBomEI9gnYLSFg+eDcAckwdBamjWH8DyhvXyqvZXJnNX78b+q+UWMyI650iM6rI2feP79R1WCjLqKKVf65pF1s8bRdC2ED2yXvplEtixstOlET/CS4XdhSsixuXzt8Cz1OblfvbPeRZZ80NPdtVzDZgf3q56kLCavnRwFVAt+AVc3PoFmAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPQW7CMBB8C3dnC6EXjtCqvSDaJg+IFmcLThzbzdogZOXvlR0h2tPMrHZ2Z0ooVxtYLvDKhWz7QqsjxNqj7AVeuYkah2OLEN+CkV5ZI16+zZ1PQuEAsbKa0jjjp9VK3pKc2SR43SAzeYZtAsFr2AXZk98hk0Dn+GYkxPcR3flHb51K5qy+9v9VLc80oNjnSK/osbZhlPn3H1URW32hMUe684M19NiZxFyrMbaljuGQ4VEr2fKtnLj2eFLmlO59BO+Cn0TyQcdPl3IJqw08LzpWqhiD8WogqGb8BZyYRY5bAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"
@@ -1045,11 +976,6 @@
   }
  },
  "Outputs": {
-  "RolesUserRolesTableNameC9E8D8C2": {
-   "Value": {
-    "Ref": "RolesUserRolesTable5E79EE44"
-   }
-  },
   "GraphQlApiUrl": {
    "Value": {
     "Fn::GetAtt": [

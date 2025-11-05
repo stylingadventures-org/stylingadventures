@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Styling Adventures · Fan Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .wrap{max-width:960px;margin:24px auto;padding:0 16px}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
+    .muted{color:#64748b}
+    .pill{display:inline-block;padding:.2rem .5rem;border-radius:999px;font:600 12px/1 system-ui;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}
+    code{background:#f8fafc;padding:.15rem .35rem;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Fan Dashboard</h1>
+    <p class="muted">Welcome! Sign in, check your profile, call the GraphQL <code>{ hello }</code> query, and see your uploads.</p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Sign in</h2>
+        <p id="auth-state" class="muted">Signed out</p>
+        <button id="btn-login" class="sa-btn">Sign in</button>
+        <button id="btn-logout" class="sa-btn sa-btn-outline" style="display:none">Sign out (local)</button>
+        <button id="btn-logout-global" class="sa-btn sa-btn-outline" style="display:none">Sign out everywhere</button>
+        <div class="muted" id="auth-url" style="word-break:break-all;margin-top:.5rem"></div>
+      </section>
+
+      <section class="card">
+        <h2>My Profile</h2>
+        <div class="muted">Role should be <span class="pill">FAN</span></div>
+        <pre id="me" class="sa-pre muted">Not loaded</pre>
+        <button id="btn-load-me" class="sa-btn">Load Profile</button>
+      </section>
+
+      <section class="card">
+        <h2>GraphQL</h2>
+        <button id="btn-hello" class="sa-btn">Call { hello }</button>
+        <p id="hello-out" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2>My Closet</h2>
+        <p class="muted" id="closet-meta">0 items</p>
+        <ul id="closet-list" class="sa-muted"></ul>
+        <button id="btn-list" class="sa-btn">List my files</button>
+      </section>
+    </div>
+
+    <p style="margin-top:16px"><a class="sa-link" href="/">← Back to Home</a> · <a class="sa-link" href="/fan/">Fan dashboard</a></p>
+  </div>
+
+  <script type="module" src="/fan/app.js"></script>
+</body>
+</html>

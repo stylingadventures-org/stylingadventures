@@ -1,0 +1,5 @@
+{
+  "httpMethod": "GET",
+  "headers": { "origin": "https://d1682i07dc1r3k.cloudfront.net" },
+  "queryStringParameters": { "key": "users/manual-test/test.jpg" }
+}

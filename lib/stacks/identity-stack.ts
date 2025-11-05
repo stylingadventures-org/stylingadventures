@@ -1,42 +1,59 @@
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
-/** Resolve the Hosted UI domainPrefix from CDK context/env with validation. */
+export interface IdentityStackProps extends cdk.StackProps {
+  /** e.g. https://d1so4q6zsby5r.cloudfront.net (no trailing slash) */
+  webOrigin: string;
+}
+
+/** Resolve a stable, valid Hosted UI domainPrefix */
 function resolveCognitoDomainPrefix(scope: Construct): string {
-  // Primary key (the one you set in cdk.json)
   const fromCtx =
-    scope.node.tryGetContext('/sa/dev/cognito/domainprefix') ??
-    scope.node.tryGetContext('sa:cognito:domainprefix'); // optional alt key
-
-  // Optional CI/env override
+    scope.node.tryGetContext("/sa/dev/cognito/domainprefix") ??
+    scope.node.tryGetContext("sa:cognito:domainprefix");
   const fromEnv = process.env.SA_COGNITO_PREFIX;
-
-  // Deterministic fallback (never throws on dev)
   const fallback = `sa-dev-${cdk.Stack.of(scope).account}`;
 
   const raw = String(fromCtx ?? fromEnv ?? fallback).trim().toLowerCase();
   if (!/^[a-z0-9-]+$/.test(raw)) {
     throw new Error(
-      `Invalid Cognito domainPrefix "${raw}". It must contain only lowercase letters, numbers, and hyphens.`
+      `Invalid Cognito domainPrefix "${raw}". Use lowercase letters, numbers, and hyphens only.`
     );
   }
-
   console.log(`Using Cognito domainPrefix: ${raw}`);
   return raw;
 }
 
 export class IdentityStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
+  public readonly userPoolClient: cognito.UserPoolClient;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: IdentityStackProps) {
     super(scope, id, props);
 
-    const envName = this.node.tryGetContext('env') ?? 'dev';
+    const envName = this.node.tryGetContext("env") ?? "dev";
+    const webOrigin = props.webOrigin.replace(/\/+$/, ""); // normalize
+
+    // (Optional) allow SSM overrides for blue/green, custom domains, etc.
+    const ssmCallback = ssm.StringParameter.valueFromLookup(
+      this, `/sa/${envName}/web/callbackUrl`
+    );
+    const ssmLogoutRoot = ssm.StringParameter.valueFromLookup(
+      this, `/sa/${envName}/web/logoutRoot`
+    );
+
+    const callbackUrl =
+      (ssmCallback && ssmCallback.startsWith("smp:") ? undefined : ssmCallback) ||
+      `${webOrigin}/callback/index.html`;
+
+    const logoutRoot =
+      (ssmLogoutRoot && ssmLogoutRoot.startsWith("smp:") ? undefined : ssmLogoutRoot) ||
+      webOrigin;
 
     // --- User Pool ---
-    this.userPool = new cognito.UserPool(this, 'UserPool', {
+    this.userPool = new cognito.UserPool(this, "UserPool", {
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       standardAttributes: { email: { required: true, mutable: false } },
@@ -48,43 +65,32 @@ export class IdentityStack extends cdk.Stack {
         requireSymbols: true,
       },
       removalPolicy:
-        envName === 'prd'
-          ? cdk.RemovalPolicy.RETAIN
-          : cdk.RemovalPolicy.DESTROY,
+        envName === "prd" ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    const pool = this.userPool;
-
-    // --- URLs from SSM (fallback to current CloudFront) ---
-    const defaultDomain = 'https://d1682i07dc1r3k.cloudfront.net';
-    const callback =
-      ssm.StringParameter.valueFromLookup(
-        this,
-        `/sa/${envName}/web/callbackUrl`
-      ) || `${defaultDomain}/callback/index.html`;
-    const logoutRoot =
-      ssm.StringParameter.valueFromLookup(
-        this,
-        `/sa/${envName}/web/logoutRoot`
-      ) || defaultDomain;
-
-    // --- Web Client ---
-    const webClient = new cognito.UserPoolClient(this, 'WebClient', {
-      userPool: pool,
+    // --- Web Client (PKCE) ---
+    this.userPoolClient = new cognito.UserPoolClient(this, "WebClient", {
+      userPool: this.userPool,
       generateSecret: false,
       preventUserExistenceErrors: true,
       oAuth: {
-        flows: { authorizationCodeGrant: true }, // PKCE
+        flows: { authorizationCodeGrant: true },
         scopes: [
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: [callback],
+        callbackUrls: [
+          callbackUrl,
+          "http://localhost:5173/callback/index.html",
+        ],
         logoutUrls: [
           `${logoutRoot}/logout/index.html`,
           `${logoutRoot}/logout/`,
           `${logoutRoot}/`,
+          "http://localhost:5173/logout/index.html",
+          "http://localhost:5173/logout/",
+          "http://localhost:5173/",
         ],
       },
       accessTokenValidity: cdk.Duration.hours(1),
@@ -93,47 +99,50 @@ export class IdentityStack extends cdk.Stack {
       authFlows: { userSrp: false, userPassword: false },
     });
 
-    // --- Hosted UI Domain (Stable + Validated) ---
+    // --- Hosted UI Domain ---
     const domainPrefix = resolveCognitoDomainPrefix(this);
-
-    new cognito.UserPoolDomain(this, 'HostedUiDomain', {
-      userPool: pool,
+    new cognito.UserPoolDomain(this, "HostedUiDomain", {
+      userPool: this.userPool,
       cognitoDomain: { domainPrefix },
     });
 
     // --- Groups ---
-    (['FAN', 'BESTIE', 'CREATOR', 'COLLAB', 'ADMIN', 'PRIME'] as const).forEach(
+    (["FAN", "BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"] as const).forEach(
       (g, i) => {
         new cognito.CfnUserPoolGroup(this, `${g}Group`, {
           groupName: g,
-          userPoolId: pool.userPoolId,
+          userPoolId: this.userPool.userPoolId,
           description: `${g} group`,
-          precedence: g === 'ADMIN' ? 1 : 10 + i,
+          precedence: g === "ADMIN" ? 1 : 10 + i,
         });
       }
     );
 
-    // --- (Optional) Identity Pool ---
-    const identityPool = new cognito.CfnIdentityPool(this, 'IdentityPool', {
+    // --- Identity Pool (optional; keeps parity with your version) ---
+    const identityPool = new cognito.CfnIdentityPool(this, "IdentityPool", {
       allowUnauthenticatedIdentities: false,
       cognitoIdentityProviders: [
         {
-          clientId: webClient.userPoolClientId,
-          providerName: pool.userPoolProviderName,
+          clientId: this.userPoolClient.userPoolClientId,
+          providerName: this.userPool.userPoolProviderName,
         },
       ],
     });
 
     // --- Outputs ---
-    new cdk.CfnOutput(this, 'CognitoUserPoolId', { value: pool.userPoolId });
-    new cdk.CfnOutput(this, 'CognitoWebClientId', {
-      value: webClient.userPoolClientId,
+    new cdk.CfnOutput(this, "CognitoUserPoolId", {
+      value: this.userPool.userPoolId,
     });
-    new cdk.CfnOutput(this, 'IdentityPoolId', { value: identityPool.ref });
-    new cdk.CfnOutput(this, 'HostedUiLoginUrl', {
-      value: `https://${domainPrefix}.auth.${this.region}.amazoncognito.com/login?client_id=${webClient.userPoolClientId}&response_type=code&scope=openid+profile+email&redirect_uri=${encodeURIComponent(
-        callback
-      )}`,
+    new cdk.CfnOutput(this, "CognitoWebClientId", {
+      value: this.userPoolClient.userPoolClientId,
+    });
+    new cdk.CfnOutput(this, "IdentityPoolId", { value: identityPool.ref });
+    new cdk.CfnOutput(this, "HostedUiLoginUrl", {
+      value:
+        `https://${domainPrefix}.auth.${this.region}.amazoncognito.com/login?` +
+        `client_id=${this.userPoolClient.userPoolClientId}` +
+        `&response_type=code&scope=openid+profile+email` +
+        `&redirect_uri=${encodeURIComponent(callbackUrl)}`,
     });
   }
 }
