@@ -611,7 +611,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "27165fd866457cacb9d90d7ca3cfc6e0c591cf4ebbd57973b3aa7cd7c7946d11.zip"
+     "S3Key": "eca72b2ccb1767fdaa078888425dc8c3308aa200ff6df61f90d1f24224a71719.zip"
     },
     "Environment": {
      "Variables": {
@@ -646,7 +646,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "WorkflowsStack/SaveApprovalTokenFn/Resource",
-    "aws:asset:path": "C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures",
+    "aws:asset:path": "asset.eca72b2ccb1767fdaa078888425dc8c3308aa200ff6df61f90d1f24224a71719",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

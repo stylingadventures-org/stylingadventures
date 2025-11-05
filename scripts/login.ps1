@@ -18,26 +18,46 @@ if (Test-Path $outputsPath) {
   try { $cfg = Get-Content $outputsPath -Raw | ConvertFrom-Json } catch {}
 }
 
-# NOTE: never allow a partial region like "u"
-$ClientId   = if ($cfg -and $cfg.IdentityStack.UserPoolClientId) { $cfg.IdentityStack.UserPoolClientId } else { "7bkph1q2q1dgpk0497gk41t7tc" }
-$Region     = if ($RegionOverride) { $RegionOverride }
-             elseif ($cfg -and $cfg.IdentityStack.Region) { $cfg.IdentityStack.Region }
-             else { "us-east-1" }
-$Domain     = if ($cfg -and $cfg.IdentityStack.HostedUiDomainName) { $cfg.IdentityStack.HostedUiDomainName } else { "stylingadventures-256673" }
-$CloudFront = if ($cfg -and $cfg.WebStack.CloudFrontDistributionDomainName) { $cfg.WebStack.CloudFrontDistributionDomainName } else { "d1682i07dc1r3k.cloudfront.net" }
-$ApiBase    = if ($cfg -and $cfg.UploadsStack.ApiGatewayUrl) { ($cfg.UploadsStack.ApiGatewayUrl.TrimEnd('/')) } else { "https://02vsmdtge6.execute-api.us-east-1.amazonaws.com/prod" }
+# Pull from your actual outputs.json keys
+# Example keys you've shown:
+#   IdentityStack.CognitoWebClientId
+#   IdentityStack.HostedUiLoginUrl
+#   WebStack.CloudFrontDistributionDomainName
+$ClientId   = $cfg?.IdentityStack?.CognitoWebClientId
+$HostedUrl  = $cfg?.IdentityStack?.HostedUiLoginUrl
+$CloudFront = $cfg?.WebStack?.CloudFrontDistributionDomainName
+$ApiBase    = $cfg?.UploadsStack?.ApiGatewayUrl
+if ($ApiBase) { $ApiBase = $ApiBase.TrimEnd('/') }
 
-if ($Region -notmatch '^[a-z]{2}-[a-z-]+-\d$') {
-  Write-Warning "Region '$Region' looks invalid; forcing 'us-east-1'."
-  $Region = 'us-east-1'
+# Fallbacks (only used if outputs.json did not exist / missing fields)
+if (-not $ClientId)   { $ClientId   = "51uc25i7ob3otirvgi66mpht79" }     # your current web client id
+if (-not $CloudFront) { $CloudFront = "d1682i07dc1r3k.cloudfront.net" }  # your current CF domain
+if (-not $ApiBase)    { $ApiBase    = "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod" }
+
+# Derive domain prefix + region from HostedUiLoginUrl when present
+# e.g. https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com/login?... -> "sa-dev-637423256673", "us-east-1"
+$DomainPrefix = $null
+$Region       = $null
+if ($HostedUrl -match 'https://([^.]+)\.auth\.([a-z]{2}-[a-z-]+-\d)\.amazoncognito\.com/') {
+  $DomainPrefix = $Matches[1]
+  $Region       = $Matches[2]
 }
+
+# Allow explicit CLI override to win
+if ($RegionOverride) { $Region = $RegionOverride }
+
+# Final region fallback
+if (-not $Region -or ($Region -notmatch '^[a-z]{2}-[a-z-]+-\d$')) { $Region = 'us-east-1' }
+
+# Final domain prefix fallback (old name you used once: "stylingadventures-256673")
+if (-not $DomainPrefix) { $DomainPrefix = "sa-dev-637423256673" }
 
 $RedirectUri = "https://$CloudFront/callback/index.html"
 
 Write-Host "Using:"
 Write-Host "  ClientId:     $ClientId"
 Write-Host "  Region:       $Region"
-Write-Host "  Domain:       $Domain"
+Write-Host "  Domain:       $DomainPrefix"
 Write-Host "  Redirect URI: $RedirectUri"
 Write-Host "  API base:     $ApiBase"
 Write-Host ""
@@ -51,7 +71,6 @@ function To-Base64Url([byte[]]$bytes) {
 }
 function New-CodeVerifier {
   $bytes = New-Object byte[] 64
-  # PS5 and PS7 compatible
   $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
   $rng.GetBytes($bytes)
   To-Base64Url $bytes
@@ -88,7 +107,7 @@ function Invoke-Json {
 $verifier  = New-CodeVerifier
 $challenge = New-CodeChallenge $verifier
 
-$authUrl = "https://$Domain.auth.$Region.amazoncognito.com/login" +
+$authUrl = "https://$DomainPrefix.auth.$Region.amazoncognito.com/login" +
            "?client_id=$(UrlEncode $ClientId)" +
            "&response_type=code" +
            "&scope=$(UrlEncode 'openid profile email')" +
@@ -114,7 +133,7 @@ try {
 if (-not $code) { throw "No 'code' param found." }
 
 # ---------- Step 3: token exchange ----------
-$tokenUrl = "https://$Domain.auth.$Region.amazoncognito.com/oauth2/token"
+$tokenUrl = "https://$DomainPrefix.auth.$Region.amazoncognito.com/oauth2/token"
 $headers  = @{ "Content-Type" = "application/x-www-form-urlencoded" }
 $bodyKv   = @{
   grant_type    = "authorization_code"
@@ -147,6 +166,11 @@ Write-Host "`$env:ID_TOKEN set for this shell session."
 
 # ---------- Step 5: optional API test ----------
 if (-not $NoTest) {
+  if (-not $ApiBase) {
+    Write-Host "No Uploads API base in outputs.json; skipping API test."
+    return
+  }
+
   Write-Host ""
   Write-Host "Testing Uploads API (presign -> PUT -> list)..."
 

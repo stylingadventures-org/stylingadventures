@@ -21,7 +21,7 @@ type ClosetItem {
   reason: String          # optional: why REJECTED
 }
 
-"""RBAC: roles & tiers"""
+"""RBAC: roles & tiers (existing enum-backed user model)"""
 enum Role { FAN BESTIE CREATOR COLLAB ADMIN }
 enum Tier { FREE PRIME }
 
@@ -39,6 +39,16 @@ input SetUserRoleInput {
   email: AWSEmail
   role: Role!
   tier: Tier
+}
+
+"""Phase-1 lightweight profile returned by Query.me (string-based)"""
+type UserProfile {
+  id: ID!
+  email: String
+  role: String!
+  tier: String!
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
 }
 
 """Paged list of users for admin UI"""
@@ -65,7 +75,10 @@ type Query {
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
 
   # Roles / user directory
-  me: User!
+  # NOTE: now returns UserProfile (string role/tier) to match the NONE DS resolver.
+  me: UserProfile!
+
+  # Existing admin users listing remains enum-backed
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
 }
@@ -86,7 +99,8 @@ type Mutation {
   requestClosetApproval(id: ID!): String!
 
   # Roles
-  setUserRole(input: SetUserRoleInput!): User!
+  # Return shape is now UserProfile to align with front-end expectations.
+  setUserRole(input: SetUserRoleInput!): UserProfile!
 
   # Moderation actions
   adminApproveItem(id: ID!): ClosetItem!

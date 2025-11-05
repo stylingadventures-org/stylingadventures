@@ -1,4 +1,3 @@
-// lib/roles/RolesConstruct.ts
 import { Construct } from "constructs";
 import * as cdk from "aws-cdk-lib";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -17,48 +16,38 @@ export class RolesConstruct extends Construct {
     super(scope, id);
     const { api } = props;
 
-    // DynamoDB table for user roles/tiers
+    // DynamoDB for user roles/tiers
     this.table = new dynamodb.Table(this, "UserRolesTable", {
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: true,
-      tableName: cdk.Stack.of(this).stackName
-        ? undefined
-        : "UserRoles", // default (let CFN name it)
+      // modern PITR
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     new cdk.CfnOutput(this, "UserRolesTableName", {
       value: this.table.tableName,
     });
 
-    // Lambda that resolves Query.me and Mutation.setUserRole
+    // Lambda for Mutation.setUserRole (Query.me handled by NONE DS in ApiStack)
     const rolesFn = new lambda.Function(this, "RolesFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
-      code: lambda.Code.fromAsset(
-        path.join(process.cwd(), "lambda/roles")
-      ),
+      code: lambda.Code.fromAsset(path.join(process.cwd(), "lambda/roles")),
       environment: {
         TABLE_NAME: this.table.tableName,
         NODE_OPTIONS: "--enable-source-maps",
       },
+      description: "Resolves Mutation.setUserRole",
     });
 
     this.table.grantReadWriteData(rolesFn);
 
-    // AppSync Lambda data source
+    // AppSync DS + resolver(s)
     const rolesDs = api.addLambdaDataSource("RolesDS", rolesFn);
 
-    // Attach resolvers to fields that exist in schema.graphql
-    rolesDs.createResolver("MeResolver", {
-      typeName: "Query",
-      fieldName: "me",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    rolesDs.createResolver("SetUserRoleResolver", {
+    // IMPORTANT: Only create the mutation resolver here (avoid duplicate `me`)
+    rolesDs.createResolver("MutationSetUserRoleResolver", {
       typeName: "Mutation",
       fieldName: "setUserRole",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),

@@ -9,40 +9,39 @@ export class DatabaseStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // Primary app table (single-table design)
-    // pk = "ITEM#<id>", sk = "META" (or version keys later)
     this.table = new ddb.Table(this, "CoreTable", {
-      tableName: "sa-dev-app",                           // << use the table your Lambdas already hit
+      tableName: "sa-dev-app", // keep aligned with your Lambdas
       partitionKey: { name: "pk", type: ddb.AttributeType.STRING },
-      sortKey:      { name: "sk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "sk", type: ddb.AttributeType.STRING },
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
-      removalPolicy: RemovalPolicy.RETAIN,              // keep data on stack delete
+      removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    // GSI #1 — by owner (used by Query.myCloset)
+    // GSI #1 — by owner (e.g. OWNER#{sub}, ISO ts)
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi1",
-      partitionKey: { name: "gsi1pk", type: ddb.AttributeType.STRING }, // OWNER#{sub}
-      sortKey:      { name: "gsi1sk", type: ddb.AttributeType.STRING }, // ISO timestamp
+      partitionKey: { name: "gsi1pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "gsi1sk", type: ddb.AttributeType.STRING },
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // GSI #2 — by status (used by admin moderation queue)
+    // GSI #2 — by status (e.g. STATUS#PENDING, ISO ts)
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi2",
-      partitionKey: { name: "gsi2pk", type: ddb.AttributeType.STRING }, // STATUS#PENDING/APPROVED/...
-      sortKey:      { name: "gsi2sk", type: ddb.AttributeType.STRING }, // ISO timestamp
+      partitionKey: { name: "gsi2pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "gsi2sk", type: ddb.AttributeType.STRING },
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // Optional: future scheduling features
+    // GSI #3 — optional future scheduling
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi3",
-      partitionKey: { name: "gsi3pk", type: ddb.AttributeType.STRING }, // SCHED#YYYYMMDD (future)
-      sortKey:      { name: "gsi3sk", type: ddb.AttributeType.STRING },
+      partitionKey: { name: "gsi3pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "gsi3sk", type: ddb.AttributeType.STRING },
       projectionType: ddb.ProjectionType.ALL,
     });
   }
 }
+
 

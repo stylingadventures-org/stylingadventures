@@ -1,31 +1,38 @@
-import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+// lib/stacks/web-stack.ts
+import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+
+// If you ever want to pass a thumbs bucket in the future, you can;
+// it's optional and unused by default.
+export interface WebStackProps extends StackProps {
+  thumbsBucket?: s3.IBucket;
+}
 
 export class WebStack extends Stack {
   public readonly distribution: cloudfront.Distribution;
   public readonly siteBucket: s3.Bucket;
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props?: WebStackProps) {
     super(scope, id, props);
 
-    // Private S3 bucket for site
-    this.siteBucket = new s3.Bucket(this, 'SiteBucket', {
+    // Private S3 bucket for the SPA
+    this.siteBucket = new s3.Bucket(this, "StaticSiteBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       versioned: false,
     });
 
-    // OAI for site bucket
-    const siteOai = new cloudfront.OriginAccessIdentity(this, 'SiteOai');
+    // Origin access identity for CloudFront -> S3
+    const siteOai = new cloudfront.OriginAccessIdentity(this, "SiteOai");
     this.siteBucket.grantRead(siteOai);
 
-    // Pretty URLs -> index.html
-    const dirIndexFn = new cloudfront.Function(this, 'DirIndexRewriteFn', {
+    // Pretty-URL rewrite: /foo => /foo/index.html and / => /index.html
+    const dirIndexFn = new cloudfront.Function(this, "DirIndexRewriteFn", {
       code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var req = event.request;
@@ -37,8 +44,8 @@ function handler(event) {
       `),
     });
 
-    this.distribution = new cloudfront.Distribution(this, 'Distribution', {
-      defaultRootObject: 'index.html',
+    this.distribution = new cloudfront.Distribution(this, "CloudFrontDistribution", {
+      defaultRootObject: "index.html",
       defaultBehavior: {
         origin: new origins.S3Origin(this.siteBucket, { originAccessIdentity: siteOai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -51,16 +58,20 @@ function handler(event) {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    // Deploy SPA and invalidate
-    new s3deploy.BucketDeployment(this, 'DeploySite', {
+    // Deploy the static app and invalidate the CDN
+    new s3deploy.BucketDeployment(this, "DeploySite", {
       destinationBucket: this.siteBucket,
       distribution: this.distribution,
-      distributionPaths: ['/*'],
-      sources: [s3deploy.Source.asset('lib/stacks/web')],
+      distributionPaths: ["/*"],
+      sources: [s3deploy.Source.asset("lib/stacks/web")],
     });
 
-    new CfnOutput(this, 'CloudFrontDistributionDomainName', { value: this.distribution.domainName });
-    new CfnOutput(this, 'StaticSiteBucketName', { value: this.siteBucket.bucketName });
+    new CfnOutput(this, "CloudFrontDistributionDomainName", {
+      value: this.distribution.domainName,
+    });
+    new CfnOutput(this, "StaticSiteBucketName", {
+      value: this.siteBucket.bucketName,
+    });
   }
 }
 
