@@ -9,92 +9,134 @@ import {
 import sharp from "sharp";
 
 /**
- * Env
- *  - BUCKET:        required (the uploads bucket name)
- *  - THUMBS_PREFIX: optional, default "thumbs/"
- *  - MAX_WIDTH:     optional, default "360"
- *  - JPEG_QUALITY:  optional, default "80"
+ * Environment
+ *  - UPLOADS_BUCKET : required (source/originals)
+ *  - DEST_BUCKET    : required (where thumbnails are stored)
+ *  - DEST_PREFIX    : optional; default "thumbs/"
+ *  - THUMBS_PREFIX  : optional alias of DEST_PREFIX for compatibility
+ *  - MAX_WIDTH      : optional; default "360"
+ *  - JPEG_QUALITY   : optional; default "80"
  */
-const BUCKET = process.env.BUCKET!;
-if (!BUCKET) throw new Error("Missing env BUCKET");
 
-const THUMBS_PREFIX = String(process.env.THUMBS_PREFIX || "thumbs/").replace(/^\/+|\/+$/g, "") + "/";
-const MAX_WIDTH = Math.max(1, parseInt(String(process.env.MAX_WIDTH || "360"), 10));
-const JPEG_QUALITY = Math.min(100, Math.max(1, parseInt(String(process.env.JPEG_QUALITY || "80"), 10)));
+const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET || process.env.BUCKET;
+const DEST_BUCKET = process.env.DEST_BUCKET;
+if (!UPLOADS_BUCKET) throw new Error("Missing env UPLOADS_BUCKET (or BUCKET)");
+if (!DEST_BUCKET) throw new Error("Missing env DEST_BUCKET");
+
+// prefer DEST_PREFIX; fall back to THUMBS_PREFIX; default to "thumbs/"
+const RAW_PREFIX =
+  process.env.DEST_PREFIX ??
+  process.env.THUMBS_PREFIX ??
+  "thumbs/";
+const DEST_PREFIX =
+  String(RAW_PREFIX).replace(/^\/+|\/+$/g, "") + "/";
+
+const MAX_WIDTH = Math.max(
+  1,
+  parseInt(String(process.env.MAX_WIDTH ?? "360"), 10)
+);
+const JPEG_QUALITY = Math.min(
+  100,
+  Math.max(1, parseInt(String(process.env.JPEG_QUALITY ?? "80"), 10))
+);
 
 const s3 = new S3Client({});
 
-/** Return true if the S3 key looks like an image we support */
+/** True if key has a supported image extension */
 function isSupportedImage(key: string): boolean {
   return /\.(png|jpe?g|webp|gif|tiff|avif)$/i.test(key);
 }
 
-/** Map source "users/<sub>/path/file.ext" -> "thumbs/users/<sub>/path/file.jpg" */
-function toThumbKey(srcKey: string): string {
-  const clean = decodeURIComponent(srcKey).replace(/^\/*/, "");
-  // Keep full path under users/, but rewrite extension to .jpg and prefix with THUMBS_PREFIX
-  return (THUMBS_PREFIX + clean).replace(/\.[^.]+$/, ".jpg");
+/** Normalize S3 key */
+function cleanKey(raw: string): string {
+  return decodeURIComponent(raw.replace(/\+/g, " ")).replace(/^\/*/, "");
 }
 
-/** Guard: only create thumbs for objects under users/ and never for any object already under thumbs/ */
-function shouldProcess(key: string): boolean {
-  const k = decodeURIComponent(key);
+/** users/a/b/file.ext  ->  DEST_PREFIX + users/a/b/file.jpg */
+function toThumbKey(srcKey: string): string {
+  const cleaned = cleanKey(srcKey);
+  return (DEST_PREFIX + cleaned).replace(/\.[^.]+$/, ".jpg");
+}
+
+/** Only create thumbs for objects under users/, never for items already under DEST_PREFIX */
+function shouldProcess(srcKey: string, sourceBucket: string): boolean {
+  const k = cleanKey(srcKey);
   if (!/^users\//i.test(k)) return false;
-  if (new RegExp(`^${THUMBS_PREFIX.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}`, "i").test(k)) return false;
+  // If source and destination buckets are the same, avoid processing anything already under DEST_PREFIX
+  if (sourceBucket === DEST_BUCKET) {
+    const destPrefixEsc = DEST_PREFIX.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    if (new RegExp(`^${destPrefixEsc}`, "i").test(k)) return false;
+  }
   return isSupportedImage(k);
 }
 
-export const handler: S3Handler = (async (event: S3Event) => {
+export const handler: S3Handler = async (event: S3Event) => {
   for (const rec of event.Records ?? []) {
+    const srcBucket = rec.s3?.bucket?.name;
     const rawKey = rec.s3?.object?.key;
-    if (!rawKey) continue;
 
-    const key = decodeURIComponent(rawKey.replace(/\+/g, " "));
-
-    if (!shouldProcess(key)) {
-      console.log(`⏭️  Skipping ${key}`);
+    if (!srcBucket || !rawKey) continue;
+    // Only react to events from the configured uploads bucket
+    if (srcBucket !== UPLOADS_BUCKET) {
+      console.log(`⏭️  Ignoring event from bucket ${srcBucket}`);
       continue;
     }
 
-    const thumbKey = toThumbKey(key);
+    const srcKey = cleanKey(rawKey);
+    if (!shouldProcess(srcKey, srcBucket)) {
+      console.log(`⏭️  Skipping ${srcKey}`);
+      continue;
+    }
+
+    const destKey = toThumbKey(srcKey);
 
     try {
-      // Skip if thumbnail already exists (fast path)
+      // Fast path: if dest already exists, skip
       try {
-        await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: thumbKey }));
-        console.log(`✔️  Thumb exists, skip: ${thumbKey}`);
+        await s3.send(
+          new HeadObjectCommand({ Bucket: DEST_BUCKET, Key: destKey })
+        );
+        console.log(`✔️  Thumb exists, skip: s3://${DEST_BUCKET}/${destKey}`);
         continue;
       } catch {
-        /* not found -> proceed */
+        // not found — proceed
       }
 
       // Fetch original
-      const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-      const buf = await obj.Body!.transformToByteArray();
+      const obj = await s3.send(
+        new GetObjectCommand({ Bucket: srcBucket, Key: srcKey })
+      );
+      const input = await obj.Body!.transformToByteArray();
 
-      // Process with sharp
-      const out = await sharp(buf)
-        .rotate() // auto-orient using EXIF, if present
-        .resize({ width: MAX_WIDTH, height: MAX_WIDTH, fit: "inside", withoutEnlargement: true })
+      // Generate JPEG thumb
+      const output = await sharp(input)
+        .rotate() // auto-orient via EXIF
+        .resize({
+          width: MAX_WIDTH,
+          height: MAX_WIDTH,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
         .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
         .toBuffer();
 
-      // Store thumbnail
+      // Store thumbnail (long-cache; immutable)
       await s3.send(
         new PutObjectCommand({
-          Bucket: BUCKET,
-          Key: thumbKey,
-          Body: out,
+          Bucket: DEST_BUCKET,
+          Key: destKey,
+          Body: output,
           ContentType: "image/jpeg",
           CacheControl: "public, max-age=31536000, immutable",
-          Metadata: { source: key },
+          Metadata: { source: `${srcBucket}/${srcKey}` },
         })
       );
 
-      console.log(`✅ Generated: ${thumbKey}`);
+      console.log(`✅ Generated: s3://${DEST_BUCKET}/${destKey}`);
     } catch (err) {
-      console.error(`❌ Failed for ${key} -> ${thumbKey}:`, err);
-      // keep processing other records
+      console.error(`❌ Failed for ${srcBucket}/${srcKey} -> ${DEST_BUCKET}/${destKey}:`, err);
+      // continue with remaining records
     }
   }
-}) as S3Handler;
+};
+

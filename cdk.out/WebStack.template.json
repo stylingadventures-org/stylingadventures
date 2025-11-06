@@ -276,7 +276,7 @@
      "cdk-hnb659fds-assets-637423256673-us-east-1"
     ],
     "SourceObjectKeys": [
-     "4f9e48ce7e9bcdc60537c43b6d9cafd5f26bedfb0e227324670542afb3e1811a.zip"
+     "1f5c28a08e07908ff8975afa612a62b4af7108d95cf1fc7d2c69117de88e6bbb.zip"
     ],
     "DestinationBucketName": {
      "Ref": "StaticSiteBucket8958EE3F"
@@ -490,7 +490,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy4oCMRD8Fu+x18dePOqIsLDgorDXIWbaoTWTSLqzg4T59yUzvg6eqrpS6Sp6BrPpAiYj3fLYVOexpQOkvWhzVrrlMvEc0iqaM4oqju7GBvjxlsz1Kd/mYVhpxk4Z62N1DN4JpG2gmtzSGGT+qtAJSf+5yJ5N9rx1bKIzQt5l64OviSXQId4fXudO8bxMFV6svzboBIZC64egNDMKwzJDp6xuDpWGVBzdt75i+MXAee2eXG1R/DP1XZVOkW4g7bzFLPf4PMzAuntIaXNAqVs2lmDZcmGpz1R9l73omlytisjimx2yj8EMa+/8VdxGuUTplPMVwok//mYTmC7gc3RionGITqhB2A34D1JmbhvoAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy27CMBD8Fu5mS0MvPUIQUqVKVCD1GhlniRYcG3nXjZCVf6+c8DpwmtnxeGe0BRRFAbOJ7nhq6tPU0h7STrQ5Kd1xlXgOaRnNCUWVB3dlI/x4S+bykK/zOCw1Y6+M9bE+BO8E0iZQQ25hDDJ/1eiEZPhcZs86e1461tEZIe+y9c5XxBJoH28Pz3OveF6lGs/WX1p0AmOh1V1QmhmFYZGhV1a3+1pDKg/uW18w/GLgvHZHrrEo/pH6qkqvSLeQtt5ilgd8HGZk/S2ksjmg0h0bS7DouLQ0ZKqhy050Q65RZWTx7RbZx2DGtTf+LG6inKP0yvka4chvf8UM3j/hY3JkommITqhF2I74D548DXvoAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/CDKMetadata/Default"
@@ -509,17 +509,6 @@
   "StaticSiteBucketName": {
    "Value": {
     "Ref": "StaticSiteBucket8958EE3F"
-   }
-  },
-  "ExportsOutputFnGetAttCloudFrontDistributionBA64CE3ADomainName419F2BE7": {
-   "Value": {
-    "Fn::GetAtt": [
-     "CloudFrontDistributionBA64CE3A",
-     "DomainName"
-    ]
-   },
-   "Export": {
-    "Name": "WebStack:ExportsOutputFnGetAttCloudFrontDistributionBA64CE3ADomainName419F2BE7"
    }
   }
  },

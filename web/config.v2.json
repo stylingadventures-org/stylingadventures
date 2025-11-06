@@ -2,12 +2,11 @@
   "region": "us-east-1",
   "hostedUiDomain": "sa-dev-637423256673",
   "clientId": "51uc25i7ob3otirvgi66mpht79",
-  "redirectUri": "https://d1s04qr6zsby5r.cloudfront.net/callback/index.html",
-  "logoutUri": "https://d1s04qr6zsby5r.cloudfront.net/logout/index.html",
-  "appSyncUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
+
+  "redirectUri": "https://d1so4qr6zsby5r.cloudfront.net/callback/",
+  "logoutUri":   "https://d1so4qr6zsby5r.cloudfront.net/",
+
+  "appsyncUrl": "https://eijy6lsdhfctnibr35yon7v5qu.appsync-api.us-east-1.amazonaws.com/graphql",
   "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
-  "thumbsCdn": "https://d1s04qr6zsby5r.cloudfront.net"
+  "thumbsCdn": "https://d1so4qr6zsby5r.cloudfront.net"
 }
-
-
-

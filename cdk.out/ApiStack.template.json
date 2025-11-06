@@ -234,6 +234,30 @@
     "aws:cdk:path": "ApiStack/StylingApi/RolesDs/Resource"
    }
   },
+  "StylingApiMe3282F680": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "RolesDs",
+    "FieldName": "me",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiRolesDs00C42927",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/Me/Resource"
+   }
+  },
   "StylingApiSetUserRole87913D00": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
@@ -385,46 +409,6 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Hello/Resource"
-   }
-  },
-  "StylingApiNoneDsForMe1A76D286": {
-   "Type": "AWS::AppSync::DataSource",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "Name": "NoneDsForMe",
-    "Type": "NONE"
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/NoneDsForMe/Resource"
-   }
-  },
-  "StylingApiMe3282F680": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "NoneDsForMe",
-    "FieldName": "me",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\n  \"version\": \"2018-05-29\",\n  \"payload\": {}\n}",
-    "ResponseMappingTemplate": "$util.toJson({\n  \"id\": $ctx.identity.sub,\n  \"email\": $ctx.identity.claims.get(\"email\"),\n  \"role\": \"FAN\",\n  \"tier\": \"FREE\",\n  \"createdAt\": $util.time.nowISO8601(),\n  \"updatedAt\": $util.time.nowISO8601()\n})",
-    "TypeName": "Query"
-   },
-   "DependsOn": [
-    "StylingApiNoneDsForMe1A76D286",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/Me/Resource"
    }
   },
   "StylingApiClosetDsServiceRole61F98ADC": {
@@ -744,6 +728,58 @@
     "aws:cdk:path": "ApiStack/RolesFn/ServiceRole/Resource"
    }
   },
+  "RolesFnServiceRoleDefaultPolicy1818F7E8": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "RolesFnServiceRoleDefaultPolicy1818F7E8",
+    "Roles": [
+     {
+      "Ref": "RolesFnServiceRole774A669F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/RolesFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
   "RolesFn27BF2B8D": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
@@ -751,10 +787,13 @@
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "f83b809923daf3d79da12a0bd5ac93524cd1866ce8bf9ab7697d597390f6375d.zip"
     },
-    "Description": "Resolves Mutation.setUserRole",
+    "Description": "Resolves Query.me and Mutation.setUserRole",
     "Environment": {
      "Variables": {
-      "NODE_OPTIONS": "--enable-source-maps"
+      "NODE_OPTIONS": "--enable-source-maps",
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
      }
     },
     "Handler": "index.handler",
@@ -777,6 +816,7 @@
     ]
    },
    "DependsOn": [
+    "RolesFnServiceRoleDefaultPolicy1818F7E8",
     "RolesFnServiceRole774A669F"
    ],
    "Metadata": {
@@ -968,7 +1008,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPQW7CMBB8C3dnC6EXjtCqvSDaJg+IFmcLThzbzdogZOXvlR0h2tPMrHZ2Z0ooVxtYLvDKhWz7QqsjxNqj7AVeuYkah2OLEN+CkV5ZI16+zZ1PQuEAsbKa0jjjp9VK3pKc2SR43SAzeYZtAsFr2AXZk98hk0Dn+GYkxPcR3flHb51K5qy+9v9VLc80oNjnSK/osbZhlPn3H1URW32hMUe684M19NiZxFyrMbaljuGQ4VEr2fKtnLj2eFLmlO59BO+Cn0TyQcdPl3IJqw08LzpWqhiD8WogqGb8BZyYRY5bAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy07DMBD8lt6dpbhcOLYguFQ8kg+Ito5pN3Fsk7VbVVb+HdkBAaeZWe3szkiQUsJ6hReuVDdUhg6QmoBqEHjhNhkcDx1CeopWBXJWPHzYHz4LwhFS7YzO44JvzpC6ZrmwWfCmRWYdGLYZBG9gF9Wgww5ZC/Ser1ZBep7Qnz7N1lM2F/W+/68addIjin2J9IgBGxcnVX7/UbVmZ856KpG++SyWHq11ne4ZXgr89sh7xVwiNgGPZI/5wGsMPoZZZB/0fHOWa7i9h7tVz0TVFG2gUUO94BcidfACTAEAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"

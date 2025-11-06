@@ -61,7 +61,7 @@ class DataStack extends cdk.Stack {
   }
 }
 
-// 1) Web hosting FIRST so we know the final CloudFront origin
+// 1) Web hosting FIRST so we know the final CloudFront origin (still useful for other stacks)
 const web = new WebStack(app, 'WebStack', {
   env,
   description: `Static web hosting (S3 + CloudFront) - ${envName}`,
@@ -101,11 +101,17 @@ const api = new ApiStack(app, 'ApiStack', {
 });
 
 // 6) Uploads API + thumbs CDN
+// Pull this from your WebStack output, which you posted as:
+// WebStack.StaticSiteBucketName = webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1
+const webBucketName = 'webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1';
+const thumbsOrigin = 'https://d1so4qr6zsby5r.cloudfront.net';
+
 new UploadsStack(app, 'UploadsStack', {
   env,
   userPool: identity.userPool,
-  webOrigin,
-  cloudFrontOrigin, // connect the thumbs CDN to the same CF
+  webOrigin: thumbsOrigin,
+  cloudFrontOrigin: thumbsOrigin,
+  webBucketName, // <-- NEW (required)
   description: `Uploads API, S3, and thumbs CDN - ${envName}`,
 });
 
