@@ -1,6 +1,6 @@
 "use strict";
 
-/* tiny helpers */
+/* ────────── tiny helpers ────────── */
 function $(s, r){ return (r||document).querySelector(s); }
 function b64url(buf){
   return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
@@ -16,35 +16,37 @@ function parseJwt(t){
   } catch(e){ return null; }
 }
 
-/* config loader */
+/* ────────── config loader ────────── */
 async function loadCfg(){
   var url = "/config.v2.json?ts=" + Date.now();
-  var r = await fetch(url, { method: "GET" });
+  var r = await fetch(url, { method: "GET", cache: "no-store" });
   if (!r.ok) throw new Error("config.v2.json missing");
   return r.json();
 }
 var cfg = await loadCfg();
 
-/* ===== config fallbacks ===== */
+/* ────────── constants & normalized URIs ────────── */
 const pick = (...keys) => { for (const k of keys) if (cfg && cfg[k]) return cfg[k]; };
 
-const region      = pick('region') || 'us-east-1';
-const domain      = pick('hostedUiDomain','domain');           // hosted UI domain prefix
-const clientId    = pick('clientId');
-const cloudFront  = pick('cloudFrontUrl');
-const redirectUri = pick('redirectUri','redirectURL','redirectUrl') ||
-                    (cloudFront ? `${cloudFront}/callback/index.html` : undefined);
-const logoutUri   = pick('logoutUri','logoutURL','logoutUrl') ||
-                    (cloudFront ? `${cloudFront}/logout/index.html` : undefined);
+const region   = pick('region') || 'us-east-1';
+const domain   = pick('hostedUiDomain','domain');   // Hosted UI domain prefix
+const clientId = pick('clientId');
+
+const PROD_CF = 'https://d1so4qr6zsby5r.cloudfront.net';
+const isLocal = location.origin.startsWith('http://localhost:');
+const EXPECTED_REDIRECT = isLocal ? 'http://localhost:5173/callback/' : `${PROD_CF}/callback/`;
+const EXPECTED_LOGOUT   = isLocal ? 'http://localhost:5173/'          : `${PROD_CF}/`;
+
 /* derived endpoints */
 var cognitoDomain = "https://" + domain + ".auth." + region + ".amazoncognito.com";
-var appsyncUrl    = String(pick('appsyncUrl') || "").trim();
+var appsyncUrl    = String(pick('appSyncUrl','appsyncUrl') || "").trim();
 var uploadsApi    = String(pick('uploadsApiUrl','uploadsUrl','apiUrl') || "").replace(/\/+$/,"");
 
-/* PKCE login url (encode return target as state prefix) */
+/* ────────── PKCE login url (encode return target as state prefix) ────────── */
 async function buildLoginUrl(){
   var state = "rt:/fan/|" + crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
   sessionStorage.setItem("oauth_state", state);
+
   var verifier = genVerifier();
   sessionStorage.setItem("pkce_verifier", verifier);
   var challenge = b64url(await sha256(verifier));
@@ -52,7 +54,8 @@ async function buildLoginUrl(){
   var p = new URLSearchParams();
   p.set("response_type","code");
   p.set("client_id", String(clientId||""));
-  p.set("redirect_uri", String(redirectUri||""));
+  // Always the normalized value we allow in Cognito
+  p.set("redirect_uri", EXPECTED_REDIRECT);
   p.set("scope","openid email profile");
   p.set("state", state);
   p.set("code_challenge", challenge);
@@ -60,7 +63,7 @@ async function buildLoginUrl(){
   return cognitoDomain + "/oauth2/authorize?" + p.toString();
 }
 
-/* handle callback on /fan/?code=... */
+/* ────────── handle callback on /fan/?code=... ────────── */
 async function handleAuthCodeIfPresent(){
   var qs = new URLSearchParams(location.search);
   var code = qs.get("code");
@@ -70,7 +73,8 @@ async function handleAuthCodeIfPresent(){
   var body = new URLSearchParams();
   body.set("grant_type", "authorization_code");
   body.set("client_id",  String(clientId||""));
-  body.set("redirect_uri", String(redirectUri||""));
+  // Must match the authorize request exactly
+  body.set("redirect_uri", EXPECTED_REDIRECT);
   body.set("code_verifier", verifier);
   body.set("code", code);
 
@@ -93,14 +97,14 @@ async function handleAuthCodeIfPresent(){
   // Mirror id token for role-aware nav helpers that read localStorage
   if (tok.id_token) try { localStorage.setItem("sa_id_token", tok.id_token); } catch(_){}
 
-  // After tokens are stored, extend role-aware nav
+  // Extend role-aware nav
   addRoleLinksFromToken();
 
   // Clean the URL (remove ?code=...) and render
   history.replaceState({}, "", "/fan/");
 }
 
-/* UI wiring */
+/* ────────── UI wiring ────────── */
 function setAuthUi(){
   var id = sessionStorage.getItem("id_token");
   $("#btn-login").style.display  = id ? "none" : "inline-block";
@@ -126,11 +130,12 @@ $("#btn-logout").addEventListener("click", function(e){
 $("#btn-logout-global").addEventListener("click", function(e){
   e.preventDefault();
   sessionStorage.clear();
-  var url = cognitoDomain + "/logout?client_id=" + encodeURIComponent(String(clientId||"")) + "&logout_uri=" + encodeURIComponent(String(logoutUri||""));
+  var url = cognitoDomain + "/logout?client_id=" + encodeURIComponent(String(clientId||"")) +
+            "&logout_uri=" + encodeURIComponent(EXPECTED_LOGOUT);
   location.assign(url);
 });
 
-/* GraphQL helper */
+/* ────────── GraphQL helper ────────── */
 async function gql(query, variables){
   variables = variables || {};
   var id = sessionStorage.getItem("id_token");
@@ -145,7 +150,7 @@ async function gql(query, variables){
   return j.data;
 }
 
-/* buttons */
+/* ────────── buttons ────────── */
 $("#btn-hello").addEventListener("click", async function(){
   try {
     var d = await gql("query { hello }");
@@ -185,42 +190,35 @@ $("#btn-list").addEventListener("click", async function(){
   }
 });
 
-/* ===== Role-aware nav extender (Creator/Admin links) ===== */
+/* ────────── Role-aware nav extender (Creator/Admin links) ────────── */
 function addRoleLinksFromToken() {
-  // decode current id token
   const t = localStorage.getItem("sa_id_token");
   if (!t) return;
   let claims = {};
-  try {
-    claims = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-  } catch {}
+  try { claims = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch {}
   const groups = claims["cognito:groups"];
   const has = (name) => Array.isArray(groups) ? groups.includes(name) : String(groups || "").includes(name);
 
-  // where to place links
   const nav = document.querySelector("nav, .sa-nav, header") || document.body;
 
-  // ensure one creator link
   if (has("CREATOR") && !document.querySelector('a[href="/creator/"]')) {
     const a = document.createElement("a");
     a.href = "/creator/"; a.textContent = "Creator dashboard"; a.style.marginLeft = "0.75rem";
     nav.appendChild(a);
   }
 
-  // ensure one admin link
   if (has("ADMIN") && !document.querySelector('a[href="/admin/"]')) {
     const a = document.createElement("a");
     a.href = "/admin/"; a.textContent = "Admin dashboard"; a.style.marginLeft = "0.75rem";
     nav.appendChild(a);
   }
 }
-/* ===== /Role-aware nav extender ===== */
 
-/* startup: handle ?code=... then render */
+/* ────────── startup ────────── */
 await handleAuthCodeIfPresent();
 setAuthUi();
 
-/* Backfill sa_id_token from session if missing, then apply links */
+// Backfill sa_id_token from session if missing, then apply links
 try {
   if (!localStorage.getItem("sa_id_token")) {
     const t = sessionStorage.getItem("id_token");
@@ -228,3 +226,4 @@ try {
   }
 } catch(_) {}
 addRoleLinksFromToken();
+

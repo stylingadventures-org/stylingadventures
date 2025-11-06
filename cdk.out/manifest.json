@@ -22,7 +22,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ec4714ea8923f9963a4544950817cbf6ccb6456e494e842d0e4b09fc3c07a942.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/0ab3ee092df83ca3255f377c0a2b340f5b0d7b30d41c93ac987dd039ece8f179.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -141,12 +141,6 @@
             "data": "CDKMetadata"
           }
         ],
-        "/WebStack/Exports/Output{\"Fn::GetAtt\":[\"CloudFrontDistributionBA64CE3A\",\"DomainName\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttCloudFrontDistributionBA64CE3ADomainName419F2BE7"
-          }
-        ],
         "/WebStack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -183,7 +177,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/08a559303bf4474a048085a2f39b079b0759d06f739cd9e99439e0ffe5a2e332.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3adc89ebbbfbfec6dd433813c64193187237b7bc66be3838d0570badd1d16696.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -352,7 +346,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/aafb36a29c422de34510eed1c60bc4e050008c3d8e93f73d403f243f5b56791f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/945e9b7e19e4f9837cc0212fdf0c083899a8d086d0f2b3cd282564fd311eb97e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -451,7 +445,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3ac5e5108853a6d2b3328363773564ac69a87001d1f2705964f98210ee9debcf.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/55b4c0836567d07fd1548201de2917a71a86c8ce5c3e84ccbc4dd84b3647ab64.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -657,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/6b9faa0a8d2a34da30307394261f423fa86ad14bcc7b39f221edae13035c9b48.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d15a5ed49fac3f107de31a9a803d8551353dae9948a02b8c67cd97eea3a897fa.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -733,6 +727,12 @@
             "data": "StylingApiRolesDs00C42927"
           }
         ],
+        "/ApiStack/StylingApi/Me/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMe3282F680"
+          }
+        ],
         "/ApiStack/StylingApi/SetUserRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -761,18 +761,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiHello5D556CAF"
-          }
-        ],
-        "/ApiStack/StylingApi/NoneDsForMe/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiNoneDsForMe1A76D286"
-          }
-        ],
-        "/ApiStack/StylingApi/Me/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMe3282F680"
           }
         ],
         "/ApiStack/StylingApi/ClosetDs/ServiceRole/Resource": [
@@ -839,6 +827,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "RolesFnServiceRole774A669F"
+          }
+        ],
+        "/ApiStack/RolesFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RolesFnServiceRoleDefaultPolicy1818F7E8"
           }
         ],
         "/ApiStack/RolesFn/Resource": [
@@ -919,7 +913,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/095f717d332f2706fbe3f7b5a050969ecebd19ae10d1451b11a8ff5df3d7970a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/44b5a40b006997acca9df51c6eab8740b5e1c4b7bcf42cda6708a540900b3e8f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -932,7 +926,6 @@
         }
       },
       "dependencies": [
-        "WebStack",
         "IdentityStack",
         "UploadsStack.assets"
       ],
@@ -1066,6 +1059,12 @@
             "data": "ThumbHeadFnLogRetentionFCC64834"
           }
         ],
+        "/UploadsStack/SharpLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SharpLayerBFFDC332"
+          }
+        ],
         "/UploadsStack/ThumbgenFn/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1135,7 +1134,7 @@
         "/UploadsStack/UploadsApi/Deployment/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "UploadsApiDeployment4A67E04C17275895bc3412e5499f486015039e19"
+            "data": "UploadsApiDeployment4A67E04C295b45668a4b5350b8aee15ebd1f87ca"
           }
         ],
         "/UploadsStack/UploadsApi/DeploymentStage.prod/Resource": [
@@ -1150,10 +1149,22 @@
             "data": "UploadsApiEndpoint8004A65B"
           }
         ],
+        "/UploadsStack/UploadsApi/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApiOPTIONS016D7C40"
+          }
+        ],
         "/UploadsStack/UploadsApi/Default/list/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApilist04BFB266"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/list/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApilistOPTIONSA1D1A8A2"
           }
         ],
         "/UploadsStack/UploadsApi/Default/list/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..list": [
@@ -1174,28 +1185,16 @@
             "data": "UploadsApilistGET6FEA2B99"
           }
         ],
-        "/UploadsStack/UploadsApi/Default/list/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..list": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApilistOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSlist0AEDE0B9"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/list/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..list": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApilistOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSlistACEC1E3D"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/list/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApilistOPTIONSA1D1A8A2"
-          }
-        ],
         "/UploadsStack/UploadsApi/Default/presign/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApipresignE1161A2C"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApipresignOPTIONSB65EB223"
           }
         ],
         "/UploadsStack/UploadsApi/Default/presign/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..presign": [
@@ -1216,28 +1215,16 @@
             "data": "UploadsApipresignPOSTD80E85B8"
           }
         ],
-        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..presign": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApipresignOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSpresign9F5B011E"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..presign": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApipresignOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSpresign41EFCF69"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApipresignOPTIONSB65EB223"
-          }
-        ],
         "/UploadsStack/UploadsApi/Default/delete/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApidelete14170098"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/delete/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApideleteOPTIONS1AD6A023"
           }
         ],
         "/UploadsStack/UploadsApi/Default/delete/DELETE/ApiPermission.UploadsStackUploadsApiC6DB0904.DELETE..delete": [
@@ -1258,28 +1245,16 @@
             "data": "UploadsApideleteDELETE03C056E4"
           }
         ],
-        "/UploadsStack/UploadsApi/Default/delete/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..delete": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApideleteOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSdelete0E881243"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/delete/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..delete": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApideleteOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSdelete3E4769A5"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/delete/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApideleteOPTIONS1AD6A023"
-          }
-        ],
         "/UploadsStack/UploadsApi/Default/thumb-head/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApithumbhead26656547"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApithumbheadOPTIONSB6DAB6F5"
           }
         ],
         "/UploadsStack/UploadsApi/Default/thumb-head/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..thumb-head": [
@@ -1298,54 +1273,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApithumbheadGETE8DAC9C1"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..thumb-head": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApithumbheadOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSthumbhead6A43D32F"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..thumb-head": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApithumbheadOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSthumbhead1D38440D"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApithumbheadOPTIONSB6DAB6F5"
-          }
-        ],
-        "/UploadsStack/UploadsOai/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsOai14BFC373"
-          }
-        ],
-        "/UploadsStack/UploadsCdn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsCdn39DFE1BD"
-          }
-        ],
-        "/UploadsStack/UploadsApiUrl": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApiUrl"
-          }
-        ],
-        "/UploadsStack/UploadsBucketName": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsBucketName"
-          }
-        ],
-        "/UploadsStack/UploadsCdnUrl": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsCdnUrl"
           }
         ],
         "/UploadsStack/CDKMetadata/Default": [
@@ -1495,7 +1422,7 @@
           },
           "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": {
             "recommendedValue": true,
-            "explanation": "Enable this feature to by default create default policy names for imported roles that depend on the stack the role is in."
+            "explanation": "Enable this feature to create default policy names for imported roles that depend on the stack the role is in."
           },
           "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": {
             "recommendedValue": true,
@@ -1775,6 +1702,21 @@
           "@aws-cdk/aws-lambda:useCdkManagedLogGroup": {
             "recommendedValue": true,
             "explanation": "When enabled, CDK creates and manages loggroup for the lambda function"
+          },
+          "@aws-cdk/aws-elasticloadbalancingv2:networkLoadBalancerWithSecurityGroupByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, Network Load Balancer will be created with a security group by default."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:httpInvokeDynamicJsonPathEndpoint": {
+            "recommendedValue": true,
+            "explanation": "When enabled, allows using a dynamic apiEndpoint with JSONPath format in HttpInvoke tasks.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, ECS patterns will generate unique target group IDs to prevent conflicts during load balancer replacement"
           }
         }
       }

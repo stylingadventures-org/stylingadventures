@@ -1,10 +1,8 @@
-// lib/stacks/uploads-stack.ts
 import {
   Stack,
   StackProps,
   Duration,
   RemovalPolicy,
-  CfnOutput,
   aws_logs as logs,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -17,23 +15,19 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 
-// NEW: CloudFront
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
-import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
-
 export interface UploadsStackProps extends StackProps {
   userPool: cognito.IUserPool;
-  /** e.g. https://stylingadventures.com (apex/app origin) */
+  /** e.g. https://stylingadventures.com */
   webOrigin: string;
-  /** CloudFront domain serving the site, e.g. https://d1682i07dc1r3k.cloudfront.net */
+  /** CloudFront domain serving the site (optional, used for CORS allow-list) */
   cloudFrontOrigin?: string;
+  /** Name of the *web/static* bucket where thumbnails will be written, e.g. webstack-staticsitebucket… */
+  webBucketName: string;
 }
 
 export class UploadsStack extends Stack {
   public readonly api: apigw.RestApi;
   public readonly bucket: s3.Bucket;
-  // NEW: CDN
-  public readonly distribution: cloudfront.Distribution;
 
   constructor(scope: Construct, id: string, props: UploadsStackProps) {
     super(scope, id, props);
@@ -42,9 +36,10 @@ export class UploadsStack extends Stack {
       userPool,
       webOrigin,
       cloudFrontOrigin = "https://d1682i07dc1r3k.cloudfront.net",
+      webBucketName,
     } = props;
 
-    // ---- Allow-list used by Lambdas and S3 CORS (normalized, unique) ----
+    // ---- Allow-list for CORS (normalize + dedupe) ----
     const allowedOrigins = Array.from(
       new Set(
         [
@@ -54,8 +49,8 @@ export class UploadsStack extends Stack {
           "http://localhost:5173",
         ]
           .filter(Boolean)
-          .map((u) => u.replace(/\/+$/, ""))
-      )
+          .map((u) => u.replace(/\/+$/, "")),
+      ),
     );
 
     // ---- Lambda sources ----
@@ -64,7 +59,7 @@ export class UploadsStack extends Stack {
     const thumbHeadEntry = path.resolve(process.cwd(), "lambda/thumb-head/index.ts");
     const thumbgenEntry  = path.resolve(process.cwd(), "lambda/thumbgen/index.ts");
 
-    // ---- S3 bucket for uploads ----
+    // ---- S3 bucket for uploads (originals) ----
     this.bucket = new s3.Bucket(this, "UploadsBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -74,7 +69,7 @@ export class UploadsStack extends Stack {
       autoDeleteObjects: false,
     });
 
-    // S3 CORS
+    // CORS for direct browser PUT/GET to uploads bucket
     this.bucket.addCorsRule({
       allowedOrigins,
       allowedMethods: [s3.HttpMethods.PUT],
@@ -86,23 +81,22 @@ export class UploadsStack extends Stack {
       allowedOrigins,
       allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
       allowedHeaders: ["Origin", "Accept", "Referer", "User-Agent", "Range"],
-      exposedHeaders: [
-        "ETag",
-        "Content-Type",
-        "Content-Length",
-        "Last-Modified",
-        "Accept-Ranges",
-      ],
+      exposedHeaders: ["ETag", "Content-Type", "Content-Length", "Last-Modified", "Accept-Ranges"],
       maxAge: 86400,
     });
 
-    // ---- Lambdas ----
+    // ---- Destination web/static bucket (where thumbs live) ----
+    const webBucket = s3.Bucket.fromBucketName(this, "WebBucket", webBucketName);
+
+    // ---- Shared env for API Lambdas ----
     const commonEnv = {
-      BUCKET: this.bucket.bucketName,
+      BUCKET: this.bucket.bucketName,            // uploads bucket by default
       WEB_ORIGIN: webOrigin,
       ALLOWED_ORIGINS: allowedOrigins.join(","),
+      THUMBS_PREFIX: "thumbs/",
     };
 
+    // -------- Lambdas (presign/list/head) --------
     const presignFn = new NodejsFunction(this, "PresignFn", {
       entry: presignEntry,
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -125,30 +119,56 @@ export class UploadsStack extends Stack {
     });
     this.bucket.grantRead(listFn);
 
+    // ThumbHead must HEAD the *web* bucket, not the uploads bucket
     const thumbHeadFn = new NodejsFunction(this, "ThumbHeadFn", {
       entry: thumbHeadEntry,
       runtime: lambda.Runtime.NODEJS_18_X,
       bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       timeout: Duration.seconds(10),
       memorySize: 256,
-      environment: { ...commonEnv },
+      environment: {
+        ...commonEnv,
+        BUCKET: webBucket.bucketName, // override!
+      },
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
-    this.bucket.grantRead(thumbHeadFn);
+    webBucket.grantRead(thumbHeadFn);
+
+    // -------- Thumb generator (two-bucket flow + sharp layer) --------
+    const sharpLayer = new lambda.LayerVersion(this, "SharpLayer", {
+      code: lambda.Code.fromAsset("sharp-layer.zip"),
+      compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
+      description: "sharp for Node.js 18 (linux-x64)",
+    });
 
     const thumbgenFn = new NodejsFunction(this, "ThumbgenFn", {
       entry: thumbgenEntry,
       runtime: lambda.Runtime.NODEJS_18_X,
       architecture: lambda.Architecture.X86_64,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: ["sharp"], // sharp provided by the layer
+      },
       timeout: Duration.seconds(60),
       memorySize: 512,
-      environment: { BUCKET: this.bucket.bucketName },
+      environment: {
+        UPLOADS_BUCKET: this.bucket.bucketName, // originals come from uploads
+        DEST_BUCKET: webBucket.bucketName,       // thumbs go to web bucket
+        THUMBS_PREFIX: "thumbs/",
+        MAX_WIDTH: "360",
+        JPEG_QUALITY: "80",
+      },
+      layers: [sharpLayer],
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
-    this.bucket.grantReadWrite(thumbgenFn);
 
-    // S3 -> thumbgen for images under users/
+    // Permissions: read originals, write thumbs
+    this.bucket.grantRead(thumbgenFn);
+    webBucket.grantReadWrite(thumbgenFn);
+
+    // S3 -> Lambda: generate thumbs for images under users/
     for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
       this.bucket.addEventNotification(
         s3.EventType.OBJECT_CREATED,
@@ -157,7 +177,7 @@ export class UploadsStack extends Stack {
       );
     }
 
-    // ---- API Gateway (auth by Cognito; Lambdas handle CORS) ----
+    // ---- API Gateway (Cognito authorizer; gateway handles CORS) ----
     const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, "UploadsAuth", {
       cognitoUserPools: [userPool],
     });
@@ -165,6 +185,12 @@ export class UploadsStack extends Stack {
     this.api = new apigw.RestApi(this, "UploadsApi", {
       restApiName: "uploads-api",
       deployOptions: { stageName: "prod" },
+      defaultCorsPreflightOptions: {
+        allowOrigins: allowedOrigins,
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+        allowHeaders: apigw.Cors.DEFAULT_HEADERS,
+        exposeHeaders: ["ETag", "x-amz-request-id", "x-amz-id-2"],
+      },
     });
 
     const listRes    = this.api.root.addResource("list");
@@ -172,40 +198,27 @@ export class UploadsStack extends Stack {
     const delRes     = this.api.root.addResource("delete");
     const headRes    = this.api.root.addResource("thumb-head");
 
-    const listInt    = new apigw.LambdaIntegration(listFn);
-    const presignInt = new apigw.LambdaIntegration(presignFn);
-    const delInt     = new apigw.LambdaIntegration(presignFn);
-    const headInt    = new apigw.LambdaIntegration(thumbHeadFn);
+    const listInt    = new apigw.LambdaIntegration(listFn, { proxy: true });
+    const presignInt = new apigw.LambdaIntegration(presignFn, { proxy: true });
+    const delInt     = new apigw.LambdaIntegration(presignFn, { proxy: true });
+    const headInt    = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
 
-    listRes.addMethod("GET",     listInt,    { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
-    presignRes.addMethod("POST", presignInt, { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
-    delRes.addMethod("DELETE",   delInt,     { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
-    headRes.addMethod("GET",     headInt,    { authorizationType: apigw.AuthorizationType.COGNITO, authorizer });
-
-    listRes.addMethod("OPTIONS",    listInt,    { authorizationType: apigw.AuthorizationType.NONE });
-    presignRes.addMethod("OPTIONS", presignInt, { authorizationType: apigw.AuthorizationType.NONE });
-    delRes.addMethod("OPTIONS",     delInt,     { authorizationType: apigw.AuthorizationType.NONE });
-    headRes.addMethod("OPTIONS",    headInt,    { authorizationType: apigw.AuthorizationType.NONE });
-
-    // ---- CloudFront CDN for thumbs (GET/HEAD only) ----
-    const oai = new cloudfront.OriginAccessIdentity(this, "UploadsOai");
-    this.bucket.grantRead(oai);
-
-    this.distribution = new cloudfront.Distribution(this, "UploadsCdn", {
-      defaultBehavior: {
-        origin: new origins.S3Origin(this.bucket, { originAccessIdentity: oai }),
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
-      },
-      comment: "CDN for uploads thumbnails",
-      defaultRootObject: undefined, // not a website
+    listRes.addMethod("GET", listInt, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
     });
-
-    // ---- Outputs ----
-    new CfnOutput(this, "UploadsApiUrl",     { value: this.api.url });
-    new CfnOutput(this, "UploadsBucketName", { value: this.bucket.bucketName });
-    new CfnOutput(this, "UploadsCdnUrl",     { value: `https://${this.distribution.domainName}` });
+    presignRes.addMethod("POST", presignInt, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    delRes.addMethod("DELETE", delInt, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    headRes.addMethod("GET", headInt, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
   }
 }
+

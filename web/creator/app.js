@@ -10,18 +10,25 @@ const toast = (txt,type='info',ms=1800)=>{
   wrap.appendChild(el); setTimeout(()=>{el.style.opacity='0';},ms); setTimeout(()=>el.remove(),ms+240);
 };
 
+/* ────────── config ────────── */
 async function loadCfg(){
   const r=await fetch('/config.v2.json?ts='+Date.now(),{cache:'no-store'});
   if(!r.ok) throw new Error('config.v2.json missing');
   return r.json();
 }
 const cfg = await loadCfg();
+
 const domain = `https://${(cfg.domain||cfg.hostedUiDomain)}.auth.${cfg.region}.amazoncognito.com`;
-const redirectUri = cfg.redirectUri;
-const logoutUri   = cfg.logoutUri;
-const appsyncUrl  = cfg.appsyncUrl;
+
+const PROD_CF = 'https://d1so4qr6zsby5r.cloudfront.net';
+const isLocal = location.origin.startsWith('http://localhost:');
+const EXPECTED_REDIRECT = isLocal ? 'http://localhost:5173/callback/' : `${PROD_CF}/callback/`;
+const EXPECTED_LOGOUT   = isLocal ? 'http://localhost:5173/'          : `${PROD_CF}/`;
+
+const appsyncUrl  = cfg.appSyncUrl || cfg.appsyncUrl;
 const uploadsApi  = (cfg.uploadsApiUrl||cfg.uploadsUrl||cfg.apiUrl||'').replace(/\/+$/,'');
 
+/* ────────── auth helpers ────────── */
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const sha256 = t => crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
 const genVerifier = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
@@ -33,12 +40,18 @@ async function buildLoginUrl(){
   const verifier=genVerifier(); sessionStorage.setItem('pkce_verifier',verifier);
   const challenge=b64url(await sha256(verifier));
   const p=new URLSearchParams({
-    response_type:'code', client_id:cfg.clientId, redirect_uri:redirectUri,
-    scope:'openid email profile', state, code_challenge:challenge, code_challenge_method:'S256'
+    response_type:'code',
+    client_id:cfg.clientId,
+    redirect_uri:EXPECTED_REDIRECT, // normalized
+    scope:'openid email profile',
+    state,
+    code_challenge:challenge,
+    code_challenge_method:'S256'
   });
   return `${domain}/oauth2/authorize?${p.toString()}`;
 }
 
+/* ────────── UI auth state ────────── */
 function setAuthUi(){
   const id=sessionStorage.getItem('id_token');
   q('#signin').style.display = id?'none':'inline';
@@ -47,14 +60,28 @@ function setAuthUi(){
   const p=parseJwt(id||'');
   q('#who-email').textContent = id?(p?.email||'(no email)'):'Not signed in';
 }
-q('#signin').addEventListener('click', async (e)=>{ e.preventDefault(); location.assign(await buildLoginUrl()); });
-q('#signout').addEventListener('click', (e)=>{ e.preventDefault(); sessionStorage.clear(); setAuthUi(); });
-q('#signout-global').addEventListener('click', (e)=>{
-  e.preventDefault(); sessionStorage.clear();
-  const url = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`;
+
+q('#signin').addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const url = await buildLoginUrl();
+  console.log('Authorize URL (creator) →', url);
   location.assign(url);
 });
 
+q('#signout').addEventListener('click', (e)=>{
+  e.preventDefault();
+  sessionStorage.clear();
+  setAuthUi();
+});
+
+q('#signout-global').addEventListener('click', (e)=>{
+  e.preventDefault();
+  sessionStorage.clear();
+  const url = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(EXPECTED_LOGOUT)}`;
+  location.assign(url);
+});
+
+/* ────────── GraphQL + UI ────────── */
 async function gql(query, variables={}){
   const id=sessionStorage.getItem('id_token');
   if(!id) throw new Error('Please sign in first');
@@ -137,6 +164,7 @@ async function reloadMine(){
     renderRows([]);
   }
 }
+
 q('#btn-reload').addEventListener('click', e=>{ e.preventDefault(); reloadMine(); });
 
 q('#btn-create').addEventListener('click', async e=>{
@@ -154,6 +182,6 @@ q('#btn-create').addEventListener('click', async e=>{
   }catch(e){ toast(String(e),'error'); }
 });
 
-// initial
+/* ────────── initial ────────── */
 setAuthUi();
 if(sessionStorage.getItem('id_token')) reloadMine();

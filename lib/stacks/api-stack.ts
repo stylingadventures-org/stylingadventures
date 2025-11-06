@@ -1,7 +1,6 @@
 // lib/stacks/api-stack.ts
 import * as path from "path";
-import * as cdk from "aws-cdk-lib";
-import { Stack, StackProps } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as appsync from "aws-cdk-lib/aws-appsync";
@@ -47,7 +46,7 @@ export class ApiStack extends Stack {
       xrayEnabled: true,
     });
 
-    // ----- Roles: Lambda + DS + resolver (Mutation.setUserRole) -----
+    // ----- Roles: Lambda + DS + resolvers (me, setUserRole) -----
     const rolesFn = new NodejsFunction(this, "RolesFn", {
       entry: path.join(process.cwd(), "lambda/roles/index.ts"),
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -59,11 +58,27 @@ export class ApiStack extends Stack {
       },
       environment: {
         NODE_OPTIONS: "--enable-source-maps",
+        TABLE_NAME: table.tableName, // ✅ pass table name
+        // ✅ key names for single-table or dedicated ID table (defaults mirrored in code)
+        PK_NAME: "pk",
+        SK_NAME: "sk",
       },
-      description: "Resolves Mutation.setUserRole",
+      description: "Resolves Query.me and Mutation.setUserRole",
     });
 
+    // ✅ allow the function to read/write the user table
+    table.grantReadWriteData(rolesFn);
+
     const rolesDs = this.api.addLambdaDataSource("RolesDs", rolesFn);
+
+    // ✅ hook BOTH fields to the same Lambda
+    rolesDs.createResolver("Me", {
+      typeName: "Query",
+      fieldName: "me",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
     rolesDs.createResolver("SetUserRole", {
       typeName: "Mutation",
       fieldName: "setUserRole",
@@ -78,29 +93,6 @@ export class ApiStack extends Stack {
       fieldName: "hello",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ----- Query.me via NONE datasource (fast path for UI) -----
-    const noneDs = this.api.addNoneDataSource("NoneDsForMe");
-    noneDs.createResolver("Me", {
-      typeName: "Query",
-      fieldName: "me",
-      requestMappingTemplate: appsync.MappingTemplate.fromString(
-        `{
-  "version": "2018-05-29",
-  "payload": {}
-}`
-      ),
-      responseMappingTemplate: appsync.MappingTemplate.fromString(
-        `$util.toJson({
-  "id": $ctx.identity.sub,
-  "email": $ctx.identity.claims.get("email"),
-  "role": "FAN",
-  "tier": "FREE",
-  "createdAt": $util.time.nowISO8601(),
-  "updatedAt": $util.time.nowISO8601()
-})`
-      ),
     });
 
     // ----- Closet resolvers (NodejsFunction bundle) -----
@@ -186,8 +178,8 @@ export class ApiStack extends Stack {
     });
 
     // ----- Outputs -----
-    new cdk.CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
-    new cdk.CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
+    new CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
+    new CfnOutput(this, "GraphQlApiId",  { value: this.api.apiId });
   }
 }
 
