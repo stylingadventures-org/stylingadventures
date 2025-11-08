@@ -4,7 +4,6 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
-  ScanCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type {
   AppSyncResolverEvent,
@@ -12,6 +11,8 @@ import type {
 } from "aws-lambda";
 
 const TABLE_NAME = process.env.TABLE_NAME!;
+const PK_NAME = (process.env.PK_NAME || "").trim();  // e.g. "pk" for single-table; blank for id-table
+const SK_NAME = (process.env.SK_NAME || "").trim();  // e.g. "sk" for single-table
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 type Role = "FAN" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN";
@@ -28,10 +29,61 @@ interface User {
 
 const nowIso = () => new Date().toISOString();
 
+/** Build the key for Get/Put depending on table shape */
+function keyFor(sub: string) {
+  if (PK_NAME && SK_NAME) {
+    // single-table (pk/sk)
+    return {
+      [PK_NAME]: `USER#${sub}`,
+      [SK_NAME]: "PROFILE",
+    } as Record<string, any>;
+  }
+  // id-only table
+  return { id: sub } as Record<string, any>;
+}
+
+/** Normalize a DDB item → User */
+function toUser(item: any, sub: string, email?: string | null): User {
+  // Pull fields regardless of storage style
+  const base = {
+    id: sub,
+    email: (item?.email ?? email ?? null) || null,
+    role: (item?.role as Role) || "FAN",
+    tier: (item?.tier as Tier) || "FREE",
+    createdAt: item?.createdAt || nowIso(),
+    updatedAt: item?.updatedAt || nowIso(),
+  };
+  return base;
+}
+
+/** For single-table, we store the user under pk=USER#sub, sk=PROFILE */
+function toPutItem(u: User, sub: string) {
+  if (PK_NAME && SK_NAME) {
+    return {
+      [PK_NAME]: `USER#${sub}`,
+      [SK_NAME]: "PROFILE",
+      id: sub,
+      email: u.email ?? null,
+      role: u.role,
+      tier: u.tier ?? null,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    };
+  }
+  // id-only
+  return {
+    id: sub,
+    email: u.email ?? null,
+    role: u.role,
+    tier: u.tier ?? null,
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt,
+  };
+}
+
 export const handler = async (event: AppSyncResolverEvent<any>) => {
   const field = event.info.fieldName;
 
-  // Cognito identity from AppSync
   const ident = event.identity as AppSyncIdentityCognito | undefined;
   const sub = ident?.sub;
   const email = (ident as any)?.claims?.email as string | undefined;
@@ -44,18 +96,21 @@ export const handler = async (event: AppSyncResolverEvent<any>) => {
   if (field === "me") {
     if (!sub) throw new Error("Unauthenticated");
 
-    // Try to fetch the user
+    // Try current storage (pk/sk or id)
     const got = await ddb.send(
       new GetCommand({
         TableName: TABLE_NAME,
-        Key: { id: sub },
+        Key: keyFor(sub),
       })
     );
-    if (got.Item) return got.Item as User;
 
-    // Create a default FAN user if not found (idempotent)
+    if (got.Item) {
+      return toUser(got.Item, sub, email ?? null);
+    }
+
+    // Not found → create a default record (idempotent)
     const now = nowIso();
-    const item: User = {
+    const user: User = {
       id: sub,
       email: (email ?? null)?.toLowerCase?.() ?? null,
       role: "FAN",
@@ -64,26 +119,25 @@ export const handler = async (event: AppSyncResolverEvent<any>) => {
       updatedAt: now,
     };
 
-    try {
-      await ddb.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: item,
-          ConditionExpression: "attribute_not_exists(#id)",
-          ExpressionAttributeNames: { "#id": "id" },
-        })
+    const put = toPutItem(user, sub);
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: put,
+        ConditionExpression: "attribute_not_exists(#k)",
+        ExpressionAttributeNames: {
+          "#k": PK_NAME ? PK_NAME : "id",
+        },
+      })
+    ).catch(async () => {
+      // Race: someone created it; read it back
+      const again = await ddb.send(
+        new GetCommand({ TableName: TABLE_NAME, Key: keyFor(sub) })
       );
-    } catch {
-      // If it already exists (race), ignore
-      await ddb.send(
-        new GetCommand({
-          TableName: TABLE_NAME,
-          Key: { id: sub },
-        })
-      );
-    }
+      if (again.Item) return toUser(again.Item, sub, email ?? null);
+    });
 
-    return item;
+    return user;
   }
 
   /* ========================= setUserRole ======================== */
@@ -103,91 +157,38 @@ export const handler = async (event: AppSyncResolverEvent<any>) => {
 
     const targetUserId = input.userId;
 
-    // Only ADMIN can modify others; anyone can modify self
     if (!isAdmin && targetUserId !== sub) {
       throw new Error("Not authorized to modify other users");
     }
 
-    const existing = await ddb.send(
-      new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { id: targetUserId },
-      })
+    const got = await ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: keyFor(targetUserId) })
     );
 
     const now = nowIso();
-    const item: User = existing.Item
-      ? {
-          ...(existing.Item as User),
-          email:
-            (input.email ??
-              (existing.Item as User).email ??
-              null)?.toLowerCase?.() ?? null,
-          role: input.role,
-          tier: (input.tier ?? (existing.Item as User).tier) ?? null,
-          updatedAt: now,
-        }
-      : {
-          id: targetUserId,
-          email: (input.email ?? null)?.toLowerCase?.() ?? null,
-          role: input.role,
-          tier: input.tier ?? "FREE",
-          createdAt: now,
-          updatedAt: now,
-        };
+    const existing = got.Item ? toUser(got.Item, targetUserId, null) : null;
 
-    await ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
-    return item;
+    const merged: User = {
+      id: targetUserId,
+      email:
+        (input.email ??
+          existing?.email ??
+          null)?.toLowerCase?.() ?? null,
+      role: input.role,
+      tier: input.tier ?? existing?.tier ?? "FREE",
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: toPutItem(merged, targetUserId),
+      })
+    );
+
+    return merged;
   }
 
-  /* ======================== adminListUsers ====================== */
-  // Simple admin listing with optional email substring search + pagination
-  if (field === "adminListUsers") {
-    if (!isAdmin) throw new Error("Not authorized");
-
-    const args = (event.arguments || {}) as {
-      search?: string | null;
-      limit?: number | null;
-      nextToken?: string | null;
-    };
-
-    const limit = Math.min(Math.max(args.limit ?? 25, 1), 100);
-    const startKey = args.nextToken
-      ? JSON.parse(Buffer.from(args.nextToken, "base64").toString("utf8"))
-      : undefined;
-
-    const params: any = {
-      TableName: TABLE_NAME,
-      Limit: limit,
-      ExclusiveStartKey: startKey,
-    };
-
-    const q = (args.search || "").trim().toLowerCase();
-    if (q) {
-      params.FilterExpression = "contains(#email, :q)";
-      params.ExpressionAttributeNames = { "#email": "email" };
-      params.ExpressionAttributeValues = { ":q": q };
-    }
-
-    const out = await ddb.send(new ScanCommand(params));
-
-    const items = (out.Items || []).map((u: any) => ({
-      id: u.id,
-      email: u.email ?? null,
-      role: u.role,
-      tier: u.tier ?? null,
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    }));
-
-    return {
-      items,
-      nextToken: out.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(out.LastEvaluatedKey)).toString("base64")
-        : null,
-    };
-  }
-
-  /* =========================== default ========================== */
   throw new Error(`Unhandled field: ${field}`);
 };

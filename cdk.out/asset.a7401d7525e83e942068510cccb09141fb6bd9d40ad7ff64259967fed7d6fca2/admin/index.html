@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Styling Adventures</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .shell{max-width:1120px;margin:18px auto;padding:0 16px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .brand{font:700 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .sa-tabs{display:flex;gap:.5rem;align-items:center}
+    .sa-tab{display:inline-flex;align-items:center;justify-content:center;min-width:56px;
+      padding:.35rem .75rem;border-radius:999px;border:1px solid var(--bd);background:#fff;
+      font-weight:500;cursor:pointer;text-decoration:none;color:inherit}
+    .sa-tab[aria-current="page"]{border-color:#c7d2fe;background:#eef2ff;color:#3730a3}
+    iframe{width:100%;height:calc(100vh - 92px);border:1px solid var(--bd);border-radius:12px;background:#fff}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">Styling Adventures</div>
+      <nav class="sa-tabs" id="tabs">
+        <a class="sa-tab" data-tab="fan"     href="/?tab=fan">Fan</a>
+        <a class="sa-tab" data-tab="creator" href="/?tab=creator">Creator</a>
+        <a class="sa-tab" data-tab="admin"   href="/?tab=admin">Admin</a>
+        <a class="sa-tab" data-tab="bestie"  href="/?tab=bestie">Bestie</a>
+        <a class="sa-tab" data-tab="collab"  href="/?tab=collab">Collab</a>
+        <a class="sa-tab" data-tab="prime"   href="/?tab=prime">Prime</a>
+      </nav>
+    </header>
+
+    <!-- We load each dashboard in an iframe to keep each page self-contained -->
+    <iframe id="frame" title="Dashboard" src="about:blank" loading="eager"></iframe>
+  </div>
+
+  <script>
+    (function () {
+      // map tab -> path
+      const routes = {
+        fan: '/fan/',
+        creator: '/creator/',
+        admin: '/admin/',
+        bestie: '/bestie/',
+        collab: '/collab/',
+        prime: '/prime/',
+      };
+
+      const qs = new URLSearchParams(location.search);
+      const initial = qs.get('tab') || 'fan';
+      const frame = document.getElementById('frame');
+      const tabs  = document.querySelectorAll('.sa-tab');
+
+      function setActive(tab){
+        tabs.forEach(a => a.removeAttribute('aria-current'));
+        const el = document.querySelector(`.sa-tab[data-tab="${tab}"]`);
+        if (el) el.setAttribute('aria-current','page');
+      }
+      function go(tab){
+        const next = routes[tab] || routes.fan;
+        if (frame.src !== location.origin + next) frame.src = next;
+        setActive(tab);
+        // keep the ?tab in the URL without reloading
+        const url = new URL(location.href);
+        url.searchParams.set('tab', tab);
+        history.replaceState(null, '', url);
+      }
+
+      tabs.forEach(a => a.addEventListener('click', (e) => {
+        // allow middle-click to open in new tab
+        if (e.button === 0 && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          go(a.dataset.tab);
+        }
+      }));
+
+      go(initial);
+    })();
+  </script>
+</body>
+</html>

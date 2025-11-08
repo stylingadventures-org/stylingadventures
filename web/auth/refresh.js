@@ -1,4 +1,5 @@
-// auth/refresh.js
+// web/auth/refresh.js
+// Tiny token lifecycle utilities shared by all pages.
 
 function parseJwt(t){
   try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
@@ -26,9 +27,8 @@ function persist(tokens){
   return merged;
 }
 
-/** Refresh with small retry for transient errors */
+/** Core refresh with small retry for transient errors */
 export async function refreshTokens({ domain, clientId, retries = 2 }) {
-  // de-dupe concurrent calls
   if (_inFlight) return _inFlight;
 
   const refresh =
@@ -55,7 +55,7 @@ export async function refreshTokens({ domain, clientId, retries = 2 }) {
       // Don’t retry for client errors
       if (res.status === 400 || res.status === 401) {
         const t = typeof res.text === 'function' ? await res.text().catch(()=> '') : String(res._err||'');
-        throw new Error(`Refresh failed: ${res.status} ${t}`); // likely invalid/expired refresh
+        throw new Error(`Refresh failed: ${res.status} ${t}`);
       }
       if (left > 0) {
         await new Promise(r => setTimeout(r, delayMs));
@@ -95,7 +95,6 @@ export function scheduleRotation(tokens, { domain, clientId }) {
       scheduleRotation(out, { domain, clientId });
     } catch (e) {
       console.error('Auto refresh failed:', e);
-      // Try again closer to expiry if something transient happened
       _timer = setTimeout(() => scheduleRotation({}, { domain, clientId }), 15_000);
     }
   }, delayMs);
@@ -126,4 +125,34 @@ export function enableFocusTopUp({ domain, clientId, windowObj = window } = {}){
   windowObj.addEventListener('visibilitychange', () => {
     if (!document.hidden) handler();
   });
+}
+
+/**
+ * Ensure we return a usable (non-expired) id_token.
+ * If expired/near expiry, refresh first. Accepts optional {domain, clientId};
+ * otherwise will try to infer them from session/localStorage.
+ */
+export async function ensureToken(opts = {}){
+  const pick = (k) =>
+    opts[k] ||
+    sessionStorage.getItem(`oauth_${k}`) ||
+    localStorage.getItem(`oauth_${k}`);
+
+  const domain  = pick('domain');
+  const clientId= pick('clientId');
+
+  const raw = getIdToken();
+  if (!raw) throw new Error('Not signed in');
+
+  const parsed = parseJwt(raw);
+  const now = Math.floor(Date.now()/1000);
+  const left = parsed?.exp ? parsed.exp - now : -1;
+
+  if (left < 60) {
+    const out = await refreshTokens({ domain, clientId });
+    scheduleRotation(out, { domain, clientId });
+    return out.id_token || getIdToken();
+  }
+
+  return raw;
 }

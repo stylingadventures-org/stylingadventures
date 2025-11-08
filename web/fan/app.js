@@ -1,229 +1,222 @@
-"use strict";
+(function () {
+  // ---------- tiny helpers ----------
+  const q  = (s,r=document)=>r.querySelector(s);
+  const h  = (html)=>{const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild;};
+  const toast=(txt,type='info',ms=1800)=>{
+    const wrap=(q('#toasts')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'toasts'})));
+    const el=document.createElement('div');
+    el.className=`toast ${type==='ok'?'ok':type==='error'?'err':''}`;
+    el.textContent=txt; wrap.appendChild(el);
+    setTimeout(()=>{el.style.opacity='0';},ms); setTimeout(()=>el.remove(),ms+240);
+  };
 
-/* ────────── tiny helpers ────────── */
-function $(s, r){ return (r||document).querySelector(s); }
-function b64url(buf){
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
-    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
-}
-function sha256(text){ return crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)); }
-function genVerifier(){ return b64url(crypto.getRandomValues(new Uint8Array(32))); }
-function parseJwt(t){
-  try {
-    var part = (t||"").split(".")[1] || "";
-    part = part.replace(/-/g,"+").replace(/_/g,"/");
-    return JSON.parse(atob(part));
-  } catch(e){ return null; }
-}
+  // jwt helpers
+  const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const sha256 = t => crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  const genVerifier = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const parseJwt = t=>{ try { return JSON.parse(atob((t||'').split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch { return null; } };
 
-/* ────────── config loader ────────── */
-async function loadCfg(){
-  var url = "/config.v2.json?ts=" + Date.now();
-  var r = await fetch(url, { method: "GET", cache: "no-store" });
-  if (!r.ok) throw new Error("config.v2.json missing");
-  return r.json();
-}
-var cfg = await loadCfg();
+  let cfg = null;
+  let appsyncUrl = '';
+  let uploadsApi = '';
+  let cognitoDomain = '';
+  let clientId = '';
+  let logoutUri = '';
+  let redirectUri = '';
 
-/* ────────── constants & normalized URIs ────────── */
-const pick = (...keys) => { for (const k of keys) if (cfg && cfg[k]) return cfg[k]; };
-
-const region   = pick('region') || 'us-east-1';
-const domain   = pick('hostedUiDomain','domain');   // Hosted UI domain prefix
-const clientId = pick('clientId');
-
-const PROD_CF = 'https://d1so4qr6zsby5r.cloudfront.net';
-const isLocal = location.origin.startsWith('http://localhost:');
-const EXPECTED_REDIRECT = isLocal ? 'http://localhost:5173/callback/' : `${PROD_CF}/callback/`;
-const EXPECTED_LOGOUT   = isLocal ? 'http://localhost:5173/'          : `${PROD_CF}/`;
-
-/* derived endpoints */
-var cognitoDomain = "https://" + domain + ".auth." + region + ".amazoncognito.com";
-var appsyncUrl    = String(pick('appSyncUrl','appsyncUrl') || "").trim();
-var uploadsApi    = String(pick('uploadsApiUrl','uploadsUrl','apiUrl') || "").replace(/\/+$/,"");
-
-/* ────────── PKCE login url (encode return target as state prefix) ────────── */
-async function buildLoginUrl(){
-  var state = "rt:/fan/|" + crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
-  sessionStorage.setItem("oauth_state", state);
-
-  var verifier = genVerifier();
-  sessionStorage.setItem("pkce_verifier", verifier);
-  var challenge = b64url(await sha256(verifier));
-
-  var p = new URLSearchParams();
-  p.set("response_type","code");
-  p.set("client_id", String(clientId||""));
-  // Always the normalized value we allow in Cognito
-  p.set("redirect_uri", EXPECTED_REDIRECT);
-  p.set("scope","openid email profile");
-  p.set("state", state);
-  p.set("code_challenge", challenge);
-  p.set("code_challenge_method","S256");
-  return cognitoDomain + "/oauth2/authorize?" + p.toString();
-}
-
-/* ────────── handle callback on /fan/?code=... ────────── */
-async function handleAuthCodeIfPresent(){
-  var qs = new URLSearchParams(location.search);
-  var code = qs.get("code");
-  if (!code) return;
-
-  var verifier = sessionStorage.getItem("pkce_verifier") || "";
-  var body = new URLSearchParams();
-  body.set("grant_type", "authorization_code");
-  body.set("client_id",  String(clientId||""));
-  // Must match the authorize request exactly
-  body.set("redirect_uri", EXPECTED_REDIRECT);
-  body.set("code_verifier", verifier);
-  body.set("code", code);
-
-  var resp = await fetch(cognitoDomain + "/oauth2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString()
-  });
-  var tok = await resp.json();
-  if (!resp.ok) {
-    console.error("Token exchange failed", tok);
-    alert("Sign-in failed. Please try again.");
-    return;
+  function setAuthUi(){
+    const id = sessionStorage.getItem('id_token');
+    const who = q('#who-email');
+    if (who) {
+      const p = parseJwt(id||'');
+      who.textContent = id ? (p?.email || '(unknown)') : 'Not signed in';
+    }
+    const show = !!id;
+    const si = q('#btn-signin'), lo = q('#btn-signout-local'), go=q('#btn-signout-global');
+    if (si) si.style.display = show ? 'none' : '';
+    if (lo) lo.style.display = show ? '' : 'none';
+    if (go) go.style.display = show ? '' : 'none';
   }
 
-  if (tok.id_token)      sessionStorage.setItem("id_token", tok.id_token);
-  if (tok.access_token)  sessionStorage.setItem("access_token", tok.access_token);
-  if (tok.refresh_token) sessionStorage.setItem("refresh_token", tok.refresh_token);
-
-  // Mirror id token for role-aware nav helpers that read localStorage
-  if (tok.id_token) try { localStorage.setItem("sa_id_token", tok.id_token); } catch(_){}
-
-  // Extend role-aware nav
-  addRoleLinksFromToken();
-
-  // Clean the URL (remove ?code=...) and render
-  history.replaceState({}, "", "/fan/");
-}
-
-/* ────────── UI wiring ────────── */
-function setAuthUi(){
-  var id = sessionStorage.getItem("id_token");
-  $("#btn-login").style.display  = id ? "none" : "inline-block";
-  $("#btn-logout").style.display = id ? "inline-block" : "none";
-  $("#btn-logout-global").style.display = id ? "inline-block" : "none";
-  var p = parseJwt(id || "");
-  $("#auth-state").textContent = id ? ("Signed in as " + (p && p.email ? p.email : "(no email)")) : "Signed out";
-}
-
-$("#btn-login").addEventListener("click", async function(e){
-  e.preventDefault();
-  var url = await buildLoginUrl();
-  $("#auth-url").textContent = url;
-  location.assign(url);
-});
-
-$("#btn-logout").addEventListener("click", function(e){
-  e.preventDefault();
-  sessionStorage.clear();
-  setAuthUi();
-});
-
-$("#btn-logout-global").addEventListener("click", function(e){
-  e.preventDefault();
-  sessionStorage.clear();
-  var url = cognitoDomain + "/logout?client_id=" + encodeURIComponent(String(clientId||"")) +
-            "&logout_uri=" + encodeURIComponent(EXPECTED_LOGOUT);
-  location.assign(url);
-});
-
-/* ────────── GraphQL helper ────────── */
-async function gql(query, variables){
-  variables = variables || {};
-  var id = sessionStorage.getItem("id_token");
-  if (!id) throw new Error("Please sign in first");
-  var r = await fetch(String(appsyncUrl||""), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": id },
-    body: JSON.stringify({ query: query, variables: variables })
-  });
-  var j = await r.json();
-  if (!r.ok || j.errors) throw new Error((j.errors && j.errors[0] && j.errors[0].message) || "GraphQL error");
-  return j.data;
-}
-
-/* ────────── buttons ────────── */
-$("#btn-hello").addEventListener("click", async function(){
-  try {
-    var d = await gql("query { hello }");
-    $("#hello-out").textContent = (d && d.hello) || "(no data)";
-  } catch (e) {
-    $("#hello-out").textContent = String(e.message || e);
-  }
-});
-
-$("#btn-load-me").addEventListener("click", async function(){
-  try {
-    var d = await gql("query { me { id email role tier createdAt updatedAt } }");
-    $("#me").textContent = JSON.stringify(d.me, null, 2);
-  } catch (e) {
-    $("#me").textContent = String(e.message || e);
-  }
-});
-
-$("#btn-list").addEventListener("click", async function(){
-  $("#closet-meta").textContent = "Loading…";
-  $("#closet-list").innerHTML = "";
-  try {
-    var id = sessionStorage.getItem("id_token");
-    var r = await fetch(uploadsApi + "/list", { headers: { "Authorization": id }});
-    if (!r.ok) throw new Error("Uploads list " + r.status);
-    var data = await r.json();
-    var items = Array.isArray(data) ? data : (data.items || data.keys || []);
-    $("#closet-meta").textContent = String(items.length) + " item(s)";
-    items.slice(0,25).forEach(function(it){
-      var key = (typeof it === "string") ? it : it.key;
-      var li = document.createElement("li");
-      li.textContent = key;
-      $("#closet-list").appendChild(li);
+  async function buildLoginUrl(){
+    const state = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+    sessionStorage.setItem('oauth_state', state);
+    const verifier = genVerifier(); sessionStorage.setItem('pkce_verifier', verifier);
+    const challenge = b64url(await sha256(verifier));
+    const p = new URLSearchParams({
+      response_type:'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope:'openid email profile',
+      state,
+      code_challenge: challenge,
+      code_challenge_method:'S256'
     });
-  } catch(e) {
-    $("#closet-meta").textContent = String(e.message || e);
-  }
-});
-
-/* ────────── Role-aware nav extender (Creator/Admin links) ────────── */
-function addRoleLinksFromToken() {
-  const t = localStorage.getItem("sa_id_token");
-  if (!t) return;
-  let claims = {};
-  try { claims = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch {}
-  const groups = claims["cognito:groups"];
-  const has = (name) => Array.isArray(groups) ? groups.includes(name) : String(groups || "").includes(name);
-
-  const nav = document.querySelector("nav, .sa-nav, header") || document.body;
-
-  if (has("CREATOR") && !document.querySelector('a[href="/creator/"]')) {
-    const a = document.createElement("a");
-    a.href = "/creator/"; a.textContent = "Creator dashboard"; a.style.marginLeft = "0.75rem";
-    nav.appendChild(a);
+    return `${cognitoDomain}/oauth2/authorize?${p.toString()}`;
   }
 
-  if (has("ADMIN") && !document.querySelector('a[href="/admin/"]')) {
-    const a = document.createElement("a");
-    a.href = "/admin/"; a.textContent = "Admin dashboard"; a.style.marginLeft = "0.75rem";
-    nav.appendChild(a);
+  // ---------- actions ----------
+  async function doHello(){
+    const id = sessionStorage.getItem('id_token');
+    if (!id) { toast('Please sign in','error'); return; }
+    const r = await fetch(String(appsyncUrl||''), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:id },
+      body: JSON.stringify({ query: 'query{ hello }' })
+    });
+    const j = await r.json().catch(()=>({}));
+    const out = q('#hello-out');
+    if (!r.ok || j.errors) { if(out) out.textContent = String(j.errors?.[0]?.message || 'GraphQL error'); return; }
+    if (out) out.textContent = JSON.stringify({ statusCode:r.status, body:j.data.hello }, null, 2);
   }
-}
 
-/* ────────── startup ────────── */
-await handleAuthCodeIfPresent();
-setAuthUi();
-
-// Backfill sa_id_token from session if missing, then apply links
-try {
-  if (!localStorage.getItem("sa_id_token")) {
-    const t = sessionStorage.getItem("id_token");
-    if (t) localStorage.setItem("sa_id_token", t);
+  async function loadMe(){
+    const id = sessionStorage.getItem('id_token');
+    if (!id) { toast('Please sign in','error'); return; }
+    const r = await fetch(String(appsyncUrl||''), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:id },
+      body: JSON.stringify({ query:'{ me { id email role tier createdAt updatedAt } }' })
+    });
+    const j = await r.json().catch(()=>({}));
+    const out = q('#me-out');
+    if (!r.ok || j.errors) { if(out) out.textContent = String(j.errors?.[0]?.message || 'GraphQL error'); return; }
+    if (out) out.textContent = JSON.stringify(j.data.me, null, 2);
   }
-} catch(_) {}
-addRoleLinksFromToken();
 
+  async function uploadFile(){
+    const id = sessionStorage.getItem('id_token');
+    if (!id) { toast('Please sign in','error'); return; }
+    if (!uploadsApi) { toast('Uploads API not configured','error'); return; }
+
+    const file = q('#file')?.files?.[0];
+    const msgEl = q('#up-msg');
+    if (!file){ msgEl && (msgEl.textContent = 'Choose a file first.'); return; }
+
+    const sub = parseJwt(id)?.sub;
+    if (!sub){ toast('Missing sub in token','error'); return; }
+
+    const hintEl = q('#keyhint');
+    const key = (hintEl?.value?.trim()) || `users/${sub}/${file.name}`;
+
+    try{
+      msgEl && (msgEl.textContent = 'Requesting presign…');
+      const presignUrl = `${uploadsApi}/presign?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(file.type||'application/octet-stream')}`;
+      const pr = await fetch(presignUrl, { headers: { Authorization:id }});
+      const pj = await pr.json().catch(()=>({}));
+      if (!pr.ok) throw new Error(pj?.message || 'Presign error');
+
+      const putUrl = pj?.url || pj?.signedUrl || pj?.putUrl;
+      if (!putUrl) throw new Error('No presigned URL in response');
+
+      msgEl && (msgEl.textContent = 'Uploading…');
+      const put = await fetch(putUrl, { method:'PUT', headers:{ 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+
+      msgEl && (msgEl.textContent = `Uploaded to ${key}`);
+      toast('Upload complete ✅','ok');
+      await listMine();
+    }catch(e){
+      msgEl && (msgEl.textContent = String(e.message || e));
+      toast(String(e.message || e),'error');
+    }
+  }
+
+  async function listMine(){
+    const id = sessionStorage.getItem('id_token');
+    if (!id) { toast('Please sign in','error'); return; }
+    if (!uploadsApi) { toast('Uploads API not configured','error'); return; }
+    const sub = parseJwt(id)?.sub;
+    if (!sub) { toast('Missing sub in token','error'); return; }
+
+    const prefix = `users/${sub}/`;
+    q('#list-out').textContent = 'Loading…';
+    q('#list-ul').innerHTML = '';
+
+    try {
+      const url = `${uploadsApi}/list?prefix=${encodeURIComponent(prefix)}`;
+      const r = await fetch(url, { headers: { Authorization:id }});
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(j?.message || 'List error');
+
+      let raw = j?.items ?? j?.keys ?? j?.data ?? j?.Contents ?? j;
+      if (!Array.isArray(raw)) raw = [];
+
+      const keys = raw.map(it => {
+        if (typeof it === 'string') return it;
+        return it?.key ?? it?.Key ?? it?.name ?? it?.s3Key ?? it?.path ?? '';
+      }).filter(Boolean);
+
+      q('#list-out').textContent = `${keys.length} item(s)`;
+
+      const base = (cfg.thumbsCdn || location.origin).replace(/\/+$/,'');
+      for (const key of keys) {
+        const ks = String(key);
+        const enc = ks.split('/').map(encodeURIComponent).join('/');
+        const li  = h(`<li><a class="sa-link" target="_blank" rel="noopener">${ks}</a></li>`);
+        li.querySelector('a').href = `${base}/thumbs/${enc}`;
+        q('#list-ul').appendChild(li);
+      }
+    } catch (e) {
+      q('#list-out').textContent = String(e.message || e);
+    }
+  }
+
+  // ---------- wire UI (plus fallback globals) ----------
+  function wireHandlers(){
+    q('#btn-hello')?.addEventListener('click', doHello);
+    q('#btn-loadme')?.addEventListener('click', loadMe);
+    q('#btn-upload')?.addEventListener('click', uploadFile);
+    q('#btn-list')?.addEventListener('click', listMine);
+
+    q('#btn-signin')?.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      try { location.assign(await buildLoginUrl()); }
+      catch(err){ toast(String(err?.message||err),'error'); }
+    });
+    q('#btn-signout-local')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      sessionStorage.clear(); setAuthUi(); toast('Signed out locally','ok');
+    });
+    q('#btn-signout-global')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      sessionStorage.clear(); setAuthUi();
+      location.assign(`${cognitoDomain}/logout?client_id=${encodeURIComponent(clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`);
+    });
+
+    // fallback globals (in case the above doesn’t bind for any reason)
+    window.saSignIn = async ()=>location.assign(await buildLoginUrl());
+    window.saSignOutLocal  = ()=>{ sessionStorage.clear(); setAuthUi(); };
+    window.saSignOutGlobal = ()=>{ sessionStorage.clear(); setAuthUi(); location.assign(`${cognitoDomain}/logout?client_id=${encodeURIComponent(clientId)}&logout_uri=${encodeURIComponent(logoutUri)}`); };
+  }
+
+  // ---------- init ----------
+  async function init(){
+    try{
+      const r = await fetch('/config.v2.json?ts=' + Date.now(), { cache:'no-store' });
+      cfg = await r.json();
+
+      const region        = cfg.region || 'us-east-1';
+      const domain        = cfg.hostedUiDomain || cfg.domain;
+      clientId            = cfg.clientId;
+      redirectUri         = cfg.redirectUri || `${location.origin}/callback/`;
+      logoutUri           = cfg.logoutUri   || `${location.origin}/`;
+      cognitoDomain       = `https://${domain}.auth.${region}.amazoncognito.com`;
+      appsyncUrl          = cfg.appsyncUrl || cfg.appSyncUrl || '';
+      uploadsApi          = String(cfg.uploadsApiUrl || cfg.uploadsUrl || cfg.apiUrl || '').replace(/\/+$/,'');
+
+      wireHandlers();
+      setAuthUi();
+    }catch(e){
+      console.error('init error', e);
+      toast('Config error: ' + (e.message||e),'error');
+    }
+  }
+
+  // run once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
+})();

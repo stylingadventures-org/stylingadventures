@@ -838,7 +838,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "5bea9c654df3c810dc235fade217bd19fc8d47dbb6a655f26fe12d35f2f371c9.zip"
+     "S3Key": "179e2cb04113936354aab41fc5bdb36afc73bb93448532a861d198c5fecdd63b.zip"
     },
     "Environment": {
      "Variables": {
@@ -875,7 +875,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ThumbHeadFn/Resource",
-    "aws:asset:path": "asset.5bea9c654df3c810dc235fade217bd19fc8d47dbb6a655f26fe12d35f2f371c9",
+    "aws:asset:path": "asset.179e2cb04113936354aab41fc5bdb36afc73bb93448532a861d198c5fecdd63b",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

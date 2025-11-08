@@ -52,6 +52,7 @@
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7.zip"
     },
+    "Description": "Simple hello world for Query.hello",
     "Environment": {
      "Variables": {
       "NODE_OPTIONS": "--enable-source-maps"
@@ -785,15 +786,17 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "f83b809923daf3d79da12a0bd5ac93524cd1866ce8bf9ab7697d597390f6375d.zip"
+     "S3Key": "ffe82e27ec69bd74f8c51ac254a364eb2014977e340d9b7a1642488d288429f2.zip"
     },
-    "Description": "Resolves Query.me and Mutation.setUserRole",
+    "Description": "Resolves Query.me and Mutation.setUserRole (single-table aware)",
     "Environment": {
      "Variables": {
       "NODE_OPTIONS": "--enable-source-maps",
       "TABLE_NAME": {
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
-      }
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
      }
     },
     "Handler": "index.handler",
@@ -821,7 +824,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/RolesFn/Resource",
-    "aws:asset:path": "asset.f83b809923daf3d79da12a0bd5ac93524cd1866ce8bf9ab7697d597390f6375d",
+    "aws:asset:path": "asset.ffe82e27ec69bd74f8c51ac254a364eb2014977e340d9b7a1642488d288429f2",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -961,7 +964,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "950f5ec91eeceaa8eb8b053ca4251bb2da6c96c85d11e4b6ed2adbfbb66572d4.zip"
+     "S3Key": "04604649b17bcc8de4bb4832d72d700d03b8cd072b4cfe269b51b842ca428daf.zip"
     },
     "Description": "GraphQL field resolver for closet queries/mutations",
     "Environment": {
@@ -1000,7 +1003,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.950f5ec91eeceaa8eb8b053ca4251bb2da6c96c85d11e4b6ed2adbfbb66572d4",
+    "aws:asset:path": "asset.04604649b17bcc8de4bb4832d72d700d03b8cd072b4cfe269b51b842ca428daf",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

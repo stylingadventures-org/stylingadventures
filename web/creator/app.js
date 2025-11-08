@@ -1,187 +1,134 @@
 // web/creator/app.js
-import { decorateThumb } from '/js/thumbs-ui.js';
+// Creator dashboard: list items, request approval, edit media key,
+// show thumbnail preview, and delete media file from S3 (Uploads API).
+
+import { ensureToken, enableFocusTopUp, scheduleRotation } from '/auth/refresh.js';
 
 const q  = (s,r=document)=>r.querySelector(s);
 const qq = (s,r=document)=>Array.from(r.querySelectorAll(s));
-const h  = (html)=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;};
-const toast = (txt,type='info',ms=1800)=>{
-  const wrap=q('#toasts'); const el=document.createElement('div');
-  el.className=`toast ${type==='ok'?'ok':type==='error'?'err':''}`; el.textContent=txt;
-  wrap.appendChild(el); setTimeout(()=>{el.style.opacity='0';},ms); setTimeout(()=>el.remove(),ms+240);
-};
+const h  = (html)=>{ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
+const toast=(txt,type='info',ms=1800)=>{ let w=q('#toasts'); if(!w){w=document.createElement('div');w.id='toasts';document.body.appendChild(w);} const el=document.createElement('div'); el.className=`toast ${type==='ok'?'ok':type==='error'?'err':''}`; el.textContent=txt; w.appendChild(el); setTimeout(()=>{el.style.opacity='0';},ms); setTimeout(()=>el.remove(),ms+240); };
 
-/* ────────── config ────────── */
-async function loadCfg(){
-  const r=await fetch('/config.v2.json?ts='+Date.now(),{cache:'no-store'});
-  if(!r.ok) throw new Error('config.v2.json missing');
-  return r.json();
-}
+async function loadCfg(){ const r=await fetch('/config.v2.json?ts='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error('config missing'); return r.json(); }
 const cfg = await loadCfg();
 
 const domain = `https://${(cfg.domain||cfg.hostedUiDomain)}.auth.${cfg.region}.amazoncognito.com`;
+sessionStorage.setItem('oauth_domain', domain);
+sessionStorage.setItem('oauth_clientId', String(cfg.clientId));
+enableFocusTopUp({ domain, clientId: cfg.clientId });
+scheduleRotation({}, { domain, clientId: cfg.clientId });
 
-const PROD_CF = 'https://d1so4qr6zsby5r.cloudfront.net';
-const isLocal = location.origin.startsWith('http://localhost:');
-const EXPECTED_REDIRECT = isLocal ? 'http://localhost:5173/callback/' : `${PROD_CF}/callback/`;
-const EXPECTED_LOGOUT   = isLocal ? 'http://localhost:5173/'          : `${PROD_CF}/`;
-
-const appsyncUrl  = cfg.appSyncUrl || cfg.appsyncUrl;
-const uploadsApi  = (cfg.uploadsApiUrl||cfg.uploadsUrl||cfg.apiUrl||'').replace(/\/+$/,'');
-
-/* ────────── auth helpers ────────── */
-const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-const sha256 = t => crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
-const genVerifier = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
-const parseJwt = t=>{try{return JSON.parse(atob((t||'').split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));}catch{return null;}};
-
-async function buildLoginUrl(){
-  const state = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
-  sessionStorage.setItem('oauth_state',state);
-  const verifier=genVerifier(); sessionStorage.setItem('pkce_verifier',verifier);
-  const challenge=b64url(await sha256(verifier));
-  const p=new URLSearchParams({
-    response_type:'code',
-    client_id:cfg.clientId,
-    redirect_uri:EXPECTED_REDIRECT, // normalized
-    scope:'openid email profile',
-    state,
-    code_challenge:challenge,
-    code_challenge_method:'S256'
-  });
-  return `${domain}/oauth2/authorize?${p.toString()}`;
-}
-
-/* ────────── UI auth state ────────── */
-function setAuthUi(){
-  const id=sessionStorage.getItem('id_token');
-  q('#signin').style.display = id?'none':'inline';
-  q('#signout').style.display = id?'inline-block':'none';
-  q('#signout-global').style.display = id?'inline-block':'none';
-  const p=parseJwt(id||'');
-  q('#who-email').textContent = id?(p?.email||'(no email)'):'Not signed in';
-}
-
-q('#signin').addEventListener('click', async (e)=>{
-  e.preventDefault();
-  const url = await buildLoginUrl();
-  console.log('Authorize URL (creator) →', url);
-  location.assign(url);
-});
-
-q('#signout').addEventListener('click', (e)=>{
-  e.preventDefault();
-  sessionStorage.clear();
-  setAuthUi();
-});
-
-q('#signout-global').addEventListener('click', (e)=>{
-  e.preventDefault();
-  sessionStorage.clear();
-  const url = `${domain}/logout?client_id=${encodeURIComponent(cfg.clientId)}&logout_uri=${encodeURIComponent(EXPECTED_LOGOUT)}`;
-  location.assign(url);
-});
-
-/* ────────── GraphQL + UI ────────── */
+async function idToken(){ return ensureToken({ domain, clientId: cfg.clientId }); }
 async function gql(query, variables={}){
-  const id=sessionStorage.getItem('id_token');
-  if(!id) throw new Error('Please sign in first');
-  const r=await fetch(appsyncUrl,{method:'POST',headers:{'Content-Type':'application/json',Authorization:id},body:JSON.stringify({query,variables})});
-  const j=await r.json(); if(!r.ok||j.errors) throw new Error((j.errors && j.errors[0]?.message)||'GraphQL error');
+  const id = await idToken();
+  const r = await fetch(cfg.appsyncUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', Authorization:id },
+    body: JSON.stringify({ query, variables })
+  });
+  const j = await r.json();
+  if (!r.ok || j.errors) throw new Error((j.errors && j.errors[0]?.message) || 'GraphQL error');
   return j.data;
 }
-
-const prettyDate = iso => new Date(iso).toLocaleString();
-const statusPill = s=>{
-  const st=String(s||'').toUpperCase();
-  const cls=st==='APPROVED'?'approved':st==='REJECTED'?'rejected':st==='PUBLISHED'?'published':'pending';
-  return `<span class="pill ${cls}">${st||'PENDING'}</span>`;
-};
-
-function getThumbsBase(){
-  return (cfg.thumbsCdn || cfg.cdnUrl || cfg.webOrigin || location.origin).replace(/\/+$/,'');
+async function uploads(method, path, body, isJson=true){
+  const id = await idToken();
+  const init = { method, headers:{ Authorization:id } };
+  if (isJson && body){ init.headers['Content-Type']='application/json'; init.body=JSON.stringify(body); }
+  const r = await fetch(cfg.uploadsApiBase + path, init);
+  if(!r.ok) throw new Error(`${method} ${path} failed`);
+  return isJson ? r.json() : r.text();
 }
-function buildThumbUrl(key){
-  const base=getThumbsBase();
-  const jpg=String(key).replace(/\.[^.]+$/,'.jpg');
-  const enc=jpg.split('/').map(encodeURIComponent).join('/');
-  return `${base}/thumbs/${enc}`;
+
+/* ---------- UI helpers ---------- */
+const pretty = iso=> iso? new Date(iso).toLocaleString() : '—';
+
+function mediaCell(it){
+  if (!it.mediaKey) return `<span class="mini">—</span>`;
+  const key = it.mediaKey;
+  const thumb = `/thumbs/${key}`;
+  // NOTE: the <img> auto-hides if thumb not generated yet
+  return `
+    <div class="flex items-center gap-2">
+      <img src="${thumb}" width="54" height="54" alt="" style="border-radius:.5rem;object-fit:cover;display:none"
+           onload="this.style.display='inline-block'" onerror="this.style.display='none'"/>
+      <a href="/${key}" target="_blank" class="linklike">${key}</a>
+      <button class="sa-btn-sm js-del-media" data-key="${key}" data-id="${it.id}">Delete file</button>
+    </div>
+  `;
 }
 
 function renderRows(items){
-  const tb=q('#body');
-  if(!items?.length){ tb.innerHTML=`<tr><td colspan="5" class="mini">No data</td></tr>`; return; }
-  tb.innerHTML='';
-  for(const it of items){
-    const media = it.mediaKey ? `<a class="sa-link" href="${buildThumbUrl(it.mediaKey)}" target="_blank" rel="noopener">open</a><div class="mini">${it.mediaKey}</div>` : '<span class="mini">—</span>';
-    const row=h(`
+  const tbody = q('#items-body');
+  const note  = q('#items-note');
+  tbody.innerHTML='';
+  if (!items?.length){ note.textContent='0 item(s)'; tbody.innerHTML=`<tr><td colspan="5" class="mini">No items</td></tr>`; return; }
+  note.textContent=`${items.length} item(s)`;
+
+  for (const it of items){
+    const row = h(`
       <tr data-id="${it.id}">
-        <td>${(it.title||'').replace(/</g,'&lt;')}</td>
-        <td>${statusPill(it.status)}</td>
-        <td class="mini">${prettyDate(it.updatedAt||it.createdAt)}</td>
-        <td>${media}</td>
-        <td>
-          <button class="linklike js-request">Request approval</button>
-          <button class="linklike js-edit">Edit key</button>
-          <button class="linklike js-copy">Copy ID</button>
+        <td>${String(it.title||'').replace(/</g,'&lt;')}</td>
+        <td>${String(it.status)}</td>
+        <td class="mini">${pretty(it.updatedAt)}</td>
+        <td>${mediaCell(it)}</td>
+        <td class="mini">
+          <button class="sa-btn-sm js-req">Request approval</button>
+          <button class="sa-btn-sm js-edit">Edit key</button>
+          <button class="sa-btn-sm js-copy">Copy ID</button>
         </td>
       </tr>
     `);
-    q('#body').appendChild(row);
-  }
-  bindRowEvents(items);
-}
+    tbody.appendChild(row);
 
-function bindRowEvents(items){
-  qq('tr[data-id]').forEach(tr=>{
-    const id=tr.getAttribute('data-id');
-    tr.querySelector('.js-copy')?.addEventListener('click', async ()=>{
-      await navigator.clipboard.writeText(id); toast('Copied ID ✅','ok',1200);
-    });
-    tr.querySelector('.js-edit')?.addEventListener('click', async ()=>{
-      const item=items.find(x=>x.id===id);
-      const cur=item?.mediaKey||'';
-      const key=prompt('New S3 key (from Uploads):', cur);
-      if(key==null) return;
-      try{
-        await gql(`mutation U($id:ID!,$key:String!){ updateClosetMediaKey(id:$id,key:$key) }`,{id,key});
-        toast('Updated media key','ok'); await reloadMine();
-      }catch(e){ toast(String(e),'error'); }
-    });
-    tr.querySelector('.js-request')?.addEventListener('click', async ()=>{
-      try{ await gql(`mutation R($id:ID!){ requestClosetApproval(id:$id) }`,{id}); toast('Requested approval 🚀','ok'); }
+    // actions
+    row.querySelector('.js-req')?.addEventListener('click', async ()=>{
+      try{ await gql(`mutation R($id:ID!){ requestClosetApproval(id:$id) }`, { id: it.id }); toast('Requested','ok'); await reloadItems(); }
       catch(e){ toast(String(e),'error'); }
     });
-  });
-}
-
-async function reloadMine(){
-  q('#out').textContent='';
-  try{
-    const d=await gql(`query { myCloset { id title status mediaKey createdAt updatedAt } }`);
-    renderRows(d.myCloset||[]);
-  }catch(e){
-    q('#out').textContent=String(e);
-    renderRows([]);
+    row.querySelector('.js-edit')?.addEventListener('click', async ()=>{
+      const k = prompt('New media key (e.g. users/{sub}/file.jpg)', it.mediaKey||'');
+      if (k==null) return;
+      try{ await gql(`mutation U($id:ID!,$k:String!){ updateClosetMediaKey(id:$id,mediaKey:$k){ id mediaKey updatedAt } }`, { id: it.id, k }); toast('Updated','ok'); await reloadItems(); }
+      catch(e){ toast(String(e),'error'); }
+    });
+    row.querySelector('.js-copy')?.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(it.id); toast('Copied','ok'); }catch{}
+    });
+    row.querySelector('.js-del-media')?.addEventListener('click', async (ev)=>{
+      const key = ev.currentTarget.getAttribute('data-key');
+      if (!confirm(`Delete ${key}?`)) return;
+      try{
+        await uploads('DELETE', '/delete?key='+encodeURIComponent(key));
+        toast('Deleted file','ok');
+        // optional: clear mediaKey after delete
+        await gql(`mutation U($id:ID!,$k:String!){ updateClosetMediaKey(id:$id,mediaKey:$k){ id mediaKey updatedAt } }`, { id: it.id, k: "" });
+        await reloadItems();
+      }catch(e){ toast(String(e),'error'); }
+    });
   }
 }
 
-q('#btn-reload').addEventListener('click', e=>{ e.preventDefault(); reloadMine(); });
-
-q('#btn-create').addEventListener('click', async e=>{
-  e.preventDefault();
-  const title=(q('#title').value||'').trim();
-  const media=(q('#media').value||'').trim();
-  if(!title){ toast('Please enter a title','error'); return; }
+/* ---------- Data loaders ---------- */
+async function reloadItems(){
+  const out=q('#items-note'); out.textContent='Loading…';
   try{
-    const d=await gql(`mutation C($input:CreateClosetItemInput!){
-      createClosetItem(input:$input){ id title status mediaKey createdAt updatedAt }
-    }`,{ input:{ title, mediaKey: media || null }});
-    toast('Created ✅','ok');
-    q('#title').value=''; // keep media for next item
-    await reloadMine();
+    const d = await gql(`query { myCloset { id title status mediaKey updatedAt } }`);
+    renderRows(d.myCloset||[]);
+  }catch(e){
+    out.textContent=String(e); renderRows([]);
+  }
+}
+q('#btn-reload')?.addEventListener('click', (e)=>{ e.preventDefault(); reloadItems(); });
+
+/* ---------- Create new item ---------- */
+q('#btn-create')?.addEventListener('click', async ()=>{
+  const title = q('#title')?.value?.trim();
+  const key   = q('#media-key')?.value?.trim();
+  try{
+    await gql(`mutation C($t:String,$k:String){ createClosetItem(title:$t,mediaKey:$k){ id } }`, { t:title||null, k:key||null });
+    toast('Created','ok'); q('#title').value=''; q('#media-key').value=''; await reloadItems();
   }catch(e){ toast(String(e),'error'); }
 });
 
-/* ────────── initial ────────── */
-setAuthUi();
-if(sessionStorage.getItem('id_token')) reloadMine();
+// Init
+reloadItems();

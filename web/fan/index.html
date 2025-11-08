@@ -2,57 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Styling Adventures · Fan Dashboard</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fan Dashboard</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    .wrap{max-width:960px;margin:24px auto;padding:0 16px}
-    .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
-    .muted{color:#64748b}
-    .pill{display:inline-block;padding:.2rem .5rem;border-radius:999px;font:600 12px/1 system-ui;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}
-    code{background:#f8fafc;padding:.15rem .35rem;border-radius:6px}
+    .shell{max-width:1120px;margin:18px auto;padding:0 16px}
+    header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+    .muted{opacity:.7}
+    pre{background:#f7f7f9;border:1px solid #e5e7eb;border-radius:10px;padding:12px;overflow:auto}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    #toasts{position:fixed;right:14px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:50}
+    .toast{background:#111827;color:#fff;padding:.55rem .8rem;border-radius:999px;transition:opacity .24s ease}
+    .toast.ok{background:#065f46}
+    .toast.err{background:#7f1d1d}
+    ul#list-ul{margin:.4rem 0 .8rem 1rem}
+    .btn{border:1px solid var(--bd,#d1d5db); padding:.45rem .75rem; border-radius:8px; background:#fff; cursor:pointer}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .pill{padding:.2rem .5rem;border-radius:999px;border:1px solid #e5e7eb;background:#f9fafb}
+    .sa-link{color:#2563eb;text-decoration:underline}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Fan Dashboard</h1>
-    <p class="muted">Welcome! Sign in, check your profile, call the GraphQL <code>{ hello }</code> query, and see your uploads.</p>
+  <div class="shell">
+    <header>
+      <h1 style="margin:0">Fan Dashboard</h1>
+      <span class="muted" id="who-email">Not signed in</span>
+      <div class="row">
+        <button id="btn-signin" class="btn">Sign in</button>
+        <button id="btn-signout-local" class="btn" style="display:none">Sign out (local)</button>
+        <button id="btn-signout-global" class="btn" style="display:none">Sign out everywhere</button>
+      </div>
+    </header>
 
-    <div class="grid">
-      <section class="card">
-        <h2>Sign in</h2>
-        <p id="auth-state" class="muted">Signed out</p>
-        <button id="btn-login" class="sa-btn">Sign in</button>
-        <button id="btn-logout" class="sa-btn sa-btn-outline" style="display:none">Sign out (local)</button>
-        <button id="btn-logout-global" class="sa-btn sa-btn-outline" style="display:none">Sign out everywhere</button>
-        <div class="muted" id="auth-url" style="word-break:break-all;margin-top:.5rem"></div>
-      </section>
+    <section>
+      <h2>My Profile</h2>
+      <div class="muted">Role should be FAN</div>
+      <div class="row" style="margin:.5rem 0 0">
+        <button id="btn-loadme" class="btn">Load Profile</button>
+      </div>
+      <pre id="me-out" style="min-height:80px"></pre>
+    </section>
 
-      <section class="card">
-        <h2>My Profile</h2>
-        <div class="muted">Role should be <span class="pill">FAN</span></div>
-        <pre id="me" class="sa-pre muted">Not loaded</pre>
-        <button id="btn-load-me" class="sa-btn">Load Profile</button>
-      </section>
+    <section>
+      <h2>GraphQL</h2>
+      <div class="row">
+        <button id="btn-hello" class="btn">Call { hello }</button>
+      </div>
+      <pre id="hello-out" style="min-height:60px"></pre>
+    </section>
 
-      <section class="card">
-        <h2>GraphQL</h2>
-        <button id="btn-hello" class="sa-btn">Call { hello }</button>
-        <p id="hello-out" class="muted" aria-live="polite"></p>
-      </section>
+    <section>
+      <h2>Upload</h2>
+      <div class="row">
+        <input type="file" id="file" />
+        <input type="text" id="keyhint" placeholder="Optional S3 key (users/{sub}/...)" style="min-width:260px" />
+        <button id="btn-upload" class="btn">Upload</button>
+      </div>
+      <div id="up-msg" class="muted" style="margin-top:.4rem"></div>
+    </section>
 
-      <section class="card">
-        <h2>My Closet</h2>
-        <p class="muted" id="closet-meta">0 items</p>
-        <ul id="closet-list" class="sa-muted"></ul>
-        <button id="btn-list" class="sa-btn">List my files</button>
-      </section>
-    </div>
-
-    <p style="margin-top:16px"><a class="sa-link" href="/">← Back to Home</a> · <a class="sa-link" href="/fan/">Fan dashboard</a></p>
+    <section>
+      <h2>My Closet</h2>
+      <div class="row">
+        <button id="btn-list" class="btn">List my files</button>
+        <span id="list-out" class="pill muted">0 item(s)</span>
+      </div>
+      <ul id="list-ul"></ul>
+    </section>
   </div>
 
-  <script type="module" src="/fan/app.js"></script>
+  <!-- note: regular script (NOT type="module") -->
+  <script src="/fan/app.js"></script>
 </body>
 </html>
