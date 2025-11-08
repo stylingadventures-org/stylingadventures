@@ -1,5 +1,5 @@
 // lib/stacks/web-stack.ts
-import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
@@ -31,14 +31,28 @@ export class WebStack extends Stack {
     const siteOai = new cloudfront.OriginAccessIdentity(this, "SiteOai");
     this.siteBucket.grantRead(siteOai);
 
-    // Pretty-URL rewrite: /foo => /foo/index.html and / => /index.html
+    // CloudFront Function: rewrite pretty URLs to index.html
+    // - "/creator"        -> "/creator/index.html"
+    // - "/creator/"       -> "/creator/index.html"
+    // - "/"               -> "/index.html" (handled by defaultRootObject)
     const dirIndexFn = new cloudfront.Function(this, "DirIndexRewriteFn", {
       code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var req = event.request;
   var uri = req.uri || '/';
-  if (uri.endsWith('/')) { req.uri = uri + 'index.html'; return req; }
-  if (uri.indexOf('.') === -1) { req.uri = uri + '/index.html'; return req; }
+
+  // If it ends with a slash, append index.html
+  if (uri.endsWith('/')) {
+    req.uri = uri + 'index.html';
+    return req;
+  }
+
+  // If there's no dot (likely no extension), treat as a directory
+  if (uri.indexOf('.') === -1) {
+    req.uri = uri + '/index.html';
+    return req;
+  }
+
   return req;
 }
       `),
@@ -54,7 +68,15 @@ function handler(event) {
         functionAssociations: [
           { function: dirIndexFn, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
         ],
+        // These are optional; defaults are GET/HEAD already:
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
       },
+      // SPA fallbacks: serve shell for 403/404 so deep links work
+      errorResponses: [
+        { httpStatus: 403, responsePagePath: "/index.html", responseHttpStatus: 200, ttl: Duration.seconds(0) },
+        { httpStatus: 404, responsePagePath: "/index.html", responseHttpStatus: 200, ttl: Duration.seconds(0) },
+      ],
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 

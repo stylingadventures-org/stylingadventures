@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Styling Adventures · Dashboards</title>
+  <style>
+    :root{--fg:#0f172a;--muted:#64748b;--bg:#ffffff;--b:#e5e7eb;--p:#2563eb}
+    body{margin:0;background:#f8fafc;color:var(--fg);font:14px system-ui,Segoe UI,Roboto,sans-serif}
+    header{background:#fff;border-bottom:1px solid var(--b);padding:12px 16px;display:flex;align-items:center;gap:12px}
+    h1{font-size:18px;margin:0}
+    .tabs{display:flex;gap:8px;margin-left:auto}
+    .tabs a{display:inline-block;padding:.45rem .75rem;border:1px solid var(--b);border-radius:999px;background:#fff;color:var(--fg);text-decoration:none}
+    .tabs a.active{background:#eef2ff;border-color:#c7d2fe;color:#3730a3;font-weight:600}
+    .wrap{padding:0}
+    iframe{width:100vw;height:calc(100vh - 58px);border:0;background:#fff}
+    .muted{color:var(--muted)}
+  </style>
+  <script>
+    (function(){
+      // normalize ?tab (default fan) without reloading
+      const u = new URL(location.href);
+      if(!u.searchParams.has('tab')){ u.searchParams.set('tab','fan'); history.replaceState(null,'',u); }
+      function cur(){ return (new URL(location.href)).searchParams.get('tab') || 'fan'; }
+      function srcFor(t){ return t==='creator'? '/creator/': t==='admin'? '/admin/': '/fan/'; }
+      function setActive(tab){
+        document.querySelectorAll('.tabs a').forEach(a=>{
+          a.classList.toggle('active', a.dataset.tab===tab);
+        });
+        const f = document.getElementById('frame');
+        const want = srcFor(tab);
+        if (f.getAttribute('src') !== want) f.setAttribute('src', want);
+      }
+      function onClick(e){
+        const t = e.target.closest('a[data-tab]'); if(!t) return;
+        e.preventDefault();
+        const u = new URL(location.href); u.searchParams.set('tab', t.dataset.tab);
+        history.pushState(null,'',u); setActive(t.dataset.tab);
+      }
+      window.addEventListener('popstate', ()=>setActive(cur()));
+      window.addEventListener('DOMContentLoaded', ()=>{
+        document.querySelector('.tabs').addEventListener('click', onClick);
+        setActive(cur());
+      });
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Styling Adventures</h1>
+    <nav class="tabs">
+      <a href="/?tab=fan" data-tab="fan">Fan</a>
+      <a href="/?tab=creator" data-tab="creator">Creator</a>
+      <a href="/?tab=admin" data-tab="admin">Admin</a>
+    </nav>
+  </header>
+  <div class="wrap">
+    <iframe id="frame" title="Dashboard" src="about:blank"></iframe>
+  </div>
+</body>
+</html>

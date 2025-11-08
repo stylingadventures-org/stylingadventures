@@ -12,7 +12,7 @@ import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
-  table: dynamodb.ITable;
+  table: dynamodb.ITable;            // single-table (pk/sk), e.g. "sa-dev-app"
   closetApprovalSm: sfn.IStateMachine;
 }
 
@@ -23,15 +23,16 @@ export class ApiStack extends Stack {
     super(scope, id, props);
     const { userPool, table, closetApprovalSm } = props;
 
-    // ----- Hello (smoke test) -----
+    /* ───────── Hello (smoke test) ───────── */
     const helloFn = new lambda.Function(this, "HelloFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
       code: lambda.Code.fromAsset(path.join(process.cwd(), "lambda/hello")),
       environment: { NODE_OPTIONS: "--enable-source-maps" },
+      description: "Simple hello world for Query.hello",
     });
 
-    // ----- AppSync API -----
+    /* ───────── AppSync API ───────── */
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
       definition: appsync.Definition.fromFile(
@@ -46,7 +47,11 @@ export class ApiStack extends Stack {
       xrayEnabled: true,
     });
 
-    // ----- Roles: Lambda + DS + resolvers (me, setUserRole) -----
+    /* ───────── Roles: Lambda + DS + resolvers (me, setUserRole) ─────────
+       This lambda understands both id-only and pk/sk, but we explicitly
+       tell it our table uses pk/sk so it stores users under:
+       pk = USER#{sub}, sk = PROFILE
+    */
     const rolesFn = new NodejsFunction(this, "RolesFn", {
       entry: path.join(process.cwd(), "lambda/roles/index.ts"),
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -58,27 +63,22 @@ export class ApiStack extends Stack {
       },
       environment: {
         NODE_OPTIONS: "--enable-source-maps",
-        TABLE_NAME: table.tableName, // ✅ pass table name
-        // ✅ key names for single-table or dedicated ID table (defaults mirrored in code)
-        PK_NAME: "pk",
-        SK_NAME: "sk",
+        TABLE_NAME: table.tableName,
+        PK_NAME: "pk",   // ✅ single-table partition key
+        SK_NAME: "sk",   // ✅ single-table sort key
       },
-      description: "Resolves Query.me and Mutation.setUserRole",
+      description: "Resolves Query.me and Mutation.setUserRole (single-table aware)",
     });
 
-    // ✅ allow the function to read/write the user table
     table.grantReadWriteData(rolesFn);
 
     const rolesDs = this.api.addLambdaDataSource("RolesDs", rolesFn);
-
-    // ✅ hook BOTH fields to the same Lambda
     rolesDs.createResolver("Me", {
       typeName: "Query",
       fieldName: "me",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
-
     rolesDs.createResolver("SetUserRole", {
       typeName: "Mutation",
       fieldName: "setUserRole",
@@ -86,7 +86,7 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // ----- Hello -> Lambda resolver (Query.hello) -----
+    /* ───────── Hello -> Lambda resolver (Query.hello) ───────── */
     const helloDs = this.api.addLambdaDataSource("HelloDs", helloFn);
     helloDs.createResolver("Hello", {
       typeName: "Query",
@@ -95,7 +95,7 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // ----- Closet resolvers (NodejsFunction bundle) -----
+    /* ───────── Closet resolvers (NodejsFunction bundle) ───────── */
     const closetFn = new NodejsFunction(this, "ClosetResolverFn", {
       entry: path.join(process.cwd(), "lambda/graphql/index.ts"),
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -118,7 +118,7 @@ export class ApiStack extends Stack {
       new iam.PolicyStatement({
         actions: [
           "dynamodb:Query",
-          "dynamodb:Scan",
+        "dynamodb:Scan",
           "dynamodb:GetItem",
           "dynamodb:BatchGetItem",
           "dynamodb:UpdateItem",
@@ -177,9 +177,9 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // ----- Outputs -----
+    /* ───────── Outputs ───────── */
     new CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
-    new CfnOutput(this, "GraphQlApiId",  { value: this.api.apiId });
+    new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }
 }
 
