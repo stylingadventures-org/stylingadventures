@@ -3,75 +3,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fan Dashboard</title>
-  <link rel="stylesheet" href="/styles.css" />
-  <style>
-    .shell{max-width:1120px;margin:18px auto;padding:0 16px}
-    header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-    .muted{opacity:.7}
-    pre{background:#f7f7f9;border:1px solid #e5e7eb;border-radius:10px;padding:12px;overflow:auto}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    #toasts{position:fixed;right:14px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:50}
-    .toast{background:#111827;color:#fff;padding:.55rem .8rem;border-radius:999px;transition:opacity .24s ease}
-    .toast.ok{background:#065f46}
-    .toast.err{background:#7f1d1d}
-    ul#list-ul{margin:.4rem 0 .8rem 1rem}
-    .btn{border:1px solid var(--bd,#d1d5db); padding:.45rem .75rem; border-radius:8px; background:#fff; cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .pill{padding:.2rem .5rem;border-radius:999px;border:1px solid #e5e7eb;background:#f9fafb}
-    .sa-link{color:#2563eb;text-decoration:underline}
-  </style>
+  <title>Styling Adventures · Fan</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="shell">
-    <header>
-      <h1 style="margin:0">Fan Dashboard</h1>
-      <span class="muted" id="who-email">Not signed in</span>
-      <div class="row">
-        <button id="btn-signin" class="btn">Sign in</button>
-        <button id="btn-signout-local" class="btn" style="display:none">Sign out (local)</button>
-        <button id="btn-signout-global" class="btn" style="display:none">Sign out everywhere</button>
-      </div>
-    </header>
+  <nav style="padding:8px 12px;display:flex;gap:12px">
+    <a href="/">Home</a><a href="/?tab=fan">Fan</a><a href="/?tab=creator">Creator</a><a href="/?tab=admin">Admin</a>
+    <button id="btnSignIn">Sign in</button><button id="btnSignOut">Sign out</button>
+  </nav>
+
+  <main style="padding:12px">
+    <h2>Fan Dashboard</h2>
 
     <section>
-      <h2>My Profile</h2>
-      <div class="muted">Role should be FAN</div>
-      <div class="row" style="margin:.5rem 0 0">
-        <button id="btn-loadme" class="btn">Load Profile</button>
-      </div>
-      <pre id="me-out" style="min-height:80px"></pre>
+      <button>Call { hello }</button>
+      <button>Load Profile</button>
     </section>
 
-    <section>
-      <h2>GraphQL</h2>
-      <div class="row">
-        <button id="btn-hello" class="btn">Call { hello }</button>
-      </div>
-      <pre id="hello-out" style="min-height:60px"></pre>
+    <section style="margin-top:16px">
+      <button>List my files</button>
     </section>
+  </main>
 
-    <section>
-      <h2>Upload</h2>
-      <div class="row">
-        <input type="file" id="file" />
-        <input type="text" id="keyhint" placeholder="Optional S3 key (users/{sub}/...)" style="min-width:260px" />
-        <button id="btn-upload" class="btn">Upload</button>
-      </div>
-      <div id="up-msg" class="muted" style="margin-top:.4rem"></div>
-    </section>
-
-    <section>
-      <h2>My Closet</h2>
-      <div class="row">
-        <button id="btn-list" class="btn">List my files</button>
-        <span id="list-out" class="pill muted">0 item(s)</span>
-      </div>
-      <ul id="list-ul"></ul>
-    </section>
-  </div>
-
-  <!-- note: regular script (NOT type="module") -->
-  <script src="/fan/app.js"></script>
+  <!-- IMPORTANT: app.js first, then the page script -->
+  <script src="/app.js" defer></script>
+  <script src="/fan.js" defer></script>
 </body>
 </html>

@@ -4,51 +4,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Styling Adventures · Admin</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body class="sa-body">
-  <div class="wrap">
-    <header class="sa-top">
-      <h1 class="sa-h1">Admin dashboard</h1>
-      <nav class="sa-tabs">
-        <a class="sa-tab" href="/fan/">Fan</a>
-        <a class="sa-tab" href="/creator/">Creator</a>
-        <a class="sa-tab active" href="/admin/">Admin</a>
-        <a class="sa-tab" href="/bestie/">Bestie</a>
-        <a class="sa-tab" href="/collab/">Collab</a>
-        <a class="sa-tab" href="/prime/">Prime</a>
-      </nav>
-    </header>
+<body>
+  <nav style="padding:8px 12px;display:flex;gap:12px">
+    <a href="/">Home</a><a href="/?tab=fan">Fan</a><a href="/?tab=creator">Creator</a><a href="/?tab=admin">Admin</a>
+    <button id="btnSignIn">Sign in</button><button id="btnSignOut">Sign out</button>
+  </nav>
 
-    <!-- Sign in/out controls (IDs used by app.js) -->
-    <div style="margin:.5rem 0">
-      <span id="who" class="mini sa-muted"></span>
-      <button id="signin" class="sa-btn">Sign in</button>
-      <button id="signout" class="sa-btn">Sign out (local)</button>
-      <button id="signout-global" class="sa-btn">Sign out everywhere</button>
-    </div>
+  <main style="padding:12px">
+    <h2>Admin Dashboard</h2>
 
-    <p id="role-msg" class="sa-muted" style="margin-top:.25rem"></p>
-    <button id="btn-reload" class="sa-btn">Reload pending</button>
+    <section>
+      <h3>Pending Items</h3>
+      <button>Load pending</button>
+    </section>
 
-    <div class="card" style="margin-top:.75rem">
-      <h2>Title Owner Requested Media Actions</h2>
-      <div id="pending-out" class="mini sa-muted"></div>
-      <div class="table-wrap">
-        <table class="sa-table">
-          <thead>
-            <tr><th>Title</th><th>Status</th><th>Updated</th><th>Owner</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="pending-body"><tr><td colspan="5" class="mini">No data</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+    <section style="margin-top:16px">
+      <h3>Moderation</h3>
+      <input placeholder="Item id" />
+      <input placeholder="Reason (optional)" />
+      <button>Approve</button>
+      <button>Reject</button>
+    </section>
+  </main>
 
-    <div id="toasts"></div>
-  </div>
-
-  <!-- IMPORTANT: load after DOM so selectors exist -->
-  <script type="module" src="/admin/app.js"></script>
+  <!-- IMPORTANT: app.js first, then the page script -->
+  <script src="/app.js" defer></script>
+  <script src="/admin.js" defer></script>
 </body>
 </html>
-

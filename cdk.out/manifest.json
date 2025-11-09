@@ -22,7 +22,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a2916e58095141194445b6a2ca2e68db3119cf2629dd3a02373d6bce7ea71121.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a2621503a547210ac2f16d0b6100feb574e3e570a7768b1f820203288fc9a86e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -651,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ffe6750e2c028550198450f5fd10542352f0b3554740eec526f485055287bf00.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/f0af9576f9722b7c30a70d8b2256919224a129f88b330a079fc6ca7b4d337f43.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -727,16 +727,22 @@
             "data": "StylingApiRolesDs00C42927"
           }
         ],
-        "/ApiStack/StylingApi/Me/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMe3282F680"
-          }
-        ],
         "/ApiStack/StylingApi/SetUserRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiSetUserRole87913D00"
+          }
+        ],
+        "/ApiStack/StylingApi/NoneDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiNoneDs95A6ABC6"
+          }
+        ],
+        "/ApiStack/StylingApi/QueryMeResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiQueryMeResolverB661C632"
           }
         ],
         "/ApiStack/StylingApi/HelloDs/ServiceRole/Resource": [

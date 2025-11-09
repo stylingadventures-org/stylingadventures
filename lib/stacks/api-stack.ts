@@ -47,10 +47,9 @@ export class ApiStack extends Stack {
       xrayEnabled: true,
     });
 
-    /* ───────── Roles: Lambda + DS + resolvers (me, setUserRole) ─────────
-       This lambda understands both id-only and pk/sk, but we explicitly
-       tell it our table uses pk/sk so it stores users under:
-       pk = USER#{sub}, sk = PROFILE
+    /* ───────── Roles: Lambda (Mutation.setUserRole only) ─────────
+       NOTE: Query.me is handled by a NONE datasource below to return
+       FAN/FREE defaults without hitting a backend.
     */
     const rolesFn = new NodejsFunction(this, "RolesFn", {
       entry: path.join(process.cwd(), "lambda/roles/index.ts"),
@@ -64,26 +63,41 @@ export class ApiStack extends Stack {
       environment: {
         NODE_OPTIONS: "--enable-source-maps",
         TABLE_NAME: table.tableName,
-        PK_NAME: "pk",   // ✅ single-table partition key
-        SK_NAME: "sk",   // ✅ single-table sort key
+        PK_NAME: "pk",   // single-table partition key
+        SK_NAME: "sk",   // single-table sort key
       },
-      description: "Resolves Query.me and Mutation.setUserRole (single-table aware)",
+      description: "Resolves Mutation.setUserRole (single-table aware)",
     });
 
     table.grantReadWriteData(rolesFn);
 
     const rolesDs = this.api.addLambdaDataSource("RolesDs", rolesFn);
-    rolesDs.createResolver("Me", {
-      typeName: "Query",
-      fieldName: "me",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+
+    // Only the mutation is resolved by Lambda
     rolesDs.createResolver("SetUserRole", {
       typeName: "Mutation",
       fieldName: "setUserRole",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    /* ───────── Query.me via NONE datasource (defaults) ───────── */
+    const noneDs = this.api.addNoneDataSource("NoneDs");
+
+    noneDs.createResolver("QueryMeResolver", {
+      typeName: "Query",
+      fieldName: "me",
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`{
+        "version": "2017-02-28"
+      }`),
+      responseMappingTemplate: appsync.MappingTemplate.fromString(`
+        $util.toJson({
+          "id": $ctx.identity.sub,
+          "email": $util.defaultIfNull($ctx.identity.claims.email, ""),
+          "role": "FAN",
+          "tier": "FREE"
+        })
+      `),
     });
 
     /* ───────── Hello -> Lambda resolver (Query.hello) ───────── */
@@ -118,7 +132,7 @@ export class ApiStack extends Stack {
       new iam.PolicyStatement({
         actions: [
           "dynamodb:Query",
-        "dynamodb:Scan",
+          "dynamodb:Scan",
           "dynamodb:GetItem",
           "dynamodb:BatchGetItem",
           "dynamodb:UpdateItem",
