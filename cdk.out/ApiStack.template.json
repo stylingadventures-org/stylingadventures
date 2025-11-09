@@ -235,30 +235,6 @@
     "aws:cdk:path": "ApiStack/StylingApi/RolesDs/Resource"
    }
   },
-  "StylingApiMe3282F680": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "RolesDs",
-    "FieldName": "me",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Query"
-   },
-   "DependsOn": [
-    "StylingApiRolesDs00C42927",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/Me/Resource"
-   }
-  },
   "StylingApiSetUserRole87913D00": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
@@ -281,6 +257,46 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/SetUserRole/Resource"
+   }
+  },
+  "StylingApiNoneDs95A6ABC6": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "Name": "NoneDs",
+    "Type": "NONE"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/NoneDs/Resource"
+   }
+  },
+  "StylingApiQueryMeResolverB661C632": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "NoneDs",
+    "FieldName": "me",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\n        \"version\": \"2017-02-28\"\n      }",
+    "ResponseMappingTemplate": "\n        $util.toJson({\n          \"id\": $ctx.identity.sub,\n          \"email\": $util.defaultIfNull($ctx.identity.claims.email, \"\"),\n          \"role\": \"FAN\",\n          \"tier\": \"FREE\"\n        })\n      ",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiNoneDs95A6ABC6",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/QueryMeResolver/Resource"
    }
   },
   "StylingApiHelloDsServiceRole44626254": {
@@ -788,7 +804,7 @@
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "ffe82e27ec69bd74f8c51ac254a364eb2014977e340d9b7a1642488d288429f2.zip"
     },
-    "Description": "Resolves Query.me and Mutation.setUserRole (single-table aware)",
+    "Description": "Resolves Mutation.setUserRole (single-table aware)",
     "Environment": {
      "Variables": {
       "NODE_OPTIONS": "--enable-source-maps",
@@ -1011,7 +1027,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy07DMBD8lt6dpbhcOLYguFQ8kg+Ito5pN3Fsk7VbVVb+HdkBAaeZWe3szkiQUsJ6hReuVDdUhg6QmoBqEHjhNhkcDx1CeopWBXJWPHzYHz4LwhFS7YzO44JvzpC6ZrmwWfCmRWYdGLYZBG9gF9Wgww5ZC/Ser1ZBep7Qnz7N1lM2F/W+/68addIjin2J9IgBGxcnVX7/UbVmZ856KpG++SyWHq11ne4ZXgr89sh7xVwiNgGPZI/5wGsMPoZZZB/0fHOWa7i9h7tVz0TVFG2gUUO94BcidfACTAEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPQW7CMBB8C3dnS00vPUKr9oKgTR4QLc4WnDi2ydogFOXvlR0h2tPMrHZ2ZyRIKWG5wCsXqukKow8wVgFVJ/DK9WiwPzQI40e0KmhnxduPvfNJaOxhLJ2hNM745YxWtyRnNgle1chMgWGdQPAKNlF1FDbIJNB7vlkF4+eA/nQ2a6+TOavv7X9VqRP1KLY50jsGrFwcVP79R5XEzlxoyJHufOcsPXYmMdeqrWuoZdhleNRKtnwrJ64CHrU9pnv7GHwMk0g+aPnpIpfw/Aovi5a1LoZog+4Jyhl/Acj5ZmpbAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"

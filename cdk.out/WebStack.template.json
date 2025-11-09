@@ -169,7 +169,7 @@
    "Type": "AWS::CloudFront::Function",
    "Properties": {
     "AutoPublish": true,
-    "FunctionCode": "\nfunction handler(event) {\n  var req = event.request;\n  var uri = req.uri || '/';\n\n  // If it ends with a slash, append index.html\n  if (uri.endsWith('/')) {\n    req.uri = uri + 'index.html';\n    return req;\n  }\n\n  // If there's no dot (likely no extension), treat as a directory\n  if (uri.indexOf('.') === -1) {\n    req.uri = uri + '/index.html';\n    return req;\n  }\n\n  return req;\n}\n      ",
+    "FunctionCode": "\nfunction handler(event) {\n  var req = event.request;\n  var uri = req.uri || '/';\n  if (uri.endsWith('/')) { req.uri = uri + 'index.html'; return req; }\n  if (uri.indexOf('.') === -1) { req.uri = uri + '/index.html'; return req; }\n  return req;\n}\n      ",
     "FunctionConfig": {
      "Comment": "us-east-1WebStackDirIndexRewriteFnB90BEA1B",
      "Runtime": "cloudfront-js-1.0"
@@ -299,7 +299,7 @@
      "cdk-hnb659fds-assets-637423256673-us-east-1"
     ],
     "SourceObjectKeys": [
-     "a7401d7525e83e942068510cccb09141fb6bd9d40ad7ff64259967fed7d6fca2.zip"
+     "c8d9eef3cda3b0f1f03ccb7c7ce22a342e2d6195917e6ebc1c107f481c0af421.zip"
     ],
     "DestinationBucketName": {
      "Ref": "StaticSiteBucket8958EE3F"

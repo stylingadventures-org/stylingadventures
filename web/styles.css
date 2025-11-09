@@ -79,3 +79,14 @@ body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;c
 .thumb { width:72px; height:72px; object-fit:cover; border-radius:.5rem; border:1px solid #eee; }
 .nowrap { white-space: nowrap; }
 .linklike.danger { color:#b00020; }
+/* hide-only-for-screenreaders helper used in dashboards */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* generic layout used across pages */
+.container{max-width:720px;margin-inline:auto;padding:16px}
+nav { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+pre { background:#f7f7f9; border:1px solid #e5e7eb; padding:.75rem; overflow:auto; border-radius:.5rem; }
+input,button { font:inherit; padding:.5rem .65rem; }
+button { border:1px solid #ccc; border-radius:.5rem; background:#fff; cursor:pointer; }
+button:hover { background:#f8fafc; }

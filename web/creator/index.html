@@ -4,53 +4,38 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Styling Adventures · Creator</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body class="sa-body">
-  <div class="wrap">
-    <header class="sa-top">
-      <h1 class="sa-h1">Creator dashboard</h1>
-      <nav class="sa-tabs">
-        <!-- ✅ point directly to section paths -->
-        <a class="sa-tab"        href="/fan/">Fan</a>
-        <a class="sa-tab active" href="/creator/">Creator</a>
-        <a class="sa-tab"        href="/admin/">Admin</a>
-        <a class="sa-tab"        href="/bestie/">Bestie</a>
-        <a class="sa-tab"        href="/collab/">Collab</a>
-        <a class="sa-tab"        href="/prime/">Prime</a>
-      </nav>
-    </header>
+<body>
+  <nav style="padding:8px 12px;display:flex;gap:12px">
+    <a href="/">Home</a><a href="/?tab=fan">Fan</a><a href="/?tab=creator">Creator</a><a href="/?tab=admin">Admin</a>
+    <button id="btnSignIn">Sign in</button><button id="btnSignOut">Sign out</button>
+  </nav>
 
-    <!-- New item form (IDs as requested) -->
-    <div class="card">
-      <h2>New item</h2>
-      <div class="grid gap-2" style="grid-template-columns: 1fr 1fr auto">
-        <input id="title" class="sa-input" placeholder="e.g. My first drop" />
-        <input id="media-key" class="sa-input" placeholder="users/{sub}/…/file.jpg" />
-        <button id="btn-create" class="sa-btn">Create</button>
-      </div>
-      <p class="mini sa-muted">Tip: upload in Fan first, then paste the object key here.</p>
-    </div>
+  <main style="padding:12px">
+    <h2>Creator Dashboard</h2>
 
-    <!-- Items table (IDs as requested) -->
-    <div class="card">
-      <h2>Title Status When Media Actions</h2>
-      <p id="items-note" class="mini sa-muted"></p>
-      <div class="table-wrap">
-        <table class="sa-table">
-          <thead>
-            <tr><th>Title</th><th>Status</th><th>Updated</th><th>Media</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="items-body"><tr><td colspan="5" class="mini">Loading…</td></tr></tbody>
-        </table>
-      </div>
-      <button id="btn-reload" class="sa-btn">Reload my items</button>
-    </div>
+    <section>
+      <h3>My Closet</h3>
+      <button>List myCloset</button>
+    </section>
 
-    <div id="toasts"></div>
-  </div>
+    <section style="margin-top:16px">
+      <h3>Create Draft</h3>
+      <input placeholder="Title (optional)" />
+      <input placeholder="S3 key (optional)" />
+      <button>Create DRAFT</button>
+    </section>
 
-  <!-- IMPORTANT: load after DOM so query selectors are not null -->
-  <script type="module" src="/creator/app.js"></script>
+    <section style="margin-top:16px">
+      <h3>Request Approval</h3>
+      <input placeholder="Closet item id" />
+      <button>Request approval</button>
+    </section>
+  </main>
+
+  <!-- IMPORTANT: app.js first, then the page script -->
+  <script src="/app.js" defer></script>
+  <script src="/creator.js" defer></script>
 </body>
 </html>
