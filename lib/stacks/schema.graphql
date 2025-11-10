@@ -57,6 +57,19 @@ type AdminUsersPage {
   nextToken: String
 }
 
+""" -------- Bestie Tier types -------- """
+type BestieStatus {
+  active: Boolean!
+  since: AWSDateTime
+  until: AWSDateTime
+  source: String
+}
+
+type EarlyAccessGate {
+  allowed: Boolean!
+  reason: String
+}
+
 """ -------- Queries -------- """
 type Query {
   hello: String!
@@ -81,6 +94,10 @@ type Query {
   # Existing admin users listing remains enum-backed
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
+
+  # Bestie Tier
+  meBestieStatus: BestieStatus!
+  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!
 }
 
 """ -------- Mutations -------- """
@@ -113,10 +130,28 @@ type Mutation {
   Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey
   """
   updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
+
+  """ -------- Bestie Tier -------- """
+  claimBestieTrial: BestieStatus!
+
+  """
+  Admin toggles by Cognito sub (existing)
+  """
+  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!
+    @aws_auth(cognito_groups: ["ADMIN"])
+  adminRevokeBestie(userSub: ID!): BestieStatus!
+    @aws_auth(cognito_groups: ["ADMIN"])
+
+  """
+  Admin convenience: the same toggles by email (new)
+  """
+  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!
+    @aws_auth(cognito_groups: ["ADMIN"])
+  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!
+    @aws_auth(cognito_groups: ["ADMIN"])
 }
 
 schema {
   query: Query
   mutation: Mutation
 }
-

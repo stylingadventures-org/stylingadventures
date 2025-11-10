@@ -1,0 +1,181 @@
+/* ---------- Design tokens ---------- */
+:root{
+  --bg: #ffffff;
+  --bg-elev: #ffffffcc;
+  --text: #0f172a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --ring: #94a3b8;
+  --shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+
+  --accent: #111827;      /* near-black primary */
+  --accent-contrast: #fff;
+  --chip-bg: #fff;
+  --chip-border: #e5e7eb;
+
+  --success: #16a34a;
+  --warn: #f59e0b;
+
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --container-w: 1080px;
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 20px;
+}
+
+/* Dark mode (auto if user prefers) */
+@media (prefers-color-scheme: dark) {
+  :root{
+    --bg: #0b1020;
+    --bg-elev: #0b1020cc;
+    --text: #e5e7eb;
+    --muted: #9aa3b2;
+    --border: #1f2937;
+    --ring: #475569;
+    --shadow: 0 8px 28px rgba(0,0,0,0.35);
+
+    --chip-bg: #0f172a;
+    --chip-border: #1f2937;
+  }
+}
+
+/* ---------- Layout primitives ---------- */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+  font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-w);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.spacer { flex: 1 1 auto; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: saturate(1.1) blur(10px);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar .container {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Brand */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.logo-dot {
+  width: 14px; height: 14px; border-radius: 999px;
+  background: linear-gradient(135deg, #ff6b6b, #7c3aed);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+}
+
+/* Nav */
+.nav {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background .2s ease, color .2s ease, transform .06s ease;
+}
+.nav-link:hover { background: rgba(148,163,184,.12); }
+.nav-link.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow);
+}
+
+/* Actions area (right side of header) */
+.actions { display: inline-flex; align-items: center; gap: var(--space-3); }
+
+/* ---------- Page & cards ---------- */
+.page {
+  padding: 28px 0 64px;
+  min-height: calc(100dvh - 64px - 64px);
+}
+
+.card {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- Buttons & chips ---------- */
+.button {
+  display:inline-flex; align-items:center; justify-content:center;
+  height: 36px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: #f8fafc; color: var(--text);
+  cursor: pointer; transition: transform .06s ease, box-shadow .2s ease;
+}
+.button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.button:active { transform: translateY(1px); }
+
+.button.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.button.ghost { background: transparent; }
+
+.chip {
+  display:inline-flex; align-items:center; gap: 8px;
+  height: 36px; padding: 0 12px; border-radius:999px;
+  background: var(--chip-bg); border:1px solid var(--chip-border);
+}
+
+.dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  box-shadow: 0 0 0 2px #dcfce7 inset;
+  background: var(--success);
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  height: 64px;
+  display: grid; place-items: center;
+  color: var(--muted);
+}
+
+/* ---------- Utilities ---------- */
+.muted { color: var(--muted); }

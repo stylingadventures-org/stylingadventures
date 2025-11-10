@@ -1,4 +1,3 @@
-// lib/stacks/api-stack.ts
 import * as path from "path";
 import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -63,8 +62,8 @@ export class ApiStack extends Stack {
       environment: {
         NODE_OPTIONS: "--enable-source-maps",
         TABLE_NAME: table.tableName,
-        PK_NAME: "pk",   // single-table partition key
-        SK_NAME: "sk",   // single-table sort key
+        PK_NAME: "pk",
+        SK_NAME: "sk",
       },
       description: "Resolves Mutation.setUserRole (single-table aware)",
     });
@@ -73,7 +72,6 @@ export class ApiStack extends Stack {
 
     const rolesDs = this.api.addLambdaDataSource("RolesDs", rolesFn);
 
-    // Only the mutation is resolved by Lambda
     rolesDs.createResolver("SetUserRole", {
       typeName: "Mutation",
       fieldName: "setUserRole",
@@ -191,9 +189,83 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
+    /* ───────── Bestie resolvers (one NodejsFunction) ───────── */
+    const bestieFn = new NodejsFunction(this, "BestieResolverFn", {
+      entry: path.join(process.cwd(), "lambda/bestie/index.ts"),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        target: "node20",
+      },
+      environment: {
+        NODE_OPTIONS: "--enable-source-maps",
+        USER_POOL_ID: userPool.userPoolId, // used for email->sub lookup
+      },
+      description: "GraphQL resolvers for Bestie tier (incl. email helpers)",
+    });
+
+    // Read-only lookup permissions in Cognito (email -> sub)
+    bestieFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:ListUsers", "cognito-idp:AdminGetUser"],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    const bestieDs = this.api.addLambdaDataSource("BestieDs", bestieFn);
+
+    // Queries
+    bestieDs.createResolver("MeBestieStatus", {
+      typeName: "Query",
+      fieldName: "meBestieStatus",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("IsEpisodeEarlyAccess", {
+      typeName: "Query",
+      fieldName: "isEpisodeEarlyAccess",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // Mutations (by sub)
+    bestieDs.createResolver("ClaimBestieTrial", {
+      typeName: "Mutation",
+      fieldName: "claimBestieTrial",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminSetBestie", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestie",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminRevokeBestie", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestie",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // Mutations (by email) — NEW
+    bestieDs.createResolver("AdminSetBestieByEmail", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestieByEmail",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminRevokeBestieByEmail", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestieByEmail",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
     /* ───────── Outputs ───────── */
     new CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
     new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }
 }
-

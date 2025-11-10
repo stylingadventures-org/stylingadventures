@@ -11,7 +11,6 @@
         const r = await fetch(`${url}?ts=${Date.now()}`, { cache: "no-store" });
         if (r.ok) return r.json();
       } catch (e) {
-        // network error is fine — we fallback
         console.debug("[sa] config fetch failed", url, e);
       }
       return null;
@@ -22,9 +21,9 @@
       (await tryJson("/config.json")) ||
       {};
 
-    // Normalize common keys from various generations
     const cfg = { ...raw };
 
+    // GraphQL endpoint normalization
     cfg.appsyncUrl =
       cfg.appsyncUrl ||
       cfg.aws_appsync_graphqlEndpoint ||
@@ -34,21 +33,38 @@
       cfg.apiURL ||
       "";
 
-    if (!cfg.hostedUiDomain && cfg.domain) cfg.hostedUiDomain = cfg.domain;
+    // ClientId normalization
+    cfg.clientId = cfg.clientId || cfg.userPoolWebClientId || "";
 
-    const scopes = Array.isArray(cfg.scopes)
+    // Build the Hosted UI BASE (full https://{prefix}.auth.{region}.amazoncognito.com)
+    const region = (cfg.region || "").trim();
+    const fromCognitoDomain =
+      (cfg.cognitoDomain || "").trim().replace(/\/+$/, ""); // may already be full https://...amazoncognito.com
+    const fromPrefix = (cfg.cognitoDomainPrefix || cfg.hostedUiDomain || cfg.domain || "").trim();
+
+    let hostBase = "";
+    if (fromCognitoDomain) {
+      hostBase = fromCognitoDomain.startsWith("http")
+        ? fromCognitoDomain
+        : `https://${fromCognitoDomain}`;
+    } else if (fromPrefix && region) {
+      hostBase = `https://${fromPrefix}.auth.${region}.amazoncognito.com`;
+    }
+    cfg._hostBase = hostBase; // used everywhere else
+
+    // Scopes
+    cfg._scopes = Array.isArray(cfg.scopes)
       ? cfg.scopes
       : typeof cfg.scope === "string"
       ? cfg.scope.split(/[,\s]+/).filter(Boolean)
       : ["openid", "email"];
-    cfg._scopes = scopes;
 
     const origin = location.origin;
-    cfg.redirectUri = cfg.redirectUri || `${origin}/callback/`;
+    // no trailing slash to avoid redirect_mismatch
+    cfg.redirectUri = cfg.redirectUri || `${origin}/callback`;
     cfg.logoutUri = cfg.logoutUri || `${origin}/`;
 
-    // Optional: uploads API Gateway base url
-    // e.g. "https://xxxxx.execute-api.us-east-1.amazonaws.com/prod"
+    // Optional uploads API base (APIGW)
     cfg.uploadsApiUrl = cfg.uploadsApiUrl || raw.uploadsApiUrl || "";
 
     window.__cfg = cfg;
@@ -83,19 +99,18 @@
     let expMs = 0;
     try {
       expMs = (parseJwt(tok).exp | 0) * 1000;
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
     if (tok && expMs && expMs - Date.now() > 60_000) return;
 
     const cfg = window.__cfg || {};
+    if (!cfg._hostBase || !cfg.clientId) throw new Error("Auth misconfigured.");
     const rt = refreshToken();
     if (!rt) throw new Error("Not signed in (no refresh token).");
 
-    const tokenUrl = `https://${cfg.hostedUiDomain}.auth.${cfg.region}.amazoncognito.com/oauth2/token`;
+    const tokenUrl = `${cfg._hostBase}/oauth2/token`;
     const body = new URLSearchParams({
       grant_type: "refresh_token",
-      client_id: String(cfg.clientId || ""),
+      client_id: String(cfg.clientId),
       refresh_token: rt,
     });
 
@@ -125,7 +140,7 @@
     if (onCallback && err) {
       console.error("Cognito error:", err, errd || "");
       alert(`Sign-in failed: ${errd || err}`);
-      (window.top || window).location.replace(`/?tab=fan`);
+      (window.top || window).location.replace(`/`);
       return true;
     }
 
@@ -133,10 +148,11 @@
     if (!onCallback || !code) return false;
 
     const cfg = window.__cfg || {};
-    const tokenUrl = `https://${cfg.hostedUiDomain}.auth.${cfg.region}.amazoncognito.com/oauth2/token`;
+    if (!cfg._hostBase || !cfg.clientId) throw new Error("Auth misconfigured.");
+    const tokenUrl = `${cfg._hostBase}/oauth2/token`;
     const body = new URLSearchParams({
       grant_type: "authorization_code",
-      client_id: String(cfg.clientId || ""),
+      client_id: String(cfg.clientId),
       code,
       redirect_uri: cfg.redirectUri,
     });
@@ -157,11 +173,8 @@
     if (j.access_token) sessionStorage.setItem("access_token", j.access_token);
     if (j.refresh_token) sessionStorage.setItem("refresh_token", j.refresh_token);
 
-    const next = new URL(
-      window.__cfg?.postLoginRedirect || "/?tab=fan",
-      location.origin
-    );
-    (window.top || window).location.replace(next.toString());
+    // back to app root (or your preferred tab)
+    (window.top || window).location.replace(`/`);
     return true;
   }
 
@@ -172,11 +185,9 @@
     window.SA = {
       cfg: () => window.__cfg || {},
 
-      // True if we currently have an id_token
       isSignedIn: () =>
         !!(sessionStorage.getItem("id_token") || localStorage.getItem("sa_id_token")),
 
-      // Basic user info from the ID token (if present)
       getUser: () => {
         const c = parseJwt(idToken());
         return {
@@ -202,15 +213,18 @@
 
       startLogin: () => {
         const cfg = window.__cfg || {};
-        const base = `https://${cfg.hostedUiDomain}.auth.${cfg.region}.amazoncognito.com/login`;
+        if (!cfg._hostBase || !cfg.clientId) {
+          alert("Auth misconfigured.");
+          return;
+        }
         const scope = (cfg._scopes && cfg._scopes.join(" ")) || "openid email";
         const qp = new URLSearchParams({
-          client_id: String(cfg.clientId || ""),
+          client_id: String(cfg.clientId),
           response_type: "code",
           scope,
           redirect_uri: cfg.redirectUri,
         });
-        (window.top || window).location.assign(`${base}?${qp.toString()}`);
+        (window.top || window).location.assign(`${cfg._hostBase}/login?${qp.toString()}`);
       },
 
       logoutLocal: () => {
@@ -220,15 +234,23 @@
         localStorage.removeItem("sa_id_token");
       },
 
+      // ALWAYS clear local tokens first, then bounce to Hosted UI logout if present
       logoutEverywhere: () => {
         const cfg = window.__cfg || {};
-        const base = `https://${cfg.hostedUiDomain}.auth.${cfg.region}.amazoncognito.com/logout`;
-        const qp = new URLSearchParams({
-          client_id: String(cfg.clientId || ""),
-          logout_uri:
-            cfg.logoutUri || cfg.redirectUri || `${location.origin}/?tab=fan`,
-        });
-        (window.top || window).location.assign(`${base}?${qp.toString()}`);
+
+        try { window.SA.logoutLocal(); } catch {}
+
+        if (cfg._hostBase && cfg.clientId) {
+          const qp = new URLSearchParams({
+            client_id: String(cfg.clientId),
+            // must be in Cognito “Allowed sign-out URLs”
+            logout_uri: cfg.logoutUri || `${location.origin}/`,
+          });
+          (window.top || window).location.href = `${cfg._hostBase}/logout?${qp.toString()}`;
+          return;
+        }
+
+        (window.top || window).location.assign(cfg.logoutUri || "/");
       },
 
       gql: async (query, variables) => {
@@ -268,7 +290,7 @@
     if (fileOrText instanceof Blob) {
       blob = fileOrText;
       const name = fileOrText.name || `upload-${Date.now()}.bin`;
-      key = `users/${name}`;
+      key = name; // API can scope to users/<sub>/ if it wants
     } else {
       const text = String(fileOrText ?? "hello from Styling Adventures");
       blob = new Blob([text], { type: "text/plain" });
@@ -276,7 +298,7 @@
     }
 
     // 1) ask API for a presigned request
-    const presignRes = await fetch(`${cfg.uploadsApiUrl}/presign`, {
+    const presignRes = await fetch(`${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -291,35 +313,51 @@
       }),
     });
 
-    if (!presignRes.ok)
-      throw new Error(`presign failed (${presignRes.status})`);
+    if (!presignRes.ok) {
+      const t = await presignRes.text().catch(() => "");
+      throw new Error(`presign failed (${presignRes.status}) ${t}`);
+    }
     const presign = await presignRes.json();
 
-    // 2) PUT or POST upload to S3
+    // 2) Upload using whatever shape we received
+    // A) POST with form fields (S3 POST policy)
     if (presign.method === "POST" || presign.fields) {
       const form = new FormData();
-      Object.entries(presign.fields || {}).forEach(([k, v]) =>
-        form.append(k, v)
-      );
+      Object.entries(presign.fields || {}).forEach(([k, v]) => form.append(k, v));
       form.append("file", blob);
       const up = await fetch(presign.url, { method: "POST", body: form });
-      if (!up.ok) throw new Error(`upload failed (${up.status})`);
-    } else {
-      const up = await fetch(presign.url, {
-        method: presign.method || "PUT",
-        headers:
-          presign.headers || {
-            "Content-Type": blob.type || "application/octet-stream",
-          },
-        body: blob,
-      });
-      if (!up.ok) throw new Error(`upload failed (${up.status})`);
+      if (!up.ok) {
+        const t = await up.text().catch(() => "");
+        throw new Error(`upload failed (${up.status}) ${t}`);
+      }
+      return {
+        key,
+        bucket: presign.bucket,
+        url: presign.publicUrl || presign.url,
+        publicUrl: presign.publicUrl || null,
+      };
+    }
+
+    // B) PUT to a presigned URL
+    const uploadUrl = presign.url || presign.putUrl; // tolerate both
+    if (!uploadUrl) {
+      console.error("Unexpected presign payload:", presign);
+      throw new Error("presign payload missing url/putUrl");
+    }
+    const method = presign.method || "PUT";
+    const headers =
+      presign.headers || { "Content-Type": blob.type || "application/octet-stream" };
+
+    const up = await fetch(uploadUrl, { method, headers, body: blob });
+    if (!up.ok) {
+      const t = await up.text().catch(() => "");
+      throw new Error(`upload failed (${up.status}) ${t}`);
     }
 
     return {
       key,
       bucket: presign.bucket,
-      url: presign.publicUrl || presign.url, // may be signed/expiring
+      url: presign.publicUrl || presign.getUrl || uploadUrl, // for immediate preview
       publicUrl: presign.publicUrl || null,
     };
   }
@@ -351,15 +389,7 @@
 
     const sa = installSA();
 
-    // Wire header buttons if present (by label)
-    const buttons = Array.from(document.querySelectorAll("button"));
-    buttons.forEach((b) => {
-      const txt = (b.textContent || "").trim().toLowerCase();
-      if (txt === "sign in") b.addEventListener("click", sa.startLogin);
-      if (txt === "sign out") b.addEventListener("click", sa.logoutEverywhere);
-    });
-
-    resolveReady && resolveReady(sa);
+    if (resolveReady) resolveReady(sa);
     window.dispatchEvent(new Event("sa:ready"));
 
     console.log(
@@ -370,6 +400,3 @@
     );
   });
 })();
-
-
-

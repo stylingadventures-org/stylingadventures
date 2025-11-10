@@ -1,8 +1,8 @@
 // site/src/routes/Home.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getSA, signedUpload } from "../lib/sa";
+import { getSA, signedUpload, getSignedGetUrl } from "../lib/sa";
 
-const LS_KEY = "sa.lastUpload"; // { bucket, key, url }
+const LS_KEY = "sa.lastUpload"; // we persist only { bucket, key }
 
 const card = {
   wrap: { marginTop: 16, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" },
@@ -10,7 +10,6 @@ const card = {
   bad:  { color: "#991b1b" },
   hint: { fontSize: 12, color: "#6b7280" },
 };
-
 const btn = {
   base: {
     padding: "6px 12px",
@@ -19,14 +18,10 @@ const btn = {
     background: "#f8fafc",
     cursor: "pointer",
   },
-  primary: {
-    background: "#111827",
-    color: "white",
-    border: "1px solid #111827",
-  },
+  primary: { background: "#111827", color: "white", border: "1px solid #111827" },
+  danger:  { background: "#fee2e2", border: "1px solid #fecaca", color: "#991b1b" },
   disabled: { opacity: 0.5, cursor: "not-allowed" },
 };
-
 const box = {
   preview: { width: 270, height: 270, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb" },
 };
@@ -40,12 +35,13 @@ export default function Home() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [file, setFile] = useState(null);
-  const [uploaded, setUploaded] = useState(null); // live upload result
-  const [saved, setSaved] = useState(null);       // restored from localStorage
+  const [uploaded, setUploaded] = useState(null);   // result of current upload: {bucket,key,url(get)}
+  const [saved, setSaved] = useState(null);         // {bucket, key} from localStorage
+  const [freshUrl, setFreshUrl] = useState("");     // short-lived GET for saved key
   const [busy, setBusy] = useState(false);
   const blobUrlRef = useRef("");
 
-  // Say hello + auto-dismiss
+  // Greet via AppSync and auto-dismiss
   useEffect(() => {
     (async () => {
       try {
@@ -59,13 +55,27 @@ export default function Home() {
     })();
   }, []);
 
-  // Restore last upload on mount
+  // Restore last upload (bucket/key only) on mount
   useEffect(() => {
     try {
       const j = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-      if (j && (j.url || (j.bucket && j.key))) setSaved(j);
+      if (j?.bucket && j?.key) setSaved({ bucket: j.bucket, key: j.key });
     } catch {}
   }, []);
+
+  // When we have a saved key, mint a fresh GET URL for preview
+  useEffect(() => {
+    (async () => {
+      if (!saved?.key) { setFreshUrl(""); return; }
+      try {
+        const url = await getSignedGetUrl(saved.key);
+        setFreshUrl(url);
+      } catch (e) {
+        console.warn("getSignedGetUrl failed:", e);
+        setFreshUrl("");
+      }
+    })();
+  }, [saved?.key]);
 
   // Build a temporary blob URL for a *new* file preview
   const filePreviewUrl = useMemo(() => {
@@ -85,35 +95,19 @@ export default function Home() {
     };
   }, []);
 
-  // Helper: compute a public URL from upload result or saved record
-  function derivePublicUrl(rec, regionFallback = "us-east-1") {
-    if (!rec) return "";
-    if (rec.publicUrl) return rec.publicUrl;           // from your presigner (if provided)
-    if (rec.url && /^https?:\/\//.test(rec.url)) return rec.url; // already usable
-    if (rec.bucket && rec.key) {
-      const region = (window.SA?.cfg?.().region) || regionFallback;
-      return `https://${rec.bucket}.s3.${region}.amazonaws.com/${rec.key}`;
-    }
-    return "";
-  }
-
   async function doUpload() {
     if (!file) return;
     setErr("");
     setMsg("");
     setBusy(true);
     try {
-      const res = await signedUpload(file);
-      setUploaded(res);
+      const res = await signedUpload(file); // { bucket, key, url(get) }
+      setUploaded(res);                     // immediate preview with res.url
 
-      // Decide on the best long-lived URL to persist
-      const publicUrl = derivePublicUrl(res);
-
-      // Save to localStorage so it survives refreshes
-      const toSave = { bucket: res.bucket || null, key: res.key || null, url: publicUrl || res.url || null };
+      // Persist only bucket/key; presigned URLs expire
+      const toSave = { bucket: res.bucket || null, key: res.key || null };
       localStorage.setItem(LS_KEY, JSON.stringify(toSave));
-      setSaved(toSave);
-
+      setSaved(toSave);                     // triggers fresh GET URL fetch
       setMsg("✅ Upload succeeded!");
       setTimeout(() => setMsg(""), 5000);
     } catch (e) {
@@ -123,9 +117,11 @@ export default function Home() {
     }
   }
 
-  // Choose which preview to show:
-  const persistedUrl = derivePublicUrl(saved);
-  const showUrl = filePreviewUrl || persistedUrl;
+  // Choose preview priority:
+  // 1) New file blob preview
+  // 2) Just-uploaded signed GET url
+  // 3) Freshly-minted GET url for saved key
+  const showUrl = filePreviewUrl || uploaded?.url || freshUrl;
 
   return (
     <main>
@@ -158,17 +154,41 @@ export default function Home() {
         <button
           onClick={doUpload}
           disabled={!file || busy}
-          style={{
-            ...btn.base,
-            ...btn.primary,
-            ...(busy || !file ? btn.disabled : {}),
-          }}
+          style={{ ...btn.base, ...btn.primary, ...(busy || !file ? btn.disabled : {}) }}
         >
           {busy ? "Uploading…" : "Upload file"}
         </button>
+
+        {saved?.key && (
+          <button
+            onClick={async () => {
+              try { setFreshUrl(await getSignedGetUrl(saved.key)); }
+              catch (e) { setErr(String(e?.message || e)); }
+            }}
+            style={{ ...btn.base }}
+            title="Mint a new signed GET URL for the saved object"
+          >
+            Refresh preview URL
+          </button>
+        )}
+
+        {saved?.key && (
+          <button
+            onClick={() => {
+              localStorage.removeItem(LS_KEY);
+              setSaved(null);
+              setFreshUrl("");
+              setUploaded(null);
+              setFile(null);
+            }}
+            style={{ ...btn.base, ...btn.danger }}
+          >
+            Clear saved preview
+          </button>
+        )}
       </div>
 
-      {(uploaded || showUrl) && (
+      {(uploaded || showUrl || saved?.key) && (
         <div style={{ ...card.wrap, marginTop: 16 }}>
           {uploaded && <p style={card.good}>Upload succeeded!</p>}
 
@@ -178,13 +198,13 @@ export default function Home() {
             </div>
           )}
 
-          {(uploaded?.url || persistedUrl) && (
+          {(uploaded?.url || freshUrl) && (
             <div style={{ marginTop: 6 }}>
               <span>Upload URL:&nbsp;</span>
-              <a href={uploaded?.url || persistedUrl} target="_blank" rel="noreferrer">
-                {truncate(uploaded?.url || persistedUrl, 120)}
+              <a href={uploaded?.url || freshUrl} target="_blank" rel="noreferrer">
+                {truncate(uploaded?.url || freshUrl, 120)}
               </a>
-              <div style={card.hint}>(If this is a signed URL, it may expire.)</div>
+              <div style={card.hint}>(This signed URL expires; use “Refresh preview URL” anytime.)</div>
             </div>
           )}
 
@@ -205,4 +225,3 @@ export default function Home() {
     </main>
   );
 }
-

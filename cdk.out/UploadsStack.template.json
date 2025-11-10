@@ -389,7 +389,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "c68f669ae783d5b1583745457541b21b540821d2c4829eac713558a273ff24e2.zip"
+     "S3Key": "065e0e4ea48761457e543508276fe81dc4f2d638ecfc2bd70db66c81dc30eff9.zip"
     },
     "Environment": {
      "Variables": {
@@ -428,7 +428,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.c68f669ae783d5b1583745457541b21b540821d2c4829eac713558a273ff24e2",
+    "aws:asset:path": "asset.065e0e4ea48761457e543508276fe81dc4f2d638ecfc2bd70db66c81dc30eff9",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1067,7 +1067,7 @@
     ],
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "b828b08312fdcd09635ffc17a68144477885743f252eddb0b77b106bea3add13.zip"
+     "S3Key": "19ab497907dad336a849fa7786755c35f2bbcef23f898701c65385da3445a473.zip"
     },
     "Environment": {
      "Variables": {
@@ -1112,7 +1112,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ThumbgenFn/Resource",
-    "aws:asset:path": "asset.b828b08312fdcd09635ffc17a68144477885743f252eddb0b77b106bea3add13",
+    "aws:asset:path": "asset.19ab497907dad336a849fa7786755c35f2bbcef23f898701c65385da3445a473",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1354,7 +1354,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04C295b45668a4b5350b8aee15ebd1f87ca": {
+  "UploadsApiDeployment4A67E04C0b200e64a959d5a6ac6534a5e6865a86": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -1370,6 +1370,7 @@
     "UploadsApilistOPTIONSA1D1A8A2",
     "UploadsApilist04BFB266",
     "UploadsApiOPTIONS016D7C40",
+    "UploadsApipresignGETC4331AE5",
     "UploadsApipresignOPTIONSB65EB223",
     "UploadsApipresignPOSTD80E85B8",
     "UploadsApipresignE1161A2C",
@@ -1386,7 +1387,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04C295b45668a4b5350b8aee15ebd1f87ca"
+     "Ref": "UploadsApiDeployment4A67E04C0b200e64a959d5a6ac6534a5e6865a86"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -1817,6 +1818,116 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/POST/Resource"
+   }
+  },
+  "UploadsApipresignGETApiPermissionUploadsStackUploadsApiC6DB0904GETpresign84B9E5E8": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/GET/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..presign"
+   }
+  },
+  "UploadsApipresignGETApiPermissionTestUploadsStackUploadsApiC6DB0904GETpresignEB57B4F6": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/GET/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/GET/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.GET..presign"
+   }
+  },
+  "UploadsApipresignGETC4331AE5": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Ref": "UploadsAuthDC5DFFC3"
+    },
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "PresignFnA38D425B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApipresignE1161A2C"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/GET/Resource"
    }
   },
   "UploadsApidelete14170098": {
