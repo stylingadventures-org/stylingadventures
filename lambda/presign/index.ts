@@ -7,10 +7,11 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-/* ---------------- S3 client (path-style) ---------------- */
+/* Use path-style to avoid some blockers on virtual-hosted S3 */
 const s3 = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
   forcePathStyle: true,
@@ -18,15 +19,13 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.BUCKET!;
 
-/* ============================== CORS helpers ============================== */
+/* ---------------- CORS helpers ---------------- */
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
-  .map((s) => s.trim())
+  .map((s) => s.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
-const FALLBACK_ORIGIN = process.env.WEB_ORIGIN || "";
-
-// Include lowercase 'authorization' since browsers may send that in preflight.
+const FALLBACK_ORIGIN = (process.env.WEB_ORIGIN || "").replace(/\/+$/, "");
 const ALLOW_HEADERS = [
   "authorization",
   "Authorization",
@@ -36,12 +35,19 @@ const ALLOW_HEADERS = [
   "X-Amz-Security-Token",
 ].join(",");
 
+function reqOrigin(event: any): string {
+  return String(event?.headers?.origin || event?.headers?.Origin || "").replace(
+    /\/+$/,
+    ""
+  );
+}
+
 function pickAllowedOrigin(event: any): string | undefined {
-  const reqOrigin = event?.headers?.origin || event?.headers?.Origin || "";
-  if (ALLOWED_ORIGINS.length) {
-    return ALLOWED_ORIGINS.includes(reqOrigin) ? reqOrigin : undefined;
+  const o = reqOrigin(event);
+  if (ALLOWED_ORIGINS.length > 0) {
+    return o && ALLOWED_ORIGINS.includes(o) ? o : undefined;
   }
-  return FALLBACK_ORIGIN || undefined; // back-compat single origin
+  return FALLBACK_ORIGIN || undefined;
 }
 
 function baseCorsHeaders(origin?: string) {
@@ -50,10 +56,12 @@ function baseCorsHeaders(origin?: string) {
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Credentials": "true",
-    // Help caches/proxies treat each origin/request-method/header set distinctly
-    Vary: "Origin, Access-Control-Request-Headers, Access-Control-Request-Method",
+    "Access-Control-Expose-Headers":
+      "ETag,Content-Type,Content-Length,Last-Modified,Accept-Ranges",
+    Vary:
+      "Origin, Access-Control-Request-Headers, Access-Control-Request-Method",
   };
-  if (origin) h["Access-Control-Allow-Origin"] = origin; // EXACTLY one origin, only if allowed
+  if (origin) h["Access-Control-Allow-Origin"] = origin;
   return h;
 }
 
@@ -65,7 +73,11 @@ function ok(
   const origin = pickAllowedOrigin(event);
   return {
     statusCode: 200,
-    headers: { ...baseCorsHeaders(origin), ...extra },
+    headers: {
+      ...baseCorsHeaders(origin),
+      "Cache-Control": "no-store",
+      ...extra,
+    },
     body: JSON.stringify(body),
   };
 }
@@ -75,15 +87,10 @@ function noContent(event: any): APIGatewayProxyResult {
   return { statusCode: 204, headers: baseCorsHeaders(origin), body: "" };
 }
 
-function bad(
-  event: any,
-  status: number,
-  msg: string
-): APIGatewayProxyResult {
+function bad(event: any, status: number, msg: string): APIGatewayProxyResult {
   const origin = pickAllowedOrigin(event);
-  const hasReqOrigin = !!(event.headers?.origin || event.headers?.Origin);
-  if (hasReqOrigin && !origin) {
-    // Do NOT echo ACAO for disallowed origins
+  const hadReqOrigin = !!reqOrigin(event);
+  if (hadReqOrigin && !origin) {
     return {
       statusCode: 403,
       headers: baseCorsHeaders(undefined),
@@ -96,24 +103,16 @@ function bad(
     body: JSON.stringify({ message: msg }),
   };
 }
-/* ============================ end CORS helpers ============================ */
+/* ------------------------------------------------ */
 
-/* ----------------------------- utils ----------------------------- */
 type AnyEvent = APIGatewayProxyEvent | APIGatewayProxyEventV2 | any;
-
-function getMethod(e: AnyEvent): string {
-  return (e as any).httpMethod ?? e.requestContext?.http?.method ?? "GET";
-}
-
-function getClaims(e: AnyEvent): Record<string, any> {
-  return (
-    (e as any).requestContext?.authorizer?.claims ??
-    (e as any).requestContext?.authorizer?.jwt?.claims ??
-    {}
-  );
-}
-
-function parseJsonBody(e: AnyEvent): any {
+const methodOf = (e: AnyEvent) =>
+  (e as any).httpMethod ?? e.requestContext?.http?.method ?? "GET";
+const claimsOf = (e: AnyEvent) =>
+  (e as any).requestContext?.authorizer?.claims ??
+  (e as any).requestContext?.authorizer?.jwt?.claims ??
+  {};
+const parseJson = (e: AnyEvent) => {
   const raw = (e as any).body ?? "";
   if (!raw) return {};
   const txt =
@@ -125,74 +124,122 @@ function parseJsonBody(e: AnyEvent): any {
   } catch {
     return {};
   }
-}
-
-/** Sanitize a user-provided key and enforce users/<sub>/ prefix */
+};
+/** sanitize + enforce users/<sub>/ prefix */
 function scopeUserKey(sub: string, raw: string): string {
   const safe = String(raw || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
-  // If caller passed a fully scoped key, keep it; otherwise prefix it
-  return safe.startsWith(`users/${sub}/`) ? safe : `users/${sub}/${safe}`;
+  const alreadyScoped = safe.startsWith(`users/${sub}/`);
+  const foreignUser = /^users\/[^/]+\//.test(safe) && !alreadyScoped;
+  return alreadyScoped
+    ? safe
+    : `users/${sub}/${foreignUser ? safe.replace(/^users\/[^/]+\//, "") : safe}`;
 }
 
-/* ----------------------------- handler ----------------------------- */
+function readGroups(claims: any): string[] {
+  const g = claims?.["cognito:groups"];
+  if (Array.isArray(g)) return g;
+  if (typeof g === "string") return g.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
 export const handler = async (
   event: AnyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const method = getMethod(event);
+  const method = methodOf(event);
 
   // CORS preflight
   if (method === "OPTIONS") {
     const origin = pickAllowedOrigin(event);
-    if (!origin && (event.headers?.origin || event.headers?.Origin)) {
+    if (!origin && reqOrigin(event)) {
       return { statusCode: 403, headers: baseCorsHeaders(undefined), body: "" };
     }
     return noContent(event);
   }
 
   try {
-    const claims = getClaims(event);
-    const sub = claims?.sub as string | undefined;
+    const claims = claimsOf(event);
+    const sub = (claims?.sub as string) || "";
     if (!sub) return bad(event, 401, "Not authorized");
 
+    // ---- tiered upload limits (in MB) ----
+    const groups = readGroups(claims);
+    const baseMb = Number(process.env.BASE_UPLOAD_LIMIT_MB || "50");
+    const bestieMb = Number(process.env.BESTIE_UPLOAD_LIMIT_MB || "200");
+    const maxMb = groups.includes("BESTIE") ? bestieMb : baseMb;
+
     if (method === "POST") {
-      // Create a presigned PUT URL for user-scoped key
-      const body = parseJsonBody(event);
+      // Create PUT + GET presigns for a new upload
+      const body: any = parseJson(event);
       const rawKey: string = String(body.key || "");
       const contentType: string = String(
         body.contentType || "application/octet-stream"
       );
       if (!rawKey) return bad(event, 400, "Missing 'key'");
 
-      const key = scopeUserKey(sub, rawKey);
+      // If client sent size, enforce quota now
+      const contentLength = Number(body.contentLength || 0);
+      if (contentLength > 0 && contentLength > maxMb * 1024 * 1024) {
+        return bad(event, 413, `Max upload ${maxMb} MB for your tier`);
+      }
 
-      const cmd = new PutObjectCommand({
+      const key = scopeUserKey(sub, rawKey);
+      const putCmd = new PutObjectCommand({
         Bucket: BUCKET,
         Key: key,
         ContentType: contentType,
       });
+      const getCmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
 
-      const url = await getSignedUrl(s3, cmd, { expiresIn: 900 }); // 15 min
-      return ok(event, { key, url });
+      const putUrl = await getSignedUrl(s3, putCmd, { expiresIn: 900 }); // 15m
+      const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
+
+      // IMPORTANT: include 'url' and 'headers' for clients that expect them
+      return ok(event, {
+        bucket: BUCKET,
+        key,
+        method: "PUT",
+        url: putUrl,
+        headers: { "Content-Type": contentType },
+        putUrl,
+        getUrl,
+        maxBytesAllowed: maxMb * 1024 * 1024,
+      });
+    }
+
+    if (method === "GET") {
+      // Mint a fresh GET presign for an existing key (for previews after refresh)
+      const rawKey = String(
+        event?.queryStringParameters?.key ??
+          (event as any).pathParameters?.key ??
+          ""
+      );
+      if (!rawKey) return bad(event, 400, "Missing 'key'");
+      const key = scopeUserKey(sub, rawKey);
+
+      const getCmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+      const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
+
+      // Mirror the field names the UI may look for
+      return ok(event, {
+        bucket: BUCKET,
+        key,
+        getUrl,
+        url: getUrl,
+        publicUrl: getUrl,
+      });
     }
 
     if (method === "DELETE") {
       // Delete a user-scoped object
-      const rawKey =
+      const rawKey = String(
         event?.queryStringParameters?.key ??
-        (event as any).pathParameters?.key ??
-        "";
-      if (!rawKey) return bad(event, 400, "Missing 'key'");
-
-      const key = scopeUserKey(sub, String(rawKey));
-
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: BUCKET,
-          Key: key,
-        })
+          (event as any).pathParameters?.key ??
+          ""
       );
+      if (!rawKey) return bad(event, 400, "Missing 'key'");
+      const key = scopeUserKey(sub, rawKey);
 
-      // 204 is typical for delete, but 200 with JSON is easier to consume.
+      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
       return ok(event, { deleted: true, key });
     }
 

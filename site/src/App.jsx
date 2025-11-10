@@ -1,35 +1,18 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// site/src/App.jsx (fragment)
+import { Routes, Route } from "react-router-dom";
+import BestieLayout from "./routes/bestie/Layout";
+import BestieOverview from "./routes/bestie/Overview";
+import BestiePerks from "./routes/bestie/Perks";
+import BestieContent from "./routes/bestie/Content";
+import FanHome from "./routes/fan/FanHome";
 
-function App() {
-  const [count, setCount] = useState(0)
+<Routes>
+  {/* global pages... */}
+  <Route path="/fan" element={<FanHome />} />
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
-
-export default App
+  <Route path="/bestie" element={<BestieLayout />}>
+    <Route index element={<BestieOverview />} />
+    <Route path="perks" element={<BestiePerks />} />
+    <Route path="content" element={<BestieContent />} />
+  </Route>
+</Routes>

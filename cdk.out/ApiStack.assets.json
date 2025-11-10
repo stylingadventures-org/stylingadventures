@@ -46,16 +46,31 @@
         }
       }
     },
-    "f0af9576f9722b7c30a70d8b2256919224a129f88b330a079fc6ca7b4d337f43": {
+    "056b9a193f7d8c6ce236555c42bfe3d9198374ce3f82b056e4cd29e067ba4625": {
+      "displayName": "BestieResolverFn/Code",
+      "source": {
+        "path": "asset.056b9a193f7d8c6ce236555c42bfe3d9198374ce3f82b056e4cd29e067ba4625",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-93a54d75": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "056b9a193f7d8c6ce236555c42bfe3d9198374ce3f82b056e4cd29e067ba4625.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "8ec9aca837915ef6f33b86425a0f39e11029652d3e9053a4dbe464d3b17dc132": {
       "displayName": "ApiStack Template",
       "source": {
         "path": "ApiStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-b277967d": {
+        "637423256673-us-east-1-95a9e668": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "f0af9576f9722b7c30a70d8b2256919224a129f88b330a079fc6ca7b4d337f43.json",
+          "objectKey": "8ec9aca837915ef6f33b86425a0f39e11029652d3e9053a4dbe464d3b17dc132.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

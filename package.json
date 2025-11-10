@@ -21,6 +21,7 @@
     "sharp": "^0.34.4"
   },
   "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.927.0",
     "@types/aws-lambda": "^8.10.156",
     "@types/node": "^24.10.0",
     "@types/sharp": "^0.31.1",

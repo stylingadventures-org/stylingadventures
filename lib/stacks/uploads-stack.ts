@@ -207,18 +207,28 @@ export class UploadsStack extends Stack {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
+
     presignRes.addMethod("POST", presignInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
+
+    // NEW: also allow GET /presign with the same integration & auth
+    presignRes.addMethod("GET", presignInt, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
     delRes.addMethod("DELETE", delInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
+
     headRes.addMethod("GET", headInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
   }
 }
+
 
