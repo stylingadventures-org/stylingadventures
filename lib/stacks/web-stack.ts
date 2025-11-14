@@ -43,6 +43,8 @@ function handler(event) {
     this.distribution = new cloudfront.Distribution(this, "CloudFrontDistribution", {
       defaultRootObject: "index.html",
       defaultBehavior: {
+        // NOTE: Using S3Origin for compatibility with your current CDK version.
+        // If/when you upgrade, you can switch to S3BucketOrigin.
         origin: new origins.S3Origin(this.siteBucket, { originAccessIdentity: siteOai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
@@ -66,7 +68,12 @@ function handler(event) {
       destinationBucket: this.siteBucket,
       distribution: this.distribution,
       distributionPaths: ["/*"],
-      sources: [s3deploy.Source.asset(webRoot)],   // <-- no include/exclude here
+      sources: [s3deploy.Source.asset(webRoot)],
+      prune: true,
+      cacheControl: [
+        s3deploy.CacheControl.setPublic(),
+        s3deploy.CacheControl.fromString("max-age=0, no-cache, no-store, must-revalidate"),
+      ],
     });
 
     new CfnOutput(this, "CloudFrontDistributionDomainName", {
@@ -77,6 +84,7 @@ function handler(event) {
     });
   }
 }
+
 
 
 

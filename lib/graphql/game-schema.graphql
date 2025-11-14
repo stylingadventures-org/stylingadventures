@@ -1,0 +1,59 @@
+# Fans-tier schema extensions
+
+type GameProfile @aws_cognito_user_pools {
+  userId: ID!
+  level: Int!
+  xp: Int!
+  coins: Int!
+  badges: [String!]!
+  lastEventAt: AWSDateTime
+}
+
+type LeaderboardEntry {
+  userId: ID!
+  displayName: String
+  xp: Int
+  coins: Int
+  rank: Int
+}
+
+type Poll {
+  pollId: ID!
+  question: String!
+  options: [String!]!
+  # simple counts; detailed per-user votes are not returned to clients
+  totals: [Int!]!
+  createdBy: String!
+  createdAt: AWSDateTime!
+}
+
+input GameEventInput {
+  type: String!      # e.g. "LEVEL_CLEAR","DAILY_LOGIN","SHARE"
+  metadata: AWSJSON
+}
+
+input AwardInput {
+  userId: ID!        # only ADMIN can award other users; non-admin must match self
+  coins: Int!
+  xp: Int
+  reason: String
+}
+
+input CreatePollInput {
+  question: String!
+  options: [String!]! @aws_iam
+}
+
+type Query {
+  getMyProfile: GameProfile! @aws_cognito_user_pools
+  topXP(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]! @aws_cognito_user_pools
+  topCoins(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]! @aws_cognito_user_pools
+  getPoll(pollId: ID!): Poll @aws_cognito_user_pools
+}
+
+type Mutation {
+  logGameEvent(input: GameEventInput!): GameProfile! @aws_cognito_user_pools
+  awardCoins(input: AwardInput!): GameProfile! @aws_cognito_user_pools
+  createPoll(input: CreatePollInput!): Poll @aws_cognito_user_pools
+  votePoll(pollId: ID!, optionIndex: Int!): Poll @aws_cognito_user_pools
+}

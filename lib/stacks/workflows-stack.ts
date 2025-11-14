@@ -46,11 +46,11 @@ export class WorkflowsStack extends Stack {
     // --- SNS topic used with WAIT_FOR_TASK_TOKEN
     const approvalTopic = new sns.Topic(this, "ClosetApprovalTopic");
 
-    // NEW: subscriber that saves the Step Functions task token on the item
+    // Subscriber that saves the Step Functions task token on the item
     const saveTokenFn = new NodejsFunction(this, "SaveApprovalTokenFn", {
       entry: path.join(
         process.cwd(),
-        "lambda/workflows/save-approval-token.ts"
+        "lambda/workflows/save-approval-token.ts",
       ),
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: {
@@ -89,13 +89,13 @@ export class WorkflowsStack extends Stack {
         new tasks.LambdaInvoke(this, "Moderation", {
           lambdaFunction: moderationFn,
           resultPath: sfn.JsonPath.DISCARD,
-        })
+        }),
       )
       .next(
         new tasks.LambdaInvoke(this, "PIICheck", {
           lambdaFunction: piiCheckFn,
           resultPath: sfn.JsonPath.DISCARD,
-        })
+        }),
       )
       .next(waitForApproval)
       .next(
@@ -105,14 +105,14 @@ export class WorkflowsStack extends Stack {
             new tasks.LambdaInvoke(this, "Publish", {
               lambdaFunction: publishFn,
               resultPath: sfn.JsonPath.DISCARD,
-            })
+            }),
           )
           .otherwise(
             new tasks.LambdaInvoke(this, "Reject", {
               lambdaFunction: rejectFn,
               resultPath: sfn.JsonPath.DISCARD,
-            })
-          )
+            }),
+          ),
       );
 
     this.closetApprovalSm = new sfn.StateMachine(this, "ClosetUploadApproval", {

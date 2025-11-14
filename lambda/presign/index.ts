@@ -1,3 +1,4 @@
+// lambda/presign/index.ts
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -19,13 +20,8 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.BUCKET!;
 
-/* ---------------- CORS helpers ---------------- */
-const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .map((s) => s.trim().replace(/\/+$/, ""))
-  .filter(Boolean);
+/* ---------------- CORS helpers (simplified) ---------------- */
 
-const FALLBACK_ORIGIN = (process.env.WEB_ORIGIN || "").replace(/\/+$/, "");
 const ALLOW_HEADERS = [
   "authorization",
   "Authorization",
@@ -42,17 +38,13 @@ function reqOrigin(event: any): string {
   );
 }
 
-function pickAllowedOrigin(event: any): string | undefined {
-  const o = reqOrigin(event);
-  if (ALLOWED_ORIGINS.length > 0) {
-    return o && ALLOWED_ORIGINS.includes(o) ? o : undefined;
-  }
-  return FALLBACK_ORIGIN || undefined;
-}
+function corsHeaders(event: any): Record<string, string> {
+  // Always echo back the browser's Origin header if present
+  const origin = reqOrigin(event);
 
-function baseCorsHeaders(origin?: string) {
-  const h: Record<string, string> = {
+  return {
     "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": origin || "*", // should always be Origin in a browser
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Credentials": "true",
@@ -61,8 +53,6 @@ function baseCorsHeaders(origin?: string) {
     Vary:
       "Origin, Access-Control-Request-Headers, Access-Control-Request-Method",
   };
-  if (origin) h["Access-Control-Allow-Origin"] = origin;
-  return h;
 }
 
 function ok(
@@ -70,11 +60,10 @@ function ok(
   body: unknown,
   extra: Record<string, string> = {}
 ): APIGatewayProxyResult {
-  const origin = pickAllowedOrigin(event);
   return {
     statusCode: 200,
     headers: {
-      ...baseCorsHeaders(origin),
+      ...corsHeaders(event),
       "Cache-Control": "no-store",
       ...extra,
     },
@@ -83,35 +72,33 @@ function ok(
 }
 
 function noContent(event: any): APIGatewayProxyResult {
-  const origin = pickAllowedOrigin(event);
-  return { statusCode: 204, headers: baseCorsHeaders(origin), body: "" };
+  return { statusCode: 204, headers: corsHeaders(event), body: "" };
 }
 
-function bad(event: any, status: number, msg: string): APIGatewayProxyResult {
-  const origin = pickAllowedOrigin(event);
-  const hadReqOrigin = !!reqOrigin(event);
-  if (hadReqOrigin && !origin) {
-    return {
-      statusCode: 403,
-      headers: baseCorsHeaders(undefined),
-      body: JSON.stringify({ message: "CORS: origin not allowed" }),
-    };
-  }
+function bad(
+  event: any,
+  status: number,
+  msg: string
+): APIGatewayProxyResult {
   return {
     statusCode: status,
-    headers: baseCorsHeaders(origin),
+    headers: corsHeaders(event),
     body: JSON.stringify({ message: msg }),
   };
 }
-/* ------------------------------------------------ */
+
+/* ---------------- shared helpers ---------------- */
 
 type AnyEvent = APIGatewayProxyEvent | APIGatewayProxyEventV2 | any;
+
 const methodOf = (e: AnyEvent) =>
   (e as any).httpMethod ?? e.requestContext?.http?.method ?? "GET";
+
 const claimsOf = (e: AnyEvent) =>
   (e as any).requestContext?.authorizer?.claims ??
   (e as any).requestContext?.authorizer?.jwt?.claims ??
   {};
+
 const parseJson = (e: AnyEvent) => {
   const raw = (e as any).body ?? "";
   if (!raw) return {};
@@ -125,7 +112,8 @@ const parseJson = (e: AnyEvent) => {
     return {};
   }
 };
-/** sanitize + enforce users/<sub>/ prefix */
+
+/** sanitize + enforce users/<sub>/ prefix FOR WRITES (POST/DELETE) */
 function scopeUserKey(sub: string, raw: string): string {
   const safe = String(raw || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
   const alreadyScoped = safe.startsWith(`users/${sub}/`);
@@ -138,9 +126,15 @@ function scopeUserKey(sub: string, raw: string): string {
 function readGroups(claims: any): string[] {
   const g = claims?.["cognito:groups"];
   if (Array.isArray(g)) return g;
-  if (typeof g === "string") return g.split(",").map((s) => s.trim()).filter(Boolean);
+  if (typeof g === "string")
+    return g
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   return [];
 }
+
+/* ---------------- main handler ---------------- */
 
 export const handler = async (
   event: AnyEvent
@@ -149,10 +143,6 @@ export const handler = async (
 
   // CORS preflight
   if (method === "OPTIONS") {
-    const origin = pickAllowedOrigin(event);
-    if (!origin && reqOrigin(event)) {
-      return { statusCode: 403, headers: baseCorsHeaders(undefined), body: "" };
-    }
     return noContent(event);
   }
 
@@ -193,7 +183,6 @@ export const handler = async (
       const putUrl = await getSignedUrl(s3, putCmd, { expiresIn: 900 }); // 15m
       const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
 
-      // IMPORTANT: include 'url' and 'headers' for clients that expect them
       return ok(event, {
         bucket: BUCKET,
         key,
@@ -207,19 +196,26 @@ export const handler = async (
     }
 
     if (method === "GET") {
-      // Mint a fresh GET presign for an existing key (for previews after refresh)
+      // Mint a fresh GET presign for an existing key (for previews / feed)
       const rawKey = String(
         event?.queryStringParameters?.key ??
           (event as any).pathParameters?.key ??
           ""
       );
       if (!rawKey) return bad(event, 400, "Missing 'key'");
-      const key = scopeUserKey(sub, rawKey);
+
+      // sanitise but allow users/<anySub>/... for READS
+      const safe = String(rawKey || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
+      let key = safe;
+
+      if (!/^users\/[^/]+\//.test(safe)) {
+        // not obviously user-scoped -> scope to current user
+        key = scopeUserKey(sub, safe);
+      }
 
       const getCmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
       const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
 
-      // Mirror the field names the UI may look for
       return ok(event, {
         bucket: BUCKET,
         key,
@@ -249,3 +245,4 @@ export const handler = async (
     return bad(event, 500, e?.message ?? String(e));
   }
 };
+

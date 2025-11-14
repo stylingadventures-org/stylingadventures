@@ -52,6 +52,9 @@ export default function Layout() {
             {(role === "BESTIE" || role === "ADMIN") && (
               <NavLink to="/bestie" className={({isActive}) => `pill ${isActive ? "active" : ""}`}>Bestie</NavLink>
             )}
+            {role === "ADMIN" && (
+              <NavLink to="/admin" className={({isActive}) => `pill ${isActive ? "active" : ""}`}>Admin</NavLink>
+            )}
           </nav>
 
           <div className="spacer" />
@@ -66,7 +69,7 @@ export default function Layout() {
       <footer className="site">
         <div className="container foot-inner">
           <div>© Styling Adventures</div>
-          <div className="hide-sm">Made with ❤️ and good hair days.</div>
+          <div className="hide-sm">Made with ❤️ and good style days.</div>
         </div>
       </footer>
     </>

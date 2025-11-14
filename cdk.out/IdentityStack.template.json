@@ -76,6 +76,8 @@
     ],
     "CallbackURLs": [
      "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+     "http://localhost:5173/callback",
+     "http://localhost:5173/callback/",
      "http://localhost:5173/callback/index.html"
     ],
     "ExplicitAuthFlows": [
@@ -240,7 +242,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XKzQrCMBAE4GfpPV1r8OK5gniyKJ4lNlG2P7ul2Vik9N0laKXgaWe+WQ1aa8gSM/i0tHXa4A3Gs5iyVmbw15IfhMIwXrzrC+ZG5Xf65TnkDTqS5fSVue64NUjLh3/Z9xy6CAfrSFBeEacIxyBdkEkRWweVXz11BustbJLKI6Z9IMHWwelz34exgvHRAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XKQQuCQBAF4N/iXSfbunQ2iE5F0Tk2d4vRdUZ2Z5MQ/3tIGUKnee97o0CpFeSJ7kJWmjpzeIP+LLqsU92Fa8kPQmHoL8H6I7NLizv98hQKh5ZkPn1lqltuNNL84V92nmM7wt5YEpTXiMMIhyhtlCElNhaqsHiqHJYbWCdVQMx8JMHGwulz32aK2W3RAAAA"
    },
    "Metadata": {
     "aws:cdk:path": "IdentityStack/CDKMetadata/Default"

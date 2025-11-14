@@ -1,227 +1,282 @@
 // site/src/routes/Home.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getSA, signedUpload, getSignedGetUrl } from "../lib/sa";
-
-const LS_KEY = "sa.lastUpload"; // we persist only { bucket, key }
-
-const card = {
-  wrap: { marginTop: 16, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" },
-  good: { color: "#166534" },
-  bad:  { color: "#991b1b" },
-  hint: { fontSize: 12, color: "#6b7280" },
-};
-const btn = {
-  base: {
-    padding: "6px 12px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
-    background: "#f8fafc",
-    cursor: "pointer",
-  },
-  primary: { background: "#111827", color: "white", border: "1px solid #111827" },
-  danger:  { background: "#fee2e2", border: "1px solid #fecaca", color: "#991b1b" },
-  disabled: { opacity: 0.5, cursor: "not-allowed" },
-};
-const box = {
-  preview: { width: 270, height: 270, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb" },
-};
-
-function truncate(str, n = 80) {
-  if (!str) return "";
-  return str.length <= n ? str : str.slice(0, n) + "…";
-}
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Auth } from "../lib/sa";
 
 export default function Home() {
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-  const [file, setFile] = useState(null);
-  const [uploaded, setUploaded] = useState(null);   // result of current upload: {bucket,key,url(get)}
-  const [saved, setSaved] = useState(null);         // {bucket, key} from localStorage
-  const [freshUrl, setFreshUrl] = useState("");     // short-lived GET for saved key
-  const [busy, setBusy] = useState(false);
-  const blobUrlRef = useRef("");
+  const nav = useNavigate();
 
-  // Greet via AppSync and auto-dismiss
-  useEffect(() => {
-    (async () => {
-      try {
-        const SA = await getSA();
-        const data = await SA.gql(`query { hello }`);
-        setMsg(`${data.hello} 👋`);
-        setTimeout(() => setMsg(""), 4500);
-      } catch (e) {
-        setErr(String(e?.message || e));
-      }
-    })();
-  }, []);
+  const handleSignIn = () => {
+    // Use Auth.login so Cognito Hosted UI handles auth
+    Auth.login();
+  };
 
-  // Restore last upload (bucket/key only) on mount
-  useEffect(() => {
-    try {
-      const j = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-      if (j?.bucket && j?.key) setSaved({ bucket: j.bucket, key: j.key });
-    } catch {}
-  }, []);
+  const handleGuest = () => {
+    // Light-weight way to explore the app
+    nav("/fan");
+  };
 
-  // When we have a saved key, mint a fresh GET URL for preview
-  useEffect(() => {
-    (async () => {
-      if (!saved?.key) { setFreshUrl(""); return; }
-      try {
-        const url = await getSignedGetUrl(saved.key);
-        setFreshUrl(url);
-      } catch (e) {
-        console.warn("getSignedGetUrl failed:", e);
-        setFreshUrl("");
-      }
-    })();
-  }, [saved?.key]);
+  const goToFan = () => {
+    nav("/fan");
+  };
 
-  // Build a temporary blob URL for a *new* file preview
-  const filePreviewUrl = useMemo(() => {
-    if (file instanceof Blob) {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const u = URL.createObjectURL(file);
-      blobUrlRef.current = u;
-      return u;
-    }
-    return "";
-  }, [file]);
+  const goToBestie = () => {
+    // For now, just sign in – once roles are wired,
+    // you can route directly to /bestie if they’re a Bestie.
+    handleSignIn();
+  };
 
-  // Clean up blob on unmount
-  useEffect(() => {
-    return () => {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-    };
-  }, []);
-
-  async function doUpload() {
-    if (!file) return;
-    setErr("");
-    setMsg("");
-    setBusy(true);
-    try {
-      const res = await signedUpload(file); // { bucket, key, url(get) }
-      setUploaded(res);                     // immediate preview with res.url
-
-      // Persist only bucket/key; presigned URLs expire
-      const toSave = { bucket: res.bucket || null, key: res.key || null };
-      localStorage.setItem(LS_KEY, JSON.stringify(toSave));
-      setSaved(toSave);                     // triggers fresh GET URL fetch
-      setMsg("✅ Upload succeeded!");
-      setTimeout(() => setMsg(""), 5000);
-    } catch (e) {
-      setErr(`Upload failed: ${e?.message || e}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Choose preview priority:
-  // 1) New file blob preview
-  // 2) Just-uploaded signed GET url
-  // 3) Freshly-minted GET url for saved key
-  const showUrl = filePreviewUrl || uploaded?.url || freshUrl;
+  const goToCreator = () => {
+    // Creators will need an account too
+    handleSignIn();
+  };
 
   return (
     <main>
-      <h1>Home</h1>
+      <style>{`
+        .hero {
+          display:grid;
+          gap:14px;
+          padding:40px 20px 8px;
+          text-align:center;
+        }
+        .hero h1 {
+          font-size: clamp(28px, 4vw, 44px);
+          line-height: 1.1;
+          letter-spacing: -0.02em;
+          margin: 0 auto;
+          max-width: 820px;
+        }
+        .hero p {
+          color:#6b7280;
+          font-size: clamp(16px, 2vw, 18px);
+          margin: 0 auto;
+          max-width: 760px;
+        }
+        .cta-row {
+          display:flex;
+          gap:10px;
+          justify-content:center;
+          flex-wrap:wrap;
+          margin-top: 6px;
+        }
+        .btn {
+          height:40px;
+          padding:0 16px;
+          border-radius:999px;
+          border:1px solid #e5e7eb;
+          background:#fff;
+          font-weight:700;
+          cursor:pointer;
+          font-size:14px;
+        }
+        .btn.primary { background:#111827; color:#fff; border-color:#111827; }
+        .btn.ghost { background:#fff; color:#111827; }
+        .btn.subtle {
+          height:34px;
+          padding:0 14px;
+          font-weight:600;
+          border-radius:999px;
+          border:1px solid #e5e7eb;
+          background:#f9fafb;
+          font-size:13px;
+        }
+        .btn:hover { filter:brightness(0.98); }
 
-      <div style={card.wrap}>
+        .section {
+          padding: 24px 20px 40px;
+          max-width: 1080px;
+          margin: 0 auto;
+        }
+        .section-header {
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-end;
+          gap:16px;
+          margin-bottom:16px;
+        }
+        .section-title {
+          font-size:20px;
+          font-weight:700;
+        }
+        .section-sub {
+          color:#6b7280;
+          font-size:14px;
+        }
+
+        .plans {
+          display:grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap:16px;
+        }
+        .plan-card {
+          background:#fff;
+          border:1px solid #e5e7eb;
+          border-radius:16px;
+          padding:16px 16px 18px;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+        }
+        .plan-label {
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          padding:4px 10px;
+          border-radius:999px;
+          background:#f3f4ff;
+          color:#111827;
+          font-size:12px;
+          font-weight:600;
+          width:fit-content;
+        }
+        .plan-name {
+          font-size:18px;
+          font-weight:700;
+        }
+        .plan-tagline {
+          font-size:14px;
+          color:#4b5563;
+        }
+        .plan-list {
+          margin:4px 0 8px;
+          padding-left:18px;
+          color:#374151;
+          font-size:14px;
+        }
+        .plan-list li { margin:3px 0; }
+
+        .plan-footer {
+          margin-top:auto;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:8px;
+          font-size:12px;
+          color:#6b7280;
+        }
+
+        @media (max-width: 880px) {
+          .plans {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .section-header {
+            flex-direction:column;
+            align-items:flex-start;
+          }
+        }
+      `}</style>
+
+      {/* HERO */}
+      <section className="hero">
+        <h1>Welcome to Styling Adventures</h1>
         <p>
-          AppSync says:{" "}
-          {err ? <strong style={card.bad}>{err}</strong> : <span style={card.good}>{msg || "…"}</span>}
+          Play the fashion game, join the community, and unlock Bestie-only perks
+          with Lala&apos;s closet.
         </p>
-      </div>
-
-      <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
-        <label style={{ ...btn.base }}>
-          <input
-            type="file"
-            accept="image/*,.png,.jpg,.jpeg,.gif,.webp"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              setFile(f || null);
-              setUploaded(null);
-              setErr("");
-              setMsg("");
-            }}
-          />
-          Choose file
-        </label>
-
-        <button
-          onClick={doUpload}
-          disabled={!file || busy}
-          style={{ ...btn.base, ...btn.primary, ...(busy || !file ? btn.disabled : {}) }}
-        >
-          {busy ? "Uploading…" : "Upload file"}
-        </button>
-
-        {saved?.key && (
+        <div className="cta-row">
           <button
-            onClick={async () => {
-              try { setFreshUrl(await getSignedGetUrl(saved.key)); }
-              catch (e) { setErr(String(e?.message || e)); }
-            }}
-            style={{ ...btn.base }}
-            title="Mint a new signed GET URL for the saved object"
+            type="button"
+            className="btn primary"
+            onClick={handleSignIn}
           >
-            Refresh preview URL
+            Sign in to start styling
           </button>
-        )}
-
-        {saved?.key && (
           <button
-            onClick={() => {
-              localStorage.removeItem(LS_KEY);
-              setSaved(null);
-              setFreshUrl("");
-              setUploaded(null);
-              setFile(null);
-            }}
-            style={{ ...btn.base, ...btn.danger }}
+            type="button"
+            className="btn ghost"
+            onClick={handleGuest}
           >
-            Clear saved preview
+            Browse as guest
           </button>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {(uploaded || showUrl || saved?.key) && (
-        <div style={{ ...card.wrap, marginTop: 16 }}>
-          {uploaded && <p style={card.good}>Upload succeeded!</p>}
-
-          {(uploaded?.key || saved?.key) && (
-            <div style={card.hint}>
-              S3 key: <code>{uploaded?.key || saved?.key}</code>
+      {/* CHOOSE YOUR ADVENTURE */}
+      <section className="section">
+        <div className="section-header">
+          <div>
+            <div className="section-title">Choose your adventure</div>
+            <div className="section-sub">
+              Start as a fan, level up to Bestie, or share your own looks as a creator.
             </div>
-          )}
-
-          {(uploaded?.url || freshUrl) && (
-            <div style={{ marginTop: 6 }}>
-              <span>Upload URL:&nbsp;</span>
-              <a href={uploaded?.url || freshUrl} target="_blank" rel="noreferrer">
-                {truncate(uploaded?.url || freshUrl, 120)}
-              </a>
-              <div style={card.hint}>(This signed URL expires; use “Refresh preview URL” anytime.)</div>
-            </div>
-          )}
-
-          <div style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 6, fontWeight: 600 }}>Preview:</div>
-            {showUrl ? (
-              <img src={showUrl} alt="preview" style={box.preview} />
-            ) : (
-              <div style={{ ...box.preview, display: "grid", placeItems: "center", color: "#6b7280" }}>
-                No image yet
-              </div>
-            )}
           </div>
         </div>
-      )}
 
-      <p style={{ marginTop: 24, fontSize: 12, color: "#6b7280" }}>© Styling Adventures</p>
+        <div className="plans">
+          {/* FAN */}
+          <article className="plan-card">
+            <span className="plan-label">Step 1 • Join as a Fan</span>
+            <div className="plan-name">Fan</div>
+            <p className="plan-tagline">
+              Follow the vibes, save favorite looks, and explore Lala&apos;s world.
+            </p>
+            <ul className="plan-list">
+              <li>Browse episodes and closet drops</li>
+              <li>Save outfits you love</li>
+              <li>Lightweight, no-pressure experience</li>
+            </ul>
+            <div className="plan-footer">
+              <span>Perfect if you&apos;re just getting started.</span>
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={goToFan}
+              >
+                Start as Fan
+              </button>
+            </div>
+          </article>
+
+          {/* BESTIE */}
+          <article className="plan-card">
+            <span className="plan-label">Level up • Inner circle</span>
+            <div className="plan-name">Bestie</div>
+            <p className="plan-tagline">
+              Unlock the inner circle with early drops, polls, and VIP moments.
+            </p>
+            <ul className="plan-list">
+              <li>Access Bestie-only content & stories</li>
+              <li>Vote on future looks and collabs</li>
+              <li>Surprises, shout-outs, and more</li>
+            </ul>
+            <div className="plan-footer">
+              <span>Requires sign-in and Bestie status.</span>
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={goToBestie}
+              >
+                Become a Bestie
+              </button>
+            </div>
+          </article>
+
+          {/* CREATOR */}
+          <article className="plan-card">
+            <span className="plan-label">Create • Share your style</span>
+            <div className="plan-name">Creator</div>
+            <p className="plan-tagline">
+              Host your own closet, share looks, and connect with fans of your style.
+            </p>
+            <ul className="plan-list">
+              <li>Upload outfits & style breakdowns</li>
+              <li>Build a community around your looks</li>
+              <li>Future collab & monetization tools</li>
+            </ul>
+            <div className="plan-footer">
+              <span>Creator tools coming online in phases.</span>
+              <button
+                type="button"
+                className="btn subtle"
+                onClick={goToCreator}
+              >
+                Apply as Creator
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
   );
 }

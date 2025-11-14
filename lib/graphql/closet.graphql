@@ -2,38 +2,50 @@
 scalar AWSDateTime
 
 enum ClosetStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
   PUBLISHED
 }
 
+enum ClosetAudience {
+  PUBLIC
+  BESTIE
+  EXCLUSIVE
+}
+
 type ClosetItem {
   id: ID!
-  ownerSub: ID!
-  title: String
+  userId: ID!
+  ownerSub: String!
   status: ClosetStatus!
-  mediaKey: String
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
+  mediaKey: String
+  title: String
+  reason: String
+  audience: ClosetAudience
 }
 
-type Query {
-  # Always return a list (never null)
-  myCloset: [ClosetItem!]!
-
-  # Simple admin helper
-  adminListPending(limit: Int, nextToken: String): ClosetListPage!
-}
-
-type ClosetListPage {
+type ClosetFeedPage {
   items: [ClosetItem!]!
   nextToken: String
 }
 
+type Query {
+  myCloset: [ClosetItem!]!
+  adminListPending: [ClosetItem!]!
+  closetFeed(limit: Int, nextToken: String): ClosetFeedPage!
+}
+
 type Mutation {
   createClosetItem(title: String, mediaKey: String): ClosetItem!
-  updateClosetItem(id: ID!, title: String, mediaKey: String): ClosetItem!
-  deleteClosetItem(id: ID!): Boolean!
-  requestClosetApproval(id: ID!): Boolean!
+  requestClosetApproval(id: ID!): String!
+  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
+
+  adminApproveItem(id: ID!): ClosetItem!
+  adminRejectItem(id: ID!, reason: String): ClosetItem!
+
+  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
 }

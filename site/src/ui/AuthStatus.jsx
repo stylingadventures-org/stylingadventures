@@ -1,122 +1,122 @@
-import React from "react";
-import { getSA } from "../lib/sa";
+// site/src/ui/AuthStatus.jsx
+import React, { useEffect, useState } from "react";
+import { Auth, getSA } from "../lib/sa";
 
-/** Tiny helper to decode a JWT */
-function parseJwt(t = "") {
+function parseJwt(t) {
   try {
-    const base = t.split(".")[1];
-    return JSON.parse(atob(base.replace(/-/g, "+").replace(/_/g, "/")));
+    const [, payload] = String(t || "").split(".");
+    return JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    );
   } catch {
     return {};
   }
 }
 
-/** Read tokens the same way sa.js stores them */
-function getTokens() {
-  const id = sessionStorage.getItem("id_token") || localStorage.getItem("sa_id_token") || "";
-  const access = sessionStorage.getItem("access_token") || "";
-  const refresh = sessionStorage.getItem("refresh_token") || "";
-  return { id, access, refresh };
-}
-
 export default function AuthStatus() {
-  const [ready, setReady] = React.useState(false);
-  const [{ id }, setTok] = React.useState(getTokens());
-  const [role, setRole] = React.useState("FAN");
-  const [email, setEmail] = React.useState("");
+  const [state, setState] = useState({
+    loading: true,
+    email: "",
+    role: "FAN",
+  });
 
-  // Initialize from SA when ready
-  React.useEffect(() => {
-    const onReady = async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
       try {
-        const SA = await getSA();
-        const t = getTokens();
-        setTok(t);
-        setRole(SA?.getRole?.() || "FAN");
-        const claims = parseJwt(t.id);
-        setEmail(claims.email || claims["cognito:username"] || "");
-      } finally {
-        setReady(true);
-      }
-    };
+        const SA = await getSA().catch(() => null);
 
-    if (window.SA) onReady();
-    else window.addEventListener("sa:ready", onReady, { once: true });
+        let email = "";
+        let role = "FAN";
 
-    // Keep status fresh if another tab logs in/out
-    const onStorage = (e) => {
-      if (["id_token", "sa_id_token", "access_token", "refresh_token"].includes(e.key)) {
-        const t = getTokens();
-        setTok(t);
-        const claims = parseJwt(t.id);
-        setEmail(claims.email || claims["cognito:username"] || "");
-        setRole(window.SA?.getRole?.() || "FAN");
+        if (SA?.getUser) {
+          const u = SA.getUser();
+          email = u?.email || "";
+          role = u?.role || "FAN";
+        } else if (Auth.getIdToken) {
+          const idTok = await Auth.getIdToken();
+          const payload = parseJwt(idTok);
+          email = payload.email || "";
+          const groups = Array.isArray(payload["cognito:groups"])
+            ? payload["cognito:groups"]
+            : [];
+          role =
+            groups[0] ||
+            payload["custom:role"] ||
+            payload.role ||
+            "FAN";
+        }
+
+        if (!cancelled) {
+          setState({ loading: false, email, role });
+        }
+      } catch {
+        if (!cancelled) {
+          setState({ loading: false, email: "", role: "FAN" });
+        }
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const authed = Boolean(id);
-
-  const dotStyle = {
-    display: "inline-block",
-    width: 8,
-    height: 8,
-    borderRadius: "999px",
-    marginRight: 8,
-    background: authed ? "#16a34a" : "#9ca3af",
-    boxShadow: authed ? "0 0 0 2px #dcfce7 inset" : "0 0 0 2px #e5e7eb inset",
-  };
-
-  const chipStyle = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 14,
-    border: "1px solid #e5e7eb",
-    background: "#fff",
-  };
-
-  const onSignIn = async () => (await getSA())?.startLogin?.();
-  const onSignOut = async () => (await getSA())?.logoutEverywhere?.();
-
-  if (!ready) return null;
+  const { loading, email, role } = state;
+  const isSignedIn = !!email;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
-      <span style={chipStyle}>
-        <span style={dotStyle} />
-        {authed ? (
-          <>
-            <strong>{role}</strong>
-            <span>•</span>
-            <span style={{ color: "#374151" }}>{email || "Signed in"}</span>
-          </>
-        ) : (
-          <span style={{ color: "#6b7280" }}>Guest</span>
-        )}
-      </span>
-
-      {authed ? (
-        <button
-          type="button"
-          onClick={onSignOut}
-          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#f8fafc", cursor: "pointer" }}
-        >
-          Sign out
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onSignIn}
-          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #111827", background: "#111827", color: "#fff", cursor: "pointer" }}
-        >
-          Sign in
-        </button>
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {isSignedIn && (
+        <>
+          <span
+            style={{
+              padding: "4px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              background: "#ecfdf5",
+              color: "#166534",
+              border: "1px solid #bbf7d0",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ● {role}
+          </span>
+          <span
+            style={{
+              fontSize: 14,
+              color: "#4b5563",
+              maxWidth: 220,
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+            }}
+            title={email}
+          >
+            {email}
+          </span>
+        </>
       )}
+
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => (isSignedIn ? Auth.logout() : Auth.login())}
+        style={{
+          height: 32,
+          padding: "0 14px",
+          borderRadius: 999,
+          border: "1px solid #e5e7eb",
+          background: isSignedIn ? "#ffffff" : "#111827",
+          color: isSignedIn ? "#111827" : "#ffffff",
+          fontWeight: 600,
+          cursor: loading ? "default" : "pointer",
+        }}
+      >
+        {isSignedIn ? "Sign out" : "Sign in"}
+      </button>
     </div>
   );
 }

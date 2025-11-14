@@ -1,6 +1,7 @@
 // site/src/routes/fan/FanLayout.jsx
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { hasEarlyContentNow } from "../../lib/episodes";
 
 export default function FanLayout() {
   return (
@@ -27,9 +28,29 @@ export default function FanLayout() {
         <NavLink end to="/fan" className={({isActive}) => `fan-pill ${isActive ? "active" : ""}`}>
           Fan
         </NavLink>
+
         <NavLink to="/fan/episodes" className={({isActive}) => `fan-pill ${isActive ? "active" : ""}`}>
-          Episodes
+          <span style={{ position: "relative", display: "inline-block", paddingRight: 12 }}>
+            Episodes
+            {hasEarlyContentNow() && (
+              <span
+                title="New early drop!"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 2,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "999px",
+                  background: "#ef4444",
+                  boxShadow: "0 0 0 2px #fff",
+                  display: "inline-block",
+                }}
+              />
+            )}
+          </span>
         </NavLink>
+
         <NavLink to="/fan/closet" className={({isActive}) => `fan-pill ${isActive ? "active" : ""}`}>
           Closet
         </NavLink>

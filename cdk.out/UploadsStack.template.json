@@ -25,7 +25,8 @@
        "AllowedOrigins": [
         "https://d1so4qr6zsby5r.cloudfront.net",
         "https://www.stylingadventures.com",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://localhost:5173"
        ],
        "ExposedHeaders": [
         "ETag",
@@ -48,7 +49,8 @@
        "AllowedOrigins": [
         "https://d1so4qr6zsby5r.cloudfront.net",
         "https://www.stylingadventures.com",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://localhost:5173"
        ],
        "ExposedHeaders": [
         "ETag",
@@ -389,7 +391,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "065e0e4ea48761457e543508276fe81dc4f2d638ecfc2bd70db66c81dc30eff9.zip"
+     "S3Key": "2bda96824a6fbeddb56d8d3f8a47005caa96815dd6947be5a86018c873abb578.zip"
     },
     "Environment": {
      "Variables": {
@@ -397,7 +399,7 @@
        "Ref": "UploadsBucket5E5E9B64"
       },
       "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173",
+      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -428,7 +430,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.065e0e4ea48761457e543508276fe81dc4f2d638ecfc2bd70db66c81dc30eff9",
+    "aws:asset:path": "asset.2bda96824a6fbeddb56d8d3f8a47005caa96815dd6947be5a86018c873abb578",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -666,7 +668,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "0a1912ef6dce143bcd29f9079f791c4ad69083d6eac68fc15c82f51a224e7640.zip"
+     "S3Key": "07d022aae6b1c701309305ec497468221cdf434c30df1f3f9d9268fee2e0c529.zip"
     },
     "Environment": {
      "Variables": {
@@ -674,7 +676,7 @@
        "Ref": "UploadsBucket5E5E9B64"
       },
       "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173",
+      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -705,7 +707,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ListFn/Resource",
-    "aws:asset:path": "asset.0a1912ef6dce143bcd29f9079f791c4ad69083d6eac68fc15c82f51a224e7640",
+    "aws:asset:path": "asset.07d022aae6b1c701309305ec497468221cdf434c30df1f3f9d9268fee2e0c529",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -838,13 +840,13 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "179e2cb04113936354aab41fc5bdb36afc73bb93448532a861d198c5fecdd63b.zip"
+     "S3Key": "8aa03d1297de967b2004cbc4a3b6714ff8901ec24603b0f24e7098f8b86b5fbd.zip"
     },
     "Environment": {
      "Variables": {
       "BUCKET": "webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1",
       "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173",
+      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -875,7 +877,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ThumbHeadFn/Resource",
-    "aws:asset:path": "asset.179e2cb04113936354aab41fc5bdb36afc73bb93448532a861d198c5fecdd63b",
+    "aws:asset:path": "asset.8aa03d1297de967b2004cbc4a3b6714ff8901ec24603b0f24e7098f8b86b5fbd",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1067,7 +1069,7 @@
     ],
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "19ab497907dad336a849fa7786755c35f2bbcef23f898701c65385da3445a473.zip"
+     "S3Key": "465e3aa04961dd22e4ff92aa3d0684e7196dfaa24bb4a6ef79c8fa280b293de8.zip"
     },
     "Environment": {
      "Variables": {
@@ -1112,7 +1114,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ThumbgenFn/Resource",
-    "aws:asset:path": "asset.19ab497907dad336a849fa7786755c35f2bbcef23f898701c65385da3445a473",
+    "aws:asset:path": "asset.465e3aa04961dd22e4ff92aa3d0684e7196dfaa24bb4a6ef79c8fa280b293de8",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1354,7 +1356,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04C0b200e64a959d5a6ac6534a5e6865a86": {
+  "UploadsApiDeployment4A67E04C4d9bae9ab7be58bf33f2abbbc20f55a9": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -1364,18 +1366,14 @@
    },
    "DependsOn": [
     "UploadsApideleteDELETE03C056E4",
-    "UploadsApideleteOPTIONS1AD6A023",
     "UploadsApidelete14170098",
     "UploadsApilistGET6FEA2B99",
-    "UploadsApilistOPTIONSA1D1A8A2",
     "UploadsApilist04BFB266",
-    "UploadsApiOPTIONS016D7C40",
     "UploadsApipresignGETC4331AE5",
     "UploadsApipresignOPTIONSB65EB223",
     "UploadsApipresignPOSTD80E85B8",
     "UploadsApipresignE1161A2C",
     "UploadsApithumbheadGETE8DAC9C1",
-    "UploadsApithumbheadOPTIONSB6DAB6F5",
     "UploadsApithumbhead26656547"
    ],
    "Metadata": {
@@ -1387,7 +1385,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04C0b200e64a959d5a6ac6534a5e6865a86"
+     "Ref": "UploadsApiDeployment4A67E04C4d9bae9ab7be58bf33f2abbbc20f55a9"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -1411,59 +1409,6 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/DeploymentStage.prod/Resource"
    }
   },
-  "UploadsApiOPTIONS016D7C40": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "ApiKeyRequired": false,
-    "AuthorizationType": "NONE",
-    "HttpMethod": "OPTIONS",
-    "Integration": {
-     "IntegrationResponses": [
-      {
-       "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        "method.response.header.Access-Control-Allow-Origin": "'https://d1so4qr6zsby5r.cloudfront.net'",
-        "method.response.header.Vary": "'Origin'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS,HEAD'",
-        "method.response.header.Access-Control-Expose-Headers": "'ETag,x-amz-request-id,x-amz-id-2'"
-       },
-       "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://www.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
-       },
-       "StatusCode": "204"
-      }
-     ],
-     "RequestTemplates": {
-      "application/json": "{ statusCode: 200 }"
-     },
-     "Type": "MOCK"
-    },
-    "MethodResponses": [
-     {
-      "ResponseParameters": {
-       "method.response.header.Access-Control-Allow-Headers": true,
-       "method.response.header.Access-Control-Allow-Origin": true,
-       "method.response.header.Vary": true,
-       "method.response.header.Access-Control-Allow-Methods": true,
-       "method.response.header.Access-Control-Expose-Headers": true
-      },
-      "StatusCode": "204"
-     }
-    ],
-    "ResourceId": {
-     "Fn::GetAtt": [
-      "UploadsApiF6E592E7",
-      "RootResourceId"
-     ]
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/OPTIONS/Resource"
-   }
-  },
   "UploadsApilist04BFB266": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
@@ -1480,56 +1425,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/Resource"
-   }
-  },
-  "UploadsApilistOPTIONSA1D1A8A2": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "ApiKeyRequired": false,
-    "AuthorizationType": "NONE",
-    "HttpMethod": "OPTIONS",
-    "Integration": {
-     "IntegrationResponses": [
-      {
-       "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        "method.response.header.Access-Control-Allow-Origin": "'https://d1so4qr6zsby5r.cloudfront.net'",
-        "method.response.header.Vary": "'Origin'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS,HEAD'",
-        "method.response.header.Access-Control-Expose-Headers": "'ETag,x-amz-request-id,x-amz-id-2'"
-       },
-       "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://www.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
-       },
-       "StatusCode": "204"
-      }
-     ],
-     "RequestTemplates": {
-      "application/json": "{ statusCode: 200 }"
-     },
-     "Type": "MOCK"
-    },
-    "MethodResponses": [
-     {
-      "ResponseParameters": {
-       "method.response.header.Access-Control-Allow-Headers": true,
-       "method.response.header.Access-Control-Allow-Origin": true,
-       "method.response.header.Vary": true,
-       "method.response.header.Access-Control-Allow-Methods": true,
-       "method.response.header.Access-Control-Expose-Headers": true
-      },
-      "StatusCode": "204"
-     }
-    ],
-    "ResourceId": {
-     "Ref": "UploadsApilist04BFB266"
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/list/OPTIONS/Resource"
    }
   },
   "UploadsApilistGETApiPermissionUploadsStackUploadsApiC6DB0904GETlist488F6896": {
@@ -1658,56 +1553,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/Resource"
-   }
-  },
-  "UploadsApipresignOPTIONSB65EB223": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "ApiKeyRequired": false,
-    "AuthorizationType": "NONE",
-    "HttpMethod": "OPTIONS",
-    "Integration": {
-     "IntegrationResponses": [
-      {
-       "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        "method.response.header.Access-Control-Allow-Origin": "'https://d1so4qr6zsby5r.cloudfront.net'",
-        "method.response.header.Vary": "'Origin'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS,HEAD'",
-        "method.response.header.Access-Control-Expose-Headers": "'ETag,x-amz-request-id,x-amz-id-2'"
-       },
-       "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://www.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
-       },
-       "StatusCode": "204"
-      }
-     ],
-     "RequestTemplates": {
-      "application/json": "{ statusCode: 200 }"
-     },
-     "Type": "MOCK"
-    },
-    "MethodResponses": [
-     {
-      "ResponseParameters": {
-       "method.response.header.Access-Control-Allow-Headers": true,
-       "method.response.header.Access-Control-Allow-Origin": true,
-       "method.response.header.Vary": true,
-       "method.response.header.Access-Control-Allow-Methods": true,
-       "method.response.header.Access-Control-Expose-Headers": true
-      },
-      "StatusCode": "204"
-     }
-    ],
-    "ResourceId": {
-     "Ref": "UploadsApipresignE1161A2C"
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource"
    }
   },
   "UploadsApipresignPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSTpresign5C1AE409": {
@@ -1930,6 +1775,113 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/GET/Resource"
    }
   },
+  "UploadsApipresignOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSpresign9F5B011E": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/OPTIONS/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..presign"
+   }
+  },
+  "UploadsApipresignOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSpresign41EFCF69": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PresignFnA38D425B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/OPTIONS/presign"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..presign"
+   }
+  },
+  "UploadsApipresignOPTIONSB65EB223": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "PresignFnA38D425B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApipresignE1161A2C"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource"
+   }
+  },
   "UploadsApidelete14170098": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
@@ -1946,56 +1898,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/delete/Resource"
-   }
-  },
-  "UploadsApideleteOPTIONS1AD6A023": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "ApiKeyRequired": false,
-    "AuthorizationType": "NONE",
-    "HttpMethod": "OPTIONS",
-    "Integration": {
-     "IntegrationResponses": [
-      {
-       "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        "method.response.header.Access-Control-Allow-Origin": "'https://d1so4qr6zsby5r.cloudfront.net'",
-        "method.response.header.Vary": "'Origin'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS,HEAD'",
-        "method.response.header.Access-Control-Expose-Headers": "'ETag,x-amz-request-id,x-amz-id-2'"
-       },
-       "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://www.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
-       },
-       "StatusCode": "204"
-      }
-     ],
-     "RequestTemplates": {
-      "application/json": "{ statusCode: 200 }"
-     },
-     "Type": "MOCK"
-    },
-    "MethodResponses": [
-     {
-      "ResponseParameters": {
-       "method.response.header.Access-Control-Allow-Headers": true,
-       "method.response.header.Access-Control-Allow-Origin": true,
-       "method.response.header.Vary": true,
-       "method.response.header.Access-Control-Allow-Methods": true,
-       "method.response.header.Access-Control-Expose-Headers": true
-      },
-      "StatusCode": "204"
-     }
-    ],
-    "ResourceId": {
-     "Ref": "UploadsApidelete14170098"
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/delete/OPTIONS/Resource"
    }
   },
   "UploadsApideleteDELETEApiPermissionUploadsStackUploadsApiC6DB0904DELETEdeleteCC917882": {
@@ -2126,56 +2028,6 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/thumb-head/Resource"
    }
   },
-  "UploadsApithumbheadOPTIONSB6DAB6F5": {
-   "Type": "AWS::ApiGateway::Method",
-   "Properties": {
-    "ApiKeyRequired": false,
-    "AuthorizationType": "NONE",
-    "HttpMethod": "OPTIONS",
-    "Integration": {
-     "IntegrationResponses": [
-      {
-       "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        "method.response.header.Access-Control-Allow-Origin": "'https://d1so4qr6zsby5r.cloudfront.net'",
-        "method.response.header.Vary": "'Origin'",
-        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS,HEAD'",
-        "method.response.header.Access-Control-Expose-Headers": "'ETag,x-amz-request-id,x-amz-id-2'"
-       },
-       "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://www.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
-       },
-       "StatusCode": "204"
-      }
-     ],
-     "RequestTemplates": {
-      "application/json": "{ statusCode: 200 }"
-     },
-     "Type": "MOCK"
-    },
-    "MethodResponses": [
-     {
-      "ResponseParameters": {
-       "method.response.header.Access-Control-Allow-Headers": true,
-       "method.response.header.Access-Control-Allow-Origin": true,
-       "method.response.header.Vary": true,
-       "method.response.header.Access-Control-Allow-Methods": true,
-       "method.response.header.Access-Control-Expose-Headers": true
-      },
-      "StatusCode": "204"
-     }
-    ],
-    "ResourceId": {
-     "Ref": "UploadsApithumbhead26656547"
-    },
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/Resource"
-   }
-  },
   "UploadsApithumbheadGETApiPermissionUploadsStackUploadsApiC6DB0904GETthumbhead618E3AC0": {
    "Type": "AWS::Lambda::Permission",
    "Properties": {
@@ -2289,7 +2141,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/01QwW7CMAz9lt1DxsouOxamndiGirYrCqkpgTSuYmeoq/rvU9Ky9vTei/2eHWcyyzK5fFA3WujyurDmKLs9K30V6kaHjlayWwd9BRabkxvZADu0RrfT86gHsVYEvbCqPpZKdpuT24GvDZFBFx1vwWmOfKta8N/g74W5vvsPDku4kPxI8G81qpZdgRaiL+G00cB6QauDIgImmUcQFiuSW6wKYHApRTWmUgw31cpug5UzjF8EfodoKQ98Rm9+wcfMmSqAOG9MGjzRXGsMjsUrNBbbGly62UztWVVp24EUQBi8hngr8Q58xjIWR3avjkMS7/u5mlrS52KocVXs+AzcBO5FPJy80ONPtpRPL/L54ULGLHxwbGqQxYB/K+ww8gMCAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WQT0/DMAzFPwv3LIyOC8duiNOAqRNcpyz1umxpXMUOU6n63VGS/eP0fs+JXxwXsihmcvqgTjTR9XFizVYOa1b6KNSJNgPN5DAP+ggsFjt3piwrtEb3t/LZZzNXBKOwqt3WSg6LnVuBbw2RQRc73oLTHHmpevDf4C8H9/7Sv3FYw4HkR5Jrq1GtHCq0EPuS3ibKNAqabRQRMMkyirDYkFxiUwGDSymqM41iOKleDgtsnGH8IvArREtl4D168ws+Zt65CojLzqSHb1hqjcGxeIXOYt+CSzu7c2tWTZo2QwWEwWuIu7qac2bmd+A91rGUaRz/HV8hfS6GGtfEG5+Bu8CjiIuTB3r8Kaby6UU+PxzImIkPjk0Lssr6B5UDqxUDAgAA"
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/CDKMetadata/Default"

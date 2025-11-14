@@ -36,21 +36,19 @@ export class IdentityStack extends cdk.Stack {
     const envName = this.node.tryGetContext("env") ?? "dev";
     const webOrigin = props.webOrigin.replace(/\/+$/, ""); // normalize
 
-    // (Optional) allow SSM overrides for blue/green, custom domains, etc.
-    const ssmCallback = ssm.StringParameter.valueFromLookup(
-      this, `/sa/${envName}/web/callbackUrl`
-    );
+    // We still allow SSM override for logout root if you ever set it,
+    // but we stop using SSM for callback to keep things simple.
     const ssmLogoutRoot = ssm.StringParameter.valueFromLookup(
-      this, `/sa/${envName}/web/logoutRoot`
+      this,
+      `/sa/${envName}/web/logoutRoot`
     );
 
-    const callbackUrl =
-      (ssmCallback && ssmCallback.startsWith("smp:") ? undefined : ssmCallback) ||
-      `${webOrigin}/callback/index.html`;
+    const callbackUrl = `${webOrigin}/callback/index.html`;
 
     const logoutRoot =
-      (ssmLogoutRoot && ssmLogoutRoot.startsWith("smp:") ? undefined : ssmLogoutRoot) ||
-      webOrigin;
+      ssmLogoutRoot && typeof ssmLogoutRoot === "string" && !ssmLogoutRoot.startsWith("smp:")
+        ? ssmLogoutRoot
+        : webOrigin;
 
     // --- User Pool ---
     this.userPool = new cognito.UserPool(this, "UserPool", {
@@ -81,7 +79,12 @@ export class IdentityStack extends cdk.Stack {
           cognito.OAuthScope.PROFILE,
         ],
         callbackUrls: [
+          // Prod / CloudFront callback
           callbackUrl,
+
+          // 🔹 Local dev callbacks — MUST include the one used in sa.js
+          "http://localhost:5173/callback",
+          "http://localhost:5173/callback/",
           "http://localhost:5173/callback/index.html",
         ],
         logoutUrls: [
@@ -118,7 +121,7 @@ export class IdentityStack extends cdk.Stack {
       }
     );
 
-    // --- Identity Pool (optional; keeps parity with your version) ---
+    // --- Identity Pool ---
     const identityPool = new cognito.CfnIdentityPool(this, "IdentityPool", {
       allowUnauthenticatedIdentities: false,
       cognitoIdentityProviders: [
@@ -146,3 +149,4 @@ export class IdentityStack extends cdk.Stack {
     });
   }
 }
+

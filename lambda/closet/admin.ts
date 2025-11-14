@@ -1,91 +1,300 @@
 // lambda/closet/admin.ts
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+//
+// AppSync "admin" Lambda for closet moderation:
+//   - Query.adminListPending   (returns PENDING / APPROVED / PUBLISHED items)
+//   - Query.closetFeed         (public fan feed: APPROVED / PUBLISHED)
+//   - Mutation.adminApproveItem
+//   - Mutation.adminRejectItem
+//   - Mutation.adminSetClosetAudience
+
 import {
-  DynamoDBDocumentClient,
+  DynamoDBClient,
+  UpdateItemCommand,
+  ScanCommand,
   QueryCommand,
-  UpdateCommand,
-  GetCommand,
-} from "@aws-sdk/lib-dynamodb";
-import type { AppSyncResolverEvent, AppSyncIdentityCognito } from "aws-lambda";
+} from "@aws-sdk/client-dynamodb";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE = process.env.CLOSET_TABLE!;
+const ddb = new DynamoDBClient({});
+const TABLE_NAME = process.env.TABLE_NAME!;
 
-// Optional: if you keep a GSI on status (recommended)
-const STATUS_GSI = process.env.STATUS_GSI || "gsi1"; // partitionKey: status, sortKey: createdAt
+type ClosetStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "PUBLISHED";
+type ClosetAudience = "PUBLIC" | "BESTIE" | "EXCLUSIVE";
 
-type ClosetStatus = "PENDING" | "APPROVED" | "REJECTED" | "PUBLISHED";
+type ClosetItem = {
+  id: string;
+  userId: string;
+  ownerSub: string;
+  status: ClosetStatus;
+  createdAt: string;
+  updatedAt: string;
+  mediaKey?: string | null;
+  title?: string | null;
+  reason?: string | null;
+  audience?: ClosetAudience | null;
+};
 
-function now() { return new Date().toISOString(); }
-function isPrivileged(id?: AppSyncIdentityCognito) {
-  const groups = (id as any)?.claims?.["cognito:groups"] || [];
-  return Array.isArray(groups) && (groups.includes("ADMIN") || groups.includes("COLLAB"));
+type AppSyncEvent = {
+  info: { fieldName: string; parentTypeName: string };
+  arguments: any;
+};
+
+// ---------- helpers ----------
+
+function mapClosetItem(raw: any): ClosetItem {
+  const it = unmarshall(raw) as any;
+  return {
+    id: String(it.id),
+    userId: String(it.userId ?? it.ownerSub ?? ""),
+    ownerSub: String(it.ownerSub ?? it.userId ?? ""),
+    status: (it.status ?? "PENDING") as ClosetStatus,
+    createdAt: String(it.createdAt),
+    updatedAt: String(it.updatedAt ?? it.createdAt),
+    mediaKey: it.mediaKey ?? null,
+    title: it.title ?? null,
+    reason: it.reason ?? null,
+    audience: (it.audience ?? "PUBLIC") as ClosetAudience,
+  };
 }
 
-export const handler = async (event: AppSyncResolverEvent<any>) => {
-  const field = event.info.fieldName;
-  const ident = event.identity as AppSyncIdentityCognito | undefined;
+/**
+ * Locate an item by id.
+ *
+ * We keep this simple and just Scan by "id" so we don't have to guess
+ * your exact pk/sk pattern.
+ */
+async function findRawItemById(id: string) {
+  const resp = await ddb.send(
+    new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: "#id = :id",
+      ExpressionAttributeNames: {
+        "#id": "id",
+      },
+      ExpressionAttributeValues: {
+        ":id": { S: id },
+      },
+      Limit: 1,
+    }),
+  );
 
-  if (field === "adminListPending") {
-    // Prefer GSI for status to avoid scanning
-    if (STATUS_GSI) {
-      const out = await ddb.send(new QueryCommand({
-        TableName: TABLE,
-        IndexName: STATUS_GSI,
-        KeyConditionExpression: "#s = :p",
-        ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":p": "PENDING" },
-        ScanIndexForward: true, // oldest first
-        Limit: 50,
-      }));
-      return out.Items ?? [];
+  if (!resp.Items || resp.Items.length === 0) return null;
+  return resp.Items[0];
+}
+
+/** Extract pk/sk from a table record (DataStack uses pk/sk). */
+function pkOf(raw: any) {
+  if (raw.pk?.S && raw.sk?.S) {
+    return { pk: raw.pk.S as string, sk: raw.sk.S as string };
+  }
+  throw new Error("Could not infer pk/sk for closet item");
+}
+
+// ---------- shared query helpers ----------
+
+/**
+ * Internal helper to query the closet GSI with an arbitrary filter on status.
+ */
+async function queryClosetByStatus(
+  statusFilter: ("PENDING" | "APPROVED" | "PUBLISHED")[],
+): Promise<ClosetItem[]> {
+  const resp = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: "gsi1",
+      KeyConditionExpression: "#pk = :pk",
+      ExpressionAttributeNames: {
+        "#pk": "gsi1pk",
+        "#status": "status",
+      },
+      ExpressionAttributeValues: {
+        ":pk": { S: "CLOSET" },
+        ":pending": { S: "PENDING" },
+        ":approved": { S: "APPROVED" },
+        ":published": { S: "PUBLISHED" },
+      },
+      FilterExpression:
+        statusFilter.length === 3
+          ? "#status = :pending OR #status = :approved OR #status = :published"
+          : statusFilter.length === 2
+          ? "#status = :approved OR #status = :published"
+          : "#status = :approved",
+      ScanIndexForward: false, // newest first
+    }),
+  );
+
+  return (resp.Items || []).map(mapClosetItem);
+}
+
+// ---------- resolvers ----------
+
+/**
+ * Return all closet items that the admin might care about:
+ * PENDING, APPROVED, or PUBLISHED items that live on the gsi1 index
+ * under gsi1pk = "CLOSET" (same pattern as the fan feed).
+ */
+async function adminListPending(): Promise<ClosetItem[]> {
+  return queryClosetByStatus(["PENDING", "APPROVED", "PUBLISHED"]);
+}
+
+/**
+ * Public fan-facing closet feed:
+ * only APPROVED / PUBLISHED items, ordered newest-first.
+ */
+async function publicClosetFeed(): Promise<ClosetItem[]> {
+  try {
+    return await queryClosetByStatus(["APPROVED", "PUBLISHED"]);
+  } catch (err) {
+    console.error("[ClosetAdminFn] publicClosetFeed error", err);
+    // Return empty list on error so the UI shows "no items" instead of exploding.
+    return [];
+  }
+}
+
+async function adminApproveItem(args: { id: string }): Promise<ClosetItem> {
+  const base = await findRawItemById(args.id);
+  if (!base) {
+    throw new Error(`Closet item not found for id=${args.id}`);
+  }
+
+  const { pk, sk } = pkOf(base);
+  const now = new Date().toISOString();
+
+  const resp = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: { S: pk }, sk: { S: sk } },
+      UpdateExpression:
+        "SET #status = :approved, #updatedAt = :now REMOVE #reason",
+      ExpressionAttributeNames: {
+        "#status": "status",
+        "#updatedAt": "updatedAt",
+        "#reason": "reason",
+      },
+      ExpressionAttributeValues: {
+        ":approved": { S: "APPROVED" },
+        ":now": { S: now },
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!resp.Attributes) {
+    throw new Error("adminApproveItem: update returned no attributes");
+  }
+  return mapClosetItem(resp.Attributes);
+}
+
+async function adminRejectItem(args: {
+  id: string;
+  reason?: string | null;
+}): Promise<ClosetItem> {
+  const base = await findRawItemById(args.id);
+  if (!base) {
+    throw new Error(`Closet item not found for id=${args.id}`);
+  }
+
+  const { pk, sk } = pkOf(base);
+  const now = new Date().toISOString();
+  const hasReason = !!args.reason && args.reason.trim().length > 0;
+
+  const resp = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: { S: pk }, sk: { S: sk } },
+      UpdateExpression: hasReason
+        ? "SET #status = :rejected, #updatedAt = :now, #reason = :reason"
+        : "SET #status = :rejected, #updatedAt = :now REMOVE #reason",
+      ExpressionAttributeNames: {
+        "#status": "status",
+        "#updatedAt": "updatedAt",
+        "#reason": "reason",
+      },
+      ExpressionAttributeValues: {
+        ":rejected": { S: "REJECTED" },
+        ":now": { S: now },
+        ...(hasReason ? { ":reason": { S: args.reason! } } : {}),
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!resp.Attributes) {
+    throw new Error("adminRejectItem: update returned no attributes");
+  }
+  return mapClosetItem(resp.Attributes);
+}
+
+/**
+ * Set visibility for a closet item (PUBLIC / BESTIE / EXCLUSIVE).
+ */
+async function adminSetClosetAudience(
+  args: { id: string; audience: ClosetAudience },
+): Promise<ClosetItem> {
+  const base = await findRawItemById(args.id);
+  if (!base) {
+    throw new Error(`Closet item not found for id=${args.id}`);
+  }
+
+  const { pk, sk } = pkOf(base);
+  const now = new Date().toISOString();
+
+  const resp = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: { S: pk }, sk: { S: sk } },
+      UpdateExpression: "SET #audience = :aud, #updatedAt = :now",
+      ExpressionAttributeNames: {
+        "#audience": "audience",
+        "#updatedAt": "updatedAt",
+      },
+      ExpressionAttributeValues: {
+        ":aud": { S: args.audience },
+        ":now": { S: now },
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!resp.Attributes) {
+    throw new Error("adminSetClosetAudience: update returned no attributes");
+  }
+  return mapClosetItem(resp.Attributes);
+}
+
+// ---------- handler ----------
+
+export const handler = async (event: AppSyncEvent) => {
+  const { fieldName, parentTypeName } = event.info;
+
+  if (parentTypeName === "Query") {
+    if (fieldName === "adminListPending") {
+      return adminListPending();
     }
-    // Fallback: very small tables only — otherwise add a GSI
-    throw new Error("Missing GSI for status; set STATUS_GSI or create one.");
+    if (fieldName === "closetFeed") {
+      // Fan-facing closet feed
+      return publicClosetFeed();
+    }
   }
 
-  if (field === "adminApproveItem") {
-    if (!isPrivileged(ident)) throw new Error("Not authorized");
-    const id = event.arguments?.id as string;
-    if (!id) throw new Error("id is required");
-
-    const current = await ddb.send(new GetCommand({ TableName: TABLE, Key: { id } }));
-    if (!current.Item) throw new Error("Item not found");
-
-    const out = await ddb.send(new UpdateCommand({
-      TableName: TABLE,
-      Key: { id },
-      UpdateExpression: "SET #st = :a, #u = :u REMOVE #r",
-      ExpressionAttributeNames: { "#st": "status", "#u": "updatedAt", "#r": "reason" },
-      ExpressionAttributeValues: { ":a": "APPROVED", ":u": now() },
-      ReturnValues: "ALL_NEW",
-      ConditionExpression: "#st = :p", // only from PENDING
-      ExpressionAttributeValuesAdditional: undefined as any, // TS quirk
-    } as any)); // narrow typing workaround for lib
-    return out.Attributes;
+  if (parentTypeName === "Mutation") {
+    if (fieldName === "adminApproveItem") {
+      return adminApproveItem(event.arguments);
+    }
+    if (fieldName === "adminRejectItem") {
+      return adminRejectItem(event.arguments);
+    }
+    if (fieldName === "adminSetClosetAudience") {
+      return adminSetClosetAudience(event.arguments);
+    }
   }
 
-  if (field === "adminRejectItem") {
-    if (!isPrivileged(ident)) throw new Error("Not authorized");
-    const id = event.arguments?.id as string;
-    const reason = (event.arguments?.reason as string | undefined) ?? null;
-    if (!id) throw new Error("id is required");
-
-    const current = await ddb.send(new GetCommand({ TableName: TABLE, Key: { id } }));
-    if (!current.Item) throw new Error("Item not found");
-
-    const out = await ddb.send(new UpdateCommand({
-      TableName: TABLE,
-      Key: { id },
-      UpdateExpression: "SET #st = :r, #u = :u, #rsn = :reason",
-      ExpressionAttributeNames: { "#st": "status", "#u": "updatedAt", "#rsn": "reason" },
-      ExpressionAttributeValues: { ":r": "REJECTED", ":u": now(), ":reason": reason },
-      ReturnValues: "ALL_NEW",
-      ConditionExpression: "#st = :p",
-      ExpressionAttributeValuesAdditional: undefined as any,
-    } as any));
-    return out.Attributes;
-  }
-
-  throw new Error(`Unhandled field: ${field}`);
+  throw new Error(
+    `Unknown field ${parentTypeName}.${fieldName} in ClosetAdminFn`,
+  );
 };
