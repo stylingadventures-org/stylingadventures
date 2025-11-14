@@ -11,7 +11,7 @@ import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
-  table: dynamodb.ITable;            // single-table (pk/sk), e.g. "sa-dev-app"
+  table: dynamodb.ITable;
   closetApprovalSm: sfn.IStateMachine;
 }
 
@@ -20,18 +20,12 @@ export class ApiStack extends Stack {
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+
     const { userPool, table, closetApprovalSm } = props;
 
-    /* ───────── Hello (smoke test) ───────── */
-    const helloFn = new lambda.Function(this, "HelloFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "index.handler",
-      code: lambda.Code.fromAsset(path.join(process.cwd(), "lambda/hello")),
-      environment: { NODE_OPTIONS: "--enable-source-maps" },
-      description: "Simple hello world for Query.hello",
-    });
-
-    /* ───────── AppSync API ───────── */
+    // ────────────────────────────────────────────────────────────
+    // GRAPHQL API
+    // ────────────────────────────────────────────────────────────
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
       definition: appsync.Definition.fromFile(
@@ -46,26 +40,37 @@ export class ApiStack extends Stack {
       xrayEnabled: true,
     });
 
-    /* ───────── Roles: Lambda (Mutation.setUserRole only) ─────────
-       NOTE: Query.me is handled by a NONE datasource below to return
-       FAN/FREE defaults without hitting a backend.
-    */
-    const rolesFn = new NodejsFunction(this, "RolesFn", {
-      entry: path.join(process.cwd(), "lambda/roles/index.ts"),
+    // ────────────────────────────────────────────────────────────
+    // HELLO TEST ENDPOINT
+    // ────────────────────────────────────────────────────────────
+    const helloFn = new lambda.Function(this, "HelloFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: {
-        format: OutputFormat.CJS,
-        minify: true,
-        sourceMap: true,
-        target: "node20",
-      },
+      handler: "index.handler",
+      code: lambda.Code.fromAsset("lambda/hello"),
+      environment: { NODE_OPTIONS: "--enable-source-maps" },
+    });
+
+    const helloDs = this.api.addLambdaDataSource("HelloDs", helloFn);
+
+    helloDs.createResolver("Hello", {
+      typeName: "Query",
+      fieldName: "hello",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // USER ROLES
+    // ────────────────────────────────────────────────────────────
+    const rolesFn = new NodejsFunction(this, "RolesFn", {
+      entry: "lambda/roles/index.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
-        NODE_OPTIONS: "--enable-source-maps",
         TABLE_NAME: table.tableName,
         PK_NAME: "pk",
         SK_NAME: "sk",
       },
-      description: "Resolves Mutation.setUserRole (single-table aware)",
     });
 
     table.grantReadWriteData(rolesFn);
@@ -79,7 +84,10 @@ export class ApiStack extends Stack {
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    /* ───────── Query.me via NONE datasource (defaults) ───────── */
+    // ────────────────────────────────────────────────────────────
+    // QUERY.ME (NONE DS)
+    // IMPORTANT: use original logical ID so CFN updates instead of creating.
+    // ────────────────────────────────────────────────────────────
     const noneDs = this.api.addNoneDataSource("NoneDs");
 
     noneDs.createResolver("QueryMeResolver", {
@@ -98,173 +106,212 @@ export class ApiStack extends Stack {
       `),
     });
 
-    /* ───────── Hello -> Lambda resolver (Query.hello) ───────── */
-    const helloDs = this.api.addLambdaDataSource("HelloDs", helloFn);
-    helloDs.createResolver("Hello", {
-      typeName: "Query",
-      fieldName: "hello",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    /* ───────── Closet resolvers (NodejsFunction bundle) ───────── */
+    // ────────────────────────────────────────────────────────────
+    // CLOSET RESOLVER (GENERAL)
+    // ────────────────────────────────────────────────────────────
     const closetFn = new NodejsFunction(this, "ClosetResolverFn", {
-      entry: path.join(process.cwd(), "lambda/graphql/index.ts"),
+      entry: "lambda/graphql/index.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: {
-        format: OutputFormat.CJS,
-        minify: true,
-        sourceMap: true,
-        target: "node20",
-      },
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
         TABLE_NAME: table.tableName,
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
-        NODE_OPTIONS: "--enable-source-maps",
+        STATUS_GSI: "gsi1",
       },
-      description: "GraphQL field resolver for closet queries/mutations",
     });
 
     table.grantReadWriteData(closetFn);
-    closetFn.addToRolePolicy(
+    closetApprovalSm.grantStartExecution(closetFn);
+
+    const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFn);
+
+    closetDs.createResolver("MyCloset", {
+      typeName: "Query",
+      fieldName: "myCloset",
+    });
+
+    closetDs.createResolver("ClosetFeed", {
+      typeName: "Query",
+      fieldName: "closetFeed",
+    });
+
+    closetDs.createResolver("CreateClosetItem", {
+      typeName: "Mutation",
+      fieldName: "createClosetItem",
+    });
+
+    closetDs.createResolver("RequestClosetApproval", {
+      typeName: "Mutation",
+      fieldName: "requestClosetApproval",
+    });
+
+    closetDs.createResolver("UpdateClosetMediaKey", {
+      typeName: "Mutation",
+      fieldName: "updateClosetMediaKey",
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // CLOSET ADMIN
+    // ────────────────────────────────────────────────────────────
+    const closetAdminFn = new NodejsFunction(this, "ClosetAdminFn", {
+      entry: "lambda/closet/admin.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        TABLE_NAME: table.tableName,
+        STATUS_GSI: "gsi1",
+      },
+    });
+
+    table.grantReadWriteData(closetAdminFn);
+
+    closetAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
           "dynamodb:Query",
           "dynamodb:Scan",
           "dynamodb:GetItem",
-          "dynamodb:BatchGetItem",
           "dynamodb:UpdateItem",
-          "dynamodb:PutItem",
         ],
         resources: [table.tableArn, `${table.tableArn}/index/*`],
       })
     );
-    closetApprovalSm.grantStartExecution(closetFn);
 
-    const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFn);
+    const closetAdminDs = this.api.addLambdaDataSource(
+      "ClosetAdminDs",
+      closetAdminFn
+    );
 
-    // Queries
-    closetDs.createResolver("MyCloset", {
-      typeName: "Query",
-      fieldName: "myCloset",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("AdminListPendingResolver", {
+    closetAdminDs.createResolver("AdminListPendingResolver", {
       typeName: "Query",
       fieldName: "adminListPending",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // Mutations
-    closetDs.createResolver("CreateClosetItem", {
-      typeName: "Mutation",
-      fieldName: "createClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("RequestClosetApproval", {
-      typeName: "Mutation",
-      fieldName: "requestClosetApproval",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("AdminApproveItem", {
+    closetAdminDs.createResolver("AdminApproveItem", {
       typeName: "Mutation",
       fieldName: "adminApproveItem",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
-    closetDs.createResolver("AdminRejectItem", {
+
+    closetAdminDs.createResolver("AdminRejectItem", {
       typeName: "Mutation",
       fieldName: "adminRejectItem",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
-    closetDs.createResolver("UpdateClosetMediaKey", {
+
+    closetAdminDs.createResolver("AdminSetClosetAudience", {
       typeName: "Mutation",
-      fieldName: "updateClosetMediaKey",
+      fieldName: "adminSetClosetAudience",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    /* ───────── Bestie resolvers (one NodejsFunction) ───────── */
-    const bestieFn = new NodejsFunction(this, "BestieResolverFn", {
-      entry: path.join(process.cwd(), "lambda/bestie/index.ts"),
+    // ────────────────────────────────────────────────────────────
+    // GAME RESOLVERS
+    // ────────────────────────────────────────────────────────────
+    const gameEnv = {
+      TABLE_NAME: table.tableName,
+    };
+
+    const gameplayFn = new NodejsFunction(this, "GameplayFn", {
+      entry: "lambda/game/gameplay.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: {
-        format: OutputFormat.CJS,
-        minify: true,
-        sourceMap: true,
-        target: "node20",
-      },
-      environment: {
-        NODE_OPTIONS: "--enable-source-maps",
-        USER_POOL_ID: userPool.userPoolId, // used for email->sub lookup
-      },
-      description: "GraphQL resolvers for Bestie tier (incl. email helpers)",
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: gameEnv,
     });
 
-    // Read-only lookup permissions in Cognito (email -> sub)
-    bestieFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["cognito-idp:ListUsers", "cognito-idp:AdminGetUser"],
-        resources: [userPool.userPoolArn],
-      })
+    const leaderboardFn = new NodejsFunction(this, "LeaderboardFn", {
+      entry: "lambda/game/leaderboard.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: gameEnv,
+    });
+
+    const pollsFn = new NodejsFunction(this, "PollsFn", {
+      entry: "lambda/game/polls.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: gameEnv,
+    });
+
+    const profileFn = new NodejsFunction(this, "ProfileFn", {
+      entry: "lambda/game/profile.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: gameEnv,
+    });
+
+    table.grantReadWriteData(gameplayFn);
+    table.grantReadData(leaderboardFn);
+    table.grantReadWriteData(pollsFn);
+    table.grantReadWriteData(profileFn);
+
+    const gameplayDS = this.api.addLambdaDataSource("GameplayDS", gameplayFn);
+    const leaderboardDs = this.api.addLambdaDataSource(
+      "LeaderboardDs",
+      leaderboardFn
     );
+    const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
+    const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
 
-    const bestieDs = this.api.addLambdaDataSource("BestieDs", bestieFn);
+    // IMPORTANT: use original logical IDs so existing resolvers are updated.
+    gameplayDS.createResolver("LogGameEventResolver", {
+      typeName: "Mutation",
+      fieldName: "logGameEvent",
+    });
 
-    // Queries
-    bestieDs.createResolver("MeBestieStatus", {
+    gameplayDS.createResolver("AwardCoinsResolver", {
+      typeName: "Mutation",
+      fieldName: "awardCoins",
+    });
+
+    pollsDs.createResolver("CreatePoll", {
+      typeName: "Mutation",
+      fieldName: "createPoll",
+    });
+
+    pollsDs.createResolver("VotePoll", {
+      typeName: "Mutation",
+      fieldName: "votePoll",
+    });
+
+    profileDs.createResolver("GrantBadge", {
+      typeName: "Mutation",
+      fieldName: "grantBadge",
+    });
+
+    profileDs.createResolver("SetDisplayName", {
+      typeName: "Mutation",
+      fieldName: "setDisplayName",
+    });
+
+    leaderboardDs.createResolver("TopXP", {
       typeName: "Query",
-      fieldName: "meBestieStatus",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+      fieldName: "topXP",
     });
-    bestieDs.createResolver("IsEpisodeEarlyAccess", {
+
+    leaderboardDs.createResolver("TopCoins", {
       typeName: "Query",
-      fieldName: "isEpisodeEarlyAccess",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+      fieldName: "topCoins",
     });
 
-    // Mutations (by sub)
-    bestieDs.createResolver("ClaimBestieTrial", {
-      typeName: "Mutation",
-      fieldName: "claimBestieTrial",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminSetBestie", {
-      typeName: "Mutation",
-      fieldName: "adminSetBestie",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminRevokeBestie", {
-      typeName: "Mutation",
-      fieldName: "adminRevokeBestie",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    pollsDs.createResolver("GetPoll", {
+      typeName: "Query",
+      fieldName: "getPoll",
     });
 
-    // Mutations (by email) — NEW
-    bestieDs.createResolver("AdminSetBestieByEmail", {
-      typeName: "Mutation",
-      fieldName: "adminSetBestieByEmail",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminRevokeBestieByEmail", {
-      typeName: "Mutation",
-      fieldName: "adminRevokeBestieByEmail",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    profileDs.createResolver("GetMyProfile", {
+      typeName: "Query",
+      fieldName: "getMyProfile",
     });
 
-    /* ───────── Outputs ───────── */
+    // ────────────────────────────────────────────────────────────
+    // OUTPUTS
+    // ────────────────────────────────────────────────────────────
     new CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
     new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }

@@ -39,7 +39,7 @@
     // Build the Hosted UI BASE (full https://{prefix}.auth.{region}.amazoncognito.com)
     const region = (cfg.region || "").trim();
     const fromCognitoDomain =
-      (cfg.cognitoDomain || "").trim().replace(/\/+$/, ""); // may already be full https://...amazoncognito.com
+      (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
     const fromPrefix = (cfg.cognitoDomainPrefix || cfg.hostedUiDomain || cfg.domain || "").trim();
 
     let hostBase = "";
@@ -60,7 +60,7 @@
       : ["openid", "email"];
 
     const origin = location.origin;
-    // no trailing slash to avoid redirect_mismatch
+    // Implicit flow callback (handled by /callback/index.html)
     cfg.redirectUri = cfg.redirectUri || `${origin}/callback`;
     cfg.logoutUri = cfg.logoutUri || `${origin}/`;
 
@@ -82,114 +82,91 @@
     }
   }
 
-  function idToken() {
+  // Single source of truth setters that persist + reflect in window.sa
+  function syncSaSession(patch) {
+    if (!window.sa) {
+      window.sa = {
+        cfg: {},
+        session: { idToken: "", accessToken: "", email: "" },
+        graphql: undefined,
+      };
+    }
+    const s =
+      window.sa.session ||
+      (window.sa.session = { idToken: "", accessToken: "", email: "" });
+    Object.assign(s, patch || {});
+  }
+
+  function setIdToken(tok) {
+    if (!tok) return;
+    // Store in both legacy + new keys so older code still works
+    sessionStorage.setItem("id_token", tok);
+    localStorage.setItem("sa_id_token", tok);
+    localStorage.setItem("sa:idToken", tok);
+    const email = parseJwt(tok).email || "";
+    syncSaSession({ idToken: tok, email });
+  }
+
+  function setAccessToken(tok) {
+    if (!tok) return;
+    sessionStorage.setItem("access_token", tok);
+    localStorage.setItem("sa:accessToken", tok);
+    syncSaSession({ accessToken: tok });
+  }
+
+  function getStoredIdToken() {
     return (
       sessionStorage.getItem("id_token") ||
       localStorage.getItem("sa_id_token") ||
+      localStorage.getItem("sa:idToken") ||
       ""
     );
   }
 
-  function refreshToken() {
-    return sessionStorage.getItem("refresh_token") || "";
+  function getStoredAccessToken() {
+    return (
+      sessionStorage.getItem("access_token") ||
+      localStorage.getItem("sa:accessToken") ||
+      ""
+    );
   }
 
+  // Implicit flow: no refresh token. Just ensure token is not obviously expired.
   async function ensureFreshToken() {
-    const tok = idToken();
+    const tok = getStoredIdToken();
+    if (!tok) {
+      throw new Error("Not signed in.");
+    }
+
     let expMs = 0;
     try {
       expMs = (parseJwt(tok).exp | 0) * 1000;
-    } catch (e) {}
-    if (tok && expMs && expMs - Date.now() > 60_000) return;
+    } catch {}
 
-    const cfg = window.__cfg || {};
-    if (!cfg._hostBase || !cfg.clientId) throw new Error("Auth misconfigured.");
-    const rt = refreshToken();
-    if (!rt) throw new Error("Not signed in (no refresh token).");
-
-    const tokenUrl = `${cfg._hostBase}/oauth2/token`;
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: String(cfg.clientId),
-      refresh_token: rt,
-    });
-
-    const res = await fetch(tokenUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-
-    if (!res.ok) throw new Error(`Refresh failed (${res.status})`);
-    const j = await res.json();
-    if (j.id_token) {
-      sessionStorage.setItem("id_token", j.id_token);
-      localStorage.setItem("sa_id_token", j.id_token);
+    // If we don't have exp or it's still > 60s in the future, just use it.
+    if (!expMs || expMs - Date.now() > 60_000) {
+      syncSaSession({ idToken: tok, email: parseJwt(tok).email || "" });
+      return;
     }
-    if (j.access_token) sessionStorage.setItem("access_token", j.access_token);
-    if (j.refresh_token) sessionStorage.setItem("refresh_token", j.refresh_token);
+
+    // Token expired -> clear local state and force re-login
+    try {
+      window.SA && window.SA.logoutLocal();
+    } catch {}
+    throw new Error("Session expired. Please sign in again.");
   }
 
-  // ---------- code-exchange helper ----------
-  async function exchangeAuthCodeIfNeeded() {
-    const onCallback = location.pathname.replace(/\/+$/, "") === "/callback";
-    const url = new URL(location.href);
-    const err = url.searchParams.get("error");
-    const errd = url.searchParams.get("error_description");
-
-    if (onCallback && err) {
-      console.error("Cognito error:", err, errd || "");
-      alert(`Sign-in failed: ${errd || err}`);
-      (window.top || window).location.replace(`/`);
-      return true;
-    }
-
-    const code = url.searchParams.get("code");
-    if (!onCallback || !code) return false;
-
-    const cfg = window.__cfg || {};
-    if (!cfg._hostBase || !cfg.clientId) throw new Error("Auth misconfigured.");
-    const tokenUrl = `${cfg._hostBase}/oauth2/token`;
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: String(cfg.clientId),
-      code,
-      redirect_uri: cfg.redirectUri,
-    });
-
-    const res = await fetch(tokenUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-
-    if (!res.ok) throw new Error(`Code exchange failed (${res.status})`);
-    const j = await res.json();
-
-    if (j.id_token) {
-      sessionStorage.setItem("id_token", j.id_token);
-      localStorage.setItem("sa_id_token", j.id_token);
-    }
-    if (j.access_token) sessionStorage.setItem("access_token", j.access_token);
-    if (j.refresh_token) sessionStorage.setItem("refresh_token", j.refresh_token);
-
-    // back to app root (or your preferred tab)
-    (window.top || window).location.replace(`/`);
-    return true;
-  }
-
-  // ---------- SA install ----------
+  // ---------- SA install (existing API) ----------
   function installSA() {
     if (window.SA && typeof window.SA.gql === "function") return window.SA;
 
     window.SA = {
       cfg: () => window.__cfg || {},
 
-      isSignedIn: () =>
-        !!(sessionStorage.getItem("id_token") || localStorage.getItem("sa_id_token")),
+      isSignedIn: () => !!getStoredIdToken(),
 
       getUser: () => {
-        const c = parseJwt(idToken());
+        const c = parseJwt(getStoredIdToken());
         return {
           email: c.email || "",
           name: c.name || c["cognito:username"] || "",
@@ -202,7 +179,7 @@
       },
 
       getRole: () => {
-        const c = parseJwt(idToken());
+        const c = parseJwt(getStoredIdToken());
         return (
           (Array.isArray(c["cognito:groups"]) && c["cognito:groups"][0]) ||
           c["custom:role"] ||
@@ -211,20 +188,35 @@
         );
       },
 
-      startLogin: () => {
+      // Start Hosted UI login using IMPLICIT (token) flow.
+      startLogin: (returnTo) => {
         const cfg = window.__cfg || {};
         if (!cfg._hostBase || !cfg.clientId) {
           alert("Auth misconfigured.");
           return;
         }
+
+        // Remember where we wanted to go (callback page will use this).
+        const dest =
+          typeof returnTo === "string"
+            ? returnTo
+            : window.location.pathname + window.location.search;
+        try {
+          sessionStorage.setItem("sa:returnTo", dest);
+        } catch {}
+
         const scope = (cfg._scopes && cfg._scopes.join(" ")) || "openid email";
+
         const qp = new URLSearchParams({
           client_id: String(cfg.clientId),
-          response_type: "code",
+          response_type: "token", // <<< implicit flow
           scope,
           redirect_uri: cfg.redirectUri,
         });
-        (window.top || window).location.assign(`${cfg._hostBase}/login?${qp.toString()}`);
+
+        (window.top || window).location.assign(
+          `${cfg._hostBase}/login?${qp.toString()}`
+        );
       },
 
       logoutLocal: () => {
@@ -232,18 +224,23 @@
           sessionStorage.removeItem(k)
         );
         localStorage.removeItem("sa_id_token");
+        localStorage.removeItem("sa:idToken");
+        localStorage.removeItem("sa:accessToken");
+        localStorage.removeItem("sa:expiresAt");
+        syncSaSession({ idToken: "", accessToken: "", email: "" });
       },
 
-      // ALWAYS clear local tokens first, then bounce to Hosted UI logout if present
+      // ALWAYS clear local tokens first, then bounce to Hosted UI logout so you can choose a different user next time.
       logoutEverywhere: () => {
         const cfg = window.__cfg || {};
 
-        try { window.SA.logoutLocal(); } catch {}
+        try {
+          window.SA.logoutLocal();
+        } catch {}
 
         if (cfg._hostBase && cfg.clientId) {
           const qp = new URLSearchParams({
             client_id: String(cfg.clientId),
-            // must be in Cognito “Allowed sign-out URLs”
             logout_uri: cfg.logoutUri || `${location.origin}/`,
           });
           (window.top || window).location.href = `${cfg._hostBase}/logout?${qp.toString()}`;
@@ -255,16 +252,21 @@
 
       gql: async (query, variables) => {
         const cfg = window.__cfg || {};
-        if (!cfg.appsyncUrl) throw new Error("Missing appsyncUrl in config.");
+        if (!cfg.appsyncUrl)
+          throw new Error("Missing appsyncUrl in config.");
         await ensureFreshToken();
+        const tok = getStoredIdToken();
+        syncSaSession({ idToken: tok, email: parseJwt(tok).email || "" });
+
         const r = await fetch(cfg.appsyncUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: idToken(),
+            Authorization: tok,
           },
           body: JSON.stringify({ query, variables }),
         });
+
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(`GraphQL ${r.status}`);
         if (j.errors) throw new Error(j.errors.map((e) => e.message).join("; "));
@@ -284,34 +286,32 @@
       throw new Error("Missing uploadsApiUrl in config.v2.json");
     }
 
-    // Accept File/Blob or a string payload
     let blob;
     let key;
     if (fileOrText instanceof Blob) {
       blob = fileOrText;
       const name = fileOrText.name || `upload-${Date.now()}.bin`;
-      key = name; // API can scope to users/<sub>/ if it wants
+      key = name;
     } else {
       const text = String(fileOrText ?? "hello from Styling Adventures");
       blob = new Blob([text], { type: "text/plain" });
       key = `dev-tests/${Date.now()}.txt`;
     }
 
-    // 1) ask API for a presigned request
-    const presignRes = await fetch(`${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization:
-          sessionStorage.getItem("id_token") ||
-          localStorage.getItem("sa_id_token") ||
-          "",
-      },
-      body: JSON.stringify({
-        key,
-        contentType: blob.type || "application/octet-stream",
-      }),
-    });
+    const presignRes = await fetch(
+      `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: getStoredIdToken(),
+        },
+        body: JSON.stringify({
+          key,
+          contentType: blob.type || "application/octet-stream",
+        }),
+      }
+    );
 
     if (!presignRes.ok) {
       const t = await presignRes.text().catch(() => "");
@@ -319,11 +319,11 @@
     }
     const presign = await presignRes.json();
 
-    // 2) Upload using whatever shape we received
-    // A) POST with form fields (S3 POST policy)
     if (presign.method === "POST" || presign.fields) {
       const form = new FormData();
-      Object.entries(presign.fields || {}).forEach(([k, v]) => form.append(k, v));
+      Object.entries(presign.fields || {}).forEach(([k, v]) =>
+        form.append(k, v)
+      );
       form.append("file", blob);
       const up = await fetch(presign.url, { method: "POST", body: form });
       if (!up.ok) {
@@ -338,15 +338,16 @@
       };
     }
 
-    // B) PUT to a presigned URL
-    const uploadUrl = presign.url || presign.putUrl; // tolerate both
+    const uploadUrl = presign.url || presign.putUrl;
     if (!uploadUrl) {
       console.error("Unexpected presign payload:", presign);
       throw new Error("presign payload missing url/putUrl");
     }
     const method = presign.method || "PUT";
     const headers =
-      presign.headers || { "Content-Type": blob.type || "application/octet-stream" };
+      presign.headers || {
+        "Content-Type": blob.type || "application/octet-stream",
+      };
 
     const up = await fetch(uploadUrl, { method, headers, body: blob });
     if (!up.ok) {
@@ -357,7 +358,7 @@
     return {
       key,
       bucket: presign.bucket,
-      url: presign.publicUrl || presign.getUrl || uploadUrl, // for immediate preview
+      url: presign.publicUrl || presign.getUrl || uploadUrl,
       publicUrl: presign.publicUrl || null,
     };
   }
@@ -365,12 +366,28 @@
   // expose upload to React
   window.signedUpload = signedUpload;
 
-  // convenient getter for React code (optional)
+  // ---------- minimal window.sa API (always exposes idToken) ----------
+  function installWindowSaAlias(cfg) {
+    const currentId = getStoredIdToken();
+    const email = parseJwt(currentId).email || "";
+    if (!window.sa) window.sa = {};
+    window.sa.cfg = cfg || window.__cfg || {};
+    window.sa.session = {
+      idToken: currentId || "",
+      accessToken: getStoredAccessToken() || "",
+      email,
+    };
+    window.sa.graphql = async (query, variables) => {
+      const SA = window.SA || installSA();
+      return SA.gql(query, variables);
+    };
+  }
+
+  // convenient getter for React code (returns window.sa)
   window.getSA = async function getSA() {
-    if (window.SA) return window.SA;
-    if (window.SAReady) return window.SAReady;
+    if (!window.sa) installWindowSaAlias(window.__cfg || {});
     await new Promise((r) => setTimeout(r, 0));
-    return window.SA;
+    return window.sa;
   };
 
   // ---------- boot ----------
@@ -379,22 +396,24 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     const cfg = await loadCfg();
-    try {
-      const handled = await exchangeAuthCodeIfNeeded();
-      if (handled) return;
-    } catch (e) {
-      console.error("[SA] exchange error", e);
-      alert(e.message || String(e));
+
+    const saApi = installSA();
+    installWindowSaAlias(cfg); // ensure window.sa is ready & populated
+
+    // If a token already exists from a previous session, reflect it
+    const t = getStoredIdToken();
+    if (t) {
+      setIdToken(t);
+      const at = getStoredAccessToken();
+      if (at) setAccessToken(at);
     }
 
-    const sa = installSA();
-
-    if (resolveReady) resolveReady(sa);
+    if (resolveReady) resolveReady(saApi);
     window.dispatchEvent(new Event("sa:ready"));
 
     console.log(
       "[app] ready; role =",
-      sa.getRole(),
+      saApi.getRole(),
       "cfg.appsyncUrl =",
       cfg.appsyncUrl || "(missing)"
     );

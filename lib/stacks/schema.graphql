@@ -1,7 +1,15 @@
-"""Auth directive used in this API (mapped to Cognito user pools in AppSync)"""
+"""Auth directive used in this API (mapped to Cognito user pools in AppSync)."""
 directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
 
-""" -------- App base enums & types -------- """
+# If your AppSync configuration doesn’t auto-provide these, keep these scalar lines.
+scalar AWSDateTime
+scalar AWSEmail
+scalar AWSURL
+scalar AWSJSON
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Base: Closet / Users
+# ─────────────────────────────────────────────────────────────────────────────
 enum ClosetStatus {
   DRAFT
   PENDING
@@ -10,18 +18,39 @@ enum ClosetStatus {
   PUBLISHED
 }
 
+# Who can see the item once it’s approved
+enum ClosetAudience {
+  PUBLIC
+  BESTIE
+  EXCLUSIVE
+}
+
 type ClosetItem {
   id: ID!
+  userId: ID!
   ownerSub: String!
   status: ClosetStatus!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
   mediaKey: String
   title: String
-  reason: String          # optional: why REJECTED
+  reason: String
+  audience: ClosetAudience
+
+  # Story-style metadata used for fan-facing “Lala’s Closet” view
+  storyTitle: String
+  storySeason: String
+  storyVibes: [String!]
 }
 
-"""RBAC: roles & tiers (existing enum-backed user model)"""
+# Paged feed of approved closet items (privacy is enforced in the resolver)
+type ClosetFeedPage {
+  # Relaxed: can now be null, but resolvers should prefer []
+  items: [ClosetItem!]
+  nextToken: String
+}
+
+"""RBAC: roles & tiers (existing enum-backed user model)."""
 enum Role { FAN BESTIE CREATOR COLLAB ADMIN }
 enum Tier { FREE PRIME }
 
@@ -41,7 +70,7 @@ input SetUserRoleInput {
   tier: Tier
 }
 
-"""Phase-1 lightweight profile returned by Query.me (string-based)"""
+"""Phase-1 lightweight profile returned by Query.me (string-based)."""
 type UserProfile {
   id: ID!
   email: String
@@ -51,13 +80,15 @@ type UserProfile {
   updatedAt: AWSDateTime
 }
 
-"""Paged list of users for admin UI"""
+"""Paged list of users for admin UI."""
 type AdminUsersPage {
   items: [User!]!
   nextToken: String
 }
 
-""" -------- Bestie Tier types -------- """
+# ─────────────────────────────────────────────────────────────────────────────
+# Bestie Tier
+# ─────────────────────────────────────────────────────────────────────────────
 type BestieStatus {
   active: Boolean!
   since: AWSDateTime
@@ -70,54 +101,118 @@ type EarlyAccessGate {
   reason: String
 }
 
-""" -------- Queries -------- """
+# ─────────────────────────────────────────────────────────────────────────────
+# Fans/Game — Types & Inputs
+# ─────────────────────────────────────────────────────────────────────────────
+type GameProfile {
+  userId: ID!
+  displayName: String
+  avatarUrl: AWSURL
+  bio: String
+  level: Int!
+  xp: Int!
+  coins: Int!
+  badges: [String!]!
+  lastEventAt: AWSDateTime
+  streakCount: Int
+  lastLoginAt: AWSDateTime
+}
+
+type LeaderboardEntry {
+  userId: ID!
+  displayName: String
+  xp: Int
+  coins: Int
+  rank: Int
+}
+
+type Poll {
+  pollId: ID!
+  question: String!
+  options: [String!]!
+  totals: [Int!]!
+  createdBy: String!
+  createdAt: AWSDateTime!
+}
+
+input GameEventInput {
+  type: String!      # e.g., "LEVEL_CLEAR", "DAILY_LOGIN", "SHARE", "STYLE_IT"
+  metadata: AWSJSON
+}
+
+input AwardInput {
+  userId: ID!
+  coins: Int!
+  xp: Int
+  reason: String
+}
+
+input CreatePollInput {
+  question: String!
+  options: [String!]!
+}
+
+# NEW: profile patch input
+input UpdateProfileInput {
+  displayName: String
+  avatarUrl: AWSURL
+  bio: String
+}
+
+# NEW: update story metadata for a closet item
+input UpdateClosetItemStoryInput {
+  id: ID!
+  storyTitle: String
+  storySeason: String
+  storyVibes: [String!]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Root: Queries
+# ─────────────────────────────────────────────────────────────────────────────
 type Query {
   hello: String!
 
-  """
-  Returns the signed-in creator’s items. Never null; empty list if none.
-  Implemented by lambda/graphql/closet.ts -> myCloset
-  """
+  """Signed-in creator’s items."""
   myCloset: [ClosetItem!]!
 
-  """
-  Items awaiting moderation. Requires elevated groups.
-  Implemented by lambda/graphql/closet.ts -> adminListPending
-  """
+  """Items awaiting moderation."""
   adminListPending: [ClosetItem!]!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
 
-  # Roles / user directory
-  # NOTE: now returns UserProfile (string role/tier) to match the NONE DS resolver.
-  me: UserProfile!
+  # Lala's Closet — public/community feed
+  # Resolver enforces: status APPROVED/PUBLISHED + audience PUBLIC
+  closetFeed(limit: Int, nextToken: String): ClosetFeedPage
 
-  # Existing admin users listing remains enum-backed
+  # Roles / user directory
+  # Relaxed: nullable so we don’t blow up if resolver returns null
+  me: UserProfile
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
 
   # Bestie Tier
   meBestieStatus: BestieStatus!
   isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!
+
+  # Fans/Game
+  getMyProfile: GameProfile!
+  topXP(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
+  topCoins(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
+  getPoll(pollId: ID!): Poll
 }
 
-""" -------- Mutations -------- """
+# ─────────────────────────────────────────────────────────────────────────────
+# Root: Mutations
+# ─────────────────────────────────────────────────────────────────────────────
 type Mutation {
-  """
-  Creates a new item in DRAFT.
-  Implemented by lambda/graphql/closet.ts -> createClosetItem
-  """
-  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth
+  """Creates a new item in DRAFT."""
+  createClosetItem(title: String, mediaKey: String): ClosetItem!
 
-  """
-  Marks item PENDING and starts the approval Step Function.
-  Returns a string (execution request marker).
-  Implemented by lambda/graphql/closet.ts -> requestClosetApproval
-  """
+  """Marks item PENDING and starts approval workflow."""
   requestClosetApproval(id: ID!): String!
 
-  # Roles
-  # Return shape is now UserProfile to align with front-end expectations.
-  setUserRole(input: SetUserRoleInput!): UserProfile!
+  """Admin/creator fix-up: update the media key on an item."""
+  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
 
   # Moderation actions
   adminApproveItem(id: ID!): ClosetItem!
@@ -125,30 +220,44 @@ type Mutation {
   adminRejectItem(id: ID!, reason: String): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  """
-  Admin/creator fix-up: update the media key on an item.
-  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey
-  """
-  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
+  # Visibility for Lala’s Closet
+  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
+    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  """ -------- Bestie Tier -------- """
+  # Bestie-side story metadata for closet items
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+
+  # Roles
+  setUserRole(input: SetUserRoleInput!): UserProfile!
+
+  # Bestie Tier
+  startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!
   claimBestieTrial: BestieStatus!
-
-  """
-  Admin toggles by Cognito sub (existing)
-  """
   adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
   adminRevokeBestie(userSub: ID!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
-
-  """
-  Admin convenience: the same toggles by email (new)
-  """
   adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
   adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
+
+  # Fans/Game
+  logGameEvent(input: GameEventInput!): GameProfile!
+  createPoll(input: CreatePollInput!): Poll
+  votePoll(pollId: ID!, optionIndex: Int!): Poll
+
+  # Admin-only game actions
+  awardCoins(input: AwardInput!): GameProfile!
+    @aws_auth(cognito_groups: ["ADMIN"])
+  grantBadge(userId: ID!, badge: String!): GameProfile!
+    @aws_auth(cognito_groups: ["ADMIN"])
+
+  # Profile edit
+  setDisplayName(displayName: String!): GameProfile!
+
+  # NEW: profile patch
+  updateProfile(input: UpdateProfileInput!): GameProfile!
 }
 
 schema {

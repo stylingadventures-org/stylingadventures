@@ -3,135 +3,234 @@ import {
   CognitoIdentityProviderClient,
   ListUsersCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { AppSyncResolverEvent } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import type { AppSyncIdentityCognito } from "aws-lambda";
+import Stripe from "stripe";
 
-/**
- * This lambda handles:
- *  - Query.meBestieStatus
- *  - Query.isEpisodeEarlyAccess
- *  - Mutation.claimBestieTrial
- *  - Mutation.adminSetBestie
- *  - Mutation.adminRevokeBestie
- *  - Mutation.adminSetBestieByEmail   (NEW)
- *  - Mutation.adminRevokeBestieByEmail(NEW)
- *
- * For demo purposes we store nothing and return computed objects.
- * Replace the stubs that say TODO with your DynamoDB writes when ready.
- */
+const { USER_POOL_ID = "", TABLE_NAME = "" } = process.env;
+if (!TABLE_NAME) throw new Error("Missing env TABLE_NAME");
+if (!USER_POOL_ID) throw new Error("Missing env USER_POOL_ID");
 
-const USER_POOL_ID = process.env.USER_POOL_ID as string;
-const REGION = process.env.AWS_REGION || "us-east-1";
+// Stripe (checked lazily per-request so non-Stripe paths still work)
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
+const BASE_SUCCESS_URL = (process.env.BASE_SUCCESS_URL || "http://localhost:5173").replace(/\/$/, "");
 
-const cognito = new CognitoIdentityProviderClient({ region: REGION });
+const cognito = new CognitoIdentityProviderClient({});
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
-type Ctx = AppSyncResolverEvent<any>;
+type SAId =
+  | (AppSyncIdentityCognito & {
+      groups?: string[] | null;
+    })
+  | null
+  | undefined;
 
-function nowIso() {
-  return new Date().toISOString();
-}
+const PK = (sub: string) => `USER#${sub}`;
+const SK_BESTIE = "BESTIE";
 
-async function meStatus(ctx: Ctx) {
-  // TODO: load real status from DynamoDB/user profile
+/** Load current Bestie status from DDB. */
+async function loadBestie(sub: string) {
+  const r = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: PK(sub), sk: SK_BESTIE },
+    })
+  );
+  const i = (r.Item as any) ?? {};
   return {
-    active: true,
-    since: nowIso(),
-    until: null,
-    source: "TRIAL", // or ADMIN/GRANT/etc.
+    active: !!i.active,
+    since: (i.since as string) ?? null,
+    until: (i.until as string) ?? null,
+    source: (i.source as string) ?? null,
   };
 }
 
-async function earlyAccess(_ctx: Ctx, id: string) {
-  // Simple rule: ep-1 is gated unless user is active Bestie
-  const allowed = id !== "ep-1" ? true : (await meStatus(_ctx)).active;
-  return { allowed, reason: allowed ? null : "BESTIE_REQUIRED" };
+/** Upsert Bestie status. */
+async function saveBestie(
+  sub: string,
+  patch: { active: boolean; since?: string | null; until?: string | null; source?: string | null }
+) {
+  const now = new Date().toISOString();
+
+  // ensure document exists (optional bootstrap)
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: PK(sub), sk: SK_BESTIE },
+      UpdateExpression: "SET #doc = if_not_exists(#doc, :empty), #updatedAt = :now",
+      ExpressionAttributeNames: { "#doc": "doc", "#updatedAt": "updatedAt" },
+      ExpressionAttributeValues: { ":empty": {}, ":now": now },
+    })
+  );
+
+  // apply the patch (use names to avoid reserved words like "until")
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: PK(sub), sk: SK_BESTIE },
+      UpdateExpression:
+        "SET #active = :a, #since = if_not_exists(#since, :since), #until = :u, #source = :s, #updatedAt = :now",
+      ExpressionAttributeNames: {
+        "#active": "active",
+        "#since": "since",
+        "#until": "until",
+        "#source": "source",
+        "#updatedAt": "updatedAt",
+      },
+      ExpressionAttributeValues: {
+        ":a": patch.active,
+        ":since": patch.since ?? now,
+        ":u": patch.until ?? null,
+        ":s": patch.source ?? null,
+        ":now": now,
+      },
+    })
+  );
+
+  return loadBestie(sub);
 }
 
-async function claimTrial(ctx: Ctx) {
-  // TODO: write a trial grant tied to ctx.identity.sub
-  return {
-    active: true,
-    since: nowIso(),
-    until: null,
-    source: "TRIAL",
-  };
+/** Helper: find sub by email when admin sets bestie by email. */
+async function lookupSubByEmail(email: string) {
+  const res = await cognito.send(
+    new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+      Filter: `email = "${email}"`,
+      Limit: 1,
+    })
+  );
+  const user = res.Users?.[0];
+  if (!user?.Attributes) return null;
+  const subAttr = user.Attributes.find((a) => a.Name === "sub");
+  return subAttr?.Value ?? null;
 }
 
-async function setBestieBySub(_ctx: Ctx, userSub: string, active: boolean) {
-  // TODO: persist to single-table (pk=USER#sub, sk=BESTIE, active, since/until/source)
-  return {
-    active,
-    since: nowIso(),
-    until: null,
-    source: "ADMIN",
-  };
+function isAdmin(id: SAId) {
+  const g = (id as any)?.groups;
+  return Array.isArray(g) && g.includes("ADMIN");
 }
 
-async function findSubByEmail(email: string): Promise<string | null> {
-  // Use ListUsers with a filter on email (works with usernameAttributes=email)
-  const cmd = new ListUsersCommand({
-    UserPoolId: USER_POOL_ID,
-    Filter: `email = \"${email}\"`,
-    Limit: 1,
-  });
-  const res = await cognito.send(cmd);
-  const user = (res.Users || [])[0];
-  if (!user) return null;
-  const attr = (user.Attributes || []).find((a) => a.Name === "sub");
-  return attr?.Value || null;
-}
+export const handler = async (event: any) => {
+  const id = event.identity as SAId;
+  const fn = event.info?.fieldName as string;
 
-export const handler = async (ctx: Ctx) => {
-  const field = ctx.info.fieldName;
+  // ───────────────────────────────────────────
+  // Bestie checkout (Stripe)
+  // ───────────────────────────────────────────
+  if (fn === "startBestieCheckout") {
+    const identity = event.identity as AppSyncIdentityCognito | undefined;
+    if (!identity?.sub) throw new Error("Unauthorized");
 
-  switch (field) {
-    /* ------------- Queries ------------- */
-    case "meBestieStatus":
-      return meStatus(ctx);
-
-    case "isEpisodeEarlyAccess": {
-      const id: string = ctx.arguments.id;
-      if (!id) throw new Error("Missing id");
-      return earlyAccess(ctx, id);
+    if (!STRIPE_SECRET_KEY || !STRIPE_PRICE_ID) {
+      throw new Error("Stripe not configured");
     }
 
-    /* ------------- Mutations ------------- */
-    case "claimBestieTrial":
-      return claimTrial(ctx);
+    // Use the SDK’s current version literal to satisfy TS
+    const stripe = new Stripe(STRIPE_SECRET_KEY);
 
-    case "adminSetBestie": {
-      const { userSub, active } = ctx.arguments as {
-        userSub: string;
-        active: boolean;
-      };
-      if (!userSub) throw new Error("Missing userSub");
-      return setBestieBySub(ctx, userSub, !!active);
-    }
+    const successPath: string = event.arguments?.successPath ?? "/bestie/thanks";
+    const successUrl = `${BASE_SUCCESS_URL}${successPath}`;
+    const cancelUrl = `${BASE_SUCCESS_URL}/bestie?cancelled=1`;
 
-    case "adminRevokeBestie": {
-      const { userSub } = ctx.arguments as { userSub: string };
-      if (!userSub) throw new Error("Missing userSub");
-      return setBestieBySub(ctx, userSub, false);
-    }
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl,
+      client_reference_id: identity.sub,
+      customer_email: (identity as any)?.claims?.email,
+      metadata: { sub: identity.sub, email: (identity as any)?.claims?.email ?? "" },
+      allow_promotion_codes: true,
+    });
 
-    // ------ NEW: by email convenience ------
-    case "adminSetBestieByEmail": {
-      const { email, active } = ctx.arguments as {
-        email: string;
-        active: boolean;
-      };
-      const sub = await findSubByEmail(email);
-      if (!sub) throw new Error("User does not exist.");
-      return setBestieBySub(ctx, sub, !!active);
-    }
-
-    case "adminRevokeBestieByEmail": {
-      const { email } = ctx.arguments as { email: string };
-      const sub = await findSubByEmail(email);
-      if (!sub) throw new Error("User does not exist.");
-      return setBestieBySub(ctx, sub, false);
-    }
-
-    default:
-      throw new Error(`Unknown field ${field}`);
+    if (!session.url) throw new Error("No checkout URL from Stripe");
+    return { url: session.url };
   }
+
+  // ───────────────────────────────────────────
+  // Query: meBestieStatus
+  // ───────────────────────────────────────────
+  if (fn === "meBestieStatus") {
+    if (!id?.sub) throw new Error("Unauthorized");
+    return loadBestie(id.sub);
+  }
+
+  // ───────────────────────────────────────────
+  // Query: isEpisodeEarlyAccess(id)
+  // Rule: Bestie is active && until > now
+  // ───────────────────────────────────────────
+  if (fn === "isEpisodeEarlyAccess") {
+    const now = Date.now();
+    const sub = id?.sub;
+    if (!sub) return { allowed: false, reason: "not_signed_in" };
+    const b = await loadBestie(sub);
+    const untilMs = b.until ? Date.parse(b.until) : 0;
+    const allowed = b.active && untilMs > now;
+    return { allowed, reason: allowed ? null : "not_bestie" };
+  }
+
+  // ───────────────────────────────────────────
+  // Mutation: claimBestieTrial (7 days)
+  // ───────────────────────────────────────────
+  if (fn === "claimBestieTrial") {
+    if (!id?.sub) throw new Error("Unauthorized");
+    const current = await loadBestie(id.sub);
+
+    // If already active with a future-until, just return
+    if (current.active && current.until && Date.parse(current.until) > Date.now()) {
+      return current;
+    }
+    // If they already had a trial, do not re-grant
+    if (current.source === "TRIAL") {
+      return current;
+    }
+
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    const until = new Date(Date.now() + sevenDays).toISOString();
+    return saveBestie(id.sub, { active: true, until, source: "TRIAL" });
+  }
+
+  // ───────────────────────────────────────────
+  // Admin helpers (require ADMIN group)
+  // ───────────────────────────────────────────
+  if (fn === "adminSetBestie") {
+    if (!isAdmin(id)) throw new Error("Forbidden");
+    const { userSub, active } = event.arguments as { userSub: string; active: boolean };
+    const until = active ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null;
+    return saveBestie(userSub, { active: !!active, until, source: "ADMIN" });
+  }
+
+  if (fn === "adminRevokeBestie") {
+    if (!isAdmin(id)) throw new Error("Forbidden");
+    const { userSub } = event.arguments as { userSub: string };
+    return saveBestie(userSub, { active: false, until: null, source: "ADMIN" });
+  }
+
+  if (fn === "adminSetBestieByEmail") {
+    if (!isAdmin(id)) throw new Error("Forbidden");
+    const { email, active } = event.arguments as { email: string; active: boolean };
+    const sub = await lookupSubByEmail(email);
+    if (!sub) throw new Error("User not found");
+    const until = active ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null;
+    return saveBestie(sub, { active: !!active, until, source: "ADMIN_EMAIL" });
+  }
+
+  if (fn === "adminRevokeBestieByEmail") {
+    if (!isAdmin(id)) throw new Error("Forbidden");
+    const { email } = event.arguments as { email: string };
+    const sub = await lookupSubByEmail(email);
+    if (!sub) throw new Error("User not found");
+    return saveBestie(sub, { active: false, until: null, source: "ADMIN_EMAIL" });
+  }
+
+  throw new Error(`Unknown field ${fn}`);
 };
+

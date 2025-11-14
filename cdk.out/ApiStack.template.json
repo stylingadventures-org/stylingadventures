@@ -1,92 +1,6 @@
 {
  "Description": "AppSync GraphQL API - dev",
  "Resources": {
-  "HelloFnServiceRoleDA97FE56": {
-   "Type": "AWS::IAM::Role",
-   "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
-      {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "lambda.amazonaws.com"
-       }
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "ManagedPolicyArns": [
-     {
-      "Fn::Join": [
-       "",
-       [
-        "arn:",
-        {
-         "Ref": "AWS::Partition"
-        },
-        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-       ]
-      ]
-     }
-    ],
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/HelloFn/ServiceRole/Resource"
-   }
-  },
-  "HelloFn7942DF23": {
-   "Type": "AWS::Lambda::Function",
-   "Properties": {
-    "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7.zip"
-    },
-    "Description": "Simple hello world for Query.hello",
-    "Environment": {
-     "Variables": {
-      "NODE_OPTIONS": "--enable-source-maps"
-     }
-    },
-    "Handler": "index.handler",
-    "Role": {
-     "Fn::GetAtt": [
-      "HelloFnServiceRoleDA97FE56",
-      "Arn"
-     ]
-    },
-    "Runtime": "nodejs20.x",
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "DependsOn": [
-    "HelloFnServiceRoleDA97FE56"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/HelloFn/Resource",
-    "aws:asset:path": "asset.dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7",
-    "aws:asset:is-bundled": false,
-    "aws:asset:property": "Code"
-   }
-  },
   "StylingApiC401F041": {
    "Type": "AWS::AppSync::GraphQLApi",
    "Properties": {
@@ -124,10 +38,139 @@
       "ApiId"
      ]
     },
-    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync)\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n\"\"\" -------- App base enums & types -------- \"\"\"\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String          # optional: why REJECTED\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers (existing enum-backed user model)\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Phase-1 lightweight profile returned by Query.me (string-based)\"\"\"\r\ntype UserProfile {\r\n  id: ID!\r\n  email: String\r\n  role: String!\r\n  tier: String!\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n\"\"\" -------- Bestie Tier types -------- \"\"\"\r\ntype BestieStatus {\r\n  active: Boolean!\r\n  since: AWSDateTime\r\n  until: AWSDateTime\r\n  source: String\r\n}\r\n\r\ntype EarlyAccessGate {\r\n  allowed: Boolean!\r\n  reason: String\r\n}\r\n\r\n\"\"\" -------- Queries -------- \"\"\"\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"\r\n  Returns the signed-in creator’s items. Never null; empty list if none.\r\n  Implemented by lambda/graphql/closet.ts -> myCloset\r\n  \"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"\r\n  Items awaiting moderation. Requires elevated groups.\r\n  Implemented by lambda/graphql/closet.ts -> adminListPending\r\n  \"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Roles / user directory\r\n  # NOTE: now returns UserProfile (string role/tier) to match the NONE DS resolver.\r\n  me: UserProfile!\r\n\r\n  # Existing admin users listing remains enum-backed\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Bestie Tier\r\n  meBestieStatus: BestieStatus!\r\n  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!\r\n}\r\n\r\n\"\"\" -------- Mutations -------- \"\"\"\r\ntype Mutation {\r\n  \"\"\"\r\n  Creates a new item in DRAFT.\r\n  Implemented by lambda/graphql/closet.ts -> createClosetItem\r\n  \"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem! @aws_auth\r\n\r\n  \"\"\"\r\n  Marks item PENDING and starts the approval Step Function.\r\n  Returns a string (execution request marker).\r\n  Implemented by lambda/graphql/closet.ts -> requestClosetApproval\r\n  \"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  # Roles\r\n  # Return shape is now UserProfile to align with front-end expectations.\r\n  setUserRole(input: SetUserRoleInput!): UserProfile!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  \"\"\"\r\n  Admin/creator fix-up: update the media key on an item.\r\n  Implemented by lambda/graphql/closet.ts -> updateClosetMediaKey\r\n  \"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n\r\n  \"\"\" -------- Bestie Tier -------- \"\"\"\r\n  claimBestieTrial: BestieStatus!\r\n\r\n  \"\"\"\r\n  Admin toggles by Cognito sub (existing)\r\n  \"\"\"\r\n  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestie(userSub: ID!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  \"\"\"\r\n  Admin convenience: the same toggles by email (new)\r\n  \"\"\"\r\n  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n"
+    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync).\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n# If your AppSync configuration doesn’t auto-provide these, keep these scalar lines.\r\nscalar AWSDateTime\r\nscalar AWSEmail\r\nscalar AWSURL\r\nscalar AWSJSON\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Base: Closet / Users\r\n# ─────────────────────────────────────────────────────────────────────────────\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\n# Who can see the item once it’s approved\r\nenum ClosetAudience {\r\n  PUBLIC\r\n  BESTIE\r\n  EXCLUSIVE\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  userId: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String\r\n  audience: ClosetAudience\r\n}\r\n\r\n# Paged feed of approved closet items (privacy is enforced in the resolver)\r\ntype ClosetFeedPage {\r\n  # Relaxed: can now be null, but resolvers should prefer []\r\n  items: [ClosetItem!]\r\n  nextToken: String\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers (existing enum-backed user model).\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Phase-1 lightweight profile returned by Query.me (string-based).\"\"\"\r\ntype UserProfile {\r\n  id: ID!\r\n  email: String\r\n  role: String!\r\n  tier: String!\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI.\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Bestie Tier\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype BestieStatus {\r\n  active: Boolean!\r\n  since: AWSDateTime\r\n  until: AWSDateTime\r\n  source: String\r\n}\r\n\r\ntype EarlyAccessGate {\r\n  allowed: Boolean!\r\n  reason: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Fans/Game — Types & Inputs\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype GameProfile {\r\n  userId: ID!\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n  level: Int!\r\n  xp: Int!\r\n  coins: Int!\r\n  badges: [String!]!\r\n  lastEventAt: AWSDateTime\r\n  streakCount: Int\r\n  lastLoginAt: AWSDateTime\r\n}\r\n\r\ntype LeaderboardEntry {\r\n  userId: ID!\r\n  displayName: String\r\n  xp: Int\r\n  coins: Int\r\n  rank: Int\r\n}\r\n\r\ntype Poll {\r\n  pollId: ID!\r\n  question: String!\r\n  options: [String!]!\r\n  totals: [Int!]!\r\n  createdBy: String!\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\ninput GameEventInput {\r\n  type: String!      # e.g., \"LEVEL_CLEAR\", \"DAILY_LOGIN\", \"SHARE\", \"STYLE_IT\"\r\n  metadata: AWSJSON\r\n}\r\n\r\ninput AwardInput {\r\n  userId: ID!\r\n  coins: Int!\r\n  xp: Int\r\n  reason: String\r\n}\r\n\r\ninput CreatePollInput {\r\n  question: String!\r\n  options: [String!]!\r\n}\r\n\r\n# NEW: profile patch input\r\ninput UpdateProfileInput {\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Queries\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"Signed-in creator’s items.\"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"Items awaiting moderation.\"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Lala's Closet — public/community feed\r\n  # Resolver enforces: status APPROVED/PUBLISHED + audience PUBLIC\r\n  closetFeed(limit: Int, nextToken: String): ClosetFeedPage\r\n\r\n  # Roles / user directory\r\n  # Relaxed: nullable so we don’t blow up if resolver returns null\r\n  me: UserProfile\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Bestie Tier\r\n  meBestieStatus: BestieStatus!\r\n  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!\r\n\r\n  # Fans/Game\r\n  getMyProfile: GameProfile!\r\n  topXP(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  topCoins(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  getPoll(pollId: ID!): Poll\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Mutations\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Mutation {\r\n  \"\"\"Creates a new item in DRAFT.\"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem!\r\n\r\n  \"\"\"Marks item PENDING and starts approval workflow.\"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  \"\"\"Admin/creator fix-up: update the media key on an item.\"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Visibility for Lala’s Closet\r\n  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): UserProfile!\r\n\r\n  # Bestie Tier\r\n  startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!\r\n  claimBestieTrial: BestieStatus!\r\n  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestie(userSub: ID!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Fans/Game\r\n  logGameEvent(input: GameEventInput!): GameProfile!\r\n  createPoll(input: CreatePollInput!): Poll\r\n  votePoll(pollId: ID!, optionIndex: Int!): Poll\r\n\r\n  # Admin-only game actions\r\n  awardCoins(input: AwardInput!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  grantBadge(userId: ID!, badge: String!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Profile edit\r\n  setDisplayName(displayName: String!): GameProfile!\r\n\r\n  # NEW: profile patch\r\n  updateProfile(input: UpdateProfileInput!): GameProfile!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Schema"
+   }
+  },
+  "StylingApiHelloDsServiceRole44626254": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "HelloFn7942DF23",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "HelloFn7942DF23",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727",
+    "Roles": [
+     {
+      "Ref": "StylingApiHelloDsServiceRole44626254"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiHelloDs58F1D645": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "HelloFn7942DF23",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "HelloDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiHelloDsServiceRole44626254",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/Resource"
+   }
+  },
+  "StylingApiHello5D556CAF": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "HelloDs",
+    "FieldName": "hello",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiHelloDs58F1D645",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/Hello/Resource"
    }
   },
   "StylingApiRolesDsServiceRole42160415": {
@@ -299,135 +342,6 @@
     "aws:cdk:path": "ApiStack/StylingApi/QueryMeResolver/Resource"
    }
   },
-  "StylingApiHelloDsServiceRole44626254": {
-   "Type": "AWS::IAM::Role",
-   "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
-      {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "appsync.amazonaws.com"
-       }
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/Resource"
-   }
-  },
-  "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727": {
-   "Type": "AWS::IAM::Policy",
-   "Properties": {
-    "PolicyDocument": {
-     "Statement": [
-      {
-       "Action": "lambda:InvokeFunction",
-       "Effect": "Allow",
-       "Resource": [
-        {
-         "Fn::GetAtt": [
-          "HelloFn7942DF23",
-          "Arn"
-         ]
-        },
-        {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::GetAtt": [
-             "HelloFn7942DF23",
-             "Arn"
-            ]
-           },
-           ":*"
-          ]
-         ]
-        }
-       ]
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "PolicyName": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727",
-    "Roles": [
-     {
-      "Ref": "StylingApiHelloDsServiceRole44626254"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource"
-   }
-  },
-  "StylingApiHelloDs58F1D645": {
-   "Type": "AWS::AppSync::DataSource",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "LambdaConfig": {
-     "LambdaFunctionArn": {
-      "Fn::GetAtt": [
-       "HelloFn7942DF23",
-       "Arn"
-      ]
-     }
-    },
-    "Name": "HelloDs",
-    "ServiceRoleArn": {
-     "Fn::GetAtt": [
-      "StylingApiHelloDsServiceRole44626254",
-      "Arn"
-     ]
-    },
-    "Type": "AWS_LAMBDA"
-   },
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/HelloDs/Resource"
-   }
-  },
-  "StylingApiHello5D556CAF": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "HelloDs",
-    "FieldName": "hello",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Query"
-   },
-   "DependsOn": [
-    "StylingApiHelloDs58F1D645",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/Hello/Resource"
-   }
-  },
   "StylingApiClosetDsServiceRole61F98ADC": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -545,8 +459,6 @@
     "DataSourceName": "ClosetDs",
     "FieldName": "myCloset",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Query"
    },
    "DependsOn": [
@@ -557,7 +469,7 @@
     "aws:cdk:path": "ApiStack/StylingApi/MyCloset/Resource"
    }
   },
-  "StylingApiAdminListPendingResolver16923FC0": {
+  "StylingApiClosetFeedA85DF717": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -567,10 +479,8 @@
      ]
     },
     "DataSourceName": "ClosetDs",
-    "FieldName": "adminListPending",
+    "FieldName": "closetFeed",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Query"
    },
    "DependsOn": [
@@ -578,7 +488,7 @@
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminListPendingResolver/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetFeed/Resource"
    }
   },
   "StylingApiCreateClosetItemF16DABD7": {
@@ -593,8 +503,6 @@
     "DataSourceName": "ClosetDs",
     "FieldName": "createClosetItem",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
@@ -617,8 +525,6 @@
     "DataSourceName": "ClosetDs",
     "FieldName": "requestClosetApproval",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
@@ -627,54 +533,6 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/RequestClosetApproval/Resource"
-   }
-  },
-  "StylingApiAdminApproveItem0F267B42": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "ClosetDs",
-    "FieldName": "adminApproveItem",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
-   },
-   "DependsOn": [
-    "StylingApiClosetDs3024963C",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminApproveItem/Resource"
-   }
-  },
-  "StylingApiAdminRejectItemCC71EBDE": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "ClosetDs",
-    "FieldName": "adminRejectItem",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
-   },
-   "DependsOn": [
-    "StylingApiClosetDs3024963C",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminRejectItem/Resource"
    }
   },
   "StylingApiUpdateClosetMediaKeyD01273A7": {
@@ -689,8 +547,6 @@
     "DataSourceName": "ClosetDs",
     "FieldName": "updateClosetMediaKey",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
@@ -701,7 +557,7 @@
     "aws:cdk:path": "ApiStack/StylingApi/UpdateClosetMediaKey/Resource"
    }
   },
-  "StylingApiBestieDsServiceRole134EBB9C": {
+  "StylingApiClosetAdminDsServiceRoleDC64D6AC": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -728,10 +584,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/BestieDs/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/ServiceRole/Resource"
    }
   },
-  "StylingApiBestieDsServiceRoleDefaultPolicy459937D7": {
+  "StylingApiClosetAdminDsServiceRoleDefaultPolicyC0C0AABD": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -742,7 +598,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "BestieResolverFnBC9D7F5C",
+          "ClosetAdminFnB4D542CC",
           "Arn"
          ]
         },
@@ -752,7 +608,7 @@
           [
            {
             "Fn::GetAtt": [
-             "BestieResolverFnBC9D7F5C",
+             "ClosetAdminFnB4D542CC",
              "Arn"
             ]
            },
@@ -765,18 +621,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiBestieDsServiceRoleDefaultPolicy459937D7",
+    "PolicyName": "StylingApiClosetAdminDsServiceRoleDefaultPolicyC0C0AABD",
     "Roles": [
      {
-      "Ref": "StylingApiBestieDsServiceRole134EBB9C"
+      "Ref": "StylingApiClosetAdminDsServiceRoleDC64D6AC"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/BestieDs/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiBestieDs1FF238AC": {
+  "StylingApiClosetAdminDs6AAA997E": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -788,25 +644,25 @@
     "LambdaConfig": {
      "LambdaFunctionArn": {
       "Fn::GetAtt": [
-       "BestieResolverFnBC9D7F5C",
+       "ClosetAdminFnB4D542CC",
        "Arn"
       ]
      }
     },
-    "Name": "BestieDs",
+    "Name": "ClosetAdminDs",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiBestieDsServiceRole134EBB9C",
+      "StylingApiClosetAdminDsServiceRoleDC64D6AC",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/BestieDs/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/Resource"
    }
   },
-  "StylingApiMeBestieStatus8CEFABC5": {
+  "StylingApiAdminListPendingResolver16923FC0": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -815,22 +671,22 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "meBestieStatus",
+    "DataSourceName": "ClosetAdminDs",
+    "FieldName": "adminListPending",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
     "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
+    "StylingApiClosetAdminDs6AAA997E",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/MeBestieStatus/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/AdminListPendingResolver/Resource"
    }
   },
-  "StylingApiIsEpisodeEarlyAccess277A9D0E": {
+  "StylingApiAdminApproveItem0F267B42": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -839,22 +695,644 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "isEpisodeEarlyAccess",
+    "DataSourceName": "ClosetAdminDs",
+    "FieldName": "adminApproveItem",
     "Kind": "UNIT",
     "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
     "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminApproveItem/Resource"
+   }
+  },
+  "StylingApiAdminRejectItemCC71EBDE": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetAdminDs",
+    "FieldName": "adminRejectItem",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminRejectItem/Resource"
+   }
+  },
+  "StylingApiAdminSetClosetAudienceBD88A9DD": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetAdminDs",
+    "FieldName": "adminSetClosetAudience",
+    "Kind": "UNIT",
+    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
+    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminSetClosetAudience/Resource"
+   }
+  },
+  "StylingApiGameplayDSServiceRole20773680": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/ServiceRole/Resource"
+   }
+  },
+  "StylingApiGameplayDSServiceRoleDefaultPolicy78486F14": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "GameplayFnCD9DA738",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "GameplayFnCD9DA738",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiGameplayDSServiceRoleDefaultPolicy78486F14",
+    "Roles": [
+     {
+      "Ref": "StylingApiGameplayDSServiceRole20773680"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiGameplayDS54836D27": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "GameplayFnCD9DA738",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "GameplayDS",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiGameplayDSServiceRole20773680",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/Resource"
+   }
+  },
+  "StylingApiLeaderboardDsServiceRole00D64A33": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/LeaderboardDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiLeaderboardDsServiceRoleDefaultPolicyD7DA49C2": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "LeaderboardFnF2B1AEC2",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "LeaderboardFnF2B1AEC2",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiLeaderboardDsServiceRoleDefaultPolicyD7DA49C2",
+    "Roles": [
+     {
+      "Ref": "StylingApiLeaderboardDsServiceRole00D64A33"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/LeaderboardDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiLeaderboardDsEFF3D0CD": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "LeaderboardFnF2B1AEC2",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "LeaderboardDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiLeaderboardDsServiceRole00D64A33",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/LeaderboardDs/Resource"
+   }
+  },
+  "StylingApiPollsDsServiceRoleFE523342": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/PollsDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiPollsDsServiceRoleDefaultPolicyD1CDD935": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PollsFn65E6C73F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PollsFn65E6C73F",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiPollsDsServiceRoleDefaultPolicyD1CDD935",
+    "Roles": [
+     {
+      "Ref": "StylingApiPollsDsServiceRoleFE523342"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/PollsDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiPollsDs9CCAF464": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "PollsFn65E6C73F",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "PollsDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiPollsDsServiceRoleFE523342",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/PollsDs/Resource"
+   }
+  },
+  "StylingApiProfileDsServiceRole6F0CE2C7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/ProfileDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiProfileDsServiceRoleDefaultPolicyD64DFCD4": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ProfileFn28F379CF",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ProfileFn28F379CF",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiProfileDsServiceRoleDefaultPolicyD64DFCD4",
+    "Roles": [
+     {
+      "Ref": "StylingApiProfileDsServiceRole6F0CE2C7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/ProfileDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiProfileDs16C655BC": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::GetAtt": [
+       "ProfileFn28F379CF",
+       "Arn"
+      ]
+     }
+    },
+    "Name": "ProfileDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiProfileDsServiceRole6F0CE2C7",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/ProfileDs/Resource"
+   }
+  },
+  "StylingApiLogGameEventResolver79028153": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "GameplayDS",
+    "FieldName": "logGameEvent",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiGameplayDS54836D27",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/LogGameEventResolver/Resource"
+   }
+  },
+  "StylingApiAwardCoinsResolverC9D4641F": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "GameplayDS",
+    "FieldName": "awardCoins",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiGameplayDS54836D27",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AwardCoinsResolver/Resource"
+   }
+  },
+  "StylingApiCreatePoll172ED74E": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "PollsDs",
+    "FieldName": "createPoll",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiPollsDs9CCAF464",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatePoll/Resource"
+   }
+  },
+  "StylingApiVotePoll05392468": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "PollsDs",
+    "FieldName": "votePoll",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiPollsDs9CCAF464",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/VotePoll/Resource"
+   }
+  },
+  "StylingApiGrantBadgeBDDB1A42": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ProfileDs",
+    "FieldName": "grantBadge",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiProfileDs16C655BC",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/GrantBadge/Resource"
+   }
+  },
+  "StylingApiSetDisplayName8C104CD4": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ProfileDs",
+    "FieldName": "setDisplayName",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiProfileDs16C655BC",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/SetDisplayName/Resource"
+   }
+  },
+  "StylingApiTopXPFE0D029C": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "LeaderboardDs",
+    "FieldName": "topXP",
+    "Kind": "UNIT",
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
+    "StylingApiLeaderboardDsEFF3D0CD",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/IsEpisodeEarlyAccess/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/TopXP/Resource"
    }
   },
-  "StylingApiClaimBestieTrialADDEE85D": {
+  "StylingApiTopCoinsFE86E3ED": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -863,22 +1341,20 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "claimBestieTrial",
+    "DataSourceName": "LeaderboardDs",
+    "FieldName": "topCoins",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
+    "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
+    "StylingApiLeaderboardDsEFF3D0CD",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClaimBestieTrial/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/TopCoins/Resource"
    }
   },
-  "StylingApiAdminSetBestieBE209BB0": {
+  "StylingApiGetPoll72CC3EA6": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -887,22 +1363,20 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "adminSetBestie",
+    "DataSourceName": "PollsDs",
+    "FieldName": "getPoll",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
+    "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
+    "StylingApiPollsDs9CCAF464",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminSetBestie/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/GetPoll/Resource"
    }
   },
-  "StylingApiAdminRevokeBestie20ED6A7C": {
+  "StylingApiGetMyProfile7E9BB4B2": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
     "ApiId": {
@@ -911,67 +1385,102 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "adminRevokeBestie",
+    "DataSourceName": "ProfileDs",
+    "FieldName": "getMyProfile",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
+    "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
+    "StylingApiProfileDs16C655BC",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminRevokeBestie/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/GetMyProfile/Resource"
    }
   },
-  "StylingApiAdminSetBestieByEmail3B6C5418": {
-   "Type": "AWS::AppSync::Resolver",
+  "HelloFnServiceRoleDA97FE56": {
+   "Type": "AWS::IAM::Role",
    "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "adminSetBestieByEmail",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
    },
-   "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
-    "StylingApiSchemaD8A6FBCC"
-   ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminSetBestieByEmail/Resource"
+    "aws:cdk:path": "ApiStack/HelloFn/ServiceRole/Resource"
    }
   },
-  "StylingApiAdminRevokeBestieByEmail8C5A5978": {
-   "Type": "AWS::AppSync::Resolver",
+  "HelloFn7942DF23": {
+   "Type": "AWS::Lambda::Function",
    "Properties": {
-    "ApiId": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
      "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
+      "HelloFnServiceRoleDA97FE56",
+      "Arn"
      ]
     },
-    "DataSourceName": "BestieDs",
-    "FieldName": "adminRevokeBestieByEmail",
-    "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
-    "TypeName": "Mutation"
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
    },
    "DependsOn": [
-    "StylingApiBestieDs1FF238AC",
-    "StylingApiSchemaD8A6FBCC"
+    "HelloFnServiceRoleDA97FE56"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/AdminRevokeBestieByEmail/Resource"
+    "aws:cdk:path": "ApiStack/HelloFn/Resource",
+    "aws:asset:path": "asset.dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
    }
   },
   "RolesFnServiceRole774A669F": {
@@ -1075,12 +1584,10 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "ffe82e27ec69bd74f8c51ac254a364eb2014977e340d9b7a1642488d288429f2.zip"
+     "S3Key": "24e3bf00682fc2fca9d3d682fefdd4fe1aa90ed92a32324849fe3f07c3bd6c14.zip"
     },
-    "Description": "Resolves Mutation.setUserRole (single-table aware)",
     "Environment": {
      "Variables": {
-      "NODE_OPTIONS": "--enable-source-maps",
       "TABLE_NAME": {
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
@@ -1113,7 +1620,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/RolesFn/Resource",
-    "aws:asset:path": "asset.ffe82e27ec69bd74f8c51ac254a364eb2014977e340d9b7a1642488d288429f2",
+    "aws:asset:path": "asset.24e3bf00682fc2fca9d3d682fefdd4fe1aa90ed92a32324849fe3f07c3bd6c14",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1201,33 +1708,6 @@
        ]
       },
       {
-       "Action": [
-        "dynamodb:Query",
-        "dynamodb:Scan",
-        "dynamodb:GetItem",
-        "dynamodb:BatchGetItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:PutItem"
-       ],
-       "Effect": "Allow",
-       "Resource": [
-        {
-         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
-        },
-        {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
-           },
-           "/index/*"
-          ]
-         ]
-        }
-       ]
-      },
-      {
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
@@ -1253,9 +1733,8 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "04604649b17bcc8de4bb4832d72d700d03b8cd072b4cfe269b51b842ca428daf.zip"
+     "S3Key": "6a5dee64d495807735a13d5050c59ab1e0b6ce2b20c386e42da47d94b56130ef.zip"
     },
-    "Description": "GraphQL field resolver for closet queries/mutations",
     "Environment": {
      "Variables": {
       "TABLE_NAME": {
@@ -1264,7 +1743,7 @@
       "APPROVAL_SM_ARN": {
        "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
       },
-      "NODE_OPTIONS": "--enable-source-maps"
+      "STATUS_GSI": "gsi1"
      }
     },
     "Handler": "index.handler",
@@ -1292,12 +1771,12 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.04604649b17bcc8de4bb4832d72d700d03b8cd072b4cfe269b51b842ca428daf",
+    "aws:asset:path": "asset.6a5dee64d495807735a13d5050c59ab1e0b6ce2b20c386e42da47d94b56130ef",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
   },
-  "BestieResolverFnServiceRole106139C0": {
+  "ClosetAdminFnServiceRole87F02459": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -1338,58 +1817,105 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/BestieResolverFn/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/ClosetAdminFn/ServiceRole/Resource"
    }
   },
-  "BestieResolverFnServiceRoleDefaultPolicyDA0AB50C": {
+  "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
      "Statement": [
       {
        "Action": [
-        "cognito-idp:ListUsers",
-        "cognito-idp:AdminGetUser"
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
        ],
        "Effect": "Allow",
-       "Resource": {
-        "Fn::ImportValue": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
-       }
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
       }
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "BestieResolverFnServiceRoleDefaultPolicyDA0AB50C",
+    "PolicyName": "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF",
     "Roles": [
      {
-      "Ref": "BestieResolverFnServiceRole106139C0"
+      "Ref": "ClosetAdminFnServiceRole87F02459"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/BestieResolverFn/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/ClosetAdminFn/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "BestieResolverFnBC9D7F5C": {
+  "ClosetAdminFnB4D542CC": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "056b9a193f7d8c6ce236555c42bfe3d9198374ce3f82b056e4cd29e067ba4625.zip"
+     "S3Key": "ce11ea342b56e6be01ab12e2d3e77bce5349e61f0c759bfc82df8e2e097e76e2.zip"
     },
-    "Description": "GraphQL resolvers for Bestie tier (incl. email helpers)",
     "Environment": {
      "Variables": {
-      "NODE_OPTIONS": "--enable-source-maps",
-      "USER_POOL_ID": {
-       "Fn::ImportValue": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
-      }
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "STATUS_GSI": "gsi1"
      }
     },
     "Handler": "index.handler",
     "Role": {
      "Fn::GetAtt": [
-      "BestieResolverFnServiceRole106139C0",
+      "ClosetAdminFnServiceRole87F02459",
       "Arn"
      ]
     },
@@ -1406,12 +1932,568 @@
     ]
    },
    "DependsOn": [
-    "BestieResolverFnServiceRoleDefaultPolicyDA0AB50C",
-    "BestieResolverFnServiceRole106139C0"
+    "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF",
+    "ClosetAdminFnServiceRole87F02459"
    ],
    "Metadata": {
-    "aws:cdk:path": "ApiStack/BestieResolverFn/Resource",
-    "aws:asset:path": "asset.056b9a193f7d8c6ce236555c42bfe3d9198374ce3f82b056e4cd29e067ba4625",
+    "aws:cdk:path": "ApiStack/ClosetAdminFn/Resource",
+    "aws:asset:path": "asset.ce11ea342b56e6be01ab12e2d3e77bce5349e61f0c759bfc82df8e2e097e76e2",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "GameplayFnServiceRole9C9BF690": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GameplayFn/ServiceRole/Resource"
+   }
+  },
+  "GameplayFnServiceRoleDefaultPolicy448D7565": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "GameplayFnServiceRoleDefaultPolicy448D7565",
+    "Roles": [
+     {
+      "Ref": "GameplayFnServiceRole9C9BF690"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GameplayFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "GameplayFnCD9DA738": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "7da995849076263957b467454dba1391809efdc5c320d768c3fc8d8950efa530.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "GameplayFnServiceRole9C9BF690",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "GameplayFnServiceRoleDefaultPolicy448D7565",
+    "GameplayFnServiceRole9C9BF690"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/GameplayFn/Resource",
+    "aws:asset:path": "asset.7da995849076263957b467454dba1391809efdc5c320d768c3fc8d8950efa530",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "LeaderboardFnServiceRoleB1EE89C6": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LeaderboardFn/ServiceRole/Resource"
+   }
+  },
+  "LeaderboardFnServiceRoleDefaultPolicyA2682BE0": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LeaderboardFnServiceRoleDefaultPolicyA2682BE0",
+    "Roles": [
+     {
+      "Ref": "LeaderboardFnServiceRoleB1EE89C6"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LeaderboardFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LeaderboardFnF2B1AEC2": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "2df93e7d7043a07576b3f17833792d1fdc7d9c0dca2e3e3753b947de315ab317.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "LeaderboardFnServiceRoleB1EE89C6",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "LeaderboardFnServiceRoleDefaultPolicyA2682BE0",
+    "LeaderboardFnServiceRoleB1EE89C6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/LeaderboardFn/Resource",
+    "aws:asset:path": "asset.2df93e7d7043a07576b3f17833792d1fdc7d9c0dca2e3e3753b947de315ab317",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PollsFnServiceRole872F6029": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/PollsFn/ServiceRole/Resource"
+   }
+  },
+  "PollsFnServiceRoleDefaultPolicyA9884FB0": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PollsFnServiceRoleDefaultPolicyA9884FB0",
+    "Roles": [
+     {
+      "Ref": "PollsFnServiceRole872F6029"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/PollsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PollsFn65E6C73F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "f9307ce88d1f8124bc247c5aba260f8519af294bde8a83406d549d7a1ef30efe.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "PollsFnServiceRole872F6029",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "PollsFnServiceRoleDefaultPolicyA9884FB0",
+    "PollsFnServiceRole872F6029"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/PollsFn/Resource",
+    "aws:asset:path": "asset.f9307ce88d1f8124bc247c5aba260f8519af294bde8a83406d549d7a1ef30efe",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ProfileFnServiceRole4C7CA582": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/ProfileFn/ServiceRole/Resource"
+   }
+  },
+  "ProfileFnServiceRoleDefaultPolicy3F833555": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ProfileFnServiceRoleDefaultPolicy3F833555",
+    "Roles": [
+     {
+      "Ref": "ProfileFnServiceRole4C7CA582"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/ProfileFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ProfileFn28F379CF": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "b72fe5fea0641efda75fff1b84b5c2a9eeeefc13e13c16abb72c1d7ff1c80aab.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ProfileFnServiceRole4C7CA582",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ProfileFnServiceRoleDefaultPolicy3F833555",
+    "ProfileFnServiceRole4C7CA582"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/ProfileFn/Resource",
+    "aws:asset:path": "asset.b72fe5fea0641efda75fff1b84b5c2a9eeeefc13e13c16abb72c1d7ff1c80aab",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1419,7 +2501,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPQW7CMBB8C3dnS00vPUKr9oKgTR4QLc4WnDi2ydogFOXvlR0h2tPMrHZ2ZyRIKWG5wCsXqukKow8wVgFVJ/DK9WiwPzQI40e0KmhnxduPvfNJaOxhLJ2hNM745YxWtyRnNgle1chMgWGdQPAKNlF1FDbIJNB7vlkF4+eA/nQ2a6+TOavv7X9VqRP1KLY50jsGrFwcVP79R5XEzlxoyJHufOcsPXYmMdeqrWuoZdhleNRKtnwrJ64CHrU9pnv7GHwMk0g+aPnpIpfw/Aovi5a1LoZog+4Jyhl/Acj5ZmpbAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOQVLDMAxFz9K9I0rChmULUzadAskBMqojWieObSK7nY4nd2fsAoXV/1/Sk1RCWVawXOCZC9kNhVZ7iI1HOQg8cxvROb4YCfFlQnf81CunxNOHyel9+z818kgjii2O+w6f0WNjwyQpTfxJNbHVJ5pS+dfvrKHbzCwUjhBrqzOc9c1qJS8pXt0sdL4DcROM9Mqa1Pvxs+CqRWbyDKskgitYBzmQXyPTN9sa21HPsMtyY9Nb+deMNh4PyhzS+tfgXfCzSBz0fHcql3D/CA+LnpUqpmC8Ggnqq34BR5lxpFsBAAA="
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/CDKMetadata/Default"

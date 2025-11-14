@@ -1,3 +1,4 @@
+// lib/stacks/uploads-stack.ts
 import {
   Stack,
   StackProps,
@@ -17,11 +18,11 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 
 export interface UploadsStackProps extends StackProps {
   userPool: cognito.IUserPool;
-  /** e.g. https://stylingadventures.com */
+  /** Usually your web origin or CDN, e.g. https://stylingadventures.com */
   webOrigin: string;
-  /** CloudFront domain serving the site (optional, used for CORS allow-list) */
+  /** CloudFront domain serving the site/CDN (optional, used for CORS allow-list) */
   cloudFrontOrigin?: string;
-  /** Name of the *web/static* bucket where thumbnails will be written, e.g. webstack-staticsitebucket… */
+  /** Name of the *web/static* bucket where thumbnails will be written */
   webBucketName: string;
 }
 
@@ -32,32 +33,32 @@ export class UploadsStack extends Stack {
   constructor(scope: Construct, id: string, props: UploadsStackProps) {
     super(scope, id, props);
 
-    const {
-      userPool,
-      webOrigin,
-      cloudFrontOrigin = "https://d1682i07dc1r3k.cloudfront.net",
-      webBucketName,
-    } = props;
+    const { userPool, webOrigin, cloudFrontOrigin, webBucketName } = props;
 
     // ---- Allow-list for CORS (normalize + dedupe) ----
+    const originsRaw = [
+      webOrigin,
+      cloudFrontOrigin,
+      "https://www.stylingadventures.com",
+      "http://localhost:5173",
+      "https://localhost:5173",
+    ].filter(Boolean) as string[];
+
     const allowedOrigins = Array.from(
-      new Set(
-        [
-          cloudFrontOrigin,
-          webOrigin,
-          "https://www.stylingadventures.com",
-          "http://localhost:5173",
-        ]
-          .filter(Boolean)
-          .map((u) => u.replace(/\/+$/, "")),
-      ),
+      new Set(originsRaw.map((u) => u.replace(/\/+$/, ""))),
     );
 
     // ---- Lambda sources ----
-    const presignEntry   = path.resolve(process.cwd(), "lambda/presign/index.ts");
-    const listEntry      = path.resolve(process.cwd(), "lambda/list/index.ts");
-    const thumbHeadEntry = path.resolve(process.cwd(), "lambda/thumb-head/index.ts");
-    const thumbgenEntry  = path.resolve(process.cwd(), "lambda/thumbgen/index.ts");
+    const presignEntry = path.resolve(process.cwd(), "lambda/presign/index.ts");
+    const listEntry = path.resolve(process.cwd(), "lambda/list/index.ts");
+    const thumbHeadEntry = path.resolve(
+      process.cwd(),
+      "lambda/thumb-head/index.ts",
+    );
+    const thumbgenEntry = path.resolve(
+      process.cwd(),
+      "lambda/thumbgen/index.ts",
+    );
 
     // ---- S3 bucket for uploads (originals) ----
     this.bucket = new s3.Bucket(this, "UploadsBucket", {
@@ -69,7 +70,7 @@ export class UploadsStack extends Stack {
       autoDeleteObjects: false,
     });
 
-    // CORS for direct browser PUT/GET to uploads bucket
+    // CORS for direct browser PUT to uploads bucket
     this.bucket.addCorsRule({
       allowedOrigins,
       allowedMethods: [s3.HttpMethods.PUT],
@@ -77,22 +78,34 @@ export class UploadsStack extends Stack {
       exposedHeaders: ["ETag", "x-amz-version-id"],
       maxAge: 86400,
     });
+
+    // CORS for GET/HEAD from uploads bucket (if ever used directly)
     this.bucket.addCorsRule({
       allowedOrigins,
       allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
       allowedHeaders: ["Origin", "Accept", "Referer", "User-Agent", "Range"],
-      exposedHeaders: ["ETag", "Content-Type", "Content-Length", "Last-Modified", "Accept-Ranges"],
+      exposedHeaders: [
+        "ETag",
+        "Content-Type",
+        "Content-Length",
+        "Last-Modified",
+        "Accept-Ranges",
+      ],
       maxAge: 86400,
     });
 
     // ---- Destination web/static bucket (where thumbs live) ----
-    const webBucket = s3.Bucket.fromBucketName(this, "WebBucket", webBucketName);
+    const webBucket = s3.Bucket.fromBucketName(
+      this,
+      "WebBucket",
+      webBucketName,
+    );
 
     // ---- Shared env for API Lambdas ----
     const commonEnv = {
-      BUCKET: this.bucket.bucketName,            // uploads bucket by default
+      BUCKET: this.bucket.bucketName, // uploads bucket by default
       WEB_ORIGIN: webOrigin,
-      ALLOWED_ORIGINS: allowedOrigins.join(","),
+      ALLOWED_ORIGINS: allowedOrigins.join(","), // used by presign lambda
       THUMBS_PREFIX: "thumbs/",
     };
 
@@ -155,7 +168,7 @@ export class UploadsStack extends Stack {
       memorySize: 512,
       environment: {
         UPLOADS_BUCKET: this.bucket.bucketName, // originals come from uploads
-        DEST_BUCKET: webBucket.bucketName,       // thumbs go to web bucket
+        DEST_BUCKET: webBucket.bucketName, // thumbs go to web bucket
         THUMBS_PREFIX: "thumbs/",
         MAX_WIDTH: "360",
         JPEG_QUALITY: "80",
@@ -177,58 +190,66 @@ export class UploadsStack extends Stack {
       );
     }
 
-    // ---- API Gateway (Cognito authorizer; gateway handles CORS) ----
-    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, "UploadsAuth", {
-      cognitoUserPools: [userPool],
-    });
+    // ---- API Gateway (Cognito authorizer) ----
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(
+      this,
+      "UploadsAuth",
+      {
+        cognitoUserPools: [userPool],
+      },
+    );
 
+    // NOTE: we let our Lambda handle CORS, so we do NOT use defaultCorsPreflightOptions here
     this.api = new apigw.RestApi(this, "UploadsApi", {
       restApiName: "uploads-api",
       deployOptions: { stageName: "prod" },
-      defaultCorsPreflightOptions: {
-        allowOrigins: allowedOrigins,
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-        allowHeaders: apigw.Cors.DEFAULT_HEADERS,
-        exposeHeaders: ["ETag", "x-amz-request-id", "x-amz-id-2"],
-      },
     });
 
-    const listRes    = this.api.root.addResource("list");
+    const listRes = this.api.root.addResource("list");
     const presignRes = this.api.root.addResource("presign");
-    const delRes     = this.api.root.addResource("delete");
-    const headRes    = this.api.root.addResource("thumb-head");
+    const delRes = this.api.root.addResource("delete");
+    const headRes = this.api.root.addResource("thumb-head");
 
-    const listInt    = new apigw.LambdaIntegration(listFn, { proxy: true });
+    const listInt = new apigw.LambdaIntegration(listFn, { proxy: true });
     const presignInt = new apigw.LambdaIntegration(presignFn, { proxy: true });
-    const delInt     = new apigw.LambdaIntegration(presignFn, { proxy: true });
-    const headInt    = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
+    const delInt = new apigw.LambdaIntegration(presignFn, { proxy: true });
+    const headInt = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
 
+    // ---- /list ----
     listRes.addMethod("GET", listInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
 
+    // ---- /presign ----
     presignRes.addMethod("POST", presignInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
 
-    // NEW: also allow GET /presign with the same integration & auth
     presignRes.addMethod("GET", presignInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
 
+    // IMPORTANT: let Lambda handle OPTIONS (CORS preflight) with NO auth
+    presignRes.addMethod("OPTIONS", presignInt, {
+      authorizationType: apigw.AuthorizationType.NONE,
+    });
+
+    // ---- /delete ----
     delRes.addMethod("DELETE", delInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
 
+    // ---- /thumb-head ----
     headRes.addMethod("GET", headInt, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
   }
 }
+
 
 

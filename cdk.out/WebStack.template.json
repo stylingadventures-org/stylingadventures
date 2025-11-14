@@ -306,6 +306,9 @@
     },
     "WaitForDistributionInvalidation": true,
     "Prune": true,
+    "SystemMetadata": {
+     "cache-control": "public, max-age=0, no-cache, no-store, must-revalidate"
+    },
     "DistributionId": {
      "Ref": "CloudFrontDistributionBA64CE3A"
     },
@@ -513,7 +516,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy27CMBD8Fu5mS0MvPUIQUqVKVCD1GhlniRYcG3nXjZCVf6+c8DpwmtnxeGe0BRRFAbOJ7nhq6tPU0h7STrQ5Kd1xlXgOaRnNCUWVB3dlI/x4S+bykK/zOCw1Y6+M9bE+BO8E0iZQQ25hDDJ/1eiEZPhcZs86e1461tEZIe+y9c5XxBJoH28Pz3OveF6lGs/WX1p0AmOh1V1QmhmFYZGhV1a3+1pDKg/uW18w/GLgvHZHrrEo/pH6qkqvSLeQtt5ilgd8HGZk/S2ksjmg0h0bS7DouLQ0ZKqhy050Q65RZWTx7RbZx2DGtTf+LG6inKP0yvka4chvf8UM3j/hY3JkommITqhF2I74D548DXvoAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy27CMBD8Fu5mS0MvPUIQUqVKVCD1GhlniRYcG3nXjZCVf6+c8DpwmtnxeGe0BRTFHGYT3fHU1KeppT2knWhzUrrjKvEc0jKaE4oqD+7KRvjxlszlIV/ncVhqxl4Z62N9CN4JpE2ghtzCGGT+qtEJyfC5zJ519rx0rKMzQt5l652viCXQPt4enude8bxKNZ6tv7ToBMZCq7ugNDMKwyJDr6xu97WGVB7ct75g+MXAee2OXGNR/CP1VZVekW4hbb3FLA/4OMzI+ltIZXNApTs2lmDRcWlpyFRDl53ohlyjysji2y2yj8GMa2/8WdxEOUfplfM1wpHf/ooZvH/Cx+TIRNMQnVCLsB3xHzfkvRPoAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/CDKMetadata/Default"

@@ -22,7 +22,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d5c154ac466cedeec72a0c5abd119557018ede45435cdfa9c184cf031c2634f5.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/937afe03c075a379a157e577d28eb3822e964b0be1579bc28d732bd51e974e86.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -177,7 +177,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3adc89ebbbfbfec6dd433813c64193187237b7bc66be3838d0570badd1d16696.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5404923ff1175daf03897f61e546543700fddae062061516a7207feb83df2077.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -346,7 +346,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/945e9b7e19e4f9837cc0212fdf0c083899a8d086d0f2b3cd282564fd311eb97e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7e0628913cf9af8f215bfda3a8f6a8aea206e4ada263ee792b2b23357b961ae7.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -445,7 +445,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/55b4c0836567d07fd1548201de2917a71a86c8ce5c3e84ccbc4dd84b3647ab64.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/bfe5339782d84ed626d56ce5451d7b9aa32e644f470b4e4dcbfc3b0ccef18bfb.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -651,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/8ec9aca837915ef6f33b86425a0f39e11029652d3e9053a4dbe464d3b17dc132.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/07eb071c4a5ce0fc1e636ea1f08105ec5710aa8ba8a2886a43ab6dd5876ed3be.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -685,18 +685,6 @@
             ]
           }
         ],
-        "/ApiStack/HelloFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "HelloFnServiceRoleDA97FE56"
-          }
-        ],
-        "/ApiStack/HelloFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "HelloFn7942DF23"
-          }
-        ],
         "/ApiStack/StylingApi/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -707,6 +695,30 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiSchemaD8A6FBCC"
+          }
+        ],
+        "/ApiStack/StylingApi/HelloDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiHelloDsServiceRole44626254"
+          }
+        ],
+        "/ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727"
+          }
+        ],
+        "/ApiStack/StylingApi/HelloDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiHelloDs58F1D645"
+          }
+        ],
+        "/ApiStack/StylingApi/Hello/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiHello5D556CAF"
           }
         ],
         "/ApiStack/StylingApi/RolesDs/ServiceRole/Resource": [
@@ -745,30 +757,6 @@
             "data": "StylingApiQueryMeResolverB661C632"
           }
         ],
-        "/ApiStack/StylingApi/HelloDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDsServiceRole44626254"
-          }
-        ],
-        "/ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727"
-          }
-        ],
-        "/ApiStack/StylingApi/HelloDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDs58F1D645"
-          }
-        ],
-        "/ApiStack/StylingApi/Hello/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHello5D556CAF"
-          }
-        ],
         "/ApiStack/StylingApi/ClosetDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -793,10 +781,10 @@
             "data": "StylingApiMyClosetC8373A07"
           }
         ],
-        "/ApiStack/StylingApi/AdminListPendingResolver/Resource": [
+        "/ApiStack/StylingApi/ClosetFeed/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminListPendingResolver16923FC0"
+            "data": "StylingApiClosetFeedA85DF717"
           }
         ],
         "/ApiStack/StylingApi/CreateClosetItem/Resource": [
@@ -811,6 +799,36 @@
             "data": "StylingApiRequestClosetApproval8385052A"
           }
         ],
+        "/ApiStack/StylingApi/UpdateClosetMediaKey/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUpdateClosetMediaKeyD01273A7"
+          }
+        ],
+        "/ApiStack/StylingApi/ClosetAdminDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClosetAdminDsServiceRoleDC64D6AC"
+          }
+        ],
+        "/ApiStack/StylingApi/ClosetAdminDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClosetAdminDsServiceRoleDefaultPolicyC0C0AABD"
+          }
+        ],
+        "/ApiStack/StylingApi/ClosetAdminDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClosetAdminDs6AAA997E"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminListPendingResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminListPendingResolver16923FC0"
+          }
+        ],
         "/ApiStack/StylingApi/AdminApproveItem/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -823,70 +841,154 @@
             "data": "StylingApiAdminRejectItemCC71EBDE"
           }
         ],
-        "/ApiStack/StylingApi/UpdateClosetMediaKey/Resource": [
+        "/ApiStack/StylingApi/AdminSetClosetAudience/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateClosetMediaKeyD01273A7"
+            "data": "StylingApiAdminSetClosetAudienceBD88A9DD"
           }
         ],
-        "/ApiStack/StylingApi/BestieDs/ServiceRole/Resource": [
+        "/ApiStack/StylingApi/GameplayDS/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDsServiceRole134EBB9C"
+            "data": "StylingApiGameplayDSServiceRole20773680"
           }
         ],
-        "/ApiStack/StylingApi/BestieDs/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/StylingApi/GameplayDS/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDsServiceRoleDefaultPolicy459937D7"
+            "data": "StylingApiGameplayDSServiceRoleDefaultPolicy78486F14"
           }
         ],
-        "/ApiStack/StylingApi/BestieDs/Resource": [
+        "/ApiStack/StylingApi/GameplayDS/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDs1FF238AC"
+            "data": "StylingApiGameplayDS54836D27"
           }
         ],
-        "/ApiStack/StylingApi/MeBestieStatus/Resource": [
+        "/ApiStack/StylingApi/LeaderboardDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiMeBestieStatus8CEFABC5"
+            "data": "StylingApiLeaderboardDsServiceRole00D64A33"
           }
         ],
-        "/ApiStack/StylingApi/IsEpisodeEarlyAccess/Resource": [
+        "/ApiStack/StylingApi/LeaderboardDs/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiIsEpisodeEarlyAccess277A9D0E"
+            "data": "StylingApiLeaderboardDsServiceRoleDefaultPolicyD7DA49C2"
           }
         ],
-        "/ApiStack/StylingApi/ClaimBestieTrial/Resource": [
+        "/ApiStack/StylingApi/LeaderboardDs/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiClaimBestieTrialADDEE85D"
+            "data": "StylingApiLeaderboardDsEFF3D0CD"
           }
         ],
-        "/ApiStack/StylingApi/AdminSetBestie/Resource": [
+        "/ApiStack/StylingApi/PollsDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSetBestieBE209BB0"
+            "data": "StylingApiPollsDsServiceRoleFE523342"
           }
         ],
-        "/ApiStack/StylingApi/AdminRevokeBestie/Resource": [
+        "/ApiStack/StylingApi/PollsDs/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminRevokeBestie20ED6A7C"
+            "data": "StylingApiPollsDsServiceRoleDefaultPolicyD1CDD935"
           }
         ],
-        "/ApiStack/StylingApi/AdminSetBestieByEmail/Resource": [
+        "/ApiStack/StylingApi/PollsDs/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSetBestieByEmail3B6C5418"
+            "data": "StylingApiPollsDs9CCAF464"
           }
         ],
-        "/ApiStack/StylingApi/AdminRevokeBestieByEmail/Resource": [
+        "/ApiStack/StylingApi/ProfileDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminRevokeBestieByEmail8C5A5978"
+            "data": "StylingApiProfileDsServiceRole6F0CE2C7"
+          }
+        ],
+        "/ApiStack/StylingApi/ProfileDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiProfileDsServiceRoleDefaultPolicyD64DFCD4"
+          }
+        ],
+        "/ApiStack/StylingApi/ProfileDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiProfileDs16C655BC"
+          }
+        ],
+        "/ApiStack/StylingApi/LogGameEventResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLogGameEventResolver79028153"
+          }
+        ],
+        "/ApiStack/StylingApi/AwardCoinsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAwardCoinsResolverC9D4641F"
+          }
+        ],
+        "/ApiStack/StylingApi/CreatePoll/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCreatePoll172ED74E"
+          }
+        ],
+        "/ApiStack/StylingApi/VotePoll/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiVotePoll05392468"
+          }
+        ],
+        "/ApiStack/StylingApi/GrantBadge/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGrantBadgeBDDB1A42"
+          }
+        ],
+        "/ApiStack/StylingApi/SetDisplayName/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiSetDisplayName8C104CD4"
+          }
+        ],
+        "/ApiStack/StylingApi/TopXP/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiTopXPFE0D029C"
+          }
+        ],
+        "/ApiStack/StylingApi/TopCoins/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiTopCoinsFE86E3ED"
+          }
+        ],
+        "/ApiStack/StylingApi/GetPoll/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGetPoll72CC3EA6"
+          }
+        ],
+        "/ApiStack/StylingApi/GetMyProfile/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGetMyProfile7E9BB4B2"
+          }
+        ],
+        "/ApiStack/HelloFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HelloFnServiceRoleDA97FE56"
+          }
+        ],
+        "/ApiStack/HelloFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HelloFn7942DF23"
           }
         ],
         "/ApiStack/RolesFn/ServiceRole/Resource": [
@@ -925,22 +1027,94 @@
             "data": "ClosetResolverFnDB09D91C"
           }
         ],
-        "/ApiStack/BestieResolverFn/ServiceRole/Resource": [
+        "/ApiStack/ClosetAdminFn/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieResolverFnServiceRole106139C0"
+            "data": "ClosetAdminFnServiceRole87F02459"
           }
         ],
-        "/ApiStack/BestieResolverFn/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/ClosetAdminFn/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieResolverFnServiceRoleDefaultPolicyDA0AB50C"
+            "data": "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF"
           }
         ],
-        "/ApiStack/BestieResolverFn/Resource": [
+        "/ApiStack/ClosetAdminFn/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieResolverFnBC9D7F5C"
+            "data": "ClosetAdminFnB4D542CC"
+          }
+        ],
+        "/ApiStack/GameplayFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameplayFnServiceRole9C9BF690"
+          }
+        ],
+        "/ApiStack/GameplayFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameplayFnServiceRoleDefaultPolicy448D7565"
+          }
+        ],
+        "/ApiStack/GameplayFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameplayFnCD9DA738"
+          }
+        ],
+        "/ApiStack/LeaderboardFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LeaderboardFnServiceRoleB1EE89C6"
+          }
+        ],
+        "/ApiStack/LeaderboardFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LeaderboardFnServiceRoleDefaultPolicyA2682BE0"
+          }
+        ],
+        "/ApiStack/LeaderboardFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LeaderboardFnF2B1AEC2"
+          }
+        ],
+        "/ApiStack/PollsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PollsFnServiceRole872F6029"
+          }
+        ],
+        "/ApiStack/PollsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PollsFnServiceRoleDefaultPolicyA9884FB0"
+          }
+        ],
+        "/ApiStack/PollsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PollsFn65E6C73F"
+          }
+        ],
+        "/ApiStack/ProfileFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfileFnServiceRole4C7CA582"
+          }
+        ],
+        "/ApiStack/ProfileFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfileFnServiceRoleDefaultPolicy3F833555"
+          }
+        ],
+        "/ApiStack/ProfileFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProfileFn28F379CF"
           }
         ],
         "/ApiStack/GraphQlApiUrl": [
@@ -997,7 +1171,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/cfd7b1aeb5d32cc972cbd72cd7b1dd7c84276210f0454bb28cefb27ea00d0e8e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7be4b3a9aab09efc6f73e94ecaff7e87aacdac28fad79da6f1e86d8914845170.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1218,7 +1392,7 @@
         "/UploadsStack/UploadsApi/Deployment/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "UploadsApiDeployment4A67E04C0b200e64a959d5a6ac6534a5e6865a86"
+            "data": "UploadsApiDeployment4A67E04C4d9bae9ab7be58bf33f2abbbc20f55a9"
           }
         ],
         "/UploadsStack/UploadsApi/DeploymentStage.prod/Resource": [
@@ -1233,22 +1407,10 @@
             "data": "UploadsApiEndpoint8004A65B"
           }
         ],
-        "/UploadsStack/UploadsApi/Default/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApiOPTIONS016D7C40"
-          }
-        ],
         "/UploadsStack/UploadsApi/Default/list/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApilist04BFB266"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/list/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApilistOPTIONSA1D1A8A2"
           }
         ],
         "/UploadsStack/UploadsApi/Default/list/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..list": [
@@ -1273,12 +1435,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApipresignE1161A2C"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApipresignOPTIONSB65EB223"
           }
         ],
         "/UploadsStack/UploadsApi/Default/presign/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..presign": [
@@ -1317,16 +1473,28 @@
             "data": "UploadsApipresignGETC4331AE5"
           }
         ],
+        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.UploadsStackUploadsApiC6DB0904.OPTIONS..presign": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApipresignOPTIONSApiPermissionUploadsStackUploadsApiC6DB0904OPTIONSpresign9F5B011E"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.OPTIONS..presign": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApipresignOPTIONSApiPermissionTestUploadsStackUploadsApiC6DB0904OPTIONSpresign41EFCF69"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/presign/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApipresignOPTIONSB65EB223"
+          }
+        ],
         "/UploadsStack/UploadsApi/Default/delete/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApidelete14170098"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/delete/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApideleteOPTIONS1AD6A023"
           }
         ],
         "/UploadsStack/UploadsApi/Default/delete/DELETE/ApiPermission.UploadsStackUploadsApiC6DB0904.DELETE..delete": [
@@ -1351,12 +1519,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApithumbhead26656547"
-          }
-        ],
-        "/UploadsStack/UploadsApi/Default/thumb-head/OPTIONS/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "UploadsApithumbheadOPTIONSB6DAB6F5"
           }
         ],
         "/UploadsStack/UploadsApi/Default/thumb-head/GET/ApiPermission.UploadsStackUploadsApiC6DB0904.GET..thumb-head": [

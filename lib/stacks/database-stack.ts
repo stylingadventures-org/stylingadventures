@@ -9,6 +9,7 @@ export class DatabaseStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
+    // Core application table (single-table design)
     this.table = new ddb.Table(this, "CoreTable", {
       tableName: "sa-dev-app", // keep aligned with your Lambdas
       partitionKey: { name: "pk", type: ddb.AttributeType.STRING },
@@ -18,7 +19,9 @@ export class DatabaseStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    // GSI #1 — by owner (e.g. OWNER#{sub}, ISO ts)
+    // ✅ GSI1 — used by:
+    //   • Leaderboard (e.g., LEADERBOARD#GLOBAL / XP#... sort)
+    //   • Closet "myCloset" (e.g., OWNER#{sub} / ISO ts)
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi1",
       partitionKey: { name: "gsi1pk", type: ddb.AttributeType.STRING },
@@ -26,7 +29,9 @@ export class DatabaseStack extends Stack {
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // GSI #2 — by status (e.g. STATUS#PENDING, ISO ts)
+    // ✅ GSI2 — used by:
+    //   • Closet moderation queues (STATUS#PENDING, etc.)
+    //   • Poll votes/listing (POLL#<id> / VOTE#... for counts)
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi2",
       partitionKey: { name: "gsi2pk", type: ddb.AttributeType.STRING },
@@ -34,7 +39,7 @@ export class DatabaseStack extends Stack {
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // GSI #3 — optional future scheduling
+    // Optional future scheduling or other workloads
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi3",
       partitionKey: { name: "gsi3pk", type: ddb.AttributeType.STRING },
@@ -43,5 +48,6 @@ export class DatabaseStack extends Stack {
     });
   }
 }
+
 
 
