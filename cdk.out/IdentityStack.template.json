@@ -75,7 +75,7 @@
      "profile"
     ],
     "CallbackURLs": [
-     "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
+     "https://d1682i07dc1r3k.cloudfront.net/callback",
      "http://localhost:5173/callback",
      "http://localhost:5173/callback/",
      "http://localhost:5173/callback/index.html"
@@ -274,7 +274,7 @@
       {
        "Ref": "WebClient697086FD"
       },
-      "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback%2Findex.html"
+      "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback"
      ]
     ]
    }

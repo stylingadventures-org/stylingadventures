@@ -19,7 +19,10 @@ if (!USER_POOL_ID) throw new Error("Missing env USER_POOL_ID");
 // Stripe (checked lazily per-request so non-Stripe paths still work)
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
-const BASE_SUCCESS_URL = (process.env.BASE_SUCCESS_URL || "http://localhost:5173").replace(/\/$/, "");
+const BASE_SUCCESS_URL = (process.env.BASE_SUCCESS_URL || "http://localhost:5173").replace(
+  /\/$/,
+  "",
+);
 
 const cognito = new CognitoIdentityProviderClient({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -36,13 +39,20 @@ type SAId =
 const PK = (sub: string) => `USER#${sub}`;
 const SK_BESTIE = "BESTIE";
 
-/** Load current Bestie status from DDB. */
-async function loadBestie(sub: string) {
+type BestieStatus = {
+  active: boolean;
+  since: string | null;
+  until: string | null;
+  source: string | null;
+};
+
+/** Load current Bestie status from DDB, always returning a BestieStatus object. */
+async function loadBestie(sub: string): Promise<BestieStatus> {
   const r = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
       Key: { pk: PK(sub), sk: SK_BESTIE },
-    })
+    }),
   );
   const i = (r.Item as any) ?? {};
   return {
@@ -53,14 +63,14 @@ async function loadBestie(sub: string) {
   };
 }
 
-/** Upsert Bestie status. */
+/** Upsert Bestie status and return the resulting BestieStatus object. */
 async function saveBestie(
   sub: string,
-  patch: { active: boolean; since?: string | null; until?: string | null; source?: string | null }
-) {
+  patch: { active: boolean; since?: string | null; until?: string | null; source?: string | null },
+): Promise<BestieStatus> {
   const now = new Date().toISOString();
 
-  // ensure document exists (optional bootstrap)
+  // Ensure document exists (bootstrap)
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
@@ -68,10 +78,10 @@ async function saveBestie(
       UpdateExpression: "SET #doc = if_not_exists(#doc, :empty), #updatedAt = :now",
       ExpressionAttributeNames: { "#doc": "doc", "#updatedAt": "updatedAt" },
       ExpressionAttributeValues: { ":empty": {}, ":now": now },
-    })
+    }),
   );
 
-  // apply the patch (use names to avoid reserved words like "until")
+  // Apply the patch (use names to avoid reserved words like "until")
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
@@ -92,7 +102,7 @@ async function saveBestie(
         ":s": patch.source ?? null,
         ":now": now,
       },
-    })
+    }),
   );
 
   return loadBestie(sub);
@@ -105,7 +115,7 @@ async function lookupSubByEmail(email: string) {
       UserPoolId: USER_POOL_ID,
       Filter: `email = "${email}"`,
       Limit: 1,
-    })
+    }),
   );
   const user = res.Users?.[0];
   if (!user?.Attributes) return null;
@@ -114,8 +124,19 @@ async function lookupSubByEmail(email: string) {
 }
 
 function isAdmin(id: SAId) {
-  const g = (id as any)?.groups;
-  return Array.isArray(g) && g.includes("ADMIN");
+  // Prefer groups from JWT claims if present
+  const claimsGroups =
+    (id as any)?.claims?.["cognito:groups"] ||
+    (id as any)?.claims?.["custom:groups"] ||
+    (id as any)?.groups;
+
+  const g = Array.isArray(claimsGroups)
+    ? claimsGroups
+    : typeof claimsGroups === "string"
+    ? claimsGroups.split(",")
+    : [];
+
+  return g.includes("ADMIN");
 }
 
 export const handler = async (event: any) => {
@@ -123,7 +144,9 @@ export const handler = async (event: any) => {
   const fn = event.info?.fieldName as string;
 
   // ───────────────────────────────────────────
-  // Bestie checkout (Stripe)
+  // Mutation: startBestieCheckout (Stripe)
+  // GraphQL: startBestieCheckout(successUrl, cancelUrl): AWSURL!
+  // Returns the Stripe Checkout URL as a string.
   // ───────────────────────────────────────────
   if (fn === "startBestieCheckout") {
     const identity = event.identity as AppSyncIdentityCognito | undefined;
@@ -136,9 +159,13 @@ export const handler = async (event: any) => {
     // Use the SDK’s current version literal to satisfy TS
     const stripe = new Stripe(STRIPE_SECRET_KEY);
 
-    const successPath: string = event.arguments?.successPath ?? "/bestie/thanks";
-    const successUrl = `${BASE_SUCCESS_URL}${successPath}`;
-    const cancelUrl = `${BASE_SUCCESS_URL}/bestie?cancelled=1`;
+    const argSuccess: string | undefined = event.arguments?.successUrl;
+    const argCancel: string | undefined = event.arguments?.cancelUrl;
+
+    const successUrl = argSuccess || `${BASE_SUCCESS_URL}/bestie/thanks`;
+    const cancelUrl = argCancel || `${BASE_SUCCESS_URL}/bestie?cancelled=1`;
+
+    const email = (identity as any)?.claims?.email as string | undefined;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -146,17 +173,18 @@ export const handler = async (event: any) => {
       success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl,
       client_reference_id: identity.sub,
-      customer_email: (identity as any)?.claims?.email,
-      metadata: { sub: identity.sub, email: (identity as any)?.claims?.email ?? "" },
+      customer_email: email,
+      metadata: { sub: identity.sub, email: email ?? "" },
       allow_promotion_codes: true,
     });
 
     if (!session.url) throw new Error("No checkout URL from Stripe");
-    return { url: session.url };
+    // GraphQL field is AWSURL!, so return the URL string directly
+    return session.url;
   }
 
   // ───────────────────────────────────────────
-  // Query: meBestieStatus
+  // Query: meBestieStatus: BestieStatus!
   // ───────────────────────────────────────────
   if (fn === "meBestieStatus") {
     if (!id?.sub) throw new Error("Unauthorized");
@@ -164,30 +192,35 @@ export const handler = async (event: any) => {
   }
 
   // ───────────────────────────────────────────
-  // Query: isEpisodeEarlyAccess(id)
+  // Query: isEpisodeEarlyAccess(id): EarlyAccessGate!
   // Rule: Bestie is active && until > now
   // ───────────────────────────────────────────
   if (fn === "isEpisodeEarlyAccess") {
     const now = Date.now();
     const sub = id?.sub;
     if (!sub) return { allowed: false, reason: "not_signed_in" };
+
     const b = await loadBestie(sub);
     const untilMs = b.until ? Date.parse(b.until) : 0;
     const allowed = b.active && untilMs > now;
+
     return { allowed, reason: allowed ? null : "not_bestie" };
   }
 
   // ───────────────────────────────────────────
-  // Mutation: claimBestieTrial (7 days)
+  // Mutation: claimBestieTrial (7-day trial)
+  // GraphQL: claimBestieTrial: BestieStatus!
   // ───────────────────────────────────────────
   if (fn === "claimBestieTrial") {
     if (!id?.sub) throw new Error("Unauthorized");
+
     const current = await loadBestie(id.sub);
 
-    // If already active with a future-until, just return
+    // Already active with a future-until → just return
     if (current.active && current.until && Date.parse(current.until) > Date.now()) {
       return current;
     }
+
     // If they already had a trial, do not re-grant
     if (current.source === "TRIAL") {
       return current;
@@ -195,16 +228,20 @@ export const handler = async (event: any) => {
 
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
     const until = new Date(Date.now() + sevenDays).toISOString();
+
     return saveBestie(id.sub, { active: true, until, source: "TRIAL" });
   }
 
   // ───────────────────────────────────────────
   // Admin helpers (require ADMIN group)
+  // All return BestieStatus!
   // ───────────────────────────────────────────
   if (fn === "adminSetBestie") {
     if (!isAdmin(id)) throw new Error("Forbidden");
     const { userSub, active } = event.arguments as { userSub: string; active: boolean };
-    const until = active ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null;
+    const until = active
+      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
     return saveBestie(userSub, { active: !!active, until, source: "ADMIN" });
   }
 
@@ -219,7 +256,9 @@ export const handler = async (event: any) => {
     const { email, active } = event.arguments as { email: string; active: boolean };
     const sub = await lookupSubByEmail(email);
     if (!sub) throw new Error("User not found");
-    const until = active ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null;
+    const until = active
+      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
     return saveBestie(sub, { active: !!active, until, source: "ADMIN_EMAIL" });
   }
 

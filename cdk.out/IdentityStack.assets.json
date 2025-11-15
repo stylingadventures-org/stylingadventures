@@ -1,16 +1,16 @@
 {
   "version": "48.0.0",
   "files": {
-    "5404923ff1175daf03897f61e546543700fddae062061516a7207feb83df2077": {
+    "31755cc437ae4bfa3fe46c31213d8ba9a08381ccde9a010335442154acbded96": {
       "displayName": "IdentityStack Template",
       "source": {
         "path": "IdentityStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-88c31edf": {
+        "637423256673-us-east-1-55663177": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "5404923ff1175daf03897f61e546543700fddae062061516a7207feb83df2077.json",
+          "objectKey": "31755cc437ae4bfa3fe46c31213d8ba9a08381ccde9a010335442154acbded96.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

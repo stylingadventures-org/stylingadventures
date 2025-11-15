@@ -1,3 +1,4 @@
+// lib/stacks/api-stack.ts
 import * as path from "path";
 import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -29,7 +30,7 @@ export class ApiStack extends Stack {
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
       definition: appsync.Definition.fromFile(
-        path.join(process.cwd(), "lib/stacks/schema.graphql")
+        path.join(process.cwd(), "lib/stacks/schema.graphql"),
       ),
       authorizationConfig: {
         defaultAuthorization: {
@@ -86,7 +87,6 @@ export class ApiStack extends Stack {
 
     // ────────────────────────────────────────────────────────────
     // QUERY.ME (NONE DS)
-    // IMPORTANT: use original logical ID so CFN updates instead of creating.
     // ────────────────────────────────────────────────────────────
     const noneDs = this.api.addNoneDataSource("NoneDs");
 
@@ -174,12 +174,12 @@ export class ApiStack extends Stack {
           "dynamodb:UpdateItem",
         ],
         resources: [table.tableArn, `${table.tableArn}/index/*`],
-      })
+      }),
     );
 
     const closetAdminDs = this.api.addLambdaDataSource(
       "ClosetAdminDs",
-      closetAdminFn
+      closetAdminFn,
     );
 
     closetAdminDs.createResolver("AdminListPendingResolver", {
@@ -206,6 +206,96 @@ export class ApiStack extends Stack {
     closetAdminDs.createResolver("AdminSetClosetAudience", {
       typeName: "Mutation",
       fieldName: "adminSetClosetAudience",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // BESTIE / TIER RESOLVERS
+    // ────────────────────────────────────────────────────────────
+    const bestieFn = new NodejsFunction(this, "BestieFn", {
+      entry: "lambda/bestie/index.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        TABLE_NAME: table.tableName,
+        USER_POOL_ID: userPool.userPoolId,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
+        STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID ?? "",
+        BASE_SUCCESS_URL:
+          process.env.BASE_SUCCESS_URL ?? "http://localhost:5173",
+      },
+    });
+
+    table.grantReadWriteData(bestieFn);
+    bestieFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:ListUsers"],
+        resources: [userPool.userPoolArn],
+      }),
+    );
+
+    const bestieDs = this.api.addLambdaDataSource("BestieDs", bestieFn);
+
+    // Queries
+    bestieDs.createResolver("MeBestieStatusResolver", {
+      typeName: "Query",
+      fieldName: "meBestieStatus",
+    });
+
+    // Mutations
+    bestieDs.createResolver("StartBestieCheckoutResolver", {
+      typeName: "Mutation",
+      fieldName: "startBestieCheckout",
+    });
+
+    bestieDs.createResolver("ClaimBestieTrialResolver", {
+      typeName: "Mutation",
+      fieldName: "claimBestieTrial",
+    });
+
+    bestieDs.createResolver("AdminSetBestieResolver", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestie",
+    });
+
+    bestieDs.createResolver("AdminRevokeBestieResolver", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestie",
+    });
+
+    bestieDs.createResolver("AdminSetBestieByEmailResolver", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestieByEmail",
+    });
+
+    bestieDs.createResolver("AdminRevokeBestieByEmailResolver", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestieByEmail",
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // EPISODE GATE (EARLY ACCESS)
+    // ────────────────────────────────────────────────────────────
+    const episodesGateFn = new NodejsFunction(this, "EpisodesGateFn", {
+      entry: "lambda/episodes/gate.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        TABLE_NAME: table.tableName,
+      },
+    });
+
+    table.grantReadData(episodesGateFn);
+
+    const episodesGateDs = this.api.addLambdaDataSource(
+      "EpisodesGateDs",
+      episodesGateFn,
+    );
+
+    episodesGateDs.createResolver("IsEpisodeEarlyAccessResolver", {
+      typeName: "Query",
+      fieldName: "isEpisodeEarlyAccess",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
@@ -253,7 +343,7 @@ export class ApiStack extends Stack {
     const gameplayDS = this.api.addLambdaDataSource("GameplayDS", gameplayFn);
     const leaderboardDs = this.api.addLambdaDataSource(
       "LeaderboardDs",
-      leaderboardFn
+      leaderboardFn,
     );
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);

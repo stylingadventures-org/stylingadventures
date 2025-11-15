@@ -45,7 +45,7 @@ type ClosetItem {
 
 # Paged feed of approved closet items (privacy is enforced in the resolver)
 type ClosetFeedPage {
-  # Relaxed: can now be null, but resolvers should prefer []
+  # Can be null; resolvers should generally return [] instead of null
   items: [ClosetItem!]
   nextToken: String
 }
