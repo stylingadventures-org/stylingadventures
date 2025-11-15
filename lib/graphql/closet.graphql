@@ -26,17 +26,29 @@ type ClosetItem {
   title: String
   reason: String
   audience: ClosetAudience
+
+  # Story metadata for Lala’s Closet + Bestie tools
+  storyTitle: String
+  storySeason: String
+  storyVibes: [String!]
 }
 
 type ClosetFeedPage {
-  items: [ClosetItem!]!
+  items: [ClosetItem!]
   nextToken: String
+}
+
+input UpdateClosetItemStoryInput {
+  id: ID!
+  storyTitle: String
+  storySeason: String
+  storyVibes: [String!]
 }
 
 type Query {
   myCloset: [ClosetItem!]!
   adminListPending: [ClosetItem!]!
-  closetFeed(limit: Int, nextToken: String): ClosetFeedPage!
+  closetFeed(limit: Int, nextToken: String): ClosetFeedPage
 }
 
 type Mutation {
@@ -48,4 +60,6 @@ type Mutation {
   adminRejectItem(id: ID!, reason: String): ClosetItem!
 
   adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
+
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 }

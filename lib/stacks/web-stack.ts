@@ -62,7 +62,8 @@ function handler(event) {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    const webRoot = path.join(process.cwd(), "web");
+    // 🔹 POINT AT THE BUILT VITE BUNDLE
+    const webRoot = path.join(process.cwd(), "site", "dist");
 
     new s3deploy.BucketDeployment(this, "DeploySite", {
       destinationBucket: this.siteBucket,
@@ -72,7 +73,9 @@ function handler(event) {
       prune: true,
       cacheControl: [
         s3deploy.CacheControl.setPublic(),
-        s3deploy.CacheControl.fromString("max-age=0, no-cache, no-store, must-revalidate"),
+        s3deploy.CacheControl.fromString(
+          "max-age=0, no-cache, no-store, must-revalidate"
+        ),
       ],
     });
 

@@ -43,7 +43,7 @@ export class IdentityStack extends cdk.Stack {
       `/sa/${envName}/web/logoutRoot`
     );
 
-    const callbackUrl = `${webOrigin}/callback/index.html`;
+    const callbackUrl = `${webOrigin}/callback`;
 
     const logoutRoot =
       ssmLogoutRoot && typeof ssmLogoutRoot === "string" && !ssmLogoutRoot.startsWith("smp:")

@@ -22,7 +22,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/937afe03c075a379a157e577d28eb3822e964b0be1579bc28d732bd51e974e86.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/42c87a053a1fecf320385dc2cffd33c801963cbb43b9a34242ab8811281c7af8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -177,7 +177,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5404923ff1175daf03897f61e546543700fddae062061516a7207feb83df2077.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/31755cc437ae4bfa3fe46c31213d8ba9a08381ccde9a010335442154acbded96.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -651,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/07eb071c4a5ce0fc1e636ea1f08105ec5710aa8ba8a2886a43ab6dd5876ed3be.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ec9a1e7e99fbfa7e8fb6d4ffc7c941abd68a0a52ca3c40badc00cd91637add7d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -845,6 +845,90 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiAdminSetClosetAudienceBD88A9DD"
+          }
+        ],
+        "/ApiStack/StylingApi/BestieDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieDsServiceRole134EBB9C"
+          }
+        ],
+        "/ApiStack/StylingApi/BestieDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieDsServiceRoleDefaultPolicy459937D7"
+          }
+        ],
+        "/ApiStack/StylingApi/BestieDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieDs1FF238AC"
+          }
+        ],
+        "/ApiStack/StylingApi/MeBestieStatusResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMeBestieStatusResolver27806573"
+          }
+        ],
+        "/ApiStack/StylingApi/StartBestieCheckoutResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiStartBestieCheckoutResolver50369CFB"
+          }
+        ],
+        "/ApiStack/StylingApi/ClaimBestieTrialResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClaimBestieTrialResolver5994871A"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminSetBestieResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminSetBestieResolver49B2D7E7"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminRevokeBestieResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminRevokeBestieResolver87630DF1"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminSetBestieByEmailResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminSetBestieByEmailResolverD52DA35C"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminRevokeBestieByEmailResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminRevokeBestieByEmailResolver29BFE567"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesGateDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesGateDsServiceRoleAAD7DDD3"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesGateDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesGateDsServiceRoleDefaultPolicyBE9E9754"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesGateDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesGateDs3A38855A"
+          }
+        ],
+        "/ApiStack/StylingApi/IsEpisodeEarlyAccessResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiIsEpisodeEarlyAccessResolverB49E31ED"
           }
         ],
         "/ApiStack/StylingApi/GameplayDS/ServiceRole/Resource": [
@@ -1043,6 +1127,42 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ClosetAdminFnB4D542CC"
+          }
+        ],
+        "/ApiStack/BestieFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieFnServiceRoleF23C6CA8"
+          }
+        ],
+        "/ApiStack/BestieFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieFnServiceRoleDefaultPolicy85C0CE1B"
+          }
+        ],
+        "/ApiStack/BestieFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieFn57102072"
+          }
+        ],
+        "/ApiStack/EpisodesGateFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesGateFnServiceRoleB3AD1C04"
+          }
+        ],
+        "/ApiStack/EpisodesGateFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesGateFnServiceRoleDefaultPolicy19662CB1"
+          }
+        ],
+        "/ApiStack/EpisodesGateFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesGateFn123EBDAC"
           }
         ],
         "/ApiStack/GameplayFn/ServiceRole/Resource": [

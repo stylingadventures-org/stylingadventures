@@ -6,6 +6,7 @@
 //   - Mutation.createClosetItem
 //   - Mutation.requestClosetApproval
 //   - Mutation.updateClosetMediaKey
+//   - Mutation.updateClosetItemStory
 
 import {
   DynamoDBClient,
@@ -40,6 +41,7 @@ type ClosetAudience = "PUBLIC" | "BESTIE" | "EXCLUSIVE";
 
 type ClosetItem = {
   id: string;
+  userId: string;
   ownerSub: string;
   title?: string | null;
   mediaKey?: string | null;
@@ -48,6 +50,14 @@ type ClosetItem = {
   reason?: string | null;
   createdAt: string;
   updatedAt: string;
+  storyTitle?: string | null;
+  storySeason?: string | null;
+  storyVibes?: string[] | null;
+};
+
+type ClosetFeedPage = {
+  items: ClosetItem[];
+  nextToken: string | null;
 };
 
 type AppSyncIdentity = {
@@ -75,8 +85,11 @@ function getUserSub(event: AppSyncEvent): string {
 
 function mapClosetItem(raw: any): ClosetItem {
   const it = unmarshall(raw) as any;
+  const userId = it.userId ?? it.ownerSub;
+
   return {
     id: String(it.id),
+    userId: String(userId),
     ownerSub: String(it.ownerSub),
     title: it.title ?? null,
     mediaKey: it.mediaKey ?? null,
@@ -85,6 +98,11 @@ function mapClosetItem(raw: any): ClosetItem {
     reason: it.reason ?? null,
     createdAt: String(it.createdAt),
     updatedAt: String(it.updatedAt ?? it.createdAt),
+    storyTitle: it.storyTitle ?? null,
+    storySeason: it.storySeason ?? null,
+    storyVibes: Array.isArray(it.storyVibes)
+      ? (it.storyVibes as string[])
+      : null,
   };
 }
 
@@ -138,6 +156,7 @@ async function createClosetItem(
     pk: { S: `ITEM#${id}` },
     sk: { S: "META" },
     id: { S: id },
+    userId: { S: ownerSub }, // mirror ownerSub into userId for GraphQL
     ownerSub: { S: ownerSub },
     title: { S: args.title ?? "Untitled upload" },
     status: { S: "DRAFT" },
@@ -156,6 +175,7 @@ async function createClosetItem(
 
   return {
     id,
+    userId: ownerSub,
     ownerSub,
     title: item.title.S!,
     mediaKey: null,
@@ -164,6 +184,9 @@ async function createClosetItem(
     reason: null,
     createdAt: now,
     updatedAt: now,
+    storyTitle: null,
+    storySeason: null,
+    storyVibes: null,
   };
 }
 
@@ -298,10 +321,15 @@ async function myCloset(event: AppSyncEvent): Promise<ClosetItem[]> {
  *   - status in {APPROVED, PUBLISHED}
  *   - audience == PUBLIC
  *
- * That’s enough to make the feed work again and keeps
- * BESTIE/EXCLUSIVE items private.
+ * We always return a ClosetFeedPage object with items + nextToken=null.
  */
-async function closetFeed(_event: AppSyncEvent): Promise<ClosetItem[]> {
+async function closetFeed(
+  _event: AppSyncEvent,
+  args: { limit?: number | null; nextToken?: string | null },
+): Promise<ClosetFeedPage> {
+  const limit =
+    typeof args.limit === "number" && args.limit > 0 ? args.limit : 50;
+
   const resp = await ddb.send(
     new ScanCommand({
       TableName: TABLE_NAME,
@@ -324,9 +352,113 @@ async function closetFeed(_event: AppSyncEvent): Promise<ClosetItem[]> {
     }),
   );
 
-  const items = (resp.Items || []).map(mapClosetItem);
-  items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return items;
+  const allItems = (resp.Items || []).map(mapClosetItem);
+  allItems.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+
+  return {
+    items: allItems.slice(0, limit),
+    nextToken: null,
+  };
+}
+
+/**
+ * Update story metadata for an item (Bestie-only UX, but auth enforced
+ * by ownership here; admin flows can be added later if needed).
+ */
+async function updateClosetItemStory(
+  event: AppSyncEvent,
+  args: {
+    input: {
+      id: string;
+      storyTitle?: string | null;
+      storySeason?: string | null;
+      storyVibes?: string[] | null;
+    };
+  },
+): Promise<ClosetItem> {
+  const ownerSub = getUserSub(event);
+  const { id, storyTitle, storySeason, storyVibes } = args.input || {};
+
+  if (!id) {
+    throw new Error("updateClosetItemStory: id is required");
+  }
+
+  const base = await findRawItemById(id);
+  if (!base) throw new Error(`Closet item not found for id=${id}`);
+  const { pk, sk } = pkOf(base);
+  const now = new Date().toISOString();
+
+  const names: Record<string, string> = {
+    "#updatedAt": "updatedAt",
+    "#ownerSub": "ownerSub",
+  };
+  const values: Record<string, any> = {
+    ":now": { S: now },
+    ":owner": { S: ownerSub },
+  };
+
+  const setParts: string[] = ["#updatedAt = :now"];
+  const removeParts: string[] = [];
+
+  // storyTitle
+  if (typeof storyTitle !== "undefined") {
+    names["#storyTitle"] = "storyTitle";
+    const trimmed = storyTitle ? storyTitle.trim() : "";
+    if (trimmed) {
+      values[":storyTitle"] = { S: trimmed };
+      setParts.push("#storyTitle = :storyTitle");
+    } else {
+      removeParts.push("#storyTitle");
+    }
+  }
+
+  // storySeason
+  if (typeof storySeason !== "undefined") {
+    names["#storySeason"] = "storySeason";
+    const trimmed = storySeason ? storySeason.trim() : "";
+    if (trimmed) {
+      values[":storySeason"] = { S: trimmed };
+      setParts.push("#storySeason = :storySeason");
+    } else {
+      removeParts.push("#storySeason");
+    }
+  }
+
+  // storyVibes
+  if (typeof storyVibes !== "undefined") {
+    names["#storyVibes"] = "storyVibes";
+    if (Array.isArray(storyVibes) && storyVibes.length > 0) {
+      values[":storyVibes"] = {
+        L: storyVibes.map((v) => ({ S: String(v) })),
+      };
+      setParts.push("#storyVibes = :storyVibes");
+    } else {
+      removeParts.push("#storyVibes");
+    }
+  }
+
+  let updateExpression = "SET " + setParts.join(", ");
+  if (removeParts.length > 0) {
+    updateExpression += " REMOVE " + removeParts.join(", ");
+  }
+
+  const resp = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: { S: pk }, sk: { S: sk } },
+      ConditionExpression: "#ownerSub = :owner",
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      UpdateExpression: updateExpression,
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!resp.Attributes) {
+    throw new Error("updateClosetItemStory: update returned no attributes");
+  }
+
+  return mapClosetItem(resp.Attributes);
 }
 
 // ---------- handler ----------
@@ -339,7 +471,7 @@ export const handler = async (event: AppSyncEvent) => {
       return myCloset(event);
     }
     if (fieldName === "closetFeed") {
-      return closetFeed(event);
+      return closetFeed(event, event.arguments || {});
     }
   }
 
@@ -352,6 +484,9 @@ export const handler = async (event: AppSyncEvent) => {
     }
     if (fieldName === "updateClosetMediaKey") {
       return updateClosetMediaKey(event, event.arguments);
+    }
+    if (fieldName === "updateClosetItemStory") {
+      return updateClosetItemStory(event, event.arguments);
     }
   }
 
