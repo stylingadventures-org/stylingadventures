@@ -1,4 +1,4 @@
-// lib/stacks/closet-table.ts
+// lib/stacks/uploads/closet-table.ts
 import { Construct } from 'constructs';
 import {
   RemovalPolicy,
@@ -42,5 +42,9 @@ export class ClosetTable extends Construct {
       sortKey:      { name: 'gsi2sk', type: dynamodb.AttributeType.STRING }, // ISO time
       projectionType: dynamodb.ProjectionType.ALL,
     });
+
+    // Note: favorites ("favoriteCount") are stored as a numeric attribute
+    // on each ClosetItem; no extra index is required right now.
   }
 }
+

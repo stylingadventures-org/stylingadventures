@@ -8,7 +8,7 @@ import {
   getEpisodesOrdered,
   getNextEpisode,
   getRelatedEpisodes,
-} from "../lib/episodes"; // 👈 THIS LINE **must** be here
+} from "../lib/episodes";
 
 export default function Watch() {
   const { id } = useParams();
@@ -50,18 +50,18 @@ export default function Watch() {
     };
   }, []);
 
-  // Intentionally recompute with `now` to make countdown live.
+  // Recompute with `now` so countdown lives-updates.
   const early = useMemo(() => {
     if (!ep) return false;
     return Date.now() < new Date(ep.publicAt || 0).getTime();
   }, [ep, now]);
 
   const countdown = useMemo(
-    () => (ep ? fmtCountdown(ep.publicAt) : ""),
+    () => (ep ? fmtCountdown(ep.publicAt, now) : ""),
     [ep, now]
   );
 
-  // Build related + next using util helpers
+  // Build related + next using helpers
   const all = useMemo(() => getEpisodesOrdered(), []);
   const nextEp = useMemo(
     () => (ep ? getNextEpisode(ep.id, all) : null),
@@ -74,31 +74,16 @@ export default function Watch() {
 
   const onEnded = () => setShowNext(true);
 
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const onTimeUpdate = () => {
-      const remain = (el.duration || 0) - el.currentTime;
-      if (remain > 0 && remain < 10) {
-        // warm path near the end — keeps overlay snappy
-      }
-    };
-    el.addEventListener("timeupdate", onTimeUpdate);
-    return () => el.removeEventListener("timeupdate", onTimeUpdate);
-  }, [id]);
-
-  // Fallback for YouTube iframes (no player API): show Next up after a short delay
+  // Fallback for YouTube iframes: show Next up after a short delay
   useEffect(() => {
     if (!ep) return;
-    if (
-      ep.video &&
-      (ep.video.includes("youtube.com") || ep.video.includes("youtu.be"))
-    ) {
-      const t = setTimeout(() => setShowNext(true), 10_000); // 10s
+    if (ep.video && (ep.video.includes("youtube.com") || ep.video.includes("youtu.be"))) {
+      const t = setTimeout(() => setShowNext(true), 10_000);
       return () => clearTimeout(t);
     }
   }, [ep?.id, ep?.video]);
 
+  // When user clicks a new episode (or auto-advance)
   const playEpisode = (nextId) => {
     setShowNext(false);
     nav(`/watch/${nextId}`);
@@ -108,6 +93,7 @@ export default function Watch() {
   async function unlockBestieHere() {
     try {
       setErr("");
+      // sign-in first if needed
       const idTok =
         window.sa?.session?.idToken ||
         localStorage.getItem("sa:idToken") ||
@@ -122,9 +108,12 @@ export default function Watch() {
         return;
       }
 
+      // Try checkout (returns to this watch page)
       try {
         const r = await window.sa.graphql(
-          `mutation Start($successPath: String){ startBestieCheckout(successPath:$successPath){ url } }`,
+          `mutation Start($successPath: String){ 
+             startBestieCheckout(successPath:$successPath){ url } 
+           }`,
           { successPath: `/watch/${id}` }
         );
         const url = r?.startBestieCheckout?.url;
@@ -136,6 +125,7 @@ export default function Watch() {
         // ignore — try trial next
       }
 
+      // Fallback: trial
       const trial = await window.sa.graphql(
         `mutation { claimBestieTrial { active } }`
       );
@@ -162,13 +152,15 @@ export default function Watch() {
     );
   }
 
-  if (loading)
+  // Gate early access
+  if (loading) {
     return (
       <div className="watch-wrap">
         <div className="muted">Checking access…</div>
         <style>{styles}</style>
       </div>
     );
+  }
 
   if (early && !isBestie) {
     return (
@@ -232,10 +224,10 @@ export default function Watch() {
       </header>
 
       <main className="stage">
+        {/* Player */}
         <div className="player-card card">
           {ep.video ? (
-            ep.video.includes("youtube.com") ||
-            ep.video.includes("youtu.be") ? (
+            ep.video.includes("youtube.com") || ep.video.includes("youtu.be") ? (
               <div className="yt-wrap">
                 <iframe
                   src={ep.video}
@@ -273,6 +265,7 @@ export default function Watch() {
           </div>
         </div>
 
+        {/* Netflix-style Next Up overlay */}
         {nextEp && (
           <NextUpOverlay
             show={showNext}
@@ -284,13 +277,13 @@ export default function Watch() {
           />
         )}
 
+        {/* Related grid */}
         {related.length > 0 && (
           <section className="related">
             <h3 className="related__title">Related episodes</h3>
             <div className="related__grid">
               {related.map((e) => {
-                const isEarly =
-                  Date.now() < new Date(e.publicAt || 0).getTime();
+                const isEarly = Date.now() < new Date(e.publicAt || 0).getTime();
                 return (
                   <button
                     key={e.id}
@@ -321,5 +314,88 @@ export default function Watch() {
 }
 
 const styles = `
-  /* (same CSS you already had – leaving as-is) */
+.watch-wrap { display:flex; flex-direction:column; gap:16px; }
+.hero {
+  background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(255,255,255,0));
+  border-radius:16px; padding:20px 16px;
+}
+.hero__inner, .stage { max-width: 1100px; margin: 0 auto; }
+.title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.crumb { text-decoration:none; color:#374151; }
+.crumb:hover { text-decoration:underline; }
+.title { margin:0; font-size:1.6rem; line-height:1.2; }
+.muted { color:#586073; }
+
+.card {
+  background:#fff; border:1px solid #eceef3; border-radius:14px; padding:14px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.05);
+}
+
+.player-card { display:grid; gap:12px; }
+.player {
+  width:100%; max-height:70vh; background:#000; border-radius:10px;
+}
+.yt-wrap { position:relative; padding-bottom:56.25%; height:0; border-radius:10px; overflow:hidden; background:#000; }
+.yt-wrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+.poster {
+  height:420px; border-radius:10px;
+  background:linear-gradient(120deg,#f6f7ff,#fff);
+  display:grid; place-items:center; text-align:center;
+}
+.poster__title { font-weight:700; font-size:1.1rem; }
+.poster__sub { color:#586073; }
+
+.player-meta { display:flex; gap:8px; flex-wrap:wrap; }
+
+.lock-card { display:grid; gap:10px; }
+.lock-head { display:flex; align-items:center; gap:10px; }
+.lock-emoji { font-size:1.4rem; }
+.lock-title { margin:0; }
+
+.related { margin-top:24px; }
+.related__title { margin:0 0 12px; }
+.related__grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap:12px;
+}
+.rel-card {
+  text-align:left; padding:12px; border-radius:16px; cursor:pointer;
+  border:1px solid #eceef3; background:#fff; display:grid; gap:8px;
+}
+.rel-card:hover { background:#fafbff; }
+.rel-thumb {
+  width:100%; aspect-ratio:16/9; border-radius:12px;
+  background: linear-gradient(135deg, rgba(17,24,39,.12), rgba(17,24,39,.06));
+  display:grid; place-items:center; font-weight:600;
+}
+.rel-meta { display:flex; gap:8px; align-items:center; }
+.rel-title { font-weight:600; font-size:14px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.pill {
+  display:inline-flex; align-items:center; height:26px; padding:0 10px;
+  border-radius:999px; border:1px solid #e7e7ef; background:#f7f8ff;
+  color:#222; font-size:.85rem;
+}
+.pill--bestie { background:#ecf0ff; border-color:#c9d2ff; color:#2e47d1; }
+
+.chip {
+  border:1px solid #e5e7eb; background:#fff; color:#111827;
+  border-radius:999px; padding:6px 10px; font-size:.8rem;
+}
+
+.btn {
+  appearance:none; border:1px solid #e5e7eb; background:#f7f7f9; color:#111827;
+  border-radius:10px; padding:10px 14px; cursor:pointer;
+  transition:transform 40ms ease, background 140ms ease, border-color 140ms ease;
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.btn:hover { background:#f2f2f6; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background:#6b8cff; border-color:#6b8cff; color:#fff; }
+.btn-primary:hover { background:#5a7bff; border-color:#5a7bff; }
+.btn-ghost { background:#fff; color:#374151; }
+
+.notice { padding:10px 12px; border-radius:10px; margin-top:10px; }
+.notice--error { border:1px solid #ffd4d4; background:#fff6f6; color:#7a1a1a; }
 `;

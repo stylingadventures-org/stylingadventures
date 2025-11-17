@@ -15,6 +15,12 @@ enum ClosetAudience {
   EXCLUSIVE
 }
 
+# Sort options for the public fan feed
+enum ClosetFeedSort {
+  NEWEST
+  MOST_LOVED
+}
+
 type ClosetItem {
   id: ID!
   userId: ID!
@@ -31,6 +37,9 @@ type ClosetItem {
   storyTitle: String
   storySeason: String
   storyVibes: [String!]
+
+  # Aggregate favorites (backend) – nullable so old items are still valid
+  favoriteCount: Int
 }
 
 type ClosetFeedPage {
@@ -48,7 +57,10 @@ input UpdateClosetItemStoryInput {
 type Query {
   myCloset: [ClosetItem!]!
   adminListPending: [ClosetItem!]!
-  closetFeed(limit: Int, nextToken: String): ClosetFeedPage
+  closetFeed(limit: Int, nextToken: String, sort: ClosetFeedSort): ClosetFeedPage
+
+  # Small snippet for dashboards (Bestie + Fan home)
+  topClosetLooks(limit: Int): [ClosetItem!]!
 }
 
 type Mutation {

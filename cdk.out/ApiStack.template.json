@@ -38,7 +38,7 @@
       "ApiId"
      ]
     },
-    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync).\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n# If your AppSync configuration doesn’t auto-provide these, keep these scalar lines.\r\nscalar AWSDateTime\r\nscalar AWSEmail\r\nscalar AWSURL\r\nscalar AWSJSON\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Base: Closet / Users\r\n# ─────────────────────────────────────────────────────────────────────────────\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\n# Who can see the item once it’s approved\r\nenum ClosetAudience {\r\n  PUBLIC\r\n  BESTIE\r\n  EXCLUSIVE\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  userId: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n  mediaKey: String\r\n  title: String\r\n  reason: String\r\n  audience: ClosetAudience\r\n\r\n  # Story-style metadata used for fan-facing “Lala’s Closet” view\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n}\r\n\r\n# Paged feed of approved closet items (privacy is enforced in the resolver)\r\ntype ClosetFeedPage {\r\n  # Can be null; resolvers should generally return [] instead of null\r\n  items: [ClosetItem!]\r\n  nextToken: String\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers (existing enum-backed user model).\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Phase-1 lightweight profile returned by Query.me (string-based).\"\"\"\r\ntype UserProfile {\r\n  id: ID!\r\n  email: String\r\n  role: String!\r\n  tier: String!\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI.\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Bestie Tier\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype BestieStatus {\r\n  active: Boolean!\r\n  since: AWSDateTime\r\n  until: AWSDateTime\r\n  source: String\r\n}\r\n\r\ntype EarlyAccessGate {\r\n  allowed: Boolean!\r\n  reason: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Fans/Game — Types & Inputs\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype GameProfile {\r\n  userId: ID!\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n  level: Int!\r\n  xp: Int!\r\n  coins: Int!\r\n  badges: [String!]!\r\n  lastEventAt: AWSDateTime\r\n  streakCount: Int\r\n  lastLoginAt: AWSDateTime\r\n}\r\n\r\ntype LeaderboardEntry {\r\n  userId: ID!\r\n  displayName: String\r\n  xp: Int\r\n  coins: Int\r\n  rank: Int\r\n}\r\n\r\ntype Poll {\r\n  pollId: ID!\r\n  question: String!\r\n  options: [String!]!\r\n  totals: [Int!]!\r\n  createdBy: String!\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\ninput GameEventInput {\r\n  type: String!      # e.g., \"LEVEL_CLEAR\", \"DAILY_LOGIN\", \"SHARE\", \"STYLE_IT\"\r\n  metadata: AWSJSON\r\n}\r\n\r\ninput AwardInput {\r\n  userId: ID!\r\n  coins: Int!\r\n  xp: Int\r\n  reason: String\r\n}\r\n\r\ninput CreatePollInput {\r\n  question: String!\r\n  options: [String!]!\r\n}\r\n\r\n# NEW: profile patch input\r\ninput UpdateProfileInput {\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n}\r\n\r\n# NEW: update story metadata for a closet item\r\ninput UpdateClosetItemStoryInput {\r\n  id: ID!\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Queries\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"Signed-in creator’s items.\"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"Items awaiting moderation.\"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Lala's Closet — public/community feed\r\n  # Resolver enforces: status APPROVED/PUBLISHED + audience PUBLIC\r\n  closetFeed(limit: Int, nextToken: String): ClosetFeedPage\r\n\r\n  # Roles / user directory\r\n  # Relaxed: nullable so we don’t blow up if resolver returns null\r\n  me: UserProfile\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Bestie Tier\r\n  meBestieStatus: BestieStatus!\r\n  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!\r\n\r\n  # Fans/Game\r\n  getMyProfile: GameProfile!\r\n  topXP(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  topCoins(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  getPoll(pollId: ID!): Poll\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Mutations\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Mutation {\r\n  \"\"\"Creates a new item in DRAFT.\"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem!\r\n\r\n  \"\"\"Marks item PENDING and starts approval workflow.\"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  \"\"\"Admin/creator fix-up: update the media key on an item.\"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Visibility for Lala’s Closet\r\n  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Bestie-side story metadata for closet items\r\n  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): UserProfile!\r\n\r\n  # Bestie Tier\r\n  startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!\r\n  claimBestieTrial: BestieStatus!\r\n  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestie(userSub: ID!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Fans/Game\r\n  logGameEvent(input: GameEventInput!): GameProfile!\r\n  createPoll(input: CreatePollInput!): Poll\r\n  votePoll(pollId: ID!, optionIndex: Int!): Poll\r\n\r\n  # Admin-only game actions\r\n  awardCoins(input: AwardInput!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  grantBadge(userId: ID!, badge: String!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Profile edit\r\n  setDisplayName(displayName: String!): GameProfile!\r\n\r\n  # NEW: profile patch\r\n  updateProfile(input: UpdateProfileInput!): GameProfile!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n"
+    "Definition": "\"\"\"Auth directive used in this API (mapped to Cognito user pools in AppSync).\"\"\"\r\ndirective @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT\r\n\r\n# If your AppSync configuration doesn’t auto-provide these, keep these scalar lines.\r\nscalar AWSDateTime\r\nscalar AWSEmail\r\nscalar AWSURL\r\nscalar AWSJSON\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Base: Closet / Users\r\n# ─────────────────────────────────────────────────────────────────────────────\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n}\r\n\r\n# Who can see the item once it’s approved\r\nenum ClosetAudience {\r\n  PUBLIC\r\n  BESTIE\r\n  EXCLUSIVE\r\n}\r\n\r\n# Sort options for the public closet feed (matches frontend)\r\nenum ClosetFeedSort {\r\n  NEWEST\r\n  MOST_LOVED\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  userId: ID!\r\n  ownerSub: String!\r\n  status: ClosetStatus!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n\r\n  # Media\r\n  mediaKey: String      # final, background-removed image key\r\n  rawMediaKey: String   # original upload key (used for background-removal lookup)\r\n\r\n  # Basic metadata\r\n  title: String!\r\n  reason: String\r\n  audience: ClosetAudience\r\n\r\n  # Story-style metadata used for fan-facing “Lala’s Closet” view\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n\r\n  # New, nullable so Lambdas don’t have to populate it yet\r\n  favoriteCount: Int\r\n}\r\n\r\n\"\"\"RBAC: roles & tiers (existing enum-backed user model).\"\"\"\r\nenum Role { FAN BESTIE CREATOR COLLAB ADMIN }\r\nenum Tier { FREE PRIME }\r\n\r\ntype User {\r\n  id: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime!\r\n}\r\n\r\ninput SetUserRoleInput {\r\n  userId: ID!\r\n  email: AWSEmail\r\n  role: Role!\r\n  tier: Tier\r\n}\r\n\r\n\"\"\"Phase-1 lightweight profile returned by Query.me (string-based).\"\"\"\r\ntype UserProfile {\r\n  id: ID!\r\n  email: String\r\n  role: String!\r\n  tier: String!\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\n\"\"\"Paged list of users for admin UI.\"\"\"\r\ntype AdminUsersPage {\r\n  items: [User!]!\r\n  nextToken: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Bestie Tier\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype BestieStatus {\r\n  active: Boolean!\r\n  since: AWSDateTime\r\n  until: AWSDateTime\r\n  source: String\r\n}\r\n\r\ntype EarlyAccessGate {\r\n  allowed: Boolean!\r\n  reason: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Fans/Game — Types & Inputs\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype GameProfile {\r\n  userId: ID!\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n  level: Int!\r\n  xp: Int!\r\n  coins: Int!\r\n  badges: [String!]!\r\n  lastEventAt: AWSDateTime\r\n  streakCount: Int\r\n  lastLoginAt: AWSDateTime\r\n}\r\n\r\ntype LeaderboardEntry {\r\n  userId: ID!\r\n  displayName: String\r\n  xp: Int\r\n  coins: Int\r\n  rank: Int\r\n}\r\n\r\ntype Poll {\r\n  pollId: ID!\r\n  question: String!\r\n  options: [String!]!\r\n  totals: [Int!]!\r\n  createdBy: String!\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\ninput GameEventInput {\r\n  type: String!      # e.g., \"LEVEL_CLEAR\", \"DAILY_LOGIN\", \"SHARE\", \"STYLE_IT\"\r\n  metadata: AWSJSON\r\n}\r\n\r\ninput AwardInput {\r\n  userId: ID!\r\n  coins: Int!\r\n  xp: Int\r\n  reason: String\r\n}\r\n\r\ninput CreatePollInput {\r\n  question: String!\r\n  options: [String!]!\r\n}\r\n\r\n# NEW: profile patch input\r\ninput UpdateProfileInput {\r\n  displayName: String\r\n  avatarUrl: AWSURL\r\n  bio: String\r\n}\r\n\r\n# NEW: update story metadata for a closet item\r\ninput UpdateClosetItemStoryInput {\r\n  id: ID!\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n}\r\n\r\n# NEW: admin create with rawMediaKey for background-removal pipeline\r\ninput AdminCreateClosetItemInput {\r\n  title: String!\r\n  rawMediaKey: String!   # from signedUpload(file)\r\n  season: String\r\n  vibes: String\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Queries\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Query {\r\n  hello: String!\r\n\r\n  \"\"\"Signed-in creator’s items.\"\"\"\r\n  myCloset: [ClosetItem!]!\r\n\r\n  \"\"\"Items awaiting moderation.\"\"\"\r\n  adminListPending: [ClosetItem!]!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\", \"PRIME\"])\r\n\r\n  # Lala's Closet — public/community feed\r\n  # Resolver enforces: status APPROVED/PUBLISHED + audience PUBLIC\r\n  # NOTE: now returns a simple list instead of ClosetFeedPage\r\n  closetFeed(sort: ClosetFeedSort = NEWEST): [ClosetItem!]!\r\n\r\n  # Roles / user directory\r\n  # Relaxed: nullable so we don’t blow up if resolver returns null\r\n  me: UserProfile\r\n  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Bestie Tier\r\n  meBestieStatus: BestieStatus!\r\n  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!\r\n\r\n  # Fans/Game\r\n  getMyProfile: GameProfile!\r\n  topXP(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  topCoins(limit: Int = 10, season: String = \"GLOBAL\"): [LeaderboardEntry!]!\r\n  getPoll(pollId: ID!): Poll\r\n}\r\n\r\n# ─────────────────────────────────────────────────────────────────────────────\r\n# Root: Mutations\r\n# ─────────────────────────────────────────────────────────────────────────────\r\ntype Mutation {\r\n  \"\"\"Creates a new item in DRAFT.\"\"\"\r\n  createClosetItem(title: String, mediaKey: String): ClosetItem!\r\n\r\n  \"\"\"Marks item PENDING and starts approval workflow.\"\"\"\r\n  requestClosetApproval(id: ID!): String!\r\n\r\n  \"\"\"Admin/creator fix-up: update the media key on an item.\"\"\"\r\n  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!\r\n\r\n  # NEW: admin create that wires raw upload into bg-removal pipeline\r\n  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Moderation actions\r\n  adminApproveItem(id: ID!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n  adminRejectItem(id: ID!, reason: String): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Visibility for Lala’s Closet\r\n  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!\r\n    @aws_auth(cognito_groups: [\"ADMIN\", \"COLLAB\"])\r\n\r\n  # Bestie-side story metadata for closet items\r\n  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!\r\n\r\n  # Roles\r\n  setUserRole(input: SetUserRoleInput!): UserProfile!\r\n\r\n  # Bestie Tier\r\n  startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!\r\n  claimBestieTrial: BestieStatus!\r\n  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestie(userSub: ID!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Fans/Game\r\n  logGameEvent(input: GameEventInput!): GameProfile!\r\n  createPoll(input: CreatePollInput!): Poll\r\n  votePoll(pollId: ID!, optionIndex: Int!): Poll\r\n\r\n  # Admin-only game actions\r\n  awardCoins(input: AwardInput!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n  grantBadge(userId: ID!, badge: String!): GameProfile!\r\n    @aws_auth(cognito_groups: [\"ADMIN\"])\r\n\r\n  # Profile edit\r\n  setDisplayName(displayName: String!): GameProfile!\r\n\r\n  # NEW: profile patch\r\n  updateProfile(input: UpdateProfileInput!): GameProfile!\r\n}\r\n\r\nschema {\r\n  query: Query\r\n  mutation: Mutation\r\n}\r\n"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Schema"
@@ -469,28 +469,6 @@
     "aws:cdk:path": "ApiStack/StylingApi/MyCloset/Resource"
    }
   },
-  "StylingApiClosetFeedA85DF717": {
-   "Type": "AWS::AppSync::Resolver",
-   "Properties": {
-    "ApiId": {
-     "Fn::GetAtt": [
-      "StylingApiC401F041",
-      "ApiId"
-     ]
-    },
-    "DataSourceName": "ClosetDs",
-    "FieldName": "closetFeed",
-    "Kind": "UNIT",
-    "TypeName": "Query"
-   },
-   "DependsOn": [
-    "StylingApiClosetDs3024963C",
-    "StylingApiSchemaD8A6FBCC"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetFeed/Resource"
-   }
-  },
   "StylingApiCreateClosetItemF16DABD7": {
    "Type": "AWS::AppSync::Resolver",
    "Properties": {
@@ -557,7 +535,7 @@
     "aws:cdk:path": "ApiStack/StylingApi/UpdateClosetMediaKey/Resource"
    }
   },
-  "StylingApiClosetAdminDsServiceRoleDC64D6AC": {
+  "StylingApiClosetAdminSourceServiceRole9EF81003": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -584,10 +562,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminSource/ServiceRole/Resource"
    }
   },
-  "StylingApiClosetAdminDsServiceRoleDefaultPolicyC0C0AABD": {
+  "StylingApiClosetAdminSourceServiceRoleDefaultPolicyDFCEEFAE": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -621,18 +599,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiClosetAdminDsServiceRoleDefaultPolicyC0C0AABD",
+    "PolicyName": "StylingApiClosetAdminSourceServiceRoleDefaultPolicyDFCEEFAE",
     "Roles": [
      {
-      "Ref": "StylingApiClosetAdminDsServiceRoleDC64D6AC"
+      "Ref": "StylingApiClosetAdminSourceServiceRole9EF81003"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminSource/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiClosetAdminDs6AAA997E": {
+  "StylingApiClosetAdminSource8E9FB41C": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -649,17 +627,17 @@
       ]
      }
     },
-    "Name": "ClosetAdminDs",
+    "Name": "ClosetAdminSource",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiClosetAdminDsServiceRoleDC64D6AC",
+      "StylingApiClosetAdminSourceServiceRole9EF81003",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminDs/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetAdminSource/Resource"
    }
   },
   "StylingApiAdminListPendingResolver16923FC0": {
@@ -671,19 +649,83 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetAdminDs",
+    "DataSourceName": "ClosetAdminSource",
     "FieldName": "adminListPending",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Query"
    },
    "DependsOn": [
-    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiClosetAdminSource8E9FB41C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/AdminListPendingResolver/Resource"
+   }
+  },
+  "StylingApiClosetFeedResolverA7586067": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetAdminSource",
+    "FieldName": "closetFeed",
+    "Kind": "UNIT",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminSource8E9FB41C",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/ClosetFeedResolver/Resource"
+   }
+  },
+  "StylingApiTopClosetLooksResolver10574B51": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetAdminSource",
+    "FieldName": "topClosetLooks",
+    "Kind": "UNIT",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminSource8E9FB41C",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/TopClosetLooksResolver/Resource"
+   }
+  },
+  "StylingApiAdminCreateClosetItemResolver9A76622F": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "ClosetAdminSource",
+    "FieldName": "adminCreateClosetItem",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiClosetAdminSource8E9FB41C",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/AdminCreateClosetItemResolver/Resource"
    }
   },
   "StylingApiAdminApproveItem0F267B42": {
@@ -695,15 +737,13 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetAdminDs",
+    "DataSourceName": "ClosetAdminSource",
     "FieldName": "adminApproveItem",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiClosetAdminSource8E9FB41C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -719,15 +759,13 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetAdminDs",
+    "DataSourceName": "ClosetAdminSource",
     "FieldName": "adminRejectItem",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiClosetAdminSource8E9FB41C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -743,15 +781,13 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "ClosetAdminDs",
+    "DataSourceName": "ClosetAdminSource",
     "FieldName": "adminSetClosetAudience",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\"version\": \"2017-02-28\", \"operation\": \"Invoke\", \"payload\": $util.toJson($ctx)}",
-    "ResponseMappingTemplate": "$util.toJson($ctx.result)",
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiClosetAdminDs6AAA997E",
+    "StylingApiClosetAdminSource8E9FB41C",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -2121,7 +2157,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "35e8de866b1feaf3cbce6274144cfa83921ff7c91a5dfce7aac74b60e2c5f9c7.zip"
+     "S3Key": "44a2726ff2b36b160a6689648c18489a48e4751dcc55a3bd9b268e3d206ddf99.zip"
     },
     "Environment": {
      "Variables": {
@@ -2159,7 +2195,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.35e8de866b1feaf3cbce6274144cfa83921ff7c91a5dfce7aac74b60e2c5f9c7",
+    "aws:asset:path": "asset.44a2726ff2b36b160a6689648c18489a48e4751dcc55a3bd9b268e3d206ddf99",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -2290,17 +2326,21 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "ce11ea342b56e6be01ab12e2d3e77bce5349e61f0c759bfc82df8e2e097e76e2.zip"
+     "S3Key": "71b716ae382d30ff7feb763ecd307ba522bcd9960224a8ca5979a3a97099b62c.zip"
     },
     "Environment": {
      "Variables": {
       "TABLE_NAME": {
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "APPROVAL_SM_ARN": {
+       "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
+      }
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "ClosetAdminFnServiceRole87F02459",
@@ -2317,7 +2357,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 10
    },
    "DependsOn": [
     "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF",
@@ -2325,7 +2366,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetAdminFn/Resource",
-    "aws:asset:path": "asset.ce11ea342b56e6be01ab12e2d3e77bce5349e61f0c759bfc82df8e2e097e76e2",
+    "aws:asset:path": "asset.71b716ae382d30ff7feb763ecd307ba522bcd9960224a8ca5979a3a97099b62c",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -2454,6 +2495,7 @@
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "BestieFnServiceRoleF23C6CA8",
@@ -2470,7 +2512,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 30
    },
    "DependsOn": [
     "BestieFnServiceRoleDefaultPolicy85C0CE1B",

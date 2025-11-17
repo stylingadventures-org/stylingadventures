@@ -3,6 +3,7 @@
   "region": "us-east-1",
 
   "appsyncUrl": "https://m3vhshfltrhynnunq5r5dutu4u.appsync-api.us-east-1.amazonaws.com/graphql",
+  "redirectUri": "http://localhost:5173/callback",
   "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
 
   "userPoolId": "us-east-1_aXLKIxbqK",
@@ -13,7 +14,6 @@
   "cognitoDomain": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
 
   "hostedUiDomain": "sa-dev-637423256673",
-  "redirectUri": "http://localhost:5173/callback",
   "logoutUri": "http://localhost:5173/",
 
   "scopes": ["openid", "email"],

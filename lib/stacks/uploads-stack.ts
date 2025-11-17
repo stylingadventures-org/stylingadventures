@@ -1,4 +1,3 @@
-// lib/stacks/uploads-stack.ts
 import {
   Stack,
   StackProps,
@@ -15,6 +14,7 @@ import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as ddb from "aws-cdk-lib/aws-dynamodb";
 
 export interface UploadsStackProps extends StackProps {
   userPool: cognito.IUserPool;
@@ -24,6 +24,8 @@ export interface UploadsStackProps extends StackProps {
   cloudFrontOrigin?: string;
   /** Name of the *web/static* bucket where thumbnails will be written */
   webBucketName: string;
+  /** Main app table so bg-workers can update closet items */
+  table: ddb.ITable;
 }
 
 export class UploadsStack extends Stack {
@@ -33,7 +35,14 @@ export class UploadsStack extends Stack {
   constructor(scope: Construct, id: string, props: UploadsStackProps) {
     super(scope, id, props);
 
-    const { userPool, webOrigin, cloudFrontOrigin, webBucketName } = props;
+    const { userPool, webOrigin, cloudFrontOrigin, webBucketName, table } =
+      props;
+
+    // Allow turning off Cognito auth for uploads in dev:
+    // DISABLE_UPLOAD_AUTH=true npx cdk deploy UploadsStack
+    const disableUploadAuth =
+      process.env.DISABLE_UPLOAD_AUTH === "true" ||
+      process.env.DISABLE_UPLOAD_AUTH === "1";
 
     // ---- Allow-list for CORS (normalize + dedupe) ----
     const originsRaw = [
@@ -47,6 +56,8 @@ export class UploadsStack extends Stack {
     const allowedOrigins = Array.from(
       new Set(originsRaw.map((u) => u.replace(/\/+$/, ""))),
     );
+
+    const defaultCorsOrigin = allowedOrigins[0] ?? "*";
 
     // ---- Lambda sources ----
     const presignEntry = path.resolve(process.cwd(), "lambda/presign/index.ts");
@@ -190,20 +201,68 @@ export class UploadsStack extends Stack {
       );
     }
 
-    // ---- API Gateway (Cognito authorizer) ----
-    const authorizer = new apigw.CognitoUserPoolsAuthorizer(
-      this,
-      "UploadsAuth",
-      {
-        cognitoUserPools: [userPool],
+    // -------- Closet background-removal worker (remove.bg) --------
+    // This worker watches for new files under "closet/" in the uploads bucket,
+    // calls remove.bg, and updates the closet item with the cleaned mediaKey.
+    const closetBgWorkerFn = new NodejsFunction(this, "ClosetBgWorkerFn", {
+      entry: path.resolve(process.cwd(), "lambda/closet/bg-worker.ts"),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "handler",
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      timeout: Duration.seconds(60),
+      memorySize: 512,
+      environment: {
+        TABLE_NAME: table.tableName,
+        RAW_MEDIA_GSI_NAME: "rawMediaKeyIndex",
+        REMOVE_BG_API_KEY: process.env.REMOVE_BG_API_KEY ?? "",
       },
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    table.grantReadWriteData(closetBgWorkerFn);
+    this.bucket.grantReadWrite(closetBgWorkerFn);
+
+    // Trigger worker when a new closet upload is created.
+    // Make sure this prefix matches what `signedUpload` uses for admin closet uploads.
+    this.bucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(closetBgWorkerFn),
+      { prefix: "closet/" },
     );
 
-    // NOTE: we let our Lambda handle CORS, so we do NOT use defaultCorsPreflightOptions here
+    // ---- API Gateway (RestApi + CORS error responses) ----
     this.api = new apigw.RestApi(this, "UploadsApi", {
       restApiName: "uploads-api",
       deployOptions: { stageName: "prod" },
     });
+
+    // CORS headers for GatewayResponses (errors before hitting Lambda)
+    this.api.addGatewayResponse("Default4xxCors", {
+      type: apigw.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": `'${defaultCorsOrigin}'`,
+        "Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+        "Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'",
+      },
+    });
+
+    this.api.addGatewayResponse("Default5xxCors", {
+      type: apigw.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": `'${defaultCorsOrigin}'`,
+        "Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+        "Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'",
+      },
+    });
+
+    // ---- Cognito authorizer (only when auth is enabled) ----
+    let authorizer: apigw.CognitoUserPoolsAuthorizer | undefined;
+
+    if (!disableUploadAuth) {
+      authorizer = new apigw.CognitoUserPoolsAuthorizer(this, "UploadsAuth", {
+        cognitoUserPools: [userPool],
+      });
+    }
 
     const listRes = this.api.root.addResource("list");
     const presignRes = this.api.root.addResource("presign");
@@ -215,41 +274,43 @@ export class UploadsStack extends Stack {
     const delInt = new apigw.LambdaIntegration(presignFn, { proxy: true });
     const headInt = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
 
+    // Shared auth config for methods
+    const securedMethodAuth: apigw.MethodOptions = disableUploadAuth
+      ? {
+          authorizationType: apigw.AuthorizationType.NONE,
+        }
+      : {
+          authorizationType: apigw.AuthorizationType.COGNITO,
+          authorizer: authorizer!,
+        };
+
     // ---- /list ----
     listRes.addMethod("GET", listInt, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+      ...securedMethodAuth,
     });
 
     // ---- /presign ----
     presignRes.addMethod("POST", presignInt, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+      ...securedMethodAuth,
     });
 
     presignRes.addMethod("GET", presignInt, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+      ...securedMethodAuth,
     });
 
-    // IMPORTANT: let Lambda handle OPTIONS (CORS preflight) with NO auth
+    // OPTIONS handled by Lambda, no auth (for CORS preflight)
     presignRes.addMethod("OPTIONS", presignInt, {
       authorizationType: apigw.AuthorizationType.NONE,
     });
 
     // ---- /delete ----
     delRes.addMethod("DELETE", delInt, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+      ...securedMethodAuth,
     });
 
     // ---- /thumb-head ----
     headRes.addMethod("GET", headInt, {
-      authorizationType: apigw.AuthorizationType.COGNITO,
-      authorizer,
+      ...securedMethodAuth,
     });
   }
 }
-
-
-
