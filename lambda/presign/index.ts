@@ -1,248 +1,214 @@
-// lambda/presign/index.ts
-import {
-  APIGatewayProxyEvent,
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResult,
-} from "aws-lambda";
 import {
   S3Client,
   PutObjectCommand,
+  ListObjectsV2Command,
   DeleteObjectCommand,
-  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-
-/* Use path-style to avoid some blockers on virtual-hosted S3 */
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  forcePathStyle: true,
-});
+import {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyResultV2,
+} from "aws-lambda";
 
 const BUCKET = process.env.BUCKET!;
+const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "https://stylingadventures.com";
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? WEB_ORIGIN)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-/* ---------------- CORS helpers (simplified) ---------------- */
+const THUMBS_CDN = process.env.THUMBS_CDN;
+const DISABLE_UPLOAD_AUTH =
+  process.env.DISABLE_UPLOAD_AUTH === "true" ||
+  process.env.DISABLE_UPLOAD_AUTH === "1";
 
-const ALLOW_HEADERS = [
-  "authorization",
-  "Authorization",
-  "Content-Type",
-  "X-Amz-Date",
-  "X-Api-Key",
-  "X-Amz-Security-Token",
-].join(",");
+const s3 = new S3Client({});
 
-function reqOrigin(event: any): string {
-  return String(event?.headers?.origin || event?.headers?.Origin || "").replace(
-    /\/+$/,
-    ""
-  );
+// ----- helpers -----
+
+type AnyEvent = APIGatewayProxyEventV2 & { requestContext: any };
+
+function resolveOrigin(event: AnyEvent): string {
+  const hdrs = event.headers || {};
+  const reqOrigin = (hdrs.origin || hdrs.Origin || "").trim();
+  if (reqOrigin && ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
+  return WEB_ORIGIN;
 }
 
-function corsHeaders(event: any): Record<string, string> {
-  // Always echo back the browser's Origin header if present
-  const origin = reqOrigin(event);
-
+function makeBaseHeaders(origin: string) {
   return {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": origin || "*", // should always be Origin in a browser
-    "Access-Control-Allow-Headers": ALLOW_HEADERS,
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers":
+      "Authorization,Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Expose-Headers":
-      "ETag,Content-Type,Content-Length,Last-Modified,Accept-Ranges",
-    Vary:
-      "Origin, Access-Control-Request-Headers, Access-Control-Request-Method",
+    Vary: "Origin",
   };
 }
 
+function methodOf(event: AnyEvent): string {
+  return (
+    event.requestContext?.http?.method ||
+    (event as any).httpMethod ||
+    "GET"
+  ).toUpperCase();
+}
+
+function pathOf(event: AnyEvent): string {
+  return event.rawPath || (event as any).path || "/";
+}
+
+function claimsOf(event: AnyEvent): Record<string, any> {
+  return (
+    event.requestContext?.authorizer?.jwt?.claims ||
+    event.requestContext?.authorizer?.claims ||
+    {}
+  );
+}
+
+function parseBody<T = any>(event: AnyEvent): T | undefined {
+  if (!event.body) return;
+  const raw = event.isBase64Encoded
+    ? Buffer.from(event.body, "base64").toString()
+    : event.body;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
 function ok(
-  event: any,
-  body: unknown,
-  extra: Record<string, string> = {}
-): APIGatewayProxyResult {
+  headers: Record<string, string>,
+  body: any,
+  extraHeaders: Record<string, string> = {}
+): APIGatewayProxyResultV2 {
   return {
     statusCode: 200,
-    headers: {
-      ...corsHeaders(event),
-      "Cache-Control": "no-store",
-      ...extra,
-    },
+    headers: { ...headers, ...extraHeaders },
     body: JSON.stringify(body),
   };
 }
 
-function noContent(event: any): APIGatewayProxyResult {
-  return { statusCode: 204, headers: corsHeaders(event), body: "" };
-}
-
-function bad(
-  event: any,
-  status: number,
-  msg: string
-): APIGatewayProxyResult {
+function err(
+  headers: Record<string, string>,
+  statusCode: number,
+  message: string
+): APIGatewayProxyResultV2 {
   return {
-    statusCode: status,
-    headers: corsHeaders(event),
-    body: JSON.stringify({ message: msg }),
+    statusCode,
+    headers,
+    body: JSON.stringify({ message }),
   };
 }
 
-/* ---------------- shared helpers ---------------- */
-
-type AnyEvent = APIGatewayProxyEvent | APIGatewayProxyEventV2 | any;
-
-const methodOf = (e: AnyEvent) =>
-  (e as any).httpMethod ?? e.requestContext?.http?.method ?? "GET";
-
-const claimsOf = (e: AnyEvent) =>
-  (e as any).requestContext?.authorizer?.claims ??
-  (e as any).requestContext?.authorizer?.jwt?.claims ??
-  {};
-
-const parseJson = (e: AnyEvent) => {
-  const raw = (e as any).body ?? "";
-  if (!raw) return {};
-  const txt =
-    (e as any).isBase64Encoded && typeof raw === "string"
-      ? Buffer.from(raw, "base64").toString()
-      : raw;
-  try {
-    return typeof txt === "string" ? JSON.parse(txt) : txt;
-  } catch {
-    return {};
-  }
-};
-
-/** sanitize + enforce users/<sub>/ prefix FOR WRITES (POST/DELETE) */
-function scopeUserKey(sub: string, raw: string): string {
-  const safe = String(raw || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
-  const alreadyScoped = safe.startsWith(`users/${sub}/`);
-  const foreignUser = /^users\/[^/]+\//.test(safe) && !alreadyScoped;
-  return alreadyScoped
-    ? safe
-    : `users/${sub}/${foreignUser ? safe.replace(/^users\/[^/]+\//, "") : safe}`;
-}
-
-function readGroups(claims: any): string[] {
-  const g = claims?.["cognito:groups"];
-  if (Array.isArray(g)) return g;
-  if (typeof g === "string")
-    return g
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  return [];
-}
-
-/* ---------------- main handler ---------------- */
+// ----- handler -----
 
 export const handler = async (
   event: AnyEvent
-): Promise<APIGatewayProxyResult> => {
+): Promise<APIGatewayProxyResultV2> => {
+  const origin = resolveOrigin(event);
+  const headers = makeBaseHeaders(origin);
   const method = methodOf(event);
+  const path = pathOf(event);
+  const claims = claimsOf(event);
+  const sub: string | undefined = claims.sub;
 
   // CORS preflight
   if (method === "OPTIONS") {
-    return noContent(event);
+    return {
+      statusCode: 204,
+      headers,
+      body: "",
+    };
   }
 
   try {
-    const claims = claimsOf(event);
-    const sub = (claims?.sub as string) || "";
-    if (!sub) return bad(event, 401, "Not authorized");
+    // --- POST /presign ---
+    if (method === "POST" && /\/presign$/.test(path)) {
+      const body = parseBody<{ key: string; contentType: string }>(event);
+      if (!body) return err(headers, 400, "Missing body");
 
-    // ---- tiered upload limits (in MB) ----
-    const groups = readGroups(claims);
-    const baseMb = Number(process.env.BASE_UPLOAD_LIMIT_MB || "50");
-    const bestieMb = Number(process.env.BESTIE_UPLOAD_LIMIT_MB || "200");
-    const maxMb = groups.includes("BESTIE") ? bestieMb : baseMb;
+      let { key, contentType } = body;
 
-    if (method === "POST") {
-      // Create PUT + GET presigns for a new upload
-      const body: any = parseJson(event);
-      const rawKey: string = String(body.key || "");
-      const contentType: string = String(
-        body.contentType || "application/octet-stream"
-      );
-      if (!rawKey) return bad(event, 400, "Missing 'key'");
-
-      // If client sent size, enforce quota now
-      const contentLength = Number(body.contentLength || 0);
-      if (contentLength > 0 && contentLength > maxMb * 1024 * 1024) {
-        return bad(event, 413, `Max upload ${maxMb} MB for your tier`);
+      if (!key || typeof key !== "string") {
+        return err(headers, 400, 'Invalid "key"');
+      }
+      if (!contentType || typeof contentType !== "string") {
+        return err(headers, 400, 'Invalid "contentType"');
+      }
+      if (key.includes("..")) {
+        return err(headers, 400, "Illegal key");
       }
 
-      const key = scopeUserKey(sub, rawKey);
-      const putCmd = new PutObjectCommand({
+      // In normal authenticated mode, auto-scope under users/{sub}/
+      if (sub && !key.startsWith("users/")) {
+        key = `users/${sub}/${key}`;
+      }
+
+      const put = new PutObjectCommand({
         Bucket: BUCKET,
         Key: key,
         ContentType: contentType,
       });
-      const getCmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
 
-      const putUrl = await getSignedUrl(s3, putCmd, { expiresIn: 900 }); // 15m
-      const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
+      const url = await getSignedUrl(s3, put, { expiresIn: 900 });
 
-      return ok(event, {
-        bucket: BUCKET,
-        key,
-        method: "PUT",
-        url: putUrl,
-        headers: { "Content-Type": contentType },
-        putUrl,
-        getUrl,
-        maxBytesAllowed: maxMb * 1024 * 1024,
-      });
+      return ok(headers, { url, key, thumbsCdn: THUMBS_CDN ?? undefined });
     }
 
-    if (method === "GET") {
-      // Mint a fresh GET presign for an existing key (for previews / feed)
-      const rawKey = String(
-        event?.queryStringParameters?.key ??
-          (event as any).pathParameters?.key ??
-          ""
-      );
-      if (!rawKey) return bad(event, 400, "Missing 'key'");
+    // --- GET /list ---
+    if (method === "GET" && /\/list$/.test(path)) {
+      const listParams: any = { Bucket: BUCKET };
 
-      // sanitise but allow users/<anySub>/... for READS
-      const safe = String(rawKey || "").replace(/\.\./g, "").replace(/^[/\\]+/, "");
-      let key = safe;
-
-      if (!/^users\/[^/]+\//.test(safe)) {
-        // not obviously user-scoped -> scope to current user
-        key = scopeUserKey(sub, safe);
+      // In normal mode: only list user's own objects.
+      if (!DISABLE_UPLOAD_AUTH && sub) {
+        listParams.Prefix = `users/${sub}/`;
       }
 
-      const getCmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-      const getUrl = await getSignedUrl(s3, getCmd, { expiresIn: 300 }); // 5m
+      const res = await s3.send(new ListObjectsV2Command(listParams));
+      const items =
+        res.Contents?.map((obj) => ({
+          key: obj.Key,
+          size: obj.Size,
+          lastModified: obj.LastModified?.toISOString?.(),
+        })) ?? [];
 
-      return ok(event, {
-        bucket: BUCKET,
-        key,
-        getUrl,
-        url: getUrl,
-        publicUrl: getUrl,
-      });
+      return ok(headers, { items });
     }
 
-    if (method === "DELETE") {
-      // Delete a user-scoped object
-      const rawKey = String(
-        event?.queryStringParameters?.key ??
-          (event as any).pathParameters?.key ??
-          ""
+    // --- DELETE /delete ---
+    if (method === "DELETE" && /\/delete$/.test(path)) {
+      const body = parseBody<{ key?: string }>(event);
+      const qsKey = event.queryStringParameters?.key
+        ? decodeURIComponent(event.queryStringParameters.key)
+        : undefined;
+      const key = body?.key ?? qsKey;
+
+      if (!key || typeof key !== "string") {
+        return err(headers, 400, 'Invalid "key"');
+      }
+
+      // In normal mode, enforce ownership; in DISABLE_UPLOAD_AUTH we skip this.
+      if (!DISABLE_UPLOAD_AUTH && sub && !key.startsWith(`users/${sub}/`)) {
+        return err(headers, 403, "Forbidden");
+      }
+
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET,
+          Key: key,
+        })
       );
-      if (!rawKey) return bad(event, 400, "Missing 'key'");
-      const key = scopeUserKey(sub, rawKey);
 
-      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
-      return ok(event, { deleted: true, key });
+      return ok(headers, { deleted: key });
     }
 
-    return bad(event, 405, "Method Not Allowed");
+    // Fallback
+    return err(headers, 404, "Not Found");
   } catch (e: any) {
-    console.error(e);
-    return bad(event, 500, e?.message ?? String(e));
+    console.error("presign handler error", e);
+    return err(headers, 500, e?.message ?? "Server error");
   }
 };
-

@@ -28,6 +28,10 @@
      {
       "AttributeName": "gsi2sk",
       "AttributeType": "S"
+     },
+     {
+      "AttributeName": "rawMediaKey",
+      "AttributeType": "S"
      }
     ],
     "BillingMode": "PAY_PER_REQUEST",
@@ -58,6 +62,18 @@
        {
         "AttributeName": "gsi2sk",
         "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "rawMediaKeyIndex",
+      "KeySchema": [
+       {
+        "AttributeName": "rawMediaKey",
+        "KeyType": "HASH"
        }
       ],
       "Projection": {

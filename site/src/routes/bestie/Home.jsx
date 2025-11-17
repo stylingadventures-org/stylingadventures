@@ -1,112 +1,215 @@
 // site/src/routes/bestie/Home.jsx
-import React from "react";
-import TierTabs from "../../components/TierTabs";
+import React, { useCallback, useEffect, useState } from "react";
+import { getThumbUrlForMediaKey } from "../../lib/thumbs";
+
+const GQL = {
+  topLooks: /* GraphQL */ `
+    query TopClosetLooks($limit: Int) {
+      topClosetLooks(limit: $limit) {
+        id
+        title
+        storyTitle
+        favoriteCount
+        mediaKey
+      }
+    }
+  `,
+};
+
+async function fallbackGraphql(query, variables) {
+  const url =
+    window.sa?.cfg?.appsyncUrl ||
+    (window.__SA__ && window.__SA__.appsyncUrl);
+  const idToken =
+    localStorage.getItem("sa:idToken") ||
+    localStorage.getItem("idToken") ||
+    (window.sa?.session && window.sa.session.idToken);
+  if (!url || !idToken) throw new Error("Not signed in");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: idToken },
+    body: JSON.stringify({ query, variables }),
+  });
+  const json = await res.json();
+  if (json.errors?.length) throw new Error(json.errors[0].message);
+  return json.data;
+}
 
 export default function BestieHome() {
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [topLook, setTopLook] = useState(null);
+
+  const runGql = useCallback(async (q, v) => {
+    if (window.sa?.graphql) return window.sa.graphql(q, v);
+    return fallbackGraphql(q, v);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setErr("");
+        setLoading(true);
+        const data = await runGql(GQL.topLooks, { limit: 1 });
+        const first =
+          data && data.topClosetLooks && data.topClosetLooks[0];
+
+        if (first) {
+          const thumbUrl = await getThumbUrlForMediaKey(first.mediaKey);
+          setTopLook({
+            ...first,
+            thumbUrl: thumbUrl || null,
+          });
+        } else {
+          setTopLook(null);
+        }
+      } catch (e) {
+        setErr(String(e.message || e));
+        setTopLook(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [runGql]);
+
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 16px" }}>
-      <TierTabs activeTier="Bestie" />
+    <div className="card">
+      <h1 style={{ marginTop: 0 }}>Welcome, Bestie ✨</h1>
+      <p style={{ marginBottom: 16 }}>
+        You&apos;re in the inner circle. This area will grow into your hub
+        for early drops, polls, and behind-the-scenes stories.
+      </p>
 
-      <style>{`
-        .bestie-hero {
-          margin-top: 16px;
-          padding: 24px 20px;
-          border-radius: 18px;
-          background: linear-gradient(135deg,#fee2f8,#e0f2fe);
-          display:grid;
-          gap:12px;
-        }
-        .bestie-hero h1 {
-          margin:0;
-          font-size: clamp(26px, 4vw, 32px);
-          letter-spacing:-0.02em;
-        }
-        .bestie-hero p {
-          margin:0;
-          color:#4b5563;
-        }
-        .bestie-cta-row {
-          display:flex;
-          flex-wrap:wrap;
-          gap:10px;
-          margin-top:6px;
-        }
-        .bestie-btn {
-          height:40px;
-          padding:0 16px;
-          border-radius:999px;
-          border:1px solid #e5e7eb;
-          background:#fff;
-          font-weight:600;
-          cursor:pointer;
-        }
-        .bestie-btn.primary {
-          background:#111827;
-          color:#fff;
-          border-color:#111827;
-        }
-        .bestie-grid {
-          margin-top:24px;
-          display:grid;
-          gap:16px;
-          grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
-        }
-        .bestie-card {
-          background:#fff;
-          border-radius:16px;
-          border:1px solid #e5e7eb;
-          padding:16px 18px;
-        }
-        .bestie-card h3 {
-          margin:0 0 6px;
-          font-size:16px;
-        }
-        .bestie-card p {
-          margin:0;
-          color:#6b7280;
-          font-size:14px;
-        }
-      `}</style>
+      {err && (
+        <div style={{ color: "#b91c1c", marginBottom: 10 }}>{err}</div>
+      )}
 
-      <section className="bestie-hero">
-        <div>
-          <h1>Welcome to your Bestie studio 👑</h1>
-          <p>
-            This is where you’ll curate your own closet, share looks with the community,
-            and unlock early-access perks.
-          </p>
-        </div>
-        <div className="bestie-cta-row">
-          <button
-            className="bestie-btn primary"
-            onClick={() => (window.location.href = "/bestie/closet")}
+      {loading && !topLook && <p>Loading Bestie dashboard…</p>}
+
+      {/* Most loved look – insider version */}
+      {topLook && (
+        <section style={{ marginTop: 8 }}>
+          <h2
+            style={{
+              margin: "0 0 8px",
+              fontSize: 16,
+            }}
           >
-            Open my closet
-          </button>
-          <button
-            className="bestie-btn"
-            onClick={() => (window.location.href = "/bestie/perks")}
-          >
-            View Bestie perks
-          </button>
-        </div>
-      </section>
+            Community favorite – you get first dibs
+          </h2>
 
-      <section className="bestie-grid">
-        <article className="bestie-card">
-          <h3>Create your closet</h3>
-          <p>Upload pieces, organize looks, and get them ready for approval.</p>
-        </article>
-        <article className="bestie-card">
-          <h3>Share with fans</h3>
-          <p>Approved looks show up in Lala’s Closet for the community to browse.</p>
-        </article>
-        <article className="bestie-card">
-          <h3>Earn XP & coins</h3>
-          <p>Engagement with your closet helps you climb the leaderboard.</p>
-        </article>
-      </section>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              padding: 10,
+              borderRadius: 14,
+              border: "1px solid #e5e7eb",
+              background:
+                "linear-gradient(135deg,#eef2ff,#ffffff)",
+            }}
+          >
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 14,
+                overflow: "hidden",
+                background:
+                  "linear-gradient(135deg,#dbeafe,#f9fafb)",
+                flexShrink: 0,
+              }}
+            >
+              {topLook.thumbUrl ? (
+                <img
+                  src={topLook.thumbUrl}
+                  alt={
+                    topLook.storyTitle ||
+                    topLook.title ||
+                    "Closet look"
+                  }
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    color: "#9ca3af",
+                  }}
+                >
+                  Lala&apos;s look
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 14,
+                  marginBottom: 2,
+                }}
+              >
+                {topLook.storyTitle ||
+                  topLook.title ||
+                  "Untitled look"}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#6b7280",
+                  marginBottom: 4,
+                }}
+              >
+                ❤️ {topLook.favoriteCount || 0}{" "}
+                {topLook.favoriteCount === 1 ? "like" : "likes"} from
+                the community.
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#4b5563",
+                }}
+              >
+                Bestie tip: keep an eye on Lala&apos;s closet – fan
+                favorites often turn into future Bestie-only drops.
+              </div>
+            </div>
+
+            <a
+              href="/fan/closet-feed"
+              style={{
+                fontSize: 12,
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid #4f46e5",
+                color: "#4f46e5",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              View closet →
+            </a>
+          </div>
+        </section>
+      )}
+
+      {!loading && !topLook && !err && (
+        <p style={{ marginTop: 12, fontSize: 14, color: "#6b7280" }}>
+          As soon as fans start submitting and ❤️-ing outfits for Lala,
+          you&apos;ll see the community favorites show up here first.
+        </p>
+      )}
     </div>
   );
 }
-

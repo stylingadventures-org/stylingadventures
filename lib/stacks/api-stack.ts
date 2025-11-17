@@ -1,6 +1,5 @@
-// lib/stacks/api-stack.ts
 import * as path from "path";
-import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as appsync from "aws-cdk-lib/aws-appsync";
@@ -42,7 +41,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // HELLO TEST ENDPOINT
+    // SIMPLE HELLO TEST ENDPOINT
     // ────────────────────────────────────────────────────────────
     const helloFn = new lambda.Function(this, "HelloFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -86,7 +85,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // QUERY.ME (NONE DS)
+    // QUERY.me (NONE DATA SOURCE)
     // ────────────────────────────────────────────────────────────
     const noneDs = this.api.addNoneDataSource("NoneDs");
 
@@ -107,7 +106,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // CLOSET RESOLVER (GENERAL)
+    // CLOSET RESOLVER (FAN-OWNED CLOSET + APPROVAL REQUEST)
     // ────────────────────────────────────────────────────────────
     const closetFn = new NodejsFunction(this, "ClosetResolverFn", {
       entry: "lambda/graphql/index.ts",
@@ -130,10 +129,7 @@ export class ApiStack extends Stack {
       fieldName: "myCloset",
     });
 
-    closetDs.createResolver("ClosetFeed", {
-      typeName: "Query",
-      fieldName: "closetFeed",
-    });
+    // closetFeed comes from ClosetAdminFn (see below), not from this Lambda.
 
     closetDs.createResolver("CreateClosetItem", {
       typeName: "Mutation",
@@ -151,7 +147,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // CLOSET ADMIN
+    // CLOSET ADMIN (moderation + public feed)
     // ────────────────────────────────────────────────────────────
     const closetAdminFn = new NodejsFunction(this, "ClosetAdminFn", {
       entry: "lambda/closet/admin.ts",
@@ -160,7 +156,10 @@ export class ApiStack extends Stack {
       environment: {
         TABLE_NAME: table.tableName,
         STATUS_GSI: "gsi1",
+        APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
       },
+      timeout: Duration.seconds(10),
+      memorySize: 512,
     });
 
     table.grantReadWriteData(closetAdminFn);
@@ -177,37 +176,49 @@ export class ApiStack extends Stack {
       }),
     );
 
-    const closetAdminDs = this.api.addLambdaDataSource(
-      "ClosetAdminDs",
+    const closetAdminSource = this.api.addLambdaDataSource(
+      "ClosetAdminSource",
       closetAdminFn,
     );
 
-    closetAdminDs.createResolver("AdminListPendingResolver", {
+    // Admin moderation queue
+    closetAdminSource.createResolver("AdminListPendingResolver", {
       typeName: "Query",
       fieldName: "adminListPending",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    closetAdminDs.createResolver("AdminApproveItem", {
+    // Fan-facing + Bestie-facing closet feed (NEWEST / MOST_LOVED)
+    closetAdminSource.createResolver("ClosetFeedResolver", {
+      typeName: "Query",
+      fieldName: "closetFeed",
+    });
+
+    // Small leaderboard snippet for “Top looks”
+    closetAdminSource.createResolver("TopClosetLooksResolver", {
+      typeName: "Query",
+      fieldName: "topClosetLooks",
+    });
+
+    // NEW: admin create
+    closetAdminSource.createResolver("AdminCreateClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "adminCreateClosetItem",
+    });
+
+    // Moderation mutations
+    closetAdminSource.createResolver("AdminApproveItem", {
       typeName: "Mutation",
       fieldName: "adminApproveItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    closetAdminDs.createResolver("AdminRejectItem", {
+    closetAdminSource.createResolver("AdminRejectItem", {
       typeName: "Mutation",
       fieldName: "adminRejectItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    closetAdminDs.createResolver("AdminSetClosetAudience", {
+    closetAdminSource.createResolver("AdminSetClosetAudience", {
       typeName: "Mutation",
       fieldName: "adminSetClosetAudience",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     // ────────────────────────────────────────────────────────────
@@ -225,6 +236,8 @@ export class ApiStack extends Stack {
         BASE_SUCCESS_URL:
           process.env.BASE_SUCCESS_URL ?? "http://localhost:5173",
       },
+      timeout: Duration.seconds(30),
+      memorySize: 512,
     });
 
     table.grantReadWriteData(bestieFn);
@@ -348,7 +361,6 @@ export class ApiStack extends Stack {
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
 
-    // IMPORTANT: use original logical IDs so existing resolvers are updated.
     gameplayDS.createResolver("LogGameEventResolver", {
       typeName: "Mutation",
       fieldName: "logGameEvent",

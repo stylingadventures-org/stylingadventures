@@ -23,6 +23,7 @@
         "PUT"
        ],
        "AllowedOrigins": [
+        "https://d1682i07dc1r3k.cloudfront.net",
         "https://d1so4qr6zsby5r.cloudfront.net",
         "https://www.stylingadventures.com",
         "http://localhost:5173",
@@ -47,6 +48,7 @@
         "HEAD"
        ],
        "AllowedOrigins": [
+        "https://d1682i07dc1r3k.cloudfront.net",
         "https://d1so4qr6zsby5r.cloudfront.net",
         "https://www.stylingadventures.com",
         "http://localhost:5173",
@@ -249,6 +251,27 @@
          "Arn"
         ]
        }
+      },
+      {
+       "Events": [
+        "s3:ObjectCreated:*"
+       ],
+       "Filter": {
+        "Key": {
+         "FilterRules": [
+          {
+           "Name": "prefix",
+           "Value": "closet/"
+          }
+         ]
+        }
+       },
+       "LambdaFunctionArn": {
+        "Fn::GetAtt": [
+         "ClosetBgWorkerFn832AECE4",
+         "Arn"
+        ]
+       }
       }
      ]
     },
@@ -256,6 +279,7 @@
     "SkipDestinationValidation": false
    },
    "DependsOn": [
+    "UploadsBucketAllowBucketNotificationsToUploadsStackClosetBgWorkerFn0F23D92385066911",
     "UploadsBucketAllowBucketNotificationsToUploadsStackThumbgenFnC861BAE7564D12D9",
     "UploadsBucketPolicy34A32B0B"
    ],
@@ -284,6 +308,29 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsBucket/AllowBucketNotificationsToUploadsStackThumbgenFnC861BAE7"
+   }
+  },
+  "UploadsBucketAllowBucketNotificationsToUploadsStackClosetBgWorkerFn0F23D92385066911": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ClosetBgWorkerFn832AECE4",
+      "Arn"
+     ]
+    },
+    "Principal": "s3.amazonaws.com",
+    "SourceAccount": "637423256673",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "UploadsBucket5E5E9B64",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsBucket/AllowBucketNotificationsToUploadsStackClosetBgWorkerFn0F23D923"
    }
   },
   "PresignFnServiceRole01C8BCF6": {
@@ -391,15 +438,15 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "2bda96824a6fbeddb56d8d3f8a47005caa96815dd6947be5a86018c873abb578.zip"
+     "S3Key": "d6c1adf874e78c8c0a7f8cbf5367cf8f7317093902fbe6a131bcb5df1623adc6.zip"
     },
     "Environment": {
      "Variables": {
       "BUCKET": {
        "Ref": "UploadsBucket5E5E9B64"
       },
-      "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
+      "WEB_ORIGIN": "https://d1682i07dc1r3k.cloudfront.net",
+      "ALLOWED_ORIGINS": "https://d1682i07dc1r3k.cloudfront.net,https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -430,7 +477,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.2bda96824a6fbeddb56d8d3f8a47005caa96815dd6947be5a86018c873abb578",
+    "aws:asset:path": "asset.d6c1adf874e78c8c0a7f8cbf5367cf8f7317093902fbe6a131bcb5df1623adc6",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -675,8 +722,8 @@
       "BUCKET": {
        "Ref": "UploadsBucket5E5E9B64"
       },
-      "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
+      "WEB_ORIGIN": "https://d1682i07dc1r3k.cloudfront.net",
+      "ALLOWED_ORIGINS": "https://d1682i07dc1r3k.cloudfront.net,https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -845,8 +892,8 @@
     "Environment": {
      "Variables": {
       "BUCKET": "webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1",
-      "WEB_ORIGIN": "https://d1so4qr6zsby5r.cloudfront.net",
-      "ALLOWED_ORIGINS": "https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
+      "WEB_ORIGIN": "https://d1682i07dc1r3k.cloudfront.net",
+      "ALLOWED_ORIGINS": "https://d1682i07dc1r3k.cloudfront.net,https://d1so4qr6zsby5r.cloudfront.net,https://www.stylingadventures.com,http://localhost:5173,https://localhost:5173",
       "THUMBS_PREFIX": "thumbs/"
      }
     },
@@ -1253,23 +1300,211 @@
     "aws:cdk:path": "UploadsStack/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Resource"
    }
   },
-  "UploadsAuthDC5DFFC3": {
-   "Type": "AWS::ApiGateway::Authorizer",
+  "ClosetBgWorkerFnServiceRole4798FE70": {
+   "Type": "AWS::IAM::Role",
    "Properties": {
-    "IdentitySource": "method.request.header.Authorization",
-    "Name": "UploadsStackUploadsAuth1293DADF",
-    "ProviderARNs": [
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
      {
-      "Fn::ImportValue": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
      }
     ],
-    "RestApiId": {
-     "Ref": "UploadsApiF6E592E7"
-    },
-    "Type": "COGNITO_USER_POOLS"
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
    },
    "Metadata": {
-    "aws:cdk:path": "UploadsStack/UploadsAuth/Resource"
+    "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/ServiceRole/Resource"
+   }
+  },
+  "ClosetBgWorkerFnServiceRoleDefaultPolicy28A47F60": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "UploadsBucket5E5E9B64",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "UploadsBucket5E5E9B64",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ClosetBgWorkerFnServiceRoleDefaultPolicy28A47F60",
+    "Roles": [
+     {
+      "Ref": "ClosetBgWorkerFnServiceRole4798FE70"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ClosetBgWorkerFn832AECE4": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "4479bcb4c0ac9425ef145189cc8b2926319b68296cc8ac7e949368b2b2ccc421.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "RAW_MEDIA_GSI_NAME": "rawMediaKeyIndex",
+      "REMOVE_BG_API_KEY": "NbxdVLH76a1SggN6xXxj8Wzn"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ClosetBgWorkerFnServiceRole4798FE70",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "ClosetBgWorkerFnServiceRoleDefaultPolicy28A47F60",
+    "ClosetBgWorkerFnServiceRole4798FE70"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/Resource",
+    "aws:asset:path": "asset.4479bcb4c0ac9425ef145189cc8b2926319b68296cc8ac7e949368b2b2ccc421",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ClosetBgWorkerFnLogRetentionF18ADEF0": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "ClosetBgWorkerFn832AECE4"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 7
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/LogRetention/Resource"
    }
   },
   "UploadsApiF6E592E7": {
@@ -1356,7 +1591,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04C4d9bae9ab7be58bf33f2abbbc20f55a9": {
+  "UploadsApiDeployment4A67E04Cb0fc36fff9926a1e97180ae57ad776b3": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -1374,7 +1609,9 @@
     "UploadsApipresignPOSTD80E85B8",
     "UploadsApipresignE1161A2C",
     "UploadsApithumbheadGETE8DAC9C1",
-    "UploadsApithumbhead26656547"
+    "UploadsApithumbhead26656547",
+    "UploadsApiDefault4xxCors72DE4E54",
+    "UploadsApiDefault5xxCorsA3D5D46A"
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Deployment/Resource",
@@ -1385,7 +1622,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04C4d9bae9ab7be58bf33f2abbbc20f55a9"
+     "Ref": "UploadsApiDeployment4A67E04Cb0fc36fff9926a1e97180ae57ad776b3"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -1498,10 +1735,7 @@
   "UploadsApilistGET6FEA2B99": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "UploadsAuthDC5DFFC3"
-    },
+    "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -1626,10 +1860,7 @@
   "UploadsApipresignPOSTD80E85B8": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "UploadsAuthDC5DFFC3"
-    },
+    "AuthorizationType": "NONE",
     "HttpMethod": "POST",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -1736,10 +1967,7 @@
   "UploadsApipresignGETC4331AE5": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "UploadsAuthDC5DFFC3"
-    },
+    "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -1971,10 +2199,7 @@
   "UploadsApideleteDELETE03C056E4": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "UploadsAuthDC5DFFC3"
-    },
+    "AuthorizationType": "NONE",
     "HttpMethod": "DELETE",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -2099,10 +2324,7 @@
   "UploadsApithumbheadGETE8DAC9C1": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
-    "AuthorizationType": "COGNITO_USER_POOLS",
-    "AuthorizerId": {
-     "Ref": "UploadsAuthDC5DFFC3"
-    },
+    "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -2138,10 +2360,44 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/thumb-head/GET/Resource"
    }
   },
+  "UploadsApiDefault4xxCors72DE4E54": {
+   "Type": "AWS::ApiGateway::GatewayResponse",
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'https://d1682i07dc1r3k.cloudfront.net'",
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'"
+    },
+    "ResponseType": "DEFAULT_4XX",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default4xxCors/Resource"
+   }
+  },
+  "UploadsApiDefault5xxCorsA3D5D46A": {
+   "Type": "AWS::ApiGateway::GatewayResponse",
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'https://d1682i07dc1r3k.cloudfront.net'",
+     "gatewayresponse.header.Access-Control-Allow-Headers": "'Authorization,Content-Type'",
+     "gatewayresponse.header.Access-Control-Allow-Methods": "'GET,POST,DELETE,OPTIONS'"
+    },
+    "ResponseType": "DEFAULT_5XX",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default5xxCors/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WQT0/DMAzFPwv3LIyOC8duiNOAqRNcpyz1umxpXMUOU6n63VGS/eP0fs+JXxwXsihmcvqgTjTR9XFizVYOa1b6KNSJNgPN5DAP+ggsFjt3piwrtEb3t/LZZzNXBKOwqt3WSg6LnVuBbw2RQRc73oLTHHmpevDf4C8H9/7Sv3FYw4HkR5Jrq1GtHCq0EPuS3ibKNAqabRQRMMkyirDYkFxiUwGDSymqM41iOKleDgtsnGH8IvArREtl4D168ws+Zt65CojLzqSHb1hqjcGxeIXOYt+CSzu7c2tWTZo2QwWEwWuIu7qac2bmd+A91rGUaRz/HV8hfS6GGtfEG5+Bu8CjiIuTB3r8Kaby6UU+PxzImIkPjk0Lssr6B5UDqxUDAgAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/12QT2/CMAzFPwv34LGyy47AtF3Yhoq0KzKp6QJtUtXOUFX1u09Jyp/t9H7PiV8cZ5Blc5hN8MxTXZymldlDvxXUJ4Vn3vU8h37p9YlErQ52pCQbVxnd3cqjT2aJTIOqsN4XCP3qYDfU1obZOBs6Xr3VEniNHbVf1F4O7v2lf2ddQUeGjyjXVoM19LmrKPRFvU2UaFA83yEzCcMiiKpcybB2ZU5CNqZgY0oUOmMHfU4si8bEvBsutHbeinqhpnJdTTau4s5tBcs4RIKc2PlWU1jB1YyZid9Jvl0RSiO9pQly4sZZjpf/lYbhT8IV4rfCu8aW4canl8bLoMLK4MgPP9kMHp/haXJkY6att2JqgjzpL9STLXL9AQAA"
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/CDKMetadata/Default"

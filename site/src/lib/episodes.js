@@ -1,8 +1,10 @@
 // site/src/lib/episodes.js
 
-// Central catalog of your episodes.
-// All times are UTC milliseconds since epoch.
+// -----------------------------------------------------------------------------
+// Central catalog of your episodes + shared helpers for Episodes / Watch / Fan
+// -----------------------------------------------------------------------------
 
+// All times are UTC milliseconds since epoch.
 export const EPISODES = [
   {
     id: "pilot",
@@ -11,7 +13,7 @@ export const EPISODES = [
     // 11/30/2025, 2:00 PM ET → 19:00 UTC
     publicAt: Date.UTC(2025, 10, 30, 19, 0, 0),
     hasEarly: true,
-    // video: "https://…", // optional
+    // video: "https://…", // optional video URL
   },
   {
     id: "holiday-glam",
@@ -31,9 +33,19 @@ export const EPISODES = [
   },
 ];
 
-/** Simple countdown formatter used for “Public in 15d 6h”. */
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Simple countdown formatter used for "Public in 15d 6h".
+ * Expects `targetMs` as UTC ms since epoch.
+ */
 export function fmtCountdown(targetMs, nowMs = Date.now()) {
-  const diff = Number(targetMs) - Number(nowMs);
+  const target = Number(targetMs);
+  const now = Number(nowMs);
+  const diff = target - now;
+
   if (!Number.isFinite(diff) || diff <= 0) return "0m";
 
   const totalSec = Math.floor(diff / 1000);
@@ -46,7 +58,9 @@ export function fmtCountdown(targetMs, nowMs = Date.now()) {
   return `${mins}m`;
 }
 
-/** Find an episode by id or slug. */
+/**
+ * Look up an episode by id or slug.
+ */
 export function getEpisodeById(idOrSlug) {
   if (!idOrSlug) return undefined;
   return EPISODES.find(
@@ -54,24 +68,24 @@ export function getEpisodeById(idOrSlug) {
   );
 }
 
-/** Ordered list (soonest public date first). */
+/**
+ * Ordered list (soonest public date first).
+ */
 export function getEpisodesOrdered() {
   return [...EPISODES].sort((a, b) => a.publicAt - b.publicAt);
 }
 
-/** Next episode after currentId, or undefined. */
-export function getNextEpisode(
-  currentId,
-  list = getEpisodesOrdered()
-) {
+/**
+ * Next episode after currentId, or undefined.
+ */
+export function getNextEpisode(currentId, list = getEpisodesOrdered()) {
   const idx = list.findIndex((e) => e.id === currentId);
   if (idx === -1) return undefined;
   return list[idx + 1];
 }
 
 /**
- * Related list – neighbors in the ordered list,
- * excluding the current episode.
+ * Related list – neighbors in the ordered list, excluding current.
  */
 export function getRelatedEpisodes(
   currentId,
@@ -83,4 +97,15 @@ export function getRelatedEpisodes(
   const before = list.slice(Math.max(0, idx - 2), idx);
   const after = list.slice(idx + 1, idx + 1 + (limit - before.length));
   return [...before, ...after].slice(0, limit);
+}
+
+/**
+ * Returns true if there is at least one episode that has an
+ * early-access window and is not public yet (for the red dot).
+ */
+export function hasEarlyContentNow(nowMs = Date.now()) {
+  const now = Number(nowMs);
+  return EPISODES.some(
+    (ep) => ep.hasEarly && now < Number(ep.publicAt)
+  );
 }

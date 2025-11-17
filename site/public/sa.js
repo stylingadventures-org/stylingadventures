@@ -40,7 +40,12 @@
     const region = (cfg.region || "").trim();
     const fromCognitoDomain =
       (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
-    const fromPrefix = (cfg.cognitoDomainPrefix || cfg.hostedUiDomain || cfg.domain || "").trim();
+    const fromPrefix = (
+      cfg.cognitoDomainPrefix ||
+      cfg.hostedUiDomain ||
+      cfg.domain ||
+      ""
+    ).trim();
 
     let hostBase = "";
     if (fromCognitoDomain) {
@@ -281,13 +286,15 @@
   // ---------- uploads (signed S3 via API Gateway) ----------
   async function signedUpload(fileOrText) {
     const SA = window.SA || {};
-    const cfg = SA.cfg ? SA.cfg() : window.__cfg || {};
+    const cfg = (SA.cfg && SA.cfg()) || window.__cfg || {};
     if (!cfg.uploadsApiUrl) {
       throw new Error("Missing uploadsApiUrl in config.v2.json");
     }
 
     let blob;
     let key;
+
+    // Support File/Blob or string
     if (fileOrText instanceof Blob) {
       blob = fileOrText;
       const name = fileOrText.name || `upload-${Date.now()}.bin`;
@@ -298,14 +305,20 @@
       key = `dev-tests/${Date.now()}.txt`;
     }
 
+    // Try to get an id token, but don't *require* it.
+    const maybeIdToken = getStoredIdToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    if (maybeIdToken) {
+      headers.Authorization = maybeIdToken;
+    }
+
     const presignRes = await fetch(
       `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: getStoredIdToken(),
-        },
+        headers,
         body: JSON.stringify({
           key,
           contentType: blob.type || "application/octet-stream",
@@ -317,19 +330,23 @@
       const t = await presignRes.text().catch(() => "");
       throw new Error(`presign failed (${presignRes.status}) ${t}`);
     }
+
     const presign = await presignRes.json();
 
+    // POST-style presign (form fields)
     if (presign.method === "POST" || presign.fields) {
       const form = new FormData();
       Object.entries(presign.fields || {}).forEach(([k, v]) =>
         form.append(k, v)
       );
       form.append("file", blob);
+
       const up = await fetch(presign.url, { method: "POST", body: form });
       if (!up.ok) {
         const t = await up.text().catch(() => "");
         throw new Error(`upload failed (${up.status}) ${t}`);
       }
+
       return {
         key,
         bucket: presign.bucket,
@@ -338,18 +355,25 @@
       };
     }
 
+    // PUT-style presign
     const uploadUrl = presign.url || presign.putUrl;
     if (!uploadUrl) {
       console.error("Unexpected presign payload:", presign);
       throw new Error("presign payload missing url/putUrl");
     }
+
     const method = presign.method || "PUT";
-    const headers =
+    const uploadHeaders =
       presign.headers || {
         "Content-Type": blob.type || "application/octet-stream",
       };
 
-    const up = await fetch(uploadUrl, { method, headers, body: blob });
+    const up = await fetch(uploadUrl, {
+      method,
+      headers: uploadHeaders,
+      body: blob,
+    });
+
     if (!up.ok) {
       const t = await up.text().catch(() => "");
       throw new Error(`upload failed (${up.status}) ${t}`);

@@ -1,138 +1,50 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { EPISODES, fmtCountdown } from "../../lib/episodes";
-
-const GQL = {
-  meBestie: /* GraphQL */ `
-    query MeBestie { meBestieStatus { active until } }
-  `,
-  early: /* GraphQL */ `
-    query Early($id: ID!) { isEpisodeEarlyAccess(id: $id) { allowed reason } }
-  `,
-};
-
-// Fallback if window.sa.graphql isn’t ready
-async function fallbackGraphql(query, variables) {
-  const url = window.sa?.cfg?.appsyncUrl || window.__cfg?.appsyncUrl;
-  const idToken =
-    window.sa?.session?.idToken ||
-    localStorage.getItem("sa:idToken") ||
-    localStorage.getItem("sa_id_token") ||
-    sessionStorage.getItem("id_token");
-
-  if (!url || !idToken) throw new Error("Not signed in");
-
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: idToken,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  const j = await r.json();
-  if (j.errors?.length) throw new Error(j.errors[0].message);
-  return j.data;
-}
+// site/src/routes/episodes/Episodes.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  EPISODES,
+  fmtCountdown,
+  getEpisodesOrdered,
+} from "../../lib/episodes";
 
 export default function Episodes() {
-  const [bestie, setBestie] = useState({ active: false, until: null });
-  const [gate, setGate] = useState({}); // { [id]: { allowed, reason } }
+  const nav = useNavigate();
+  const [now, setNow] = useState(Date.now());
+  const [isBestie, setIsBestie] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // tick every second to refresh countdown chips
-  const [, setTick] = useState(0);
+  // live countdown tick
   useEffect(() => {
-    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const runGql = useCallback(async (q, v) => {
-    if (window.sa?.graphql) return window.sa.graphql(q, v);
-    return fallbackGraphql(q, v);
-  }, []);
-
-  const episodes = useMemo(() => EPISODES, []);
-
-  const refetchMembershipAndGates = useCallback(async () => {
-    setLoading(true);
-    try {
-      try {
-        const d = await runGql(GQL.meBestie);
-        if (d?.meBestieStatus) setBestie(d.meBestieStatus);
-      } catch {
-        // ignore sign-in/network
-      }
-
-      const results = {};
-      await Promise.all(
-        episodes.map(async (ep) => {
-          if (!ep.hasEarly) {
-            results[ep.id] = { allowed: false, reason: "no_early" };
-            return;
-          }
-          try {
-            const d = await runGql(GQL.early, { id: ep.id });
-            results[ep.id] =
-              d?.isEpisodeEarlyAccess ??
-              { allowed: false, reason: "unknown" };
-          } catch {
-            results[ep.id] = { allowed: false, reason: "not_signed_in" };
-          }
-        })
-      );
-      setGate(results);
-    } finally {
-      setLoading(false);
-    }
-  }, [episodes, runGql]);
-
-  // initial load
+  // membership check
   useEffect(() => {
-    let gone = false;
+    let alive = true;
     (async () => {
       try {
-        setErr("");
-        setLoading(true);
-
-        try {
-          const d = await runGql(GQL.meBestie);
-          if (!gone && d?.meBestieStatus) setBestie(d.meBestieStatus);
-        } catch {
-          /* not signed in */
-        }
-
-        const results = {};
-        await Promise.all(
-          episodes.map(async (ep) => {
-            if (!ep.hasEarly) {
-              results[ep.id] = { allowed: false, reason: "no_early" };
-              return;
-            }
-            try {
-              const d = await runGql(GQL.early, { id: ep.id });
-              results[ep.id] =
-                d?.isEpisodeEarlyAccess ??
-                { allowed: false, reason: "unknown" };
-            } catch {
-              results[ep.id] = { allowed: false, reason: "not_signed_in" };
-            }
-          })
+        const data = await window.sa?.graphql?.(
+          `query { meBestieStatus { active } }`
         );
-        if (!gone) setGate(results);
-      } catch (e) {
-        if (!gone) setErr(String(e.message || e));
+        if (!alive) return;
+        setIsBestie(!!data?.meBestieStatus?.active);
+      } catch {
+        if (!alive) return;
+        setIsBestie(false);
       } finally {
-        if (!gone) setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
     return () => {
-      gone = true;
+      alive = false;
     };
-  }, [episodes, runGql]);
+  }, []);
 
-  async function unlockBestie(returnTo = "/fan/episodes") {
+  const ordered = useMemo(() => getEpisodesOrdered(), []);
+
+  async function unlockBestieForEpisode(epId) {
     try {
       setErr("");
       const idTok =
@@ -145,169 +57,190 @@ export default function Episodes() {
           window.SA.startLogin();
           return;
         }
-        const cfg = window.__cfg || {};
-        const scope = (cfg._scopes && cfg._scopes.join(" ")) || "openid email";
-        const qp = new URLSearchParams({
-          client_id: String(cfg.clientId || ""),
-          response_type: "code",
-          scope,
-          redirect_uri: cfg.redirectUri || `${location.origin}/callback`,
-        });
-        location.assign(
-          `${(cfg._hostBase || cfg.cognitoDomain)}/login?${qp.toString()}`
-        );
+        window.location.assign("/");
         return;
       }
 
-      // Try checkout (if Stripe is configured)
+      // Try checkout -> return to /watch/:id
       try {
-        const res = await (window.sa?.graphql || fallbackGraphql)(
-          /* GraphQL */ `
-            mutation Start($successPath: String) {
-              startBestieCheckout(successPath: $successPath) { url }
-            }
-          `,
-          { successPath: returnTo }
+        const r = await window.sa.graphql(
+          `mutation Start($successPath: String){ 
+             startBestieCheckout(successPath:$successPath){ url } 
+           }`,
+          { successPath: `/watch/${epId}` }
         );
-        const url = res?.startBestieCheckout?.url;
+        const url = r?.startBestieCheckout?.url;
         if (url) {
           window.location.assign(url);
           return;
         }
       } catch {
-        /* ignore */
+        // ignore, try trial
       }
 
-      // Fallback: free trial demo
-      const trial = await (window.sa?.graphql || fallbackGraphql)(
-        /* GraphQL */ `mutation { claimBestieTrial { active } }`
+      const trial = await window.sa.graphql(
+        `mutation { claimBestieTrial { active } }`
       );
       if (trial?.claimBestieTrial?.active) {
-        await refetchMembershipAndGates();
+        setIsBestie(true);
       }
     } catch (e) {
       setErr(e?.message || String(e));
     }
   }
 
-  const now = Date.now();
+  const renderCta = (ep) => {
+    const early = now < ep.publicAt;
+    const countdown = fmtCountdown(ep.publicAt, now);
+
+    if (!early || isBestie) {
+      return (
+        <button
+          className="btn btn-primary"
+          onClick={() => nav(`/watch/${ep.id}`)}
+        >
+          Watch now
+        </button>
+      );
+    }
+
+    return (
+      <>
+        <div className="ep-countdown">
+          Public in <strong>{countdown}</strong>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => unlockBestieForEpisode(ep.id)}
+        >
+          Unlock with Bestie
+        </button>
+      </>
+    );
+  };
 
   return (
-    <div className="ep-wrap">
-      <header className="ep-hero">
-        <div className="ep-hero__inner">
-          <div className="ep-hero__titlebar">
-            <h1 className="ep-hero__title">Episodes</h1>
-            <span
-              className={`pill ${bestie?.active ? "pill--bestie" : ""}`}
-              title={
-                bestie?.active
-                  ? `Bestie • until ${bestie.until || "—"}`
-                  : "Unlock Bestie for early access"
-              }
-            >
-              {bestie?.active ? "Bestie" : "Fan"}
-            </span>
+    <div className="episodes-wrap">
+      <header className="hero">
+        <div className="hero__inner">
+          <div className="title-row">
+            <h1 className="title">Episodes</h1>
+            <span className="pill pill--bestie">Bestie</span>
           </div>
-          <p className="ep-hero__subtitle">
+          <p className="muted">
             Besties get early drops. Public releases unlock on their dates.
           </p>
-          {err && <div className="notice notice--error">{err}</div>}
         </div>
       </header>
 
-      <main className="ep-grid">
-        {(loading
-          ? Array.from({ length: episodes.length || 3 })
-          : episodes
-        ).map((maybeEp, idx) => {
-          const ep = loading
-            ? {
-                id: `skeleton-${idx}`,
-                title: "Loading…",
-                publicAt: Date.now() + 1000,
-                hasEarly: false,
-              }
-            : maybeEp;
+      <main className="stage">
+        {err && <div className="notice notice--error">{err}</div>}
+        {loading && (
+          <div className="muted" style={{ marginBottom: 12 }}>
+            Checking your Bestie status…
+          </div>
+        )}
 
-          const isPublic = !loading && now >= Number(ep.publicAt);
-          const earlyAllowed = !loading && gate[ep.id]?.allowed === true;
-          const locked = !loading && !isPublic && !earlyAllowed;
-
-          const showEarlyChip = !!ep.hasEarly && !loading;
-          const countdownText = loading
-            ? "Checking…"
-            : !isPublic
-            ? `Public in ${fmtCountdown(Number(ep.publicAt))}`
-            : "Unlocked";
-
-          return (
-            <article
-              key={ep.id}
-              className={`card ep-card ${loading ? "is-loading" : ""}`}
-            >
-              <header className="ep-card__head">
-                <div className="ep-card__title">{ep.title}</div>
-                <div className="ep-card__tags">
-                  {showEarlyChip && (
-                    <span className="pill pill--tiny">Early</span>
-                  )}
-                  {earlyAllowed && !isPublic && (
-                    <span className="pill pill--bestie pill--tiny">
-                      Unlocked
-                    </span>
-                  )}
-                  {locked && (
-                    <span className="lock" aria-label="Locked">
-                      🔒
-                    </span>
-                  )}
+        <div className="ep-grid">
+          {ordered.map((ep) => {
+            const early = now < ep.publicAt;
+            const countdown = fmtCountdown(ep.publicAt, now);
+            return (
+              <div key={ep.id} className="ep-card card">
+                <div className="ep-head">
+                  <h2 className="ep-title">{ep.title}</h2>
+                  {early && <span className="lock-emoji">🔒</span>}
                 </div>
-              </header>
-
-              <div className="ep-meta">
-                <span className="pill">{countdownText}</span>
-                {!loading && (
-                  <span className="ep-date">
-                    Public:{" "}
-                    {new Date(Number(ep.publicAt)).toLocaleString()}
+                <div className="ep-meta">
+                  {early ? (
+                    <span className="chip">
+                      Public in {countdown}
+                    </span>
+                  ) : (
+                    <span className="chip chip--public">Public</span>
+                  )}
+                  <span className="pill">
+                    Public: {new Date(ep.publicAt).toLocaleString()}
                   </span>
-                )}
-              </div>
-
-              <div className="ep-actions">
-                {loading ? (
-                  <div className="skeleton skeleton-btn" />
-                ) : isPublic || earlyAllowed ? (
-                  <a className="btn btn-primary" href={`/watch/${ep.id}`}>
-                    Watch
-                  </a>
-                ) : (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => unlockBestie("/fan/episodes")}
-                  >
-                    Unlock with Bestie
-                  </button>
-                )}
-
-                {!loading && (
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => window.location.reload()}
-                  >
+                </div>
+                <div className="ep-actions">
+                  {renderCta(ep)}
+                  <button className="btn btn-ghost" onClick={() => window.location.reload()}>
                     Refresh
                   </button>
-                )}
+                </div>
               </div>
-            </article>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        <Link className="btn btn-ghost" to="/fan">
+          ← Back to Fan home
+        </Link>
       </main>
 
-      {loading && <p className="ep-loading">Checking early access…</p>}
-
-      {/* styles identical to what you already had – omitted here for brevity */}
+      <style>{styles}</style>
     </div>
   );
 }
+
+const styles = `
+.episodes-wrap { display:flex; flex-direction:column; gap:16px; }
+.hero {
+  background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(255,255,255,0));
+  border-radius:16px; padding:20px 16px;
+}
+.hero__inner, .stage { max-width: 1100px; margin: 0 auto; }
+.title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.title { margin:0; font-size:1.6rem; line-height:1.2; }
+.muted { color:#586073; }
+
+.card {
+  background:#fff; border:1px solid #eceef3; border-radius:14px; padding:14px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.05);
+}
+
+.ep-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap:16px;
+  margin-bottom:20px;
+}
+.ep-card { display:grid; gap:10px; }
+.ep-head { display:flex; justify-content:space-between; align-items:center; }
+.ep-title { margin:0; font-size:1.1rem; }
+.ep-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.ep-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+
+.lock-emoji { font-size:1.2rem; }
+
+.pill {
+  display:inline-flex; align-items:center; height:26px; padding:0 10px;
+  border-radius:999px; border:1px solid #e7e7ef; background:#f7f8ff;
+  color:#222; font-size:.85rem;
+}
+.pill--bestie { background:#ecf0ff; border-color:#c9d2ff; color:#2e47d1; }
+
+.chip {
+  border:1px solid #e5e7eb; background:#fff; color:#111827;
+  border-radius:999px; padding:4px 10px; font-size:.75rem;
+}
+.chip--public { background:#ecfdf3; border-color:#bbf7d0; color:#166534; }
+
+.btn {
+  appearance:none; border:1px solid #e5e7eb; background:#f7f7f9; color:#111827;
+  border-radius:10px; padding:8px 12px; cursor:pointer;
+  transition:transform 40ms ease, background 140ms ease, border-color 140ms ease;
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.btn:hover { background:#f2f2f6; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background:#6b8cff; border-color:#6b8cff; color:#fff; }
+.btn-primary:hover { background:#5a7bff; border-color:#5a7bff; }
+.btn-ghost { background:#fff; color:#374151; }
+
+.notice { padding:10px 12px; border-radius:10px; margin-bottom:12px; }
+.notice--error { border:1px solid #ffd4d4; background:#fff6f6; color:#7a1a1a; }
+
+.ep-countdown { margin-bottom:4px; font-size:.85rem; color:#374151; }
+`;

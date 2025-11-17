@@ -1,5 +1,6 @@
 // site/src/routes/admin/ClosetQueue.jsx
 import React, { useEffect, useState, useCallback } from "react";
+import { getSignedGetUrl } from "../../lib/sa";
 
 const GQL = {
   list: /* GraphQL */ `
@@ -9,6 +10,7 @@ const GQL = {
         title
         status
         mediaKey
+        rawMediaKey
         createdAt
         updatedAt
         userId
@@ -38,12 +40,11 @@ const GQL = {
       }
     }
   `,
+  // 🔴 IMPORTANT: only ask for `audience` here.
   setAudience: /* GraphQL */ `
     mutation SetAudience($id: ID!, $audience: ClosetAudience!) {
       adminSetClosetAudience(id: $id, audience: $audience) {
-        id
         audience
-        updatedAt
       }
     }
   `,
@@ -64,14 +65,30 @@ export default function ClosetQueue() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setErr("");
+
     try {
-      const d = await window.sa.graphql(GQL.list);
-      const list = (d?.adminListPending || []).map((it) => ({
+      const data = await window.sa.graphql(GQL.list);
+      const baseList = (data?.adminListPending || []).map((it) => ({
         ...it,
         userId: it.userId || it.ownerSub || "",
         audience: it.audience || "PUBLIC",
       }));
-      setItems(list);
+
+      const withThumbs = await Promise.all(
+        baseList.map(async (it) => {
+          const key = it.mediaKey || it.rawMediaKey || null;
+          if (!key) return it;
+          try {
+            const url = await getSignedGetUrl(key);
+            return { ...it, mediaUrl: url };
+          } catch (e) {
+            console.warn("[ClosetQueue] thumb presign failed", e);
+            return it;
+          }
+        }),
+      );
+
+      setItems(withThumbs);
     } catch (e) {
       console.error(e);
       setErr(e?.message || String(e));
@@ -162,6 +179,8 @@ export default function ClosetQueue() {
           const isPending = it.status === "PENDING";
           const isApproved = it.status === "APPROVED";
 
+          const s3Key = it.mediaKey || it.rawMediaKey || null;
+
           return (
             <article key={it.id} className="sa-card" style={{ padding: 12 }}>
               <header
@@ -187,7 +206,21 @@ export default function ClosetQueue() {
                 {new Date(it.createdAt).toLocaleString()}
               </div>
 
-              {/* Audience selector */}
+              {it.mediaUrl && (
+                <div style={{ margin: "8px 0" }}>
+                  <img
+                    src={it.mediaUrl}
+                    alt={it.title || "Closet item image"}
+                    style={{
+                      maxWidth: 200,
+                      borderRadius: 12,
+                      display: "block",
+                      boxShadow: "0 8px 18px rgba(15,23,42,0.18)",
+                    }}
+                  />
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",
@@ -209,8 +242,6 @@ export default function ClosetQueue() {
                   onChange={async (e) => {
                     const val = e.target.value;
                     updateLocalAudience(it.id, val);
-
-                    // If already approved, persist immediately
                     if (isApproved) {
                       await saveAudience(it.id, val);
                     }
@@ -244,14 +275,14 @@ export default function ClosetQueue() {
                 >
                   Reject
                 </button>
-                {it.mediaKey && (
+                {s3Key && (
                   <a
                     className="sa-btn sa-btn--ghost"
                     href={`https://s3.console.aws.amazon.com/s3/object/${encodeURIComponent(
-                      it.mediaKey.split("/")[0],
+                      s3Key.split("/")[0],
                     )}?region=${
                       window.__cfg?.region || "us-east-1"
-                    }&prefix=${encodeURIComponent(it.mediaKey)}`}
+                    }&prefix=${encodeURIComponent(s3Key)}`}
                     target="_blank"
                     rel="noreferrer"
                   >

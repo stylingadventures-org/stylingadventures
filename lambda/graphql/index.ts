@@ -1,496 +1,329 @@
 // lambda/graphql/index.ts
-//
-// General closet GraphQL resolver:
-//   - Query.myCloset
-//   - Query.closetFeed
-//   - Mutation.createClosetItem
-//   - Mutation.requestClosetApproval
-//   - Mutation.updateClosetMediaKey
-//   - Mutation.updateClosetItemStory
-
 import {
   DynamoDBClient,
   PutItemCommand,
+  QueryCommand,
   UpdateItemCommand,
-  ScanCommand,
 } from "@aws-sdk/client-dynamodb";
-import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
+
+const TABLE_NAME = process.env.TABLE_NAME!;
+const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN!;
+const STATUS_GSI = process.env.STATUS_GSI ?? "gsi1";
 
 const ddb = new DynamoDBClient({});
 const sfn = new SFNClient({});
 
-const TABLE_NAME =
-  process.env.TABLE_NAME || process.env.APP_TABLE || undefined;
-const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN;
-
-if (!TABLE_NAME) {
-  throw new Error(
-    "ClosetResolverFn: TABLE_NAME (or APP_TABLE) environment variable is required",
-  );
-}
-
-type ClosetStatus =
-  | "DRAFT"
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "PUBLISHED";
+type ClosetStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PUBLISHED";
 type ClosetAudience = "PUBLIC" | "BESTIE" | "EXCLUSIVE";
 
-type ClosetItem = {
+interface ClosetItem {
   id: string;
   userId: string;
   ownerSub: string;
-  title?: string | null;
-  mediaKey?: string | null;
   status: ClosetStatus;
-  audience: ClosetAudience;
-  reason?: string | null;
   createdAt: string;
   updatedAt: string;
-  storyTitle?: string | null;
-  storySeason?: string | null;
-  storyVibes?: string[] | null;
-};
+  mediaKey?: string;
+  title?: string;
+  reason?: string;
+  audience?: ClosetAudience;
 
-type ClosetFeedPage = {
-  items: ClosetItem[];
-  nextToken: string | null;
-};
-
-type AppSyncIdentity = {
-  sub?: string;
-  claims?: Record<string, any>;
-};
-
-type AppSyncEvent = {
-  info: { fieldName: string; parentTypeName: string };
-  arguments: any;
-  identity?: AppSyncIdentity;
-};
-
-// ---------- helpers ----------
-
-function getUserSub(event: AppSyncEvent): string {
-  const sub =
-    event.identity?.sub ||
-    (event.identity?.claims && event.identity.claims["sub"]);
-  if (!sub) {
-    throw new Error("ClosetResolverFn: missing identity.sub");
-  }
-  return String(sub);
+  // Story-style metadata (Bestie / fan-facing)
+  storyTitle?: string;
+  storySeason?: string;
+  storyVibes?: string[];
 }
 
-function mapClosetItem(raw: any): ClosetItem {
-  const it = unmarshall(raw) as any;
-  const userId = it.userId ?? it.ownerSub;
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function pkForUser(userId: string) {
+  return `USER#${userId}`;
+}
+
+function skForClosetItem(id: string) {
+  return `CLOSET#${id}`;
+}
+
+function gsi1ForStatus(status: ClosetStatus) {
+  return `CLOSET#STATUS#${status}`;
+}
+
+/**
+ * Map a raw DynamoDB item into our ClosetItem shape.
+ */
+function mapClosetItem(raw: Record<string, any>): ClosetItem {
+  const item = unmarshall(raw) as any;
 
   return {
-    id: String(it.id),
-    userId: String(userId),
-    ownerSub: String(it.ownerSub),
-    title: it.title ?? null,
-    mediaKey: it.mediaKey ?? null,
-    status: (it.status ?? "PENDING") as ClosetStatus,
-    audience: (it.audience ?? "PUBLIC") as ClosetAudience,
-    reason: it.reason ?? null,
-    createdAt: String(it.createdAt),
-    updatedAt: String(it.updatedAt ?? it.createdAt),
-    storyTitle: it.storyTitle ?? null,
-    storySeason: it.storySeason ?? null,
-    storyVibes: Array.isArray(it.storyVibes)
-      ? (it.storyVibes as string[])
-      : null,
+    id: item.id,
+    userId: item.userId,
+    ownerSub: item.ownerSub,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    mediaKey: item.mediaKey,
+    title: item.title,
+    reason: item.reason,
+    audience: item.audience,
+    storyTitle: item.storyTitle,
+    storySeason: item.storySeason,
+    storyVibes: item.storyVibes,
   };
 }
 
 /**
- * Find the META row for an item by id.
+ * Ensure the caller is authenticated and return sub/userId.
  */
-async function findRawItemById(id: string) {
-  const resp = await ddb.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression:
-        "begins_with(#pk, :itemPrefix) AND #sk = :meta AND #id = :id",
-      ExpressionAttributeNames: {
-        "#pk": "pk",
-        "#sk": "sk",
-        "#id": "id",
-      },
-      ExpressionAttributeValues: {
-        ":itemPrefix": { S: "ITEM#" },
-        ":meta": { S: "META" },
-        ":id": { S: id },
-      },
-      Limit: 1,
-    }),
-  );
-  if (!resp.Items || resp.Items.length === 0) return null;
-  return resp.Items[0];
-}
-
-function pkOf(raw: any) {
-  if (raw.pk?.S && raw.sk?.S) {
-    return { pk: raw.pk.S as string, sk: raw.sk.S as string };
+function requireUserSub(identity: any): string {
+  if (!identity?.sub) {
+    throw new Error("Not authenticated");
   }
-  throw new Error("ClosetResolverFn: could not infer pk/sk");
+  return identity.sub as string;
 }
-
-// ---------- resolvers ----------
 
 /**
- * Create a new closet item in DRAFT state for the current user.
+ * 1) myCloset – return all items owned by the current user.
  */
-async function createClosetItem(
-  event: AppSyncEvent,
-  args: { title?: string | null },
-): Promise<ClosetItem> {
-  const ownerSub = getUserSub(event);
-  const id = randomUUID();
-  const now = new Date().toISOString();
+async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
+  const sub = requireUserSub(identity);
 
-  const item = {
-    pk: { S: `ITEM#${id}` },
-    sk: { S: "META" },
-    id: { S: id },
-    userId: { S: ownerSub }, // mirror ownerSub into userId for GraphQL
-    ownerSub: { S: ownerSub },
-    title: { S: args.title ?? "Untitled upload" },
-    status: { S: "DRAFT" },
-    audience: { S: "PUBLIC" },
-    createdAt: { S: now },
-    updatedAt: { S: now },
+  const res = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+      ExpressionAttributeValues: marshall({
+        ":pk": pkForUser(sub),
+        ":sk": "CLOSET#",
+      }),
+    }),
+  );
+
+  return (res.Items ?? []).map(mapClosetItem);
+}
+
+/**
+ * 2) createClosetItem – create a new item in DRAFT.
+ */
+async function handleCreateClosetItem(
+  args: { title?: string; mediaKey?: string },
+  identity: any,
+): Promise<ClosetItem> {
+  const sub = requireUserSub(identity);
+  const id = randomUUID();
+  const now = nowIso();
+
+  const item: ClosetItem = {
+    id,
+    userId: sub,
+    ownerSub: sub,
+    status: "DRAFT",
+    createdAt: now,
+    updatedAt: now,
+    mediaKey: args.mediaKey,
+    title: args.title,
   };
 
   await ddb.send(
     new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: item,
-      ConditionExpression: "attribute_not_exists(pk)",
-    }),
-  );
-
-  return {
-    id,
-    userId: ownerSub,
-    ownerSub,
-    title: item.title.S!,
-    mediaKey: null,
-    status: "DRAFT",
-    audience: "PUBLIC",
-    reason: null,
-    createdAt: now,
-    updatedAt: now,
-    storyTitle: null,
-    storySeason: null,
-    storyVibes: null,
-  };
-}
-
-/**
- * Attach or change the S3 media key for an item.
- */
-async function updateClosetMediaKey(
-  event: AppSyncEvent,
-  args: { id: string; mediaKey: string | null },
-): Promise<ClosetItem> {
-  const ownerSub = getUserSub(event);
-
-  const base = await findRawItemById(args.id);
-  if (!base) throw new Error(`Closet item not found for id=${args.id}`);
-  const { pk, sk } = pkOf(base);
-  const now = new Date().toISOString();
-
-  const resp = await ddb.send(
-    new UpdateItemCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: { S: pk }, sk: { S: sk } },
-      ConditionExpression: "#ownerSub = :owner",
-      UpdateExpression: "SET #mediaKey = :mk, #updatedAt = :now",
-      ExpressionAttributeNames: {
-        "#mediaKey": "mediaKey",
-        "#updatedAt": "updatedAt",
-        "#ownerSub": "ownerSub",
-      },
-      ExpressionAttributeValues: {
-        ":mk": args.mediaKey ? { S: args.mediaKey } : { NULL: true },
-        ":now": { S: now },
-        ":owner": { S: ownerSub },
-      },
-      ReturnValues: "ALL_NEW",
-    }),
-  );
-
-  if (!resp.Attributes) {
-    throw new Error("updateClosetMediaKey: update returned no attributes");
-  }
-  return mapClosetItem(resp.Attributes);
-}
-
-/**
- * Move an item from DRAFT to PENDING and kick off the approval workflow.
- */
-async function requestClosetApproval(
-  event: AppSyncEvent,
-  args: { id: string },
-): Promise<ClosetItem> {
-  const ownerSub = getUserSub(event);
-  const base = await findRawItemById(args.id);
-  if (!base) throw new Error(`Closet item not found for id=${args.id}`);
-  const { pk, sk } = pkOf(base);
-  const now = new Date().toISOString();
-
-  // Mark as PENDING
-  const upd = await ddb.send(
-    new UpdateItemCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: { S: pk }, sk: { S: sk } },
-      ConditionExpression: "#ownerSub = :owner",
-      UpdateExpression: "SET #status = :pending, #updatedAt = :now",
-      ExpressionAttributeNames: {
-        "#status": "status",
-        "#updatedAt": "updatedAt",
-        "#ownerSub": "ownerSub",
-      },
-      ExpressionAttributeValues: {
-        ":pending": { S: "PENDING" },
-        ":now": { S: now },
-        ":owner": { S: ownerSub },
-      },
-      ReturnValues: "ALL_NEW",
-    }),
-  );
-
-  // Kick off Step Functions workflow (if configured)
-  if (APPROVAL_SM_ARN) {
-    await sfn.send(
-      new StartExecutionCommand({
-        stateMachineArn: APPROVAL_SM_ARN,
-        input: JSON.stringify({
-          itemId: args.id,
-          ownerSub,
-        }),
+      Item: marshall({
+        pk: pkForUser(sub),
+        sk: skForClosetItem(id),
+        gsi1pk: gsi1ForStatus(item.status),
+        gsi1sk: now,
+        ...item,
       }),
-    );
-  }
-
-  if (!upd.Attributes) {
-    throw new Error("requestClosetApproval: update returned no attributes");
-  }
-  return mapClosetItem(upd.Attributes);
-}
-
-/**
- * Items for the current user, newest first.
- */
-async function myCloset(event: AppSyncEvent): Promise<ClosetItem[]> {
-  const ownerSub = getUserSub(event);
-
-  const resp = await ddb.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression:
-        "begins_with(#pk, :itemPrefix) AND #sk = :meta AND #ownerSub = :owner",
-      ExpressionAttributeNames: {
-        "#pk": "pk",
-        "#sk": "sk",
-        "#ownerSub": "ownerSub",
-      },
-      ExpressionAttributeValues: {
-        ":itemPrefix": { S: "ITEM#" },
-        ":meta": { S: "META" },
-        ":owner": { S: ownerSub },
-      },
     }),
   );
 
-  const items = (resp.Items || []).map(mapClosetItem);
-  items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return items;
+  return item;
 }
 
 /**
- * Public feed ("Lala's Closet").
- *
- * For now we show:
- *   - pk begins_with "ITEM#"
- *   - sk == "META"
- *   - status in {APPROVED, PUBLISHED}
- *   - audience == PUBLIC
- *
- * We always return a ClosetFeedPage object with items + nextToken=null.
+ * 3) updateClosetMediaKey – update the media key on an item owned by the user.
  */
-async function closetFeed(
-  _event: AppSyncEvent,
-  args: { limit?: number | null; nextToken?: string | null },
-): Promise<ClosetFeedPage> {
-  const limit =
-    typeof args.limit === "number" && args.limit > 0 ? args.limit : 50;
+async function handleUpdateClosetMediaKey(
+  args: { id: string; mediaKey: string },
+  identity: any,
+): Promise<ClosetItem> {
+  const sub = requireUserSub(identity);
 
-  const resp = await ddb.send(
-    new ScanCommand({
+  const now = nowIso();
+
+  const res = await ddb.send(
+    new UpdateItemCommand({
       TableName: TABLE_NAME,
-      FilterExpression:
-        "begins_with(#pk, :itemPrefix) AND #sk = :meta AND " +
-        "(#status = :approved OR #status = :published) AND #audience = :public",
-      ExpressionAttributeNames: {
-        "#pk": "pk",
-        "#sk": "sk",
-        "#status": "status",
-        "#audience": "audience",
-      },
-      ExpressionAttributeValues: {
-        ":itemPrefix": { S: "ITEM#" },
-        ":meta": { S: "META" },
-        ":approved": { S: "APPROVED" },
-        ":published": { S: "PUBLISHED" },
-        ":public": { S: "PUBLIC" },
-      },
+      Key: marshall({
+        pk: pkForUser(sub),
+        sk: skForClosetItem(args.id),
+      }),
+      UpdateExpression:
+        "SET mediaKey = :mediaKey, updatedAt = :updatedAt, gsi1pk = :gsi1pk, gsi1sk = :gsi1sk",
+      ExpressionAttributeValues: marshall({
+        ":mediaKey": args.mediaKey,
+        ":updatedAt": now,
+        ":gsi1pk": gsi1ForStatus("DRAFT"),
+        ":gsi1sk": now,
+      }),
+      ReturnValues: "ALL_NEW",
     }),
   );
 
-  const allItems = (resp.Items || []).map(mapClosetItem);
-  allItems.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  if (!res.Attributes) {
+    throw new Error("Item not found");
+  }
 
-  return {
-    items: allItems.slice(0, limit),
-    nextToken: null,
-  };
+  return mapClosetItem(res.Attributes);
 }
 
 /**
- * Update story metadata for an item (Bestie-only UX, but auth enforced
- * by ownership here; admin flows can be added later if needed).
+ * 4) requestClosetApproval – mark DRAFT→PENDING and kick off Step Functions.
  */
-async function updateClosetItemStory(
-  event: AppSyncEvent,
+async function handleRequestClosetApproval(
+  args: { id: string },
+  identity: any,
+): Promise<string> {
+  const sub = requireUserSub(identity);
+  const now = nowIso();
+
+  const res = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: marshall({
+        pk: pkForUser(sub),
+        sk: skForClosetItem(args.id),
+      }),
+      ConditionExpression: "status = :draft",
+      UpdateExpression:
+        "SET status = :pending, updatedAt = :updatedAt, gsi1pk = :gsi1pk, gsi1sk = :gsi1sk",
+      ExpressionAttributeValues: marshall({
+        ":draft": "DRAFT",
+        ":pending": "PENDING",
+        ":updatedAt": now,
+        ":gsi1pk": gsi1ForStatus("PENDING"),
+        ":gsi1sk": now,
+      }),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!res.Attributes) {
+    throw new Error("Item not found or not in DRAFT status");
+  }
+
+  const item = mapClosetItem(res.Attributes);
+
+  // Fire-and-forget Step Functions execution
+  await sfn.send(
+    new StartExecutionCommand({
+      stateMachineArn: APPROVAL_SM_ARN,
+      input: JSON.stringify({
+        itemId: item.id,
+        userId: item.userId,
+        ownerSub: item.ownerSub,
+      }),
+    }),
+  );
+
+  return item.id;
+}
+
+/**
+ * 5) updateClosetItemStory – Bestie-side metadata for fan-facing view.
+ */
+async function handleUpdateClosetItemStory(
   args: {
     input: {
       id: string;
       storyTitle?: string | null;
       storySeason?: string | null;
-      storyVibes?: string[] | null;
+      storyVibes?: (string | null)[] | null;
     };
   },
+  identity: any,
 ): Promise<ClosetItem> {
-  const ownerSub = getUserSub(event);
-  const { id, storyTitle, storySeason, storyVibes } = args.input || {};
+  const sub = requireUserSub(identity);
+  const { id, storyTitle, storySeason, storyVibes } = args.input;
 
-  if (!id) {
-    throw new Error("updateClosetItemStory: id is required");
-  }
+  const now = nowIso();
 
-  const base = await findRawItemById(id);
-  if (!base) throw new Error(`Closet item not found for id=${id}`);
-  const { pk, sk } = pkOf(base);
-  const now = new Date().toISOString();
-
-  const names: Record<string, string> = {
-    "#updatedAt": "updatedAt",
-    "#ownerSub": "ownerSub",
-  };
-  const values: Record<string, any> = {
-    ":now": { S: now },
-    ":owner": { S: ownerSub },
+  const updateExpressions: string[] = ["updatedAt = :updatedAt"];
+  const expressionValues: Record<string, any> = {
+    ":updatedAt": now,
   };
 
-  const setParts: string[] = ["#updatedAt = :now"];
-  const removeParts: string[] = [];
-
-  // storyTitle
-  if (typeof storyTitle !== "undefined") {
-    names["#storyTitle"] = "storyTitle";
-    const trimmed = storyTitle ? storyTitle.trim() : "";
-    if (trimmed) {
-      values[":storyTitle"] = { S: trimmed };
-      setParts.push("#storyTitle = :storyTitle");
-    } else {
-      removeParts.push("#storyTitle");
-    }
+  if (storyTitle !== undefined) {
+    updateExpressions.push("storyTitle = :storyTitle");
+    expressionValues[":storyTitle"] = storyTitle;
   }
 
-  // storySeason
-  if (typeof storySeason !== "undefined") {
-    names["#storySeason"] = "storySeason";
-    const trimmed = storySeason ? storySeason.trim() : "";
-    if (trimmed) {
-      values[":storySeason"] = { S: trimmed };
-      setParts.push("#storySeason = :storySeason");
-    } else {
-      removeParts.push("#storySeason");
-    }
+  if (storySeason !== undefined) {
+    updateExpressions.push("storySeason = :storySeason");
+    expressionValues[":storySeason"] = storySeason;
   }
 
-  // storyVibes
-  if (typeof storyVibes !== "undefined") {
-    names["#storyVibes"] = "storyVibes";
-    if (Array.isArray(storyVibes) && storyVibes.length > 0) {
-      values[":storyVibes"] = {
-        L: storyVibes.map((v) => ({ S: String(v) })),
-      };
-      setParts.push("#storyVibes = :storyVibes");
-    } else {
-      removeParts.push("#storyVibes");
-    }
+  if (storyVibes !== undefined) {
+    updateExpressions.push("storyVibes = :storyVibes");
+    expressionValues[":storyVibes"] = storyVibes?.filter(
+      (v): v is string => !!v,
+    );
   }
 
-  let updateExpression = "SET " + setParts.join(", ");
-  if (removeParts.length > 0) {
-    updateExpression += " REMOVE " + removeParts.join(", ");
-  }
-
-  const resp = await ddb.send(
+  const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: { pk: { S: pk }, sk: { S: sk } },
-      ConditionExpression: "#ownerSub = :owner",
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-      UpdateExpression: updateExpression,
+      Key: marshall({
+        pk: pkForUser(sub),
+        sk: skForClosetItem(id),
+      }),
+      UpdateExpression: "SET " + updateExpressions.join(", "),
+      ExpressionAttributeValues: marshall(expressionValues),
       ReturnValues: "ALL_NEW",
     }),
   );
 
-  if (!resp.Attributes) {
-    throw new Error("updateClosetItemStory: update returned no attributes");
+  if (!res.Attributes) {
+    throw new Error("Item not found");
   }
 
-  return mapClosetItem(resp.Attributes);
+  return mapClosetItem(res.Attributes);
 }
 
-// ---------- handler ----------
+/**
+ * AppSync Lambda resolver entrypoint.
+ */
+export const handler = async (event: any) => {
+  console.log("ClosetResolverFn event", JSON.stringify(event));
 
-export const handler = async (event: AppSyncEvent) => {
-  const { parentTypeName, fieldName } = event.info;
+  const fieldName = event.info?.fieldName;
 
-  if (parentTypeName === "Query") {
-    if (fieldName === "myCloset") {
-      return myCloset(event);
+  try {
+    switch (fieldName) {
+      case "myCloset":
+        return await handleMyCloset(event.identity);
+
+      case "createClosetItem":
+        return await handleCreateClosetItem(event.arguments, event.identity);
+
+      case "updateClosetMediaKey":
+        return await handleUpdateClosetMediaKey(event.arguments, event.identity);
+
+      case "requestClosetApproval":
+        return await handleRequestClosetApproval(event.arguments, event.identity);
+
+      case "updateClosetItemStory":
+        return await handleUpdateClosetItemStory(event.arguments, event.identity);
+
+      default:
+        throw new Error(`Unsupported field: ${fieldName}`);
     }
-    if (fieldName === "closetFeed") {
-      return closetFeed(event, event.arguments || {});
-    }
+  } catch (err: any) {
+    console.error("Error in ClosetResolverFn", err);
+    throw err;
   }
-
-  if (parentTypeName === "Mutation") {
-    if (fieldName === "createClosetItem") {
-      return createClosetItem(event, event.arguments);
-    }
-    if (fieldName === "requestClosetApproval") {
-      return requestClosetApproval(event, event.arguments);
-    }
-    if (fieldName === "updateClosetMediaKey") {
-      return updateClosetMediaKey(event, event.arguments);
-    }
-    if (fieldName === "updateClosetItemStory") {
-      return updateClosetItemStory(event, event.arguments);
-    }
-  }
-
-  throw new Error(
-    `ClosetResolverFn: unknown field ${parentTypeName}.${fieldName}`,
-  );
 };
