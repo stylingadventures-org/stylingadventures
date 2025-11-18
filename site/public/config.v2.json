@@ -17,7 +17,10 @@
   "logoutUri": "http://localhost:5173/",
 
   "scopes": ["openid", "email"],
-  "clientId": "51uc25i7ob3otirvgi66mpht79"
+  "clientId": "51uc25i7ob3otirvgi66mpht79",
+
+  "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
 }
+
 
 

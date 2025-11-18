@@ -1,6 +1,11 @@
-// site/src/routes/Community.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { graphql } from "../lib/sa"; // optional: only used if your backend is ready
+// site/src/routes/fan/Community.jsx
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
+import { graphql } from "../../lib/sa"; // optional: only used if your backend is ready
 
 /**
  * Community.jsx

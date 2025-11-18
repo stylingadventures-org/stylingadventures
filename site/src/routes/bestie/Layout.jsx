@@ -1,91 +1,92 @@
 // site/src/routes/bestie/Layout.jsx
 import React from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import TierTabs from "../../components/TierTabs";
+import { NavLink, Outlet } from "react-router-dom";
 
 export default function BestieLayout() {
-  const loc = useLocation();
-  const active = (to) =>
-    loc.pathname === to
-      ? "font-weight:600;color:#111827"
-      : "color:#4b5563";
+  const navClass = ({ isActive }) =>
+    "section-nav-pill" + (isActive ? " section-nav-pill--active" : "");
 
   return (
-    <div
-      style={{
-        maxWidth: 1120,
-        margin: "16px auto",
-        padding: "0 16px",
-        display: "grid",
-        gap: 24,
-        gridTemplateColumns: "260px 1fr",
-      }}
-    >
-      {/* Left rail */}
-      <aside style={{ alignSelf: "start" }}>
-        <nav style={{ display: "grid", gap: 6 }}>
-          <NavLink
-            to="/bestie"
-            end
+    <div className="section-page">
+      <div className="section-shell">
+        {/* Sidebar */}
+        <aside className="section-sidebar" aria-label="Bestie navigation">
+          {/* Logo + label */}
+          <div
             style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              textDecoration: "none",
-              ...(loc.pathname === "/bestie" ? { background: "#f3f4f6" } : {}),
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
             }}
           >
-            <span style={parseStyle(active("/bestie"))}>Overview</span>
-          </NavLink>
+            <img
+              src="/lala-logo.png"
+              alt="Styling Adventures"
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 14,
+                objectFit: "cover",
+                flexShrink: 0,
+                boxShadow: "0 8px 20px rgba(15,23,42,0.15)",
+              }}
+            />
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#111827",
+                  marginBottom: 2,
+                }}
+              >
+                Styling Adventures
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.16em",
+                  color: "#9ca3af",
+                }}
+              >
+                Bestie Club
+              </div>
+            </div>
+          </div>
 
-          <NavLink
-            to="/bestie/closet"
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              textDecoration: "none",
-              ...(loc.pathname.startsWith("/bestie/closet")
-                ? { background: "#f3f4f6" }
-                : {}),
-            }}
-          >
-            <span style={parseStyle(active("/bestie/closet"))}>My Closet</span>
-          </NavLink>
+          <div className="section-sidebar-label">Bestie Pages</div>
 
-          <NavLink
-            to="/bestie/perks"
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              textDecoration: "none",
-              ...(loc.pathname === "/bestie/perks"
-                ? { background: "#f3f4f6" }
-                : {}),
-            }}
-          >
-            <span style={parseStyle(active("/bestie/perks"))}>Perks</span>
-          </NavLink>
+          <nav className="section-sidebar-nav">
+            <NavLink to="/bestie" end className={navClass}>
+              <span className="section-nav-pill-icon">👑</span>
+              <span>Overview</span>
+            </NavLink>
 
-          {/* You can add /bestie/content later if you still want it */}
-        </nav>
-      </aside>
+            <NavLink to="/bestie/closet" className={navClass}>
+              <span className="section-nav-pill-icon">🧺</span>
+              <span>My Closet</span>
+            </NavLink>
 
-      {/* Main */}
-      <section>
-        <TierTabs activeTier="Bestie" />
-        <Outlet />
-      </section>
+            <NavLink to="/bestie/content" className={navClass}>
+              <span className="section-nav-pill-icon">🎬</span>
+              <span>Content</span>
+            </NavLink>
+
+            <NavLink to="/bestie/perks" className={navClass}>
+              <span className="section-nav-pill-icon">🎁</span>
+              <span>Perks</span>
+            </NavLink>
+          </nav>
+        </aside>
+
+        {/* Main panel */}
+        <main className="section-main">
+          {/* No extra TierTabs here anymore – just the page content */}
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
-}
-
-function parseStyle(css) {
-  // tiny helper to turn "a:b;c:d" into style object
-  return css
-    .split(";")
-    .filter(Boolean)
-    .reduce((acc, decl) => {
-      const [k, v] = decl.split(":");
-      if (k && v) acc[k.trim()] = v.trim();
-      return acc;
-    }, {});
 }

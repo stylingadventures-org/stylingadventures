@@ -18,48 +18,72 @@ export default function Layout() {
     <>
       <style>{`
         :root {
-          --bg:#f7f7fb;
-          --card:#ffffff;
-          --ink:#0f172a;
-          --muted:#6b7280;
-          --ring:#e5e7eb;
-          --brand:#111827;
-          --brand-ink:#ffffff;
+          --bg: #f8f5ff;          /* soft lilac wash */
+          --card: #ffffff;
+          --ink: #0f172a;
+          --muted: #6b7280;
+          --ring: #e5e7eb;
+          --brand: #4f46e5;       /* indigo */
+          --accent-pink: #ec4899; /* pink highlight */
+          --brand-ink: #ffffff;
         }
+
         * { box-sizing:border-box; }
+
         body {
           margin:0;
-          background:var(--bg);
+          min-height:100vh;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+            "Segoe UI", sans-serif;
           color:var(--ink);
+          background:
+            radial-gradient(circle at top left, rgba(236,72,153,0.16), transparent 55%),
+            radial-gradient(circle at top right, rgba(79,70,229,0.18), transparent 60%),
+            var(--bg);
         }
+
         .container {
           max-width:1100px;
           margin:0 auto;
           padding:0 20px;
         }
+
+        /* HEADER */
+
         header.site {
           position:sticky;
           top:0;
           z-index:50;
-          backdrop-filter:saturate(180%) blur(6px);
-          background:rgba(255,255,255,0.75);
-          border-bottom:1px solid var(--ring);
+          backdrop-filter:saturate(180%) blur(10px);
+          background:linear-gradient(
+            180deg,
+            rgba(255,255,255,0.92),
+            rgba(248,250,252,0.9)
+          );
+          border-bottom:1px solid rgba(226,232,240,0.9);
+          box-shadow:0 12px 30px rgba(15,23,42,0.06);
         }
+
         .site-inner {
           display:flex;
           align-items:center;
           gap:16px;
           height:64px;
         }
+
         .brand {
           display:flex;
           align-items:center;
           gap:10px;
           font-weight:800;
-          letter-spacing:.2px;
+          letter-spacing:.02em;
           font-size:22px;
           white-space:nowrap;
+          background:linear-gradient(90deg, #111827, #4b5563);
+          -webkit-background-clip:text;
+          color:transparent;
         }
+
         nav.nav {
           display:flex;
           gap:10px;
@@ -68,6 +92,7 @@ export default function Layout() {
           scrollbar-width:none;
         }
         nav.nav::-webkit-scrollbar { display:none; }
+
         .pill {
           display:inline-flex;
           align-items:center;
@@ -82,42 +107,62 @@ export default function Layout() {
           font-weight:600;
           font-size:14px;
           transition:
-            background .15s,
-            border-color .15s,
-            color .15s,
+            background .15s ease,
+            border-color .15s ease,
+            color .15s ease,
+            box-shadow .16s ease,
             transform .02s;
           will-change:transform;
+          white-space:nowrap;
         }
+
         .pill:hover {
           background:#fbfbfe;
           border-color:#dcdfe5;
+          box-shadow:0 8px 20px rgba(148,163,184,0.35);
         }
+
         .pill:active {
           transform:translateY(1px);
+          box-shadow:none;
         }
+
         .pill.active {
-          background:var(--brand);
+          background:linear-gradient(90deg, var(--brand), var(--accent-pink));
           color:var(--brand-ink);
-          border-color:var(--brand);
+          border-color:transparent;
+          box-shadow:
+            0 12px 30px rgba(79,70,229,0.55),
+            0 0 24px rgba(236,72,153,0.55);
         }
+
         .spacer {
           flex:1 1 auto;
         }
+
+        /* MAIN CONTENT */
+
         main.page {
           padding:28px 0 36px;
         }
+
+        /* FOOTER */
+
         footer.site {
-          border-top:1px solid var(--ring);
-          background:#fff;
+          border-top:1px solid rgba(226,232,240,0.9);
+          background:#ffffff;
           color:var(--muted);
           font-size:13px;
         }
+
         .foot-inner {
           height:56px;
           display:flex;
           align-items:center;
           justify-content:space-between;
+          gap:12px;
         }
+
         @media (max-width:720px) {
           .site-inner { gap:10px; }
           nav.nav { margin-left:4px; }
@@ -180,5 +225,4 @@ export default function Layout() {
     </>
   );
 }
-
 

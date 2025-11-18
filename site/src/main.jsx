@@ -8,12 +8,12 @@ import { Auth, dailyLoginOnce } from "./lib/sa";
 // Shell + top-level pages
 import Layout from "./ui/Layout.jsx";
 import MarketingHome from "./routes/Home.jsx";          // <- top-level home
-import Watch from "./routes/Watch.jsx";
+import Watch from "./routes/episodes/Watch.jsx";
 
 // Fan subpages (mounted under /fan)
 import Episodes from "./routes/episodes/Episodes.jsx";
-import Closet from "./routes/Closet.jsx";
-import Community from "./routes/Community.jsx";
+import Closet from "./routes/fan/Closet.jsx";
+import Community from "./routes/fan/Community.jsx";
 import Profile from "./routes/Profile.jsx";
 import ClosetFeed from "./routes/fan/ClosetFeed.jsx";
 
