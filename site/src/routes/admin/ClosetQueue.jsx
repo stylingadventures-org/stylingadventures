@@ -1,5 +1,6 @@
 // site/src/routes/admin/ClosetQueue.jsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { getSignedGetUrl } from "../../lib/sa";
 
 const GQL = {
   list: /* GraphQL */ `
@@ -56,75 +57,24 @@ const AUDIENCE_OPTIONS = [
 ];
 
 /**
- * Try to compute the ORIGINAL upload key for an item.
- * - If mediaKey already looks like "users/.../file.ext", use it.
- * - Otherwise, build "users/<ownerSub>/<mediaKey>".
+ * For your stack, rawMediaKey is already the real S3 key
+ * (e.g. "8c261459-3104-43fe-908d-38ada56f881c.jpg").
+ * So just clean slashes and return it.
  */
 function computeOriginalKey(item) {
   const raw = item.mediaKey || item.rawMediaKey;
   if (!raw) return null;
-
-  const cleaned = String(raw).replace(/^\/+/, "");
-
-  if (/^users\//i.test(cleaned)) return cleaned;
-
-  const owner = item.ownerSub || item.userId;
-  if (owner) return `users/${owner}/${cleaned}`;
-
-  return cleaned;
+  return String(raw).replace(/^\/+/, "");
 }
 
 /**
- * For a given item, build the THUMBNAIL key under thumbs/.
- * Example:
- *   src  : users/sub/whatever.png
- *   thumb: thumbs/users/sub/whatever.jpg
+ * Thumbnail key – for now, just reuse the original key
+ * without adding any thumbs/ prefix.
  */
 function computeThumbKey(item) {
   const orig = computeOriginalKey(item);
   if (!orig) return null;
-
-  const cleaned = String(orig).replace(/^\/+/, "");
-  const hasThumbPrefix = cleaned.startsWith("thumbs/");
-  const base = hasThumbPrefix ? cleaned : `thumbs/${cleaned}`;
-  // force .jpg extension
-  return base.replace(/\.[^.]+$/, ".jpg");
-}
-
-/**
- * Return a direct S3 URL for the thumbnail, if we can infer bucket + region.
- * We’re intentionally NOT hitting /presign here anymore.
- */
-function buildThumbUrl(item) {
-  const cfg = window.__cfg || {};
-  const bucket =
-    cfg.webBucket ||
-    cfg.WEB_BUCKET ||
-    cfg.assetsBucket ||
-    cfg.uploadsBucket ||
-    cfg.bucket ||
-    cfg.BUCKET ||
-    "";
-
-  const region = cfg.region || "us-east-1";
-  const key = computeThumbKey(item);
-
-  if (!bucket || !key) {
-    console.warn("[ClosetQueue] Cannot build thumb URL", {
-      bucket,
-      key,
-      mediaKey: item.mediaKey,
-      rawMediaKey: item.rawMediaKey,
-      cfg,
-    });
-    return null;
-  }
-
-  // Simple virtual-hosted–style URL; if you later add CloudFront,
-  // you can swap this to your CDN base instead.
-  return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURIComponent(
-    key
-  )}`;
+  return String(orig).replace(/^\/+/, "");
 }
 
 /**
@@ -183,12 +133,22 @@ export default function ClosetQueue() {
         audience: it.audience || "PUBLIC",
       }));
 
-      const withThumbs = baseList.map((it) => {
-        const thumbUrl = buildThumbUrl(it);
-        return { ...it, mediaUrl: thumbUrl || null };
-      });
+      // Attach preview URLs using the shared helper – now via computeThumbKey
+      const withMediaUrls = await Promise.all(
+        baseList.map(async (it) => {
+          const key = computeThumbKey(it);
+          if (!key) return it;
+          try {
+            const mediaUrl = await getSignedGetUrl(key);
+            return { ...it, mediaUrl: mediaUrl || null };
+          } catch (e) {
+            console.warn("[ClosetQueue] preview URL failed", e);
+            return it;
+          }
+        })
+      );
 
-      setItems(withThumbs);
+      setItems(withMediaUrls);
     } catch (e) {
       console.error(e);
       setErr(e?.message || String(e));

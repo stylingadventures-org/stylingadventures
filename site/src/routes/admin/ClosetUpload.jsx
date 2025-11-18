@@ -263,9 +263,9 @@ export default function ClosetUpload() {
           if (!key) return item;
           try {
             const url = await getSignedGetUrl(key);
-            return { ...item, mediaUrl: url };
+            return { ...item, mediaUrl: url || null };
           } catch (e) {
-            console.warn("[ClosetUpload] presign failed", e);
+            console.warn("[ClosetUpload] getSignedGetUrl failed", e);
             return item;
           }
         })

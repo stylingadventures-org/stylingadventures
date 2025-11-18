@@ -31,7 +31,7 @@ export default function ClosetFeed() {
     (async () => {
       try {
         setLoading(true);
-               setErr("");
+        setErr("");
 
         if (window.sa?.ready) {
           await window.sa.ready();
@@ -54,7 +54,7 @@ export default function ClosetFeed() {
           effectiveKey: it.mediaKey || it.rawMediaKey || null,
         }));
 
-        // presign images
+        // build public URLs with new helper
         const hydrated = await Promise.all(
           withKeys.map(async (it) => {
             if (!it.effectiveKey) return it;
@@ -62,7 +62,7 @@ export default function ClosetFeed() {
               const url = await getSignedGetUrl(it.effectiveKey);
               return { ...it, mediaUrl: url || null };
             } catch (e) {
-              console.warn("[ClosetFeed] presign failed", e);
+              console.warn("[ClosetFeed] getSignedGetUrl failed", e);
               return it;
             }
           })
