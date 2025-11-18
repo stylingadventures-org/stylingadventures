@@ -1,9 +1,10 @@
 // site/src/routes/admin/ClosetUpload.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { signedUpload, getSignedGetUrl } from "../../lib/sa"; // proxies to window.signedUpload + presign helper
+import { signedUpload, getSignedGetUrl } from "../../lib/sa"; // upload helper + public URL helper
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const GRID_PREVIEW_LIMIT = 6;
 
 function isNew(createdAt) {
   if (!createdAt) return false;
@@ -70,7 +71,7 @@ const GQL = {
 };
 
 export default function ClosetUpload() {
-  // Form fields (shared across uploads)
+  // Form fields
   const [title, setTitle] = useState("");
   const [season, setSeason] = useState("");
   const [vibes, setVibes] = useState("");
@@ -82,13 +83,13 @@ export default function ClosetUpload() {
   // Upload state
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
-  const [uploadDetails, setUploadDetails] = useState([]); // per-file result lines
+  const [uploadDetails, setUploadDetails] = useState([]);
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
 
   // Admin list state
-  const [items, setItems] = useState([]); // merged pending + published + mediaUrl
+  const [items, setItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemsError, setItemsError] = useState("");
   const [search, setSearch] = useState("");
@@ -113,7 +114,7 @@ export default function ClosetUpload() {
     setFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name + f.size));
       const unique = Array.from(newFiles).filter(
-        (f) => !existingNames.has(f.name + f.size),
+        (f) => !existingNames.has(f.name + f.size)
       );
       return [...prev, ...unique];
     });
@@ -157,7 +158,7 @@ export default function ClosetUpload() {
   // ------- Upload submit (multi-file) -------
 
   async function handleSubmit(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setUploadMsg("");
     setUploadDetails([]);
 
@@ -177,7 +178,9 @@ export default function ClosetUpload() {
         const file = files[idx];
         const baseTitle = title.trim();
         const itemTitle =
-          baseTitle || file.name.replace(/\.[a-z0-9]+$/i, "") || "Untitled look";
+          baseTitle ||
+          file.name.replace(/\.[a-z0-9]+$/i, "") ||
+          "Untitled look";
 
         results.push(`Uploading “${itemTitle}”…`);
 
@@ -197,24 +200,25 @@ export default function ClosetUpload() {
         if (created) {
           results.push(
             `✔ Created “${created.title}” (status: ${created.status}) at ${new Date(
-              created.createdAt,
-            ).toLocaleString()}`,
+              created.createdAt
+            ).toLocaleString()}`
           );
         } else {
           results.push(
-            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`,
+            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`
           );
         }
       }
 
       setUploadMsg(
-        `Finished uploading ${total} item${total > 1 ? "s" : ""}. ` +
-          "Background removal will run shortly, then you can approve them from the Closet queue.",
+        `Finished uploading ${total} item${total > 1 ? "s" : ""}. Background removal will run shortly, then you can approve them from the Closet queue.`
       );
       setUploadDetails(results);
 
       clearFiles();
       setTitle("");
+      setSeason("");
+      setVibes("");
 
       await loadItems();
     } catch (err) {
@@ -253,7 +257,6 @@ export default function ClosetUpload() {
         return tb - ta;
       });
 
-      // Presign image URLs for thumbnails
       const hydrated = await Promise.all(
         merged.map(async (item) => {
           const key = item.mediaKey || item.rawMediaKey || null;
@@ -265,7 +268,7 @@ export default function ClosetUpload() {
             console.warn("[ClosetUpload] presign failed", e);
             return item;
           }
-        }),
+        })
       );
 
       setItems(hydrated);
@@ -290,12 +293,16 @@ export default function ClosetUpload() {
     });
   }, [items, search, statusFilter]);
 
+  const itemCount = filteredItems.length;
+  const previewItems = filteredItems.slice(0, GRID_PREVIEW_LIMIT);
+  const hasMore = itemCount > GRID_PREVIEW_LIMIT;
+
   // ------- Delete (soft delete via reject) -------
 
   async function handleDelete(id) {
     if (
       !window.confirm(
-        "Delete (reject) this closet item? This cannot be undone.",
+        "Delete (reject) this closet item? This cannot be undone."
       )
     ) {
       return;
@@ -315,719 +322,899 @@ export default function ClosetUpload() {
   // ------- Render -------
 
   return (
-    <div className="sa-layout-stack closet-admin-page" style={{ gap: 24 }}>
-      <style>{`
-        .closet-admin-page {
-          max-width: 1120px;
-          margin: 0 auto;
-        }
+    <div className="closet-admin-page">
+      <style>{styles}</style>
 
-        .closet-admin-header {
-          display:flex;
-          justify-content:space-between;
-          align-items:flex-start;
-          gap:16px;
-          padding:16px 18px;
-          border-radius:18px;
-          background:
-            radial-gradient(circle at top left, #fce7f3 0, #f9fafb 50%, #eef2ff 100%);
-          border:1px solid #e5e7eb;
-        }
-
-        .closet-admin-header-title {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
-        }
-
-        .closet-admin-kicker {
-          font-size:11px;
-          letter-spacing:.12em;
-          text-transform:uppercase;
-          color:#6b7280;
-          font-weight:600;
-        }
-
-        .closet-admin-header h2 {
-          font-size:22px;
-          margin:0;
-          display:flex;
-          align-items:center;
-          gap:8px;
-        }
-
-        .closet-admin-header h2 span.emoji {
-          font-size:24px;
-        }
-
-        .closet-admin-header p {
-          margin:0;
-          font-size:13px;
-          color:#4b5563;
-          max-width:620px;
-        }
-
-        .closet-admin-header-actions {
-          display:flex;
-          flex-direction:column;
-          gap:8px;
-          align-items:flex-end;
-        }
-
-        .closet-admin-badge {
-          font-size:11px;
-          padding:2px 10px;
-          border-radius:999px;
-          background:#111827;
-          color:#fff;
-          text-transform:uppercase;
-          letter-spacing:.14em;
-        }
-
-        .closet-card-title {
-          display:flex;
-          align-items:center;
-          gap:8px;
-        }
-
-        .closet-card-title span.kicker {
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          width:22px;
-          height:22px;
-          border-radius:999px;
-          background:#111827;
-          color:#fff;
-          font-size:12px;
-        }
-
-        .closet-card-title h3 {
-          margin:0;
-          font-size:17px;
-        }
-
-        .closet-sub {
-          margin:0;
-          font-size:13px;
-          color:#6b7280;
-        }
-
-        .closet-upload-meta {
-          font-size:11px;
-          color:#6b7280;
-        }
-
-        .closet-table-title {
-          font-weight:500;
-        }
-
-        .closet-status-pill {
-          display:inline-flex;
-          align-items:center;
-          padding:2px 8px;
-          border-radius:999px;
-          font-size:11px;
-          text-transform:capitalize;
-          border:1px solid transparent;
-        }
-
-        @media (max-width: 780px) {
-          .closet-admin-header {
-            flex-direction:column;
-            align-items:flex-start;
-          }
-          .closet-admin-header-actions {
-            align-items:flex-start;
-          }
-        }
-      `}</style>
-
-      {/* Header */}
+      {/* Header banner */}
       <header className="closet-admin-header">
-        <div className="closet-admin-header-title">
-          <span className="closet-admin-kicker">Admin • Lala&apos;s Closet</span>
-          <h2>
-            <span className="emoji">👗</span>Lala&apos;s Closet Studio
-          </h2>
+        <div className="closet-admin-title-block">
+          <span className="closet-admin-kicker">
+            Styling Adventures with Lala
+          </span>
+          <h1>
+            Admin Closet Studio{" "}
+            <span className="closet-admin-emoji" role="img" aria-label="dress">
+              👗
+            </span>
+          </h1>
           <p>
-            Upload raw looks, tag the vibes, and send them into the magic
-            machine. Backgrounds are cleaned up in the cloud and approved
-            items flow into the fan-facing closet feed.
+            Upload new looks, keep the closet tidy, and make the fan side feel
+            like a curated boutique.
           </p>
         </div>
 
-        <div className="closet-admin-header-actions">
-          <span className="closet-admin-badge">Admin view</span>
+        <div className="closet-admin-header-right">
+          <span className="closet-admin-pill">Admin portal</span>
+          <span className="closet-admin-count">
+            Closet items: <strong>{items.length}</strong>
+          </span>
           <Link to="/admin/closet" className="sa-btn sa-btn--ghost">
             Open review queue
           </Link>
         </div>
       </header>
 
-      {/* Card: Upload form */}
-      <section className="sa-card">
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 12,
-          }}
-        >
-          <div>
-            <div className="closet-card-title">
-              <span className="kicker">1</span>
-              <h3>Add new looks to Lala&apos;s Closet</h3>
+      {/* Two-column studio layout */}
+      <div className="closet-admin-shell">
+        {/* LEFT: Upload panel */}
+        <section className="sa-card closet-upload-card">
+          <header className="closet-card-header">
+            <div>
+              <h2 className="closet-card-title">Closet upload</h2>
+              <p className="closet-card-sub">
+                Drop in photos from shoots or collabs. Each file becomes its own
+                closet item.
+              </p>
             </div>
-            <p className="closet-sub" style={{ marginTop: 4 }}>
-              Drop in one or many images. Each file becomes its own closet item.
-              Use a base title + tags to keep things consistent across a batch.
-            </p>
-            <p className="closet-upload-meta">
-              Pro tip: group uploads by drop or storyline so fans see a cohesive
-              moment in the feed.
-            </p>
-          </div>
-        </header>
+          </header>
 
-        {uploadMsg && (
+          {/* Dropzone styled like “Choose a file…” tile */}
           <div
-            style={{
-              marginTop: 12,
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: "#eef2ff",
-              border: "1px solid #e5e7eb",
-              fontSize: 13,
-            }}
+            className={
+              "closet-dropzone" + (isDragging ? " closet-dropzone--active" : "")
+            }
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => fileInputRef.current?.click()}
           >
-            {uploadMsg}
-            {uploadDetails.length > 0 && (
-              <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-                {uploadDetails.map((line, i) => (
-                  <li key={i}>{line}</li>
+            <div className="closet-drop-icon">＋</div>
+            <div className="closet-drop-title">Choose a file…</div>
+            <div className="closet-drop-text">
+              Drag & drop or click to browse. You can add multiple images at
+              once.
+            </div>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileInputChange}
+            style={{ display: "none" }}
+          />
+
+          {/* Meta fields below dropzone */}
+          <div className="closet-upload-fields">
+            <label className="closet-field">
+              <span className="closet-field-label">Base title</span>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="sa-input"
+                placeholder="e.g. Pastel knit set"
+              />
+              <span className="closet-field-hint">
+                If blank, we’ll use each filename as the item title.
+              </span>
+            </label>
+
+            <div className="closet-upload-row">
+              <label className="closet-field">
+                <span className="closet-field-label">Season / chapter</span>
+                <input
+                  type="text"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value)}
+                  className="sa-input"
+                  placeholder="e.g. Holiday Drop"
+                />
+              </label>
+
+              <label className="closet-field">
+                <span className="closet-field-label">Vibes / tags</span>
+                <input
+                  type="text"
+                  value={vibes}
+                  onChange={(e) => setVibes(e.target.value)}
+                  className="sa-input"
+                  placeholder="e.g. cozy, barbiecore"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Selected files summary + preview */}
+          {files.length > 0 && (
+            <div className="closet-file-summary">
+              <div className="closet-file-summary-header">
+                <span>
+                  {files.length} file{files.length > 1 ? "s" : ""} ready to
+                  upload
+                </span>
+                <button
+                  type="button"
+                  className="sa-link"
+                  onClick={clearFiles}
+                >
+                  Clear
+                </button>
+              </div>
+              <ul className="closet-file-list">
+                {files.map((f) => (
+                  <li key={f.name + f.size}>
+                    {f.name}{" "}
+                    <span className="sa-muted">
+                      ({Math.round(f.size / 1024)} KB)
+                    </span>
+                  </li>
                 ))}
               </ul>
-            )}
-          </div>
-        )}
-
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            marginTop: 18,
-            display: "grid",
-            gap: 16,
-            maxWidth: 760,
-          }}
-        >
-          {/* Title / Season / Vibes */}
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>Base title</span>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="sa-input"
-              placeholder="Optional: e.g. Pink blazer with silver buttons"
-            />
-            <span className="sa-muted" style={{ fontSize: 11 }}>
-              If left blank, each item will use its filename as the title.
-            </span>
-          </label>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-            }}
-          >
-            <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
-                Season / chapter (optional)
-              </span>
-              <input
-                type="text"
-                value={season}
-                onChange={(e) => setSeason(e.target.value)}
-                className="sa-input"
-                placeholder="e.g. Season 1, Drop 3"
-              />
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
-                Vibes / tags (optional)
-              </span>
-              <input
-                type="text"
-                value={vibes}
-                onChange={(e) => setVibes(e.target.value)}
-                className="sa-input"
-                placeholder="e.g. pink, night out, cozy"
-              />
-            </label>
-          </div>
-
-          {/* Drag & drop area + hidden file input */}
-          <div style={{ display: "grid", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>Images</span>
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                borderRadius: 14,
-                border: isDragging ? "2px solid #6366f1" : "1px dashed #d1d5db",
-                padding: 24,
-                textAlign: "center",
-                cursor: "pointer",
-                background: isDragging ? "#eef2ff" : "#f9fafb",
-                transition: "background 0.15s, border-color 0.15s",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <strong>Drag & drop</strong> images here, or{" "}
-                <span style={{ textDecoration: "underline" }}>click to browse</span>
-              </p>
-              <p className="sa-muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
-                We&apos;ll upload each file and create a separate closet item for it.
-              </p>
             </div>
+          )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileInputChange}
-              style={{ display: "none" }}
-            />
-
-            {files.length > 0 && (
-              <div
-                style={{
-                  fontSize: 12,
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>
-                    {files.length} file{files.length > 1 ? "s" : ""} selected
-                  </span>
-                  <button
-                    type="button"
-                    className="sa-link"
-                    onClick={clearFiles}
-                    style={{ fontSize: 11 }}
-                  >
-                    Clear
-                  </button>
-                </div>
-                <ul
-                  style={{
-                    listStyle: "disc",
-                    paddingLeft: 18,
-                    margin: 0,
-                    maxHeight: 120,
-                    overflowY: "auto",
-                  }}
-                >
-                  {files.map((f) => (
-                    <li key={f.name + f.size}>
-                      {f.name}{" "}
-                      <span className="sa-muted">
-                        ({Math.round(f.size / 1024)} KB)
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <span className="sa-muted" style={{ fontSize: 11 }}>
-              Raw images are stored first. A Step Functions flow handles background
-              cleanup, then approved looks appear in the fan closet.
-            </span>
-          </div>
-
-          {/* Preview of first file */}
           {previewUrl && (
-            <div
-              style={{
-                marginTop: 4,
-                display: "flex",
-                gap: 16,
-                alignItems: "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  width: 150,
-                  height: 150,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid #e5e7eb",
-                  background: "#f3f4f6",
-                }}
-              >
+            <div className="closet-preview-row">
+              <div className="closet-preview-frame">
                 <img
                   src={previewUrl}
                   alt="Preview"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
+                  className="closet-preview-img"
                 />
               </div>
-              <p className="sa-muted" style={{ fontSize: 12, marginTop: 0 }}>
-                This is the first image in your batch. Fans will see the cleaned,
-                approved version in their closet feed.
+              <p className="closet-preview-caption">
+                First look in your batch. Fans will see the cleaned, approved
+                version in their closet feed.
               </p>
             </div>
           )}
 
+          {uploadMsg && (
+            <div className="closet-upload-status">
+              {uploadMsg}
+              {uploadDetails.length > 0 && (
+                <ul>
+                  {uploadDetails.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <button
-            type="submit"
-            className="sa-btn"
+            type="button"
+            onClick={handleSubmit}
+            className="closet-upload-btn"
             disabled={uploading || !files.length}
-            style={{ marginTop: 8, alignSelf: "flex-start" }}
           >
             {uploading
               ? `Uploading ${files.length} look${
                   files.length > 1 ? "s" : ""
                 }…`
               : files.length
-              ? `Create ${files.length} closet look${
+              ? `Upload ${files.length} look${
                   files.length > 1 ? "s" : ""
-                }`
-              : "Create closet looks"}
+                } to closet`
+              : "Upload to closet"}
           </button>
-        </form>
-      </section>
 
-      {/* Card: Closet items table / search */}
-      <section className="sa-card">
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            gap: 12,
-          }}
-        >
-          <div>
-            <div className="closet-card-title">
-              <span className="kicker">2</span>
-              <h3>Closet inventory</h3>
+          <p className="closet-footer-note">
+            Raw images are stored first. A Step Functions flow handles
+            background cleanup, then you can approve them in the review queue.
+          </p>
+        </section>
+
+        {/* RIGHT: Dashboard panel (preview-style) */}
+        <section className="sa-card closet-dashboard-card">
+          <header className="closet-card-header">
+            <div>
+              <h2 className="closet-card-title">Closet dashboard</h2>
+              <p className="closet-card-sub">
+                Filter, search, and peek at what fans will see in the closet.
+              </p>
             </div>
-            <p className="closet-sub" style={{ marginTop: 4 }}>
-              Browse, search, and manage items across all statuses. Items marked
-              <strong> New</strong> were created in the last 24 hours.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          </header>
+
+          {/* Filters row */}
+          <div className="closet-filters-row">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="closet-filter-input"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+
+            <input
+              className="closet-filter-input"
+              placeholder="Search titles…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <select className="closet-filter-input" disabled>
+              <option>Sort by newest (default)</option>
+            </select>
+
             <button
               type="button"
-              className="sa-btn sa-btn--ghost"
+              className="closet-filter-refresh"
               onClick={loadItems}
               disabled={itemsLoading}
             >
-              {itemsLoading ? "Refreshing…" : "Refresh list"}
+              {itemsLoading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
-        </header>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-            marginTop: 12,
-          }}
-        >
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sa-input"
-            placeholder="Search by title…"
-            style={{ maxWidth: 260 }}
-          />
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="sa-input"
-            style={{ width: 180 }}
-          >
-            <option value="ALL">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="PUBLISHED">Published</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-        </div>
-
-        {itemsError && (
-          <div
-            style={{
-              marginBottom: 8,
-              padding: "6px 8px",
-              borderRadius: 8,
-              background: "#fef2f2",
-              color: "#b91c1c",
-              fontSize: 13,
-            }}
-          >
-            {itemsError}
+          <div className="closet-grid-header">
+            <span className="closet-grid-title">
+              Closet items grid · <strong>{itemCount}</strong>{" "}
+              {itemCount === 1 ? "item" : "items"}
+            </span>
           </div>
-        )}
 
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 13,
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #e5e7eb",
-                }}
-              >
-                <th style={{ padding: "6px 4px" }}>Title</th>
-                <th style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                  Status
-                </th>
-                <th style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                  Created
-                </th>
-                <th style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                  Updated
-                </th>
-                <th style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                  Owner
-                </th>
-                <th style={{ padding: "6px 4px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: "10px 4px",
-                      color: "#6b7280",
-                      fontSize: 13,
-                    }}
-                  >
-                    {itemsLoading
-                      ? "Loading items…"
-                      : "No items match your filters yet."}
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    style={{
-                      borderBottom: "1px solid #f3f4f6",
-                    }}
-                  >
-                    <td style={{ padding: "6px 4px", maxWidth: 260 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        {/* Thumbnail */}
-                        {item.mediaUrl && (
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 8,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background: "#f3f4f6",
-                              border: "1px solid #e5e7eb",
-                            }}
-                          >
-                            <img
-                              src={item.mediaUrl}
-                              alt={item.title || "Closet item"}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                            />
-                          </div>
-                        )}
+          {itemsError && (
+            <div className="closet-grid-error">{itemsError}</div>
+          )}
 
-                        {/* Title + badges */}
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 2,
-                            minWidth: 0,
-                          }}
-                        >
-                          <span
-                            className="closet-table-title"
-                            style={{
-                              whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {item.title}
+          {itemCount === 0 && !itemsLoading && !itemsError && (
+            <div className="closet-grid-empty">
+              No items match your filters yet. Try clearing search or upload a
+              new look on the left.
+            </div>
+          )}
+
+          {itemsLoading && itemCount === 0 && (
+            <div className="closet-grid-empty">Loading closet items…</div>
+          )}
+
+          {itemCount > 0 && (
+            <>
+              <div className="closet-grid">
+                {previewItems.map((item) => {
+                  const status = item.status || "UNKNOWN";
+                  const isNewFlag = isNew(item.createdAt);
+
+                  let statusLabel = status.toLowerCase();
+                  let statusClass = "closet-status-pill--default";
+                  if (status === "PUBLISHED")
+                    statusClass = "closet-status-pill--published";
+                  else if (status === "PENDING")
+                    statusClass = "closet-status-pill--pending";
+                  else if (status === "REJECTED")
+                    statusClass = "closet-status-pill--rejected";
+
+                  return (
+                    <article key={item.id} className="closet-grid-card">
+                      <div className="closet-grid-thumb">
+                        {item.mediaUrl ? (
+                          <img
+                            src={item.mediaUrl}
+                            alt={item.title || "Closet item"}
+                          />
+                        ) : (
+                          <span className="closet-grid-thumb-empty">
+                            No preview
                           </span>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 6,
-                              alignItems: "center",
-                              flexWrap: "wrap",
-                            }}
+                        )}
+                      </div>
+
+                      <div className="closet-grid-body">
+                        <div className="closet-grid-title-row">
+                          <div className="closet-grid-main-title">
+                            {item.title || "Untitled look"}
+                          </div>
+                          {isNewFlag && (
+                            <span className="closet-badge-new">New</span>
+                          )}
+                        </div>
+
+                        <div className="closet-grid-meta">
+                          <span
+                            className={"closet-status-pill " + statusClass}
                           >
-                            {isNew(item.createdAt) && (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  padding: "1px 6px",
-                                  borderRadius: 999,
-                                  fontSize: 11,
-                                  background: "#eef2ff",
-                                  color: "#4f46e5",
-                                  fontWeight: 500,
-                                }}
-                              >
-                                New
-                              </span>
-                            )}
-                            {item.reason && item.status === "REJECTED" && (
-                              <span
-                                className="sa-muted"
-                                style={{ fontSize: 11 }}
-                                title={item.reason}
-                              >
-                                Reason: {item.reason}
-                              </span>
-                            )}
+                            {statusLabel}
+                          </span>
+                          <span className="closet-grid-audience">
+                            {item.audience || "Fan / Bestie"}
+                          </span>
+                        </div>
+
+                        <div className="closet-grid-footer">
+                          <span className="closet-grid-date">
+                            {item.createdAt
+                              ? new Date(
+                                  item.createdAt
+                                ).toLocaleDateString()
+                              : "—"}
+                          </span>
+                          <div className="closet-grid-actions">
+                            <button
+                              type="button"
+                              className="closet-grid-link"
+                              onClick={() =>
+                                window.open(
+                                  `/fan/closet-feed?highlight=${item.id}`,
+                                  "_blank"
+                                )
+                              }
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              className="closet-grid-link closet-grid-link--danger"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
                       </div>
-                    </td>
-                    <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                      <span
-                        className="closet-status-pill"
-                        style={{
-                          background:
-                            item.status === "PUBLISHED"
-                              ? "#ecfdf3"
-                              : item.status === "PENDING"
-                              ? "#fef3c7"
-                              : item.status === "REJECTED"
-                              ? "#fee2e2"
-                              : "#e5e7eb",
-                          color:
-                            item.status === "PUBLISHED"
-                              ? "#166534"
-                              : item.status === "PENDING"
-                              ? "#92400e"
-                              : item.status === "REJECTED"
-                              ? "#b91c1c"
-                              : "#374151",
-                          borderColor:
-                            item.status === "PUBLISHED"
-                              ? "#bbf7d0"
-                              : item.status === "PENDING"
-                              ? "#fde68a"
-                              : item.status === "REJECTED"
-                              ? "#fecaca"
-                              : "transparent",
-                        }}
-                      >
-                        {item.status?.toLowerCase() || "unknown"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                      {item.createdAt
-                        ? new Date(item.createdAt).toLocaleDateString()
-                        : "—"}
-                    </td>
-                    <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                      {item.updatedAt
-                        ? new Date(item.updatedAt).toLocaleDateString()
-                        : "—"}
-                    </td>
-                    <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
-                      <span className="sa-muted">
-                        {item.ownerSub || item.userId || "—"}
-                      </span>
-                    </td>
-                    <td
-                      style={{
-                        padding: "6px 4px",
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="sa-link"
-                        onClick={() =>
-                          window.open(
-                            `/fan/closet-feed?highlight=${item.id}`,
-                            "_blank",
-                          )
-                        }
-                        style={{ marginRight: 8, fontSize: 12 }}
-                      >
-                        View as fan
-                      </button>
-                      <button
-                        type="button"
-                        className="sa-link sa-link--danger"
-                        onClick={() => handleDelete(item.id)}
-                        style={{ fontSize: 12 }}
-                      >
-                        Delete / reject
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                    </article>
+                  );
+                })}
+              </div>
+
+              {(hasMore || itemCount > previewItems.length) && (
+                <div className="closet-grid-footer-row">
+                  <span className="closet-grid-summary">
+                    Showing first{" "}
+                    <strong>
+                      {Math.min(GRID_PREVIEW_LIMIT, itemCount)}
+                    </strong>{" "}
+                    of <strong>{itemCount}</strong> item
+                    {itemCount === 1 ? "" : "s"}.
+                  </span>
+                  <Link to="/admin/closet" className="closet-grid-cta">
+                    View full closet queue →
+                  </Link>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
+
+const styles = `
+.closet-admin-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Header banner */
+
+.closet-admin-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  padding:16px 20px;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at top left, rgba(252,231,243,0.95), rgba(249,250,251,0.98)),
+    radial-gradient(circle at bottom right, rgba(224,231,255,0.95), rgba(255,255,255,1));
+  border:1px solid #e5e7eb;
+  box-shadow:0 18px 40px rgba(148,163,184,0.32);
+  margin-bottom:18px;
+}
+
+.closet-admin-title-block {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.closet-admin-kicker {
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:#9ca3af;
+  font-weight:600;
+}
+
+.closet-admin-header h1 {
+  margin:0;
+  font-size:22px;
+  letter-spacing:-0.02em;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.closet-admin-emoji {
+  font-size:22px;
+}
+
+.closet-admin-header p {
+  margin:2px 0 0;
+  font-size:13px;
+  color:#4b5563;
+  max-width:520px;
+}
+
+.closet-admin-header-right {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  align-items:flex-end;
+}
+.closet-admin-pill {
+  font-size:11px;
+  padding:2px 10px;
+  border-radius:999px;
+  background:#111827;
+  color:#fff;
+  text-transform:uppercase;
+  letter-spacing:.14em;
+}
+.closet-admin-count {
+  font-size:12px;
+  color:#4b5563;
+}
+
+@media (max-width: 768px) {
+  .closet-admin-header {
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .closet-admin-header-right {
+    align-items:flex-start;
+  }
+}
+
+/* Two-column shell */
+
+.closet-admin-shell {
+  display:grid;
+  grid-template-columns:minmax(0, 320px) minmax(0, 1fr);
+  gap:18px;
+}
+@media (max-width: 900px) {
+  .closet-admin-shell {
+    grid-template-columns:minmax(0, 1fr);
+  }
+}
+
+/* Shared card header */
+
+.closet-card-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.closet-card-title {
+  margin:0;
+  font-size:17px;
+  font-weight:600;
+}
+.closet-card-sub {
+  margin:4px 0 0;
+  font-size:13px;
+  color:#6b7280;
+}
+
+/* Upload card styles */
+
+.closet-upload-card {
+  background:#fdfbff;
+  border-radius:20px;
+  border:1px solid #e5e7eb;
+  box-shadow:0 14px 36px rgba(148,163,184,0.28);
+  padding:16px 18px 18px;
+}
+
+/* Dropzone tile */
+
+.closet-dropzone {
+  margin-top:8px;
+  border-radius:18px;
+  border:1px dashed #d1d5db;
+  padding:20px 14px;
+  background:#fbf4ff;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.closet-dropzone--active {
+  border-color:#a855f7;
+  background:#f3e8ff;
+  box-shadow:0 0 0 2px rgba(168,85,247,0.15);
+}
+.closet-drop-icon {
+  width:34px;
+  height:34px;
+  margin:0 auto 6px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#ede9fe;
+  color:#6d28d9;
+  font-size:18px;
+}
+.closet-drop-title {
+  font-size:14px;
+  font-weight:600;
+}
+.closet-drop-text {
+  margin-top:2px;
+  font-size:12px;
+  color:#6b7280;
+}
+
+/* Upload fields */
+
+.closet-upload-fields {
+  margin-top:14px;
+  display:grid;
+  gap:10px;
+}
+.closet-field {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.closet-field-label {
+  font-size:12px;
+  color:#6b7280;
+}
+.closet-field-hint {
+  font-size:11px;
+  color:#9ca3af;
+}
+.closet-upload-row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 720px) {
+  .closet-upload-row {
+    grid-template-columns:1fr;
+  }
+}
+
+/* File summary + preview */
+
+.closet-file-summary {
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:#f9fafb;
+  border:1px solid #e5e7eb;
+  font-size:12px;
+}
+.closet-file-summary-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:4px;
+}
+.closet-file-list {
+  list-style:disc;
+  padding-left:18px;
+  margin:0;
+  max-height:100px;
+  overflow-y:auto;
+}
+
+.closet-preview-row {
+  margin-top:10px;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+.closet-preview-frame {
+  width:132px;
+  height:132px;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid #e5e7eb;
+  background:#f3f4f6;
+  flex-shrink:0;
+}
+.closet-preview-img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.closet-preview-caption {
+  font-size:12px;
+  color:#6b7280;
+  margin:0;
+}
+
+/* Upload status + button */
+
+.closet-upload-status {
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#eef2ff;
+  border:1px solid #e5e7eb;
+  font-size:12px;
+}
+.closet-upload-status ul {
+  margin:4px 0 0;
+  padding-left:18px;
+}
+
+.closet-upload-btn {
+  margin-top:12px;
+  width:100%;
+  border:none;
+  border-radius:999px;
+  height:40px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  background:linear-gradient(135deg,#a855f7,#6366f1);
+  color:#fff;
+  box-shadow:0 14px 30px rgba(129,140,248,0.6);
+  transition:transform .05s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.closet-upload-btn:hover:enabled {
+  transform:translateY(-1px);
+  box-shadow:0 18px 38px rgba(129,140,248,0.7);
+}
+.closet-upload-btn:disabled {
+  opacity:0.7;
+  cursor:not-allowed;
+}
+.closet-footer-note {
+  margin-top:10px;
+  font-size:11px;
+  color:#9ca3af;
+}
+
+/* Dashboard card */
+
+.closet-dashboard-card {
+  background:#f8f5ff;
+  border-radius:20px;
+  border:1px solid #e5e7eb;
+  box-shadow:0 14px 36px rgba(148,163,184,0.28);
+  padding:16px 18px 18px;
+}
+
+/* Filters row */
+
+.closet-filters-row {
+  margin-top:8px;
+  margin-bottom:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.closet-filter-input {
+  flex:1 1 150px;
+  min-width:0;
+  height:34px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#f9fafb;
+  padding:0 12px;
+  font-size:13px;
+  color:#4b5563;
+}
+.closet-filter-refresh {
+  border-radius:999px;
+  padding:0 14px;
+  height:34px;
+  border:1px solid #e5e7eb;
+  background:#ffffff;
+  font-size:13px;
+  cursor:pointer;
+}
+.closet-filter-refresh:disabled {
+  opacity:0.7;
+  cursor:not-allowed;
+}
+
+/* Grid */
+
+.closet-grid-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+.closet-grid-title {
+  font-size:13px;
+  color:#6b7280;
+}
+
+.closet-grid-error {
+  margin-bottom:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#fef2f2;
+  color:#b91c1c;
+  font-size:12px;
+}
+.closet-grid-empty {
+  padding:14px 10px;
+  font-size:13px;
+  color:#6b7280;
+}
+
+.closet-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:14px;
+  margin-top:4px;
+}
+
+.closet-grid-card {
+  background:#f4ebff;
+  border-radius:18px;
+  padding:10px;
+  border:1px solid #e5e0ff;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  box-shadow:0 10px 26px rgba(148,163,184,0.4);
+}
+
+.closet-grid-thumb {
+  border-radius:14px;
+  overflow:hidden;
+  background:#ede9fe;
+  height:150px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.closet-grid-thumb img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.closet-grid-thumb-empty {
+  font-size:12px;
+  color:#6b7280;
+}
+
+.closet-grid-body {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.closet-grid-title-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:6px;
+}
+.closet-grid-main-title {
+  font-size:13px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.closet-badge-new {
+  font-size:10px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#fef3c7;
+  color:#92400e;
+}
+
+.closet-grid-meta {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:6px;
+}
+.closet-grid-audience {
+  font-size:11px;
+  color:#6b7280;
+}
+
+.closet-status-pill {
+  border-radius:999px;
+  padding:2px 8px;
+  font-size:11px;
+  border:1px solid transparent;
+  text-transform:capitalize;
+}
+.closet-status-pill--default {
+  background:#e5e7eb;
+  color:#374151;
+}
+.closet-status-pill--published {
+  background:#ecfdf3;
+  border-color:#bbf7d0;
+  color:#166534;
+}
+.closet-status-pill--pending {
+  background:#fef3c7;
+  border-color:#fde68a;
+  color:#92400e;
+}
+.closet-status-pill--rejected {
+  background:#fee2e2;
+  border-color:#fecaca;
+  color:#b91c1c;
+}
+
+.closet-grid-footer {
+  margin-top:4px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:6px;
+}
+.closet-grid-date {
+  font-size:11px;
+  color:#9ca3af;
+}
+.closet-grid-actions {
+  display:flex;
+  gap:6px;
+}
+.closet-grid-link {
+  border:none;
+  background:transparent;
+  padding:0;
+  font-size:11px;
+  text-decoration:underline;
+  cursor:pointer;
+  color:#4b5563;
+}
+.closet-grid-link--danger {
+  color:#b91c1c;
+}
+
+/* Footer under preview grid */
+
+.closet-grid-footer-row {
+  margin-top:10px;
+  padding-top:8px;
+  border-top:1px dashed rgba(209,213,219,0.7);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+}
+.closet-grid-summary {
+  color:#6b7280;
+}
+.closet-grid-cta {
+  font-size:12px;
+  text-decoration:none;
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid #4c1d95;
+  color:#4c1d95;
+  background:#f5f3ff;
+}
+.closet-grid-cta:hover {
+  background:#ede9fe;
+}
+`;

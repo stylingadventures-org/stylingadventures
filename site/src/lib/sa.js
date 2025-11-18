@@ -8,9 +8,9 @@ export async function getSA() {
   return window.SA;
 }
 
-/* -----------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
    Auth utilities (Cognito Hosted UI – code grant)
------------------------------------------------------------------------------ */
+--------------------------------------------------------------------------- */
 
 function readCfg(SA) {
   const raw = SA?.cfg?.() || window.__cfg || {};
@@ -19,14 +19,21 @@ function readCfg(SA) {
   // Build full Hosted UI domain if needed
   let domain = (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
   if (!domain) {
-    const pref = (cfg.cognitoDomainPrefix || cfg.hostedUiDomain || cfg.domain || "").trim();
+    const pref =
+      (cfg.cognitoDomainPrefix ||
+        cfg.hostedUiDomain ||
+        cfg.domain ||
+        "").trim();
     const region = (cfg.region || "").trim();
-    if (pref && region) domain = `https://${pref}.auth.${region}.amazoncognito.com`;
+    if (pref && region)
+      domain = `https://${pref}.auth.${region}.amazoncognito.com`;
   }
   cfg.cognitoDomain = domain;
 
   if (!cfg.cognitoDomain) {
-    console.warn("[SA] Missing cognitoDomain or (cognitoDomainPrefix/hostedUiDomain + region) in config.v2.json");
+    console.warn(
+      "[SA] Missing cognitoDomain or (cognitoDomainPrefix/hostedUiDomain + region) in config.v2.json"
+    );
   }
   if (!cfg.userPoolWebClientId && !cfg.clientId) {
     console.warn("[SA] Missing userPoolWebClientId/clientId in config.v2.json");
@@ -85,12 +92,17 @@ function saveTokens(tokens) {
     localStorage.setItem("sa_refresh_token", refresh_token);
   }
   if (expires_in) {
-    sessionStorage.setItem("token_exp_at", String(Date.now() + Number(expires_in) * 1000));
+    sessionStorage.setItem(
+      "token_exp_at",
+      String(Date.now() + Number(expires_in) * 1000)
+    );
   }
 }
 
 function readToken(name) {
-  return sessionStorage.getItem(name) || localStorage.getItem(`sa_${name}`) || "";
+  return (
+    sessionStorage.getItem(name) || localStorage.getItem(`sa_${name}`) || ""
+  );
 }
 
 /** Best-effort Cognito ID token for Authorization header */
@@ -124,7 +136,10 @@ export async function exchangeCodeForTokens() {
     redirect_uri: currentRedirectUri(), // must match /login redirect_uri
   });
 
-  const tokenEndpoint = `${cfg.cognitoDomain.replace(/\/+$/, "")}/oauth2/token`;
+  const tokenEndpoint = `${cfg.cognitoDomain.replace(
+    /\/+$/,
+    ""
+  )}/oauth2/token`;
   const res = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -168,12 +183,15 @@ export async function login(redirectUri) {
     throw new Error("Auth misconfigured: missing cognitoDomain/clientId");
   }
 
-  const loginUrl = withQuery(`${cfg.cognitoDomain.replace(/\/+$/, "")}/login`, {
-    client_id: cfg.clientId,
-    response_type: "code",
-    scope: cfg.scopes.join(" "),
-    redirect_uri: redirectUri || currentRedirectUri(),
-  });
+  const loginUrl = withQuery(
+    `${cfg.cognitoDomain.replace(/\/+$/, "")}/login`,
+    {
+      client_id: cfg.clientId,
+      response_type: "code",
+      scope: cfg.scopes.join(" "),
+      redirect_uri: redirectUri || currentRedirectUri(),
+    }
+  );
 
   window.location.assign(loginUrl);
 }
@@ -190,10 +208,13 @@ export async function logout(redirectUri) {
     return;
   }
 
-  const logoutUrl = withQuery(`${cfg.cognitoDomain.replace(/\/+$/, "")}/logout`, {
-    client_id: cfg.clientId,
-    logout_uri: target,
-  });
+  const logoutUrl = withQuery(
+    `${cfg.cognitoDomain.replace(/\/+$/, "")}/logout`,
+    {
+      client_id: cfg.clientId,
+      logout_uri: target,
+    }
+  );
 
   window.location.assign(logoutUrl);
 }
@@ -211,37 +232,88 @@ export function clearTokens() {
   });
 }
 
-export const Auth = { login, logout, handleCallbackIfPresent, clearTokens, getIdToken };
+export const Auth = {
+  login,
+  logout,
+  handleCallbackIfPresent,
+  clearTokens,
+  getIdToken,
+};
 
-/* -----------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
    Upload helpers
------------------------------------------------------------------------------ */
+--------------------------------------------------------------------------- */
 
-/** Return a short-lived signed GET URL for an existing object key. */
+/**
+ * Build a public URL for an existing object key (no GET presign).
+ *
+ * The uploads API's /presign endpoint is now POST-only for uploads,
+ * so previews should just construct a URL using the configured CDN
+ * or S3 bucket instead of calling /presign?method=GET.
+ */
 export async function getSignedGetUrl(key) {
-  const SA = await getSA();
+  if (!key) return null;
+
+  // Already a full URL? Just use it directly.
+  if (/^https?:\/\//i.test(String(key))) {
+    return String(key);
+  }
+
+  const SA = await getSA().catch(() => undefined);
   const cfg = readCfg(SA);
-  if (!cfg.uploadsApiUrl) throw new Error("Missing uploadsApiUrl in config.v2.json");
+  const cleanedKey = String(key).replace(/^\/+/, "");
 
-  const url = `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign?${new URLSearchParams({
-    key,
-    method: "GET",
-  }).toString()}`;
+  // Prefer a CDN / base URL if present
+  const baseUrl = (
+    cfg.thumbsCdn ||
+    cfg.uploadsCdn ||
+    cfg.uploadsUrl ||
+    cfg.uploadsOrigin ||
+    cfg.assetsBaseUrl ||
+    cfg.mediaBaseUrl ||
+    cfg.webBucketOrigin ||
+    ""
+  ).replace(/\/+$/, "");
 
-  const res = await fetch(url, { method: "GET", headers: { Authorization: await getIdToken() } });
-  if (!res.ok) throw new Error(`presign(GET) failed (${res.status})`);
-  const j = await res.json();
-  return j.publicUrl || j.url || j.getUrl;
+  if (baseUrl) {
+    return `${baseUrl}/${encodeURIComponent(cleanedKey)}`;
+  }
+
+  // Fallback: construct standard S3 URL from bucket + region
+  const bucket =
+    cfg.uploadsBucket ||
+    cfg.mediaBucket ||
+    cfg.webBucket ||
+    cfg.assetsBucket ||
+    cfg.bucket ||
+    cfg.BUCKET ||
+    "";
+  const region = cfg.region || "us-east-1";
+
+  if (!bucket) {
+    console.warn(
+      "[getSignedGetUrl] No uploads base URL or bucket configured",
+      { cfg }
+    );
+    return null;
+  }
+
+  return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURIComponent(
+    cleanedKey
+  )}`;
 }
 
 /** Upload a Blob or text via API Gateway presign to S3. */
 export async function signedUpload(fileOrText) {
   // Prefer native helper exposed by public/sa.js if present
-  if (typeof window.signedUpload === "function") return window.signedUpload(fileOrText);
+  if (typeof window.signedUpload === "function")
+    return window.signedUpload(fileOrText);
 
   const SA = await getSA();
   const cfg = readCfg(SA);
-  if (!cfg.uploadsApiUrl) throw new Error("Missing uploadsApiUrl in config.v2.json");
+  if (!cfg.uploadsApiUrl) {
+    throw new Error("Missing uploadsApiUrl in config.v2.json");
+  }
 
   // Prepare payload
   let blob, keyRaw;
@@ -256,17 +328,20 @@ export async function signedUpload(fileOrText) {
   }
 
   // Ask API for a presigned request
-  const presignRes = await fetch(`${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: await getIdToken(),
-    },
-    body: JSON.stringify({
-      key: keyRaw,
-      contentType: blob.type || "application/octet-stream",
-    }),
-  });
+  const presignRes = await fetch(
+    `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: await getIdToken(),
+      },
+      body: JSON.stringify({
+        key: keyRaw,
+        contentType: blob.type || "application/octet-stream",
+      }),
+    }
+  );
 
   if (!presignRes.ok) {
     const text = await presignRes.text().catch(() => "");
@@ -277,7 +352,9 @@ export async function signedUpload(fileOrText) {
   // Upload to S3 using method returned by API
   if (presign.method === "POST" || presign.fields) {
     const form = new FormData();
-    Object.entries(presign.fields || {}).forEach(([k, v]) => form.append(k, v));
+    Object.entries(presign.fields || {}).forEach(([k, v]) =>
+      form.append(k, v)
+    );
     form.append("file", blob);
     const up = await fetch(presign.url, { method: "POST", body: form });
     if (!up.ok) {
@@ -287,7 +364,10 @@ export async function signedUpload(fileOrText) {
   } else {
     const up = await fetch(presign.url, {
       method: presign.method || "PUT",
-      headers: presign.headers || { "Content-Type": blob.type || "application/octet-stream" },
+      headers:
+        presign.headers || {
+          "Content-Type": blob.type || "application/octet-stream",
+        },
       body: blob,
     });
     if (!up.ok) {
@@ -303,9 +383,9 @@ export async function signedUpload(fileOrText) {
   };
 }
 
-/* -----------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
    Fans/Game helpers (profile, leaderboard, badges, daily login)
------------------------------------------------------------------------------ */
+--------------------------------------------------------------------------- */
 
 // Once/day guard (per browser) for DAILY_LOGIN
 const DAILY_KEY = "sa.lastDailyLoginAt";
@@ -428,11 +508,11 @@ export async function grantBadgeTo(userId, badge) {
   return data?.grantBadge;
 }
 
-/* -----------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
    ✨ Compatibility bridge for Admin pages (drop-in safe)
    - Exposes window.sa.ready / window.sa.graphql / window.sa.session / window.sa.cfg
    - Provides a named export `graphql(query, variables)`
------------------------------------------------------------------------------ */
+--------------------------------------------------------------------------- */
 
 function parseJwt(t) {
   try {
@@ -454,7 +534,9 @@ async function directGraphql(query, variables) {
   const SA = await getSA().catch(() => undefined);
   const cfg = readCfg(SA || {});
   const appsyncUrl =
-    window.sa?.cfg?.appsyncUrl || window.__cfg?.appsyncUrl || cfg?.appsyncUrl;
+    window.sa?.cfg?.appsyncUrl ||
+    window.__cfg?.appsyncUrl ||
+    cfg?.appsyncUrl;
   const idToken = await getIdToken();
   if (!appsyncUrl || !idToken) throw new Error("Auth not ready");
   const r = await fetch(appsyncUrl, {
@@ -475,7 +557,9 @@ async function readyCompat() {
     const appsyncUrl =
       window.sa?.cfg?.appsyncUrl ||
       window.__cfg?.appsyncUrl ||
-      (await getSA().then((SA) => readCfg(SA).appsyncUrl).catch(() => undefined));
+      (await getSA()
+        .then((SA) => readCfg(SA).appsyncUrl)
+        .catch(() => undefined));
     if (idTok && appsyncUrl) break;
     if (Date.now() - start > 5000) break;
     await new Promise((r) => setTimeout(r, 100));
@@ -495,9 +579,7 @@ async function readyCompat() {
   // Prefer SA.gql if present; otherwise fallback to directGraphql
   window.sa.graphql =
     window.sa.graphql ||
-    (SA?.gql
-      ? (q, v) => SA.gql(q, v)
-      : (q, v) => directGraphql(q, v));
+    (SA?.gql ? (q, v) => SA.gql(q, v) : (q, v) => directGraphql(q, v));
   return true;
 }
 

@@ -1,313 +1,516 @@
 // site/src/routes/fan/FanLayout.jsx
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { hasEarlyContentNow } from "../../lib/episodes";
 
+const navItems = [
+  { to: "/fan", label: "Dashboard", icon: "🏰", end: true },
+  { to: "/fan/episodes", label: "Episodes", icon: "🎬", key: "episodes" },
+  { to: "/fan/closet", label: "Style Games", icon: "🧪" },
+  { to: "/fan/closet-feed", label: "Lala's Closet", icon: "✨" },
+  { to: "/fan/community", label: "Community", icon: "💬" },
+  { to: "/fan/profile", label: "Profile", icon: "👤" },
+];
+
 export default function FanLayout() {
+  const [navOpen, setNavOpen] = useState(false);
   const showEarlyDot = hasEarlyContentNow();
 
-  return (
-    <div className="fan-shell">
-      <style>{`
-        .fan-shell {
-          padding: 0 0 32px;
-          overflow-x: hidden;
-        }
+  const closeNav = () => setNavOpen(false);
 
-        /* Big gradient Fan Garden hero – no extra side padding,
-           inner content uses the same 20px as Layout's .container */
-        .fan-hero {
-          position: relative;
-          border-radius: 24px;
-          margin: 0 0 18px;
-          background: linear-gradient(135deg, #fde7f4, #e8f4ff);
-          border: 1px solid rgba(255,255,255,0.8);
-          box-shadow: 0 14px 40px rgba(15,23,42,0.08);
-          overflow: hidden;
+  return (
+    <div className="fan-layout-page">
+      <style>{`
+        .fan-layout-page {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 16px 16px 32px;
           box-sizing: border-box;
         }
-        .fan-hero::before {
-          content: "";
-          position: absolute;
-          inset: -40%;
-          background:
-            radial-gradient(circle at 0 0, rgba(255,255,255,0.6), transparent 60%),
-            radial-gradient(circle at 100% 0, rgba(255,255,255,0.45), transparent 60%);
-          opacity: 0.7;
-          pointer-events: none;
-        }
-        .fan-hero-inner {
-          position: relative;
-          padding: 18px 20px 16px; /* 20px matches Layout's container padding */
+
+        /* Top row – only visible on mobile to open drawer */
+        .fan-header-row {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
+          justify-content: flex-start;
+          margin: 0 auto 12px;
+          max-width: 1100px;
         }
-        .fan-badge {
+
+        .fan-pages-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(209,213,219,1);
+          background: rgba(255,255,255,0.96);
+          font-size: 12px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #4b5563;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 10px 30px rgba(15,23,42,0.12);
+          transition:
+            background 0.15s ease,
+            border-color 0.15s ease,
+            box-shadow 0.15s ease,
+            transform 0.04s ease;
+        }
+        .fan-pages-chip:hover {
+          background: #fdf2ff;
+          border-color: #e5d5ff;
+          box-shadow: 0 14px 40px rgba(79,70,229,0.24);
+          transform: translateY(-1px);
+        }
+        .fan-pages-chip:active {
+          transform: translateY(0);
+          box-shadow: 0 8px 22px rgba(148,163,184,0.4);
+        }
+
+        .fan-pages-label {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 3px 10px;
+        }
+        .fan-pages-dot {
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: .12em;
-          background: rgba(255,255,255,0.8);
-          color: #6b21a8;
-          border: 1px solid rgba(148,163,184,0.4);
-        }
-        .fan-title {
-          margin: 4px 0 0;
-          font-size: 20px;
-          font-weight: 700;
-          color: #0f172a;
-        }
-        .fan-subtitle {
-          margin: 2px 0 0;
-          font-size: 13px;
-          color: #4b5563;
+          background: #22c55e;
+          box-shadow: 0 0 0 2px #ffffff;
         }
 
-        /* Gradient stage – no extra side padding, inner grid uses 20px */
-        .fan-main-wrap {
-          margin-top: 4px;
-          border-radius: 28px;
-          background:
-            radial-gradient(circle at top left, #fde7f4 0, transparent 55%),
-            radial-gradient(circle at bottom right, #e0f2fe 0, transparent 55%);
-          box-sizing: border-box;
-        }
-
-        .fan-main {
-          padding: 14px 20px 24px; /* same 20px horizontal as hero/header */
+        /* DESKTOP SHELL – always-on sidebar + main */
+        .fan-layout-shell {
+          max-width: 1100px;
+          margin: 0 auto;
           display: grid;
-          grid-template-columns: 220px minmax(0, 1fr);
-          gap: 16px;
+          grid-template-columns: 260px minmax(0, 1fr);
+          gap: 20px;
           align-items: flex-start;
         }
 
-        /* Sidebar */
+        /* Sidebar panel (desktop) */
         .fan-sidebar {
-          background: #ffffff;
-          border-radius: 22px;
-          border: 1px solid #e5e7eb;
-          padding: 14px 10px;
-          box-shadow: 0 18px 40px rgba(15,23,42,0.05);
-          box-sizing: border-box;
-        }
-        .fan-sidebar-title {
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #9ca3af;
-          padding: 0 8px 6px;
-        }
-        .fan-nav {
+          background: rgba(255,255,255,0.97);
+          border-radius: 26px;
+          padding: 16px 14px 18px;
+          box-shadow: 0 20px 50px rgba(15,23,42,0.18);
+          border: 1px solid rgba(226,232,240,0.95);
           display: flex;
           flex-direction: column;
+          gap: 14px;
+        }
+
+        .fan-sidebar-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .fan-sidebar-logo {
+          width: 36px;
+          height: 36px;
+          border-radius: 999px;
+          object-fit: cover;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.95),
+                      0 12px 30px rgba(79,70,229,0.35);
+        }
+
+        .fan-sidebar-brand-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .fan-sidebar-brand-sub {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          color: #9ca3af;
+        }
+
+        .fan-sidebar-nav {
+          margin-top: 4px;
+          display: grid;
           gap: 6px;
         }
 
-        .fan-pill {
+        .fan-sidebar-link {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 8px 10px;
+          padding: 9px 11px;
           border-radius: 999px;
-          background: #f9fafb;
           border: 1px solid #e5e7eb;
+          background: #f9fafb;
           color: #111827;
-          text-decoration: none;
-          font-weight: 500;
           font-size: 14px;
+          font-weight: 500;
+          text-decoration: none;
           transition:
-            background .15s ease,
-            border-color .15s ease,
-            color .15s ease,
-            transform .05s ease;
+            background 0.15s ease,
+            border-color 0.15s ease,
+            box-shadow 0.15s ease,
+            transform 0.04s ease;
         }
-        .fan-pill:hover {
-          background: #fdf2ff;
-          border-color: #e5d5ff;
-        }
-        .fan-pill:active {
-          transform: translateY(1px);
-        }
-        .fan-pill.active {
-          background: #111827;
-          color: #ffffff;
-          border-color: #111827;
-        }
-
-        .fan-pill-label {
+        .fan-sidebar-link-main {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
         }
-        .fan-pill-icon {
-          font-size: 0.9rem;
+        .fan-sidebar-icon {
+          font-size: 16px;
         }
 
-        .fan-early-dot {
+        .fan-sidebar-link:hover {
+          background: #ffffff;
+          border-color: #d1d5db;
+          box-shadow: 0 10px 28px rgba(148,163,184,0.3);
+        }
+        .fan-sidebar-link:active {
+          transform: translateY(1px);
+        }
+
+        .fan-sidebar-link--active {
+          background: #020617;
+          color: #f9fafb;
+          border-color: #020617;
+          box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+        }
+
+        .fan-sidebar-early-dot {
           width: 8px;
           height: 8px;
           border-radius: 999px;
           background: #f97316;
-          box-shadow: 0 0 0 2px #fff;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.95);
         }
 
-        /* Content panel */
-        .fan-panel {
-          background: #ffffff;
-          border-radius: 22px;
-          border: 1px solid #e5e7eb;
-          padding: 18px 16px;
-          box-shadow: 0 18px 40px rgba(15,23,42,0.08);
+        /* Main panel where Outlet renders */
+        .fan-main-panel {
+          background: rgba(255,255,255,0.98);
+          border-radius: 28px;
+          padding: 18px 18px 24px;
+          box-shadow: 0 22px 55px rgba(15,23,42,0.11);
           box-sizing: border-box;
         }
 
-        @media (max-width: 900px) {
-          .fan-main {
-            padding: 10px 14px 18px;
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .fan-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-          .fan-nav {
-            flex-direction: row;
-            overflow-x: auto;
-            padding-bottom: 4px;
-          }
-          .fan-nav::-webkit-scrollbar { display: none; }
-          .fan-pill {
-            white-space: nowrap;
-            min-width: max-content;
+        /* ===== Drawer (mobile) ===== */
+
+        .fan-drawer-backdrop {
+          position: fixed;
+          inset: 72px 0 0 0;
+          background: rgba(15,23,42,0.4);
+          backdrop-filter: blur(3px);
+          border: none;
+          padding: 0;
+          margin: 0;
+          cursor: pointer;
+          z-index: 39;
+        }
+
+        .fan-drawer {
+          position: fixed;
+          top: 72px;
+          bottom: 0;
+          left: 0;
+          width: 320px;
+          max-width: calc(100% - 40px);
+          background:
+            radial-gradient(circle at top left, #fdf2ff, #eef2ff 55%),
+            radial-gradient(circle at bottom right, #e0f2fe, #ffffff 60%);
+          border-radius: 0 24px 24px 0;
+          box-shadow: 0 24px 70px rgba(15,23,42,0.55);
+          border: 1px solid rgba(255,255,255,0.9);
+          padding: 16px 16px 20px;
+          box-sizing: border-box;
+          z-index: 40;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .fan-drawer__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .fan-drawer__brand {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .fan-drawer-logo {
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
+          object-fit: cover;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.95),
+                      0 10px 26px rgba(79,70,229,0.35);
+        }
+
+        .fan-drawer__title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .fan-drawer__subtitle {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          color: #9ca3af;
+        }
+
+        .fan-drawer__close {
+          border: none;
+          background: rgba(255,255,255,0.9);
+          border-radius: 999px;
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+          transition: background 0.12s ease, transform 0.04s ease;
+        }
+        .fan-drawer__close:hover {
+          background: #e5e7eb;
+        }
+        .fan-drawer__close:active {
+          transform: translateY(1px);
+        }
+
+        .fan-drawer__nav {
+          margin-top: 4px;
+          display: grid;
+          gap: 6px;
+        }
+
+        .fan-drawer-link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 9px 11px;
+          border-radius: 999px;
+          border: 1px solid #e5e7eb;
+          background: rgba(248,250,252,0.95);
+          color: #111827;
+          font-size: 14px;
+          font-weight: 500;
+          text-decoration: none;
+          transition:
+            background 0.15s ease,
+            border-color 0.15s ease,
+            box-shadow 0.15s ease,
+            transform 0.04s ease;
+        }
+        .fan-drawer-link-main {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .fan-drawer-icon {
+          font-size: 16px;
+        }
+        .fan-drawer-link:hover {
+          background: #ffffff;
+          border-color: #d1d5db;
+          box-shadow: 0 10px 28px rgba(148,163,184,0.4);
+        }
+        .fan-drawer-link:active {
+          transform: translateY(1px);
+        }
+        .fan-drawer-link--active {
+          background: #020617;
+          color: #f9fafb;
+          border-color: #020617;
+          box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+        }
+
+        .fan-drawer-early-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #f97316;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.95);
+        }
+
+        /* ====== Responsive tweaks ====== */
+
+        @media (min-width: 900px) {
+          /* desktop: no drawer trigger, no drawer */
+          .fan-header-row {
+            display: none;
           }
         }
 
-        @media (max-width: 640px) {
-          .fan-shell {
-            padding-bottom: 24px;
+        @media (max-width: 899px) {
+          /* mobile/tablet: no persistent sidebar, just main + drawer */
+          .fan-layout-shell {
+            display: block;
           }
-          .fan-hero-inner {
-            padding: 14px 14px 12px;
+          .fan-sidebar {
+            display: none;
           }
-          .fan-title {
-            font-size: 18px;
+          .fan-main-panel {
+            border-radius: 24px;
+            padding: 16px 14px 22px;
           }
-          .fan-main {
-            padding: 10px 10px 18px;
+        }
+
+        @media (max-width: 720px) {
+          .fan-layout-page {
+            padding-inline: 12px;
           }
-          .fan-panel {
-            padding: 14px 12px;
+          .fan-drawer {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 0 0 24px 24px;
+          }
+          .fan-drawer-backdrop {
+            inset: 56px 0 0 0;
           }
         }
       `}</style>
 
-      {/* Big “Fan Garden” hero */}
-      <section className="fan-hero" aria-label="Fan hub">
-        <div className="fan-hero-inner">
-          <div className="fan-badge">✨ Fan Garden</div>
-          <h1 className="fan-title">Your Styling Adventures hub</h1>
-          <p className="fan-subtitle">
-            Track XP, catch new episodes early, and play in your closet &amp; community.
-          </p>
-        </div>
-      </section>
+      {/* Mobile-only “Fan Pages” chip to open the drawer */}
+      <div className="fan-header-row">
+        <button
+          type="button"
+          className="fan-pages-chip"
+          onClick={() => setNavOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={navOpen ? "true" : "false"}
+        >
+          <span className="fan-pages-label">
+            FAN PAGES
+            {showEarlyDot && <span className="fan-pages-dot" />}
+          </span>
+        </button>
+      </div>
 
-      {/* Sidebar + main content inside gradient stage */}
-      <div className="fan-main-wrap">
-        <div className="fan-main">
-          <aside className="fan-sidebar" aria-label="Fan navigation">
-            <div className="fan-sidebar-title">Fan Pages</div>
-            <nav className="fan-nav">
+      {/* Desktop shell: sidebar + main */}
+      <div className="fan-layout-shell">
+        <aside className="fan-sidebar" aria-label="Fan navigation">
+          <div className="fan-sidebar-head">
+            {/* Your real logo from /public */}
+            <img
+              src="/lala-logo.png"
+              alt="Lala logo"
+              className="fan-sidebar-logo"
+            />
+            <div>
+              <div className="fan-sidebar-brand-title">Styling Adventures</div>
+              <div className="fan-sidebar-brand-sub">Fan Pages</div>
+            </div>
+          </div>
+
+          <nav className="fan-sidebar-nav">
+            {navItems.map((item) => (
               <NavLink
-                end
-                to="/fan"
+                key={item.to}
+                to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
+                  "fan-sidebar-link" +
+                  (isActive ? " fan-sidebar-link--active" : "")
                 }
               >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">🏰</span>
-                  <span>Dashboard</span>
+                <span className="fan-sidebar-link-main">
+                  <span className="fan-sidebar-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
                 </span>
-              </NavLink>
 
-              <NavLink
-                to="/fan/episodes"
-                className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
-                }
+                {item.to === "/fan/episodes" && showEarlyDot && (
+                  <span
+                    className="fan-sidebar-early-dot"
+                    title="New early drop"
+                  />
+                )}
+              </NavLink>
+            ))}
+          </nav>
+        </aside>
+
+        <section className="fan-main-panel">
+          <Outlet />
+        </section>
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {navOpen && (
+        <>
+          <button
+            type="button"
+            className="fan-drawer-backdrop"
+            onClick={closeNav}
+            aria-label="Close fan navigation backdrop"
+          />
+          <aside
+            className="fan-drawer"
+            aria-label="Fan navigation"
+            role="dialog"
+          >
+            <div className="fan-drawer__header">
+              <div className="fan-drawer__brand">
+                <img
+                  src="/lala-logo.png"
+                  alt="Lala logo"
+                  className="fan-drawer-logo"
+                />
+                <div>
+                  <div className="fan-drawer__title">Styling Adventures</div>
+                  <div className="fan-drawer__subtitle">Fan Pages</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="fan-drawer__close"
+                onClick={closeNav}
+                aria-label="Close fan navigation"
               >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">🎬</span>
-                  <span>Episodes</span>
-                  {showEarlyDot && (
-                    <span className="fan-early-dot" title="New early drop!" />
+                ✕
+              </button>
+            </div>
+
+            <nav className="fan-drawer__nav">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    "fan-drawer-link" +
+                    (isActive ? " fan-drawer-link--active" : "")
+                  }
+                  onClick={closeNav}
+                >
+                  <span className="fan-drawer-link-main">
+                    <span className="fan-drawer-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span>{item.label}</span>
+                  </span>
+
+                  {item.to === "/fan/episodes" && showEarlyDot && (
+                    <span
+                      className="fan-drawer-early-dot"
+                      title="New early drop"
+                    />
                   )}
-                </span>
-              </NavLink>
-
-              <NavLink
-                to="/fan/closet"
-                className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">🧪</span>
-                  <span>Style Games</span>
-                </span>
-              </NavLink>
-
-              <NavLink
-                to="/fan/closet-feed"
-                className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">✨</span>
-                  <span>Lala&apos;s Closet</span>
-                </span>
-              </NavLink>
-
-              <NavLink
-                to="/fan/community"
-                className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">💬</span>
-                  <span>Community</span>
-                </span>
-              </NavLink>
-
-              <NavLink
-                to="/fan/profile"
-                className={({ isActive }) =>
-                  `fan-pill ${isActive ? "active" : ""}`
-                }
-              >
-                <span className="fan-pill-label">
-                  <span className="fan-pill-icon">👤</span>
-                  <span>Profile</span>
-                </span>
-              </NavLink>
+                </NavLink>
+              ))}
             </nav>
           </aside>
-
-          <section className="fan-panel">
-            <Outlet />
-          </section>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

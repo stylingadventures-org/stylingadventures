@@ -1,4 +1,6 @@
-// site/src/routes/fan/FanDashboard.jsx
+// site/src/routes/fan/Home.jsx
+// Fan home / dashboard
+
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -7,7 +9,7 @@ import {
   fetchLeaderboard,
 } from "../../lib/sa";
 
-export default function FanDashboard() {
+export default function FanHome() {
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -29,6 +31,7 @@ export default function FanDashboard() {
       try {
         setLoading(true);
         setError("");
+        // fire-and-forget daily login
         dailyLoginOnce().catch(() => {});
 
         const [p, lb] = await Promise.all([
@@ -61,6 +64,7 @@ export default function FanDashboard() {
         // already checked in or not signed in – silently ignore
       }
     } catch {
+      // ignore
     } finally {
       setCheckingIn(false);
     }
@@ -134,7 +138,7 @@ export default function FanDashboard() {
 
       {/* GRID */}
       <main className="fan-dash-grid">
-        {/* PROGRESS */}
+        {/* PROGRESS – tall left card */}
         <section className="card stats">
           <h2 className="card__title">Your Progress</h2>
           {loading ? (
@@ -185,38 +189,7 @@ export default function FanDashboard() {
           )}
         </section>
 
-        {/* ACTIONS */}
-        <section className="card actions">
-          <h2 className="card__title">Jump back in</h2>
-          <ul className="action-list">
-            <li>
-              <Link to="/fan/episodes" className="action">
-                <span className="action__title">Continue Watching</span>
-                <span className="action__subtitle">
-                  Pick up the latest episode
-                </span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/fan/closet" className="action">
-                <span className="action__title">Style a Look</span>
-                <span className="action__subtitle">
-                  Earn XP from the fashion game
-                </span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/fan/community" className="action">
-                <span className="action__title">Community Polls</span>
-                <span className="action__subtitle">
-                  Vote and join events
-                </span>
-              </Link>
-            </li>
-          </ul>
-        </section>
-
-        {/* LEADERBOARD */}
+        {/* TOP STYLISTS – top-right card */}
         <section className="card leaderboard">
           <h2 className="card__title">Top Stylists</h2>
           {loading ? (
@@ -247,9 +220,40 @@ export default function FanDashboard() {
             </Link>
           </div>
         </section>
+
+        {/* JUMP BACK IN – bottom-right card */}
+        <section className="card actions">
+          <h2 className="card__title">Jump back in</h2>
+          <ul className="action-list">
+            <li>
+              <Link to="/fan/episodes" className="action">
+                <span className="action__title">Continue Watching</span>
+                <span className="action__subtitle">
+                  Pick up the latest episode
+                </span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/fan/closet" className="action">
+                <span className="action__title">Style a Look</span>
+                <span className="action__subtitle">
+                  Earn XP from the fashion game
+                </span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/fan/community" className="action">
+                <span className="action__title">Community Polls</span>
+                <span className="action__subtitle">
+                  Vote and join events
+                </span>
+              </Link>
+            </li>
+          </ul>
+        </section>
       </main>
 
-      {/* STYLES */}
+      {/* LOCAL STYLES */}
       <style>{`
         .fan-dash {
           display: flex;
@@ -405,9 +409,12 @@ export default function FanDashboard() {
           max-width: 1100px;
           margin: 0 auto 32px;
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
+          grid-template-rows: auto auto;
           gap: 16px;
+          align-items: start;
         }
+
         .card {
           background: #ffffff;
           border: 1px solid #e5e7eb;
@@ -428,6 +435,20 @@ export default function FanDashboard() {
         }
         .card__footer {
           margin-top: auto;
+        }
+
+        /* Layout positions for the three cards */
+        .stats {
+          grid-column: 1;
+          grid-row: 1 / span 2;
+        }
+        .leaderboard {
+          grid-column: 2;
+          grid-row: 1;
+        }
+        .actions {
+          grid-column: 2;
+          grid-row: 2;
         }
 
         .stats__row {
@@ -648,6 +669,16 @@ export default function FanDashboard() {
           .stats__row {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
+          .fan-dash-grid {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto;
+          }
+          .stats,
+          .leaderboard,
+          .actions {
+            grid-column: auto;
+            grid-row: auto;
+          }
         }
 
         @media (max-width: 640px) {
@@ -684,3 +715,4 @@ function StatTile({ label, value }) {
     </div>
   );
 }
+

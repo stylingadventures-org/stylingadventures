@@ -14,6 +14,7 @@ function useIsAdmin() {
         const groups =
           window.sa?.session?.groups ||
           (window.sa?.session?.idTokenPayload?.["cognito:groups"] ?? []);
+
         if (!gone) {
           setIsAdmin(Array.isArray(groups) && groups.includes("ADMIN"));
           setReady(true);
@@ -25,6 +26,7 @@ function useIsAdmin() {
         }
       }
     })();
+
     return () => {
       gone = true;
     };
@@ -38,52 +40,114 @@ export default function AdminLayout() {
   const loc = useLocation();
   const { ready, isAdmin } = useIsAdmin();
 
+  // Soft-redirect non-admins
   useEffect(() => {
     if (ready && !isAdmin) {
-      // Soft-redirect non-admins away
       nav("/fan", { replace: true });
     }
   }, [ready, isAdmin, nav]);
 
   if (!ready) {
     return (
-      <div className="wrap">
-        <div className="sa-card">Checking admin access…</div>
+      <div className="section-page">
+        <div className="section-shell">
+          <main className="section-main">
+            <div className="sa-card">Checking admin access…</div>
+          </main>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="wrap">
-      <h1 style={{ marginBottom: 10 }}>Admin</h1>
+  const navClass = ({ isActive }) =>
+    "section-nav-pill" + (isActive ? " section-nav-pill--active" : "");
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <Tab to="/admin/bestie" label="Bestie" active={loc.pathname.startsWith("/admin/bestie")} />
-        <Tab to="/admin/closet" label="Closet" active={loc.pathname.startsWith("/admin/closet")} />
-        <Tab to="/admin/users"  label="Users"  active={loc.pathname.startsWith("/admin/users")} />
+  return (
+    <div className="section-page">
+      <div className="section-shell">
+        {/* Sidebar */}
+        <aside className="section-sidebar" aria-label="Admin navigation">
+          {/* Logo + label */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <img
+              src="/lala-logo.png"
+              alt="Styling Adventures"
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 14,
+                objectFit: "cover",
+                flexShrink: 0,
+                boxShadow: "0 8px 20px rgba(15,23,42,0.15)",
+              }}
+            />
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#111827",
+                  marginBottom: 2,
+                }}
+              >
+                Styling Adventures
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.16em",
+                  color: "#9ca3af",
+                }}
+              >
+                Admin tools
+              </div>
+            </div>
+          </div>
+
+          <div className="section-sidebar-label">Admin pages</div>
+
+          <nav className="section-sidebar-nav">
+            <NavLink to="/admin" end className={navClass}>
+              <span className="section-nav-pill-icon">📊</span>
+              <span>Overview</span>
+            </NavLink>
+
+            <NavLink to="/admin/bestie" className={navClass}>
+              <span className="section-nav-pill-icon">💜</span>
+              <span>Bestie tools</span>
+            </NavLink>
+
+            <NavLink to="/admin/closet-upload" className={navClass}>
+              <span className="section-nav-pill-icon">📤</span>
+              <span>Closet upload</span>
+            </NavLink>
+
+            <NavLink to="/admin/closet" className={navClass}>
+              <span className="section-nav-pill-icon">🧺</span>
+              <span>Closet queue</span>
+            </NavLink>
+
+            <NavLink to="/admin/users" className={navClass}>
+              <span className="section-nav-pill-icon">👥</span>
+              <span>Users</span>
+            </NavLink>
+          </nav>
+        </aside>
+
+        {/* Main panel */}
+        <main className="section-main">
+          <Outlet />
+        </main>
       </div>
-
-      <Outlet />
     </div>
-  );
-}
-
-function Tab({ to, label, active }) {
-  return (
-    <NavLink
-      to={to}
-      className="pill"
-      style={{
-        textDecoration: "none",
-        background: active ? "var(--pill-bg-strong)" : "var(--pill-bg)",
-        color: "var(--pill-fg)",
-        padding: "8px 14px",
-        borderRadius: 999,
-        fontWeight: 600,
-      }}
-    >
-      {label}
-    </NavLink>
   );
 }
 
