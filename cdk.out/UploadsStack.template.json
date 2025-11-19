@@ -260,8 +260,71 @@
         "Key": {
          "FilterRules": [
           {
-           "Name": "prefix",
-           "Value": "closet/"
+           "Name": "suffix",
+           "Value": ".png"
+          }
+         ]
+        }
+       },
+       "LambdaFunctionArn": {
+        "Fn::GetAtt": [
+         "ClosetBgWorkerFn832AECE4",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Events": [
+        "s3:ObjectCreated:*"
+       ],
+       "Filter": {
+        "Key": {
+         "FilterRules": [
+          {
+           "Name": "suffix",
+           "Value": ".jpg"
+          }
+         ]
+        }
+       },
+       "LambdaFunctionArn": {
+        "Fn::GetAtt": [
+         "ClosetBgWorkerFn832AECE4",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Events": [
+        "s3:ObjectCreated:*"
+       ],
+       "Filter": {
+        "Key": {
+         "FilterRules": [
+          {
+           "Name": "suffix",
+           "Value": ".jpeg"
+          }
+         ]
+        }
+       },
+       "LambdaFunctionArn": {
+        "Fn::GetAtt": [
+         "ClosetBgWorkerFn832AECE4",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Events": [
+        "s3:ObjectCreated:*"
+       ],
+       "Filter": {
+        "Key": {
+         "FilterRules": [
+          {
+           "Name": "suffix",
+           "Value": ".webp"
           }
          ]
         }
@@ -1438,7 +1501,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "4479bcb4c0ac9425ef145189cc8b2926319b68296cc8ac7e949368b2b2ccc421.zip"
+     "S3Key": "fbb1528f65e37d182de8c5cbcd8fbe09565319503ab64af9a64a25b64f8fc667.zip"
     },
     "Environment": {
      "Variables": {
@@ -1476,7 +1539,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/Resource",
-    "aws:asset:path": "asset.4479bcb4c0ac9425ef145189cc8b2926319b68296cc8ac7e949368b2b2ccc421",
+    "aws:asset:path": "asset.fbb1528f65e37d182de8c5cbcd8fbe09565319503ab64af9a64a25b64f8fc667",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

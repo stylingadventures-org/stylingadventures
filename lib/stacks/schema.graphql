@@ -1,7 +1,6 @@
 """Auth directive used in this API (mapped to Cognito user pools in AppSync)."""
 directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
 
-# If your AppSync configuration doesn’t auto-provide these, keep these scalar lines.
 scalar AWSDateTime
 scalar AWSEmail
 scalar AWSURL
@@ -18,14 +17,13 @@ enum ClosetStatus {
   PUBLISHED
 }
 
-# Who can see the item once it’s approved
+# Who can see the item once it’s approved/published
 enum ClosetAudience {
   PUBLIC
   BESTIE
   EXCLUSIVE
 }
 
-# Sort options for the public closet feed (matches frontend)
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
@@ -40,8 +38,8 @@ type ClosetItem {
   updatedAt: AWSDateTime!
 
   # Media
-  mediaKey: String      # final, background-removed image key
-  rawMediaKey: String   # original upload key (used for background-removal lookup)
+  mediaKey: String
+  rawMediaKey: String
 
   # Basic metadata
   title: String!
@@ -53,7 +51,6 @@ type ClosetItem {
   storySeason: String
   storyVibes: [String!]
 
-  # New, nullable so Lambdas don’t have to populate it yet
   favoriteCount: Int
 }
 
@@ -77,7 +74,6 @@ input SetUserRoleInput {
   tier: Tier
 }
 
-"""Phase-1 lightweight profile returned by Query.me (string-based)."""
 type UserProfile {
   id: ID!
   email: String
@@ -87,9 +83,14 @@ type UserProfile {
   updatedAt: AWSDateTime
 }
 
-"""Paged list of users for admin UI."""
 type AdminUsersPage {
   items: [User!]!
+  nextToken: String
+}
+
+# New: paged admin view of closet items
+type AdminClosetItemsPage {
+  items: [ClosetItem!]!
   nextToken: String
 }
 
@@ -143,7 +144,7 @@ type Poll {
 }
 
 input GameEventInput {
-  type: String!      # e.g., "LEVEL_CLEAR", "DAILY_LOGIN", "SHARE", "STYLE_IT"
+  type: String!
   metadata: AWSJSON
 }
 
@@ -159,14 +160,12 @@ input CreatePollInput {
   options: [String!]!
 }
 
-# NEW: profile patch input
 input UpdateProfileInput {
   displayName: String
   avatarUrl: AWSURL
   bio: String
 }
 
-# NEW: update story metadata for a closet item
 input UpdateClosetItemStoryInput {
   id: ID!
   storyTitle: String
@@ -174,10 +173,15 @@ input UpdateClosetItemStoryInput {
   storyVibes: [String!]
 }
 
-# NEW: admin create with rawMediaKey for background-removal pipeline
 input AdminCreateClosetItemInput {
   title: String!
-  rawMediaKey: String!   # from signedUpload(file)
+
+  """
+  MUST be the exact S3 object key where the file was uploaded,
+  including prefix (for example: "closet/<uuid>.jpg" or "users/<sub>/<uuid>.jpg").
+  """
+  rawMediaKey: String!
+
   season: String
   vibes: String
 }
@@ -195,22 +199,32 @@ type Query {
   adminListPending: [ClosetItem!]!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
 
-  # Lala's Closet — public/community feed
-  # Resolver enforces: status APPROVED/PUBLISHED + audience PUBLIC
-  # NOTE: now returns a simple list instead of ClosetFeedPage
+  """
+  Admin library of closet items, with optional status filter.
+  If status is omitted, returns all items (scan-based for now).
+  """
+  adminListClosetItems(
+    status: ClosetStatus
+    limit: Int
+    nextToken: String
+  ): AdminClosetItemsPage
+    @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
+
+  """
+  Lala's Closet — fan-facing feed.
+
+  Resolver enforces: status = PUBLISHED (gsi2pk = "STATUS#PUBLISHED")
+  and audience = PUBLIC.
+  """
   closetFeed(sort: ClosetFeedSort = NEWEST): [ClosetItem!]!
 
-  # Roles / user directory
-  # Relaxed: nullable so we don’t blow up if resolver returns null
   me: UserProfile
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
 
-  # Bestie Tier
   meBestieStatus: BestieStatus!
   isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!
 
-  # Fans/Game
   getMyProfile: GameProfile!
   topXP(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
   topCoins(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
@@ -221,36 +235,25 @@ type Query {
 # Root: Mutations
 # ─────────────────────────────────────────────────────────────────────────────
 type Mutation {
-  """Creates a new item in DRAFT."""
   createClosetItem(title: String, mediaKey: String): ClosetItem!
-
-  """Marks item PENDING and starts approval workflow."""
   requestClosetApproval(id: ID!): String!
-
-  """Admin/creator fix-up: update the media key on an item."""
   updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
 
-  # NEW: admin create that wires raw upload into bg-removal pipeline
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  # Moderation actions
   adminApproveItem(id: ID!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
   adminRejectItem(id: ID!, reason: String): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  # Visibility for Lala’s Closet
   adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  # Bestie-side story metadata for closet items
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 
-  # Roles
   setUserRole(input: SetUserRoleInput!): UserProfile!
 
-  # Bestie Tier
   startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!
   claimBestieTrial: BestieStatus!
   adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!
@@ -262,21 +265,16 @@ type Mutation {
   adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
 
-  # Fans/Game
   logGameEvent(input: GameEventInput!): GameProfile!
   createPoll(input: CreatePollInput!): Poll
   votePoll(pollId: ID!, optionIndex: Int!): Poll
 
-  # Admin-only game actions
   awardCoins(input: AwardInput!): GameProfile!
     @aws_auth(cognito_groups: ["ADMIN"])
   grantBadge(userId: ID!, badge: String!): GameProfile!
     @aws_auth(cognito_groups: ["ADMIN"])
 
-  # Profile edit
   setDisplayName(displayName: String!): GameProfile!
-
-  # NEW: profile patch
   updateProfile(input: UpdateProfileInput!): GameProfile!
 }
 
@@ -284,3 +282,4 @@ schema {
   query: Query
   mutation: Mutation
 }
+

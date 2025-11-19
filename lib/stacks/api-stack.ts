@@ -147,7 +147,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // CLOSET ADMIN (moderation + public feed)
+    // CLOSET ADMIN (moderation + public feed + admin library)
     // ────────────────────────────────────────────────────────────
     const closetAdminFn = new NodejsFunction(this, "ClosetAdminFn", {
       entry: "lambda/closet/admin.ts",
@@ -164,6 +164,7 @@ export class ApiStack extends Stack {
 
     table.grantReadWriteData(closetAdminFn);
 
+    // DynamoDB access (query/scan/update)
     closetAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -176,6 +177,14 @@ export class ApiStack extends Stack {
       }),
     );
 
+    // Step Functions callbacks for human approval (SendTaskSuccess/Failure)
+    closetAdminFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
+        resources: ["*"], // task token APIs require "*" in most patterns
+      }),
+    );
+
     const closetAdminSource = this.api.addLambdaDataSource(
       "ClosetAdminSource",
       closetAdminFn,
@@ -185,6 +194,12 @@ export class ApiStack extends Stack {
     closetAdminSource.createResolver("AdminListPendingResolver", {
       typeName: "Query",
       fieldName: "adminListPending",
+    });
+
+    // NEW: Admin library / Closet library page
+    closetAdminSource.createResolver("AdminListClosetItemsResolver", {
+      typeName: "Query",
+      fieldName: "adminListClosetItems",
     });
 
     // Fan-facing + Bestie-facing closet feed (NEWEST / MOST_LOVED)

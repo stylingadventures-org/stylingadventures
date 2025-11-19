@@ -26,7 +26,11 @@ interface ClosetItem {
   status: ClosetStatus;
   createdAt: string;
   updatedAt: string;
-  mediaKey?: string;
+
+  // S3 keys
+  mediaKey?: string;      // processed / cutout image (set by bg-worker)
+  rawMediaKey?: string;   // original upload key in S3 (e.g. "closet/uuid.jpg")
+
   title?: string;
   reason?: string;
   audience?: ClosetAudience;
@@ -67,6 +71,7 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     mediaKey: item.mediaKey,
+    rawMediaKey: item.rawMediaKey,   // 👈 expose rawMediaKey
     title: item.title,
     reason: item.reason,
     audience: item.audience,
@@ -108,9 +113,10 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
 
 /**
  * 2) createClosetItem – create a new item in DRAFT.
+ *    We now accept rawMediaKey = FULL S3 key (including "closet/" prefix).
  */
 async function handleCreateClosetItem(
-  args: { title?: string; mediaKey?: string },
+  args: { title?: string; mediaKey?: string; rawMediaKey?: string },
   identity: any,
 ): Promise<ClosetItem> {
   const sub = requireUserSub(identity);
@@ -125,6 +131,7 @@ async function handleCreateClosetItem(
     createdAt: now,
     updatedAt: now,
     mediaKey: args.mediaKey,
+    rawMediaKey: args.rawMediaKey, // 👈 store original upload key
     title: args.title,
   };
 
@@ -134,8 +141,15 @@ async function handleCreateClosetItem(
       Item: marshall({
         pk: pkForUser(sub),
         sk: skForClosetItem(id),
+
+        // status GSI
         gsi1pk: gsi1ForStatus(item.status),
         gsi1sk: now,
+
+        // rawMediaKey GSI uses "rawMediaKey" as its partition key
+        // (index name is RAW_MEDIA_GSI_NAME = "rawMediaKeyIndex" on the table)
+        rawMediaKey: item.rawMediaKey,
+
         ...item,
       }),
     }),
@@ -146,6 +160,7 @@ async function handleCreateClosetItem(
 
 /**
  * 3) updateClosetMediaKey – update the media key on an item owned by the user.
+ *    rawMediaKey stays the same; bg-worker updates mediaKey after cutout.
  */
 async function handleUpdateClosetMediaKey(
   args: { id: string; mediaKey: string },
@@ -311,13 +326,22 @@ export const handler = async (event: any) => {
         return await handleCreateClosetItem(event.arguments, event.identity);
 
       case "updateClosetMediaKey":
-        return await handleUpdateClosetMediaKey(event.arguments, event.identity);
+        return await handleUpdateClosetMediaKey(
+          event.arguments,
+          event.identity,
+        );
 
       case "requestClosetApproval":
-        return await handleRequestClosetApproval(event.arguments, event.identity);
+        return await handleRequestClosetApproval(
+          event.arguments,
+          event.identity,
+        );
 
       case "updateClosetItemStory":
-        return await handleUpdateClosetItemStory(event.arguments, event.identity);
+        return await handleUpdateClosetItemStory(
+          event.arguments,
+          event.identity,
+        );
 
       default:
         throw new Error(`Unsupported field: ${fieldName}`);
@@ -327,3 +351,4 @@ export const handler = async (event: any) => {
     throw err;
   }
 };
+

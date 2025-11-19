@@ -1,5 +1,6 @@
 // lambda/closet/bg-worker.ts
-import type { S3Event } from "aws-lambda";
+
+import { S3Event, S3Handler } from "aws-lambda";
 import {
   DynamoDBClient,
   QueryCommand,
@@ -10,170 +11,210 @@ import {
   GetObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
-
-const REMOVE_BG_ENDPOINT = "https://api.remove.bg/v1.0/removebg";
+import fetch from "node-fetch";
 
 const ddb = new DynamoDBClient({});
 const s3 = new S3Client({});
 
-// ---- env vars (set in CDK / CloudFormation, NOT in code) ----
-const TABLE_NAME = process.env.TABLE_NAME!;
-const RAW_INDEX = process.env.RAW_MEDIA_GSI_NAME || "rawMediaKeyIndex";
-const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY!;
-const OUTPUT_BUCKET = process.env.OUTPUT_BUCKET || ""; // optional override
+const {
+  TABLE_NAME = "",
+  RAW_MEDIA_GSI_NAME = "rawMediaKeyIndex",
+  REMOVE_BG_API_KEY = "",
+  OUTPUT_BUCKET = "",
+} = process.env;
 
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
+if (!RAW_MEDIA_GSI_NAME) throw new Error("Missing env: RAW_MEDIA_GSI_NAME");
 if (!REMOVE_BG_API_KEY) throw new Error("Missing env: REMOVE_BG_API_KEY");
 
-type RemoveBgOpts = {
-  bucket: string;
-  key: string;
-  destKeyPrefix: string;
-};
+const REMOVE_BG_URL = "https://api.remove.bg/v1.0/removebg";
 
-/** Convert S3 stream to Buffer */
-async function streamToBuffer(stream: any): Promise<Buffer> {
-  if (!stream) return Buffer.alloc(0);
-  if (Buffer.isBuffer(stream)) return stream;
+const S = (v: string) => ({ S: v });
 
-  return await new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    stream.on("error", reject);
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-  });
+function nowIso() {
+  return new Date().toISOString();
 }
 
 /**
- * Download original from S3, send to remove.bg, upload cleaned PNG to S3.
- * Returns the final S3 key for the cleaned image.
+ * Read an S3 object body into a Buffer.
  */
-async function removeBackgroundForS3Object(
-  opts: RemoveBgOpts,
-): Promise<string> {
-  const { bucket, key, destKeyPrefix } = opts;
-
-  // 1) Download original from S3
-  const getRes = await s3.send(
+async function bufferFromS3(
+  bucket: string,
+  key: string
+): Promise<{ buf: Buffer; contentType?: string }> {
+  console.log("[bg-worker] Fetching from S3", { bucket, key });
+  const res = await s3.send(
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
-    }),
+    })
   );
-  const originalBuf = await streamToBuffer(getRes.Body as any);
 
-  // 2) Build multipart/form-data request to remove.bg
-  const form = new FormData();
-  form.set("size", "auto");
-  form.set("format", "png");
-  form.set("image_file", new Blob([originalBuf]), "original.png");
+  const body = res.Body;
+  if (!body) throw new Error("Empty S3 body");
 
-  const resp = await fetch(REMOVE_BG_ENDPOINT, {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body as any) {
+    chunks.push(
+      typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Uint8Array)
+    );
+  }
+
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+  return { buf, contentType: res.ContentType };
+}
+
+/**
+ * Call remove.bg with the image as base64 and return the cutout buffer.
+ */
+async function callRemoveBg(imageB64: string): Promise<Buffer> {
+  console.log("[bg-worker] Calling remove.bg");
+
+  const params = new URLSearchParams();
+  params.set("image_file_b64", imageB64);
+  params.set("size", "auto");
+  params.set("format", "png"); // always get PNG with alpha
+
+  const res = await fetch(REMOVE_BG_URL, {
     method: "POST",
     headers: {
       "X-Api-Key": REMOVE_BG_API_KEY,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: form as any,
+    body: params.toString(),
   });
 
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    console.error("remove.bg failed:", resp.status, text);
-    throw new Error(`remove.bg failed (${resp.status})`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error(
+      "[bg-worker] remove.bg failed",
+      res.status,
+      res.statusText,
+      text
+    );
+    throw new Error(
+      `remove.bg failed (${res.status} ${res.statusText}): ${text}`
+    );
   }
 
-  const cleanedArrayBuf = await resp.arrayBuffer();
-  const cleanedBuf = Buffer.from(cleanedArrayBuf);
+  const arrayBuf = await res.arrayBuffer();
+  return Buffer.from(arrayBuf);
+}
 
-  // 3) Upload cleaned PNG back to S3
+/**
+ * Process one S3 object: find the closet item, remove background, update Dynamo.
+ */
+async function processRecord(bucket: string, key: string): Promise<void> {
+  console.log("[bg-worker] Processing record", { bucket, key });
+
+  // Look up closet item by rawMediaKey
+  const q = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: RAW_MEDIA_GSI_NAME,
+      KeyConditionExpression: "rawMediaKey = :k",
+      ExpressionAttributeValues: { ":k": S(key) },
+      Limit: 1,
+    })
+  );
+
+  const item = q.Items?.[0];
+  if (!item) {
+    console.warn(
+      "[bg-worker] No closet item found for rawMediaKey",
+      key
+    );
+    return;
+  }
+
+  const pk = item.pk?.S;
+  const sk = item.sk?.S || "META";
+  const id = item.id?.S || pk?.replace(/^ITEM#/, "");
+
+  if (!pk) {
+    console.warn("[bg-worker] Item missing pk; skipping", { item });
+    return;
+  }
+
+  console.log("[bg-worker] Found closet item", { id, pk, sk });
+
+  // Download original
+  const { buf } = await bufferFromS3(bucket, key);
+  const imgB64 = buf.toString("base64");
+
+  // Call remove.bg
+  const cutoutBuf = await callRemoveBg(imgB64);
+
+  // Decide where to store the cutout
   const outBucket = OUTPUT_BUCKET || bucket;
-  const finalKey = `${destKeyPrefix.replace(/\/+$/, "")}/removed-bg.png`;
+  const destPrefix = `uploads/closet/${id}`;
+  const cutoutKey = `${destPrefix.replace(/\/+$/, "")}/removed-bg.png`;
+
+  console.log("[bg-worker] Writing cutout to S3", {
+    outBucket,
+    cutoutKey,
+  });
 
   await s3.send(
     new PutObjectCommand({
       Bucket: outBucket,
-      Key: finalKey,
-      Body: cleanedBuf,
+      Key: cutoutKey,
+      Body: cutoutBuf,
       ContentType: "image/png",
-    }),
+      ACL: "private",
+    })
   );
 
-  return finalKey;
+  // Update Dynamo row with mediaKey
+  const updatedAt = nowIso();
+  await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: S(pk), sk: S(sk) },
+      UpdateExpression: "SET mediaKey = :m, updatedAt = :u",
+      ExpressionAttributeValues: {
+        ":m": S(cutoutKey),
+        ":u": S(updatedAt),
+      },
+    })
+  );
+
+  console.log("[bg-worker] Updated item with mediaKey", {
+    id,
+    mediaKey: cutoutKey,
+  });
 }
 
-export const handler = async (event: S3Event) => {
-  for (const record of event.Records ?? []) {
+/**
+ * Lambda entry point.
+ */
+export const handler: S3Handler = async (event: S3Event) => {
+  console.log(
+    "[bg-worker] Received S3 event",
+    JSON.stringify(
+      event.Records.map((r) => ({
+        bucket: r.s3.bucket.name,
+        key: decodeURIComponent(r.s3.object.key.replace(/\+/g, " ")),
+      })),
+      null,
+      2
+    )
+  );
+
+  for (const record of event.Records || []) {
+    const bucket = record.s3.bucket.name;
+    const key = decodeURIComponent(
+      record.s3.object.key.replace(/\+/g, " ")
+    );
+
     try {
-      const key = decodeURIComponent(
-        record.s3.object.key.replace(/\+/g, " "),
-      );
-      const bucket = record.s3.bucket.name;
-
-      // 1) Find closet item by rawMediaKey
-      const q = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: RAW_INDEX,
-          KeyConditionExpression: "rawMediaKey = :rk",
-          ExpressionAttributeValues: { ":rk": { S: key } },
-          Limit: 1,
-        }),
-      );
-
-      const item = q.Items?.[0];
-      if (!item) {
-        console.log("[bg-worker] no closet item found for rawMediaKey", key);
-        continue;
-      }
-
-      const pk = item.pk?.S || "";
-      const sk = item.sk?.S || "META";
-      const id = item.id?.S || pk.replace(/^ITEM#/, "");
-
-      if (!pk) {
-        console.warn("[bg-worker] item missing pk; skipping", JSON.stringify(item));
-        continue;
-      }
-
-      console.log(
-        "[bg-worker] processing closet item",
-        id,
-        "rawMediaKey=",
-        key,
-      );
-
-      // 2) Call remove.bg
-      const finalKey = await removeBackgroundForS3Object({
+      await processRecord(bucket, key);
+    } catch (err) {
+      console.error("[bg-worker] Error processing object", {
         bucket,
         key,
-        destKeyPrefix: `uploads/closet/${id}`,
+        error: (err as Error).message,
       });
-
-      // 3) Update DynamoDB item with final mediaKey
-      await ddb.send(
-        new UpdateItemCommand({
-          TableName: TABLE_NAME,
-          Key: { pk: { S: pk }, sk: { S: sk } },
-          UpdateExpression: "SET mediaKey = :mk, updatedAt = :u",
-          ExpressionAttributeValues: {
-            ":mk": { S: finalKey },
-            ":u": { S: new Date().toISOString() },
-          },
-        }),
-      );
-
-      console.log(
-        "[bg-worker] updated item",
-        id,
-        "with mediaKey",
-        finalKey,
-      );
-    } catch (e: any) {
-      console.error(
-        "[bg-worker] error processing record",
-        e?.message || e,
-      );
-      // move on to next record
     }
   }
 };

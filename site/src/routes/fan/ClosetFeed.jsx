@@ -1,29 +1,43 @@
 // site/src/routes/fan/ClosetFeed.jsx
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
 
 const GQL_FEED = /* GraphQL */ `
-  query ClosetFeedSimple {
-    closetFeed {
+  query ClosetFeedSimple($sort: ClosetFeedSort) {
+    closetFeed(sort: $sort) {
       id
       title
       status
       audience
       mediaKey
       rawMediaKey
+      favoriteCount
       createdAt
     }
   }
 `;
+
+function useQuery() {
+  const { search } = useLocation();
+  return React.useMemo(() => new URLSearchParams(search), [search]);
+}
+
+/** Prefer cleaned mediaKey; fall back to rawMediaKey */
+function effectiveKey(item) {
+  const k = item.mediaKey || item.rawMediaKey || null;
+  if (!k) return null;
+  return String(k).replace(/^\/+/, "");
+}
 
 export default function ClosetFeed() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // “Newest / Most loved” toggle (client-only for now)
-  const [sort, setSort] = useState("NEWEST");
+  const [sort, setSort] = useState("NEWEST"); // NEWEST | MOST_LOVED
+  const query = useQuery();
+  const highlightId = query.get("highlight");
 
   useEffect(() => {
     let cancelled = false;
@@ -37,24 +51,30 @@ export default function ClosetFeed() {
           await window.sa.ready();
         }
 
-        const res = await window.sa.graphql(GQL_FEED);
-        const raw = res?.closetFeed || [];
+        const res = await window.sa.graphql(GQL_FEED, { sort });
 
-        // Only show APPROVED + PUBLIC in fan view
+        let raw = [];
+        const cf = res?.closetFeed;
+        if (Array.isArray(cf)) {
+          raw = cf;
+        } else if (cf && Array.isArray(cf.items)) {
+          raw = cf.items;
+        }
+
+        // Filter: APPROVED/PUBLISHED + PUBLIC (backend already enforces, but double-check)
         const visible = raw.filter((it) => {
-          const statusOk = it.status === "APPROVED";
+          const statusOk =
+            it.status === "APPROVED" || it.status === "PUBLISHED";
           const audience = it.audience || "PUBLIC";
           const audienceOk = audience === "PUBLIC";
           return statusOk && audienceOk;
         });
 
-        // attach a usable media key
         const withKeys = visible.map((it) => ({
           ...it,
-          effectiveKey: it.mediaKey || it.rawMediaKey || null,
+          effectiveKey: effectiveKey(it),
         }));
 
-        // build public URLs with new helper
         const hydrated = await Promise.all(
           withKeys.map(async (it) => {
             if (!it.effectiveKey) return it;
@@ -71,8 +91,15 @@ export default function ClosetFeed() {
         hydrated.sort((a, b) => {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
-          if (sort === "NEWEST") return bTime - aTime;
-          // placeholder for MOST_LOVED (same as newest for now)
+
+          if (sort === "MOST_LOVED") {
+            const af = a.favoriteCount ?? 0;
+            const bf = b.favoriteCount ?? 0;
+            if (bf !== af) return bf - af;
+            return bTime - aTime;
+          }
+
+          // NEWEST
           return bTime - aTime;
         });
 
@@ -94,6 +121,15 @@ export default function ClosetFeed() {
   }, [sort]);
 
   const isInitialLoading = loading && items.length === 0;
+
+  // scroll highlight into view on first render
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.querySelector(`[data-closet-id="${highlightId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightId, items]);
 
   return (
     <div className="closet-feed-wrap">
@@ -197,46 +233,57 @@ export default function ClosetFeed() {
 
           {!err && items.length > 0 && (
             <div className="closet-grid">
-              {items.map((it) => (
-                <article key={it.id} className="closet-item">
-                  <div className="closet-item__thumbWrap">
-                    {it.mediaUrl ? (
-                      <img
-                        src={it.mediaUrl}
-                        alt={it.title || "Closet item"}
-                        className="closet-item__thumb"
-                      />
-                    ) : (
-                      <div className="closet-item__thumb closet-item__thumb--empty">
-                        Look coming soon…
+              {items.map((it) => {
+                const isHighlight = highlightId && it.id === highlightId;
+                return (
+                  <article
+                    key={it.id}
+                    data-closet-id={it.id}
+                    className={
+                      "closet-item" +
+                      (isHighlight ? " closet-item--highlight" : "")
+                    }
+                  >
+                    <div className="closet-item__thumbWrap">
+                      {it.mediaUrl ? (
+                        <img
+                          src={it.mediaUrl}
+                          alt={it.title || "Closet item"}
+                          className="closet-item__thumb"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="closet-item__thumb closet-item__thumb--empty">
+                          Look coming soon…
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        className="closet-heart"
+                        aria-label="Heart this look (coming soon)"
+                      >
+                        ♡
+                      </button>
+                    </div>
+
+                    <div className="closet-item__body">
+                      <div className="closet-item__title">
+                        {it.title || "Untitled look"}
                       </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className="closet-heart"
-                      aria-label="Heart this look (coming soon)"
-                    >
-                      ♡
-                    </button>
-                  </div>
-
-                  <div className="closet-item__body">
-                    <div className="closet-item__title">
-                      {it.title || "Untitled look"}
+                      <div className="closet-item__meta">
+                        <span className="closet-chip">Closet look</span>
+                        <span className="closet-meta-text">
+                          Added{" "}
+                          {it.createdAt
+                            ? new Date(it.createdAt).toLocaleDateString()
+                            : "recently"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="closet-item__meta">
-                      <span className="closet-chip">Closet look</span>
-                      <span className="closet-meta-text">
-                        Added{" "}
-                        {it.createdAt
-                          ? new Date(it.createdAt).toLocaleDateString()
-                          : "recently"}
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -246,6 +293,7 @@ export default function ClosetFeed() {
     </div>
   );
 }
+
 
 const styles = `
 .closet-feed-wrap {

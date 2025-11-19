@@ -284,7 +284,13 @@
   }
 
   // ---------- uploads (signed S3 via API Gateway) ----------
-  async function signedUpload(fileOrText) {
+  /**
+   * Global upload helper.
+   *
+   * NEW: accepts optional options:
+   *   signedUpload(file, { key: "uuid.jpg", kind: "closet" })
+   */
+  async function signedUpload(fileOrText, opts = {}) {
     const SA = window.SA || {};
     const cfg = (SA.cfg && SA.cfg()) || window.__cfg || {};
     if (!cfg.uploadsApiUrl) {
@@ -298,11 +304,11 @@
     if (fileOrText instanceof Blob) {
       blob = fileOrText;
       const name = fileOrText.name || `upload-${Date.now()}.bin`;
-      key = name;
+      key = opts.key || name;
     } else {
       const text = String(fileOrText ?? "hello from Styling Adventures");
       blob = new Blob([text], { type: "text/plain" });
-      key = `dev-tests/${Date.now()}.txt`;
+      key = opts.key || `dev-tests/${Date.now()}.txt`;
     }
 
     // Try to get an id token, but don't *require* it.
@@ -314,15 +320,20 @@
       headers.Authorization = maybeIdToken;
     }
 
+    const body = {
+      key,
+      contentType: blob.type || "application/octet-stream",
+    };
+    if (opts.kind) {
+      body.kind = opts.kind;
+    }
+
     const presignRes = await fetch(
       `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`,
       {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          key,
-          contentType: blob.type || "application/octet-stream",
-        }),
+        body: JSON.stringify(body),
       }
     );
 
@@ -348,7 +359,7 @@
       }
 
       return {
-        key,
+        key: presign.key || key,
         bucket: presign.bucket,
         url: presign.publicUrl || presign.url,
         publicUrl: presign.publicUrl || null,
@@ -380,7 +391,7 @@
     }
 
     return {
-      key,
+      key: presign.key || key,
       bucket: presign.bucket,
       url: presign.publicUrl || presign.getUrl || uploadUrl,
       publicUrl: presign.publicUrl || null,

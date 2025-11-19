@@ -1,6 +1,9 @@
 # lib/graphql/closet.graphql
 scalar AWSDateTime
 
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
 enum ClosetStatus {
   DRAFT
   PENDING
@@ -15,12 +18,15 @@ enum ClosetAudience {
   EXCLUSIVE
 }
 
-# Sort options for the public fan feed
+# Sort options for the public / fan-facing feed
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
 }
 
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
 type ClosetItem {
   id: ID!
   userId: ID!
@@ -28,9 +34,14 @@ type ClosetItem {
   status: ClosetStatus!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  mediaKey: String
+
+  # Media keys
+  mediaKey: String        # cleaned/bg-removed asset
+  rawMediaKey: String     # original upload key used by bg worker
+
+  # Basic metadata
   title: String
-  reason: String
+  reason: String          # rejection reason, if any
   audience: ClosetAudience
 
   # Story metadata for Lala’s Closet + Bestie tools
@@ -42,11 +53,9 @@ type ClosetItem {
   favoriteCount: Int
 }
 
-type ClosetFeedPage {
-  items: [ClosetItem!]
-  nextToken: String
-}
-
+# ---------------------------------------------------------------------------
+# Inputs
+# ---------------------------------------------------------------------------
 input UpdateClosetItemStoryInput {
   id: ID!
   storyTitle: String
@@ -54,24 +63,66 @@ input UpdateClosetItemStoryInput {
   storyVibes: [String!]
 }
 
+# Admin create for background-removal pipeline
+input AdminCreateClosetItemInput {
+  title: String!
+
+  """
+  Exact S3 object key of the original upload (including prefix), e.g.
+  "closet/<uuid>.jpg" or "users/<sub>/<uuid>.jpg".
+  """
+  rawMediaKey: String!
+
+  season: String
+  vibes: String
+}
+
+# ---------------------------------------------------------------------------
+# Queries
+# ---------------------------------------------------------------------------
 type Query {
+  # Signed-in creator’s items
   myCloset: [ClosetItem!]!
+
+  # Items awaiting moderation
   adminListPending: [ClosetItem!]!
-  closetFeed(limit: Int, nextToken: String, sort: ClosetFeedSort): ClosetFeedPage
+
+  """
+  Fan-facing closet feed.
+
+  Implementation note: current resolver enforces status = PUBLISHED and
+  (later) audience = PUBLIC. It returns a simple list rather than a paged
+  object, even though limit/nextToken may be accepted for future use.
+  """
+  closetFeed(
+    limit: Int
+    nextToken: String
+    sort: ClosetFeedSort = NEWEST
+  ): [ClosetItem!]!
 
   # Small snippet for dashboards (Bestie + Fan home)
   topClosetLooks(limit: Int): [ClosetItem!]!
 }
 
+# ---------------------------------------------------------------------------
+# Mutations
+# ---------------------------------------------------------------------------
 type Mutation {
+  # Legacy/basic creator flows
   createClosetItem(title: String, mediaKey: String): ClosetItem!
   requestClosetApproval(id: ID!): String!
   updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
 
+  # Admin create wired to bg-removal pipeline
+  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+
+  # Moderation actions
   adminApproveItem(id: ID!): ClosetItem!
   adminRejectItem(id: ID!, reason: String): ClosetItem!
 
+  # Visibility controls (Lala’s Closet audiences)
   adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
 
+  # Bestie-side story metadata for closet items
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 }

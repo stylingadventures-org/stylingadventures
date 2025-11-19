@@ -3,6 +3,8 @@ import {
   QueryCommand,
   UpdateItemCommand,
   PutItemCommand,
+  ScanCommand,
+  AttributeValue,
 } from "@aws-sdk/client-dynamodb";
 import {
   SFNClient,
@@ -40,6 +42,7 @@ type ClosetItem = {
   reason?: string;
   season?: string | null;
   vibes?: string | null;
+  audience?: string | null;
 };
 
 type AdminCreateClosetItemInput = {
@@ -47,6 +50,11 @@ type AdminCreateClosetItemInput = {
   rawMediaKey: string;
   season?: string | null;
   vibes?: string | null;
+};
+
+type AdminClosetItemsPage = {
+  items: ClosetItem[];
+  nextToken?: string | null;
 };
 
 function getIdentity(event: AppSyncEvent) {
@@ -81,6 +89,7 @@ function mapItem(raw: any): ClosetItem {
     reason: raw.reason?.S ?? "",
     season: raw.season?.S ?? null,
     vibes: raw.vibes?.S ?? null,
+    audience: raw.audience?.S ?? null,
   };
 }
 
@@ -91,6 +100,20 @@ function randomId() {
   return `${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 10)}`;
+}
+
+// simple base64 wrapper for LastEvaluatedKey
+function encodeToken(key?: Record<string, AttributeValue>): string | null {
+  if (!key) return null;
+  return Buffer.from(JSON.stringify(key), "utf8").toString("base64");
+}
+function decodeToken(token?: string | null): Record<string, AttributeValue> | undefined {
+  if (!token) return undefined;
+  try {
+    return JSON.parse(Buffer.from(String(token), "base64").toString("utf8"));
+  } catch {
+    return undefined;
+  }
 }
 
 /* ============== Queries ============== */
@@ -109,7 +132,7 @@ export const adminListPending = async (
       ExpressionAttributeValues: { ":p": S("STATUS#PENDING") },
       ScanIndexForward: true,
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience",
       ExpressionAttributeNames: { "#s": "status" },
     }),
   );
@@ -120,6 +143,81 @@ export const adminListPending = async (
       status: it["status"],
     }),
   );
+};
+
+export const adminListClosetItems = async (
+  event: AppSyncEvent,
+): Promise<AdminClosetItemsPage> => {
+  const { isAdmin } = getIdentity(event);
+  if (!isAdmin) throw new Error("Forbidden");
+
+  const { status, limit = 50, nextToken } = event.arguments || {};
+  const exclusiveKey = decodeToken(nextToken);
+
+  // If a specific status is provided, use gsi2 (STATUS index).
+  if (status) {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: "gsi2",
+        KeyConditionExpression: "gsi2pk = :p",
+        ExpressionAttributeValues: { ":p": S(`STATUS#${status}`) },
+        ScanIndexForward: false, // newest first
+        ProjectionExpression:
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience",
+        ExpressionAttributeNames: { "#s": "status" },
+        Limit: limit,
+        ExclusiveStartKey: exclusiveKey,
+      }),
+    );
+
+    const items = (out.Items || []).map((it) =>
+      mapItem({
+        ...it,
+        status: it["status"],
+      }),
+    );
+
+    return {
+      items,
+      nextToken: encodeToken(out.LastEvaluatedKey),
+    };
+  }
+
+  // Otherwise, do a (small) scan of ITEM# records.
+  // This is fine while the dataset is small; if it grows,
+  // we can move to a dedicated "ALL_ITEMS" index.
+  const out = await ddb.send(
+    new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: "begins_with(pk, :p)",
+      ExpressionAttributeValues: { ":p": S("ITEM#") },
+      ProjectionExpression:
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience",
+      ExpressionAttributeNames: { "#s": "status" },
+      Limit: limit,
+      ExclusiveStartKey: exclusiveKey,
+    }),
+  );
+
+  const items = (out.Items || []).map((it) =>
+    mapItem({
+      ...it,
+      status: it["status"],
+    }),
+  );
+
+  // newest first
+  items.sort(
+    (a, b) =>
+      new Date(b.createdAt || 0).getTime() -
+      new Date(a.createdAt || 0).getTime(),
+  );
+
+  return {
+    items,
+    nextToken: encodeToken(out.LastEvaluatedKey),
+  };
 };
 
 export const closetFeed = async (
@@ -137,7 +235,7 @@ export const closetFeed = async (
       ExpressionAttributeValues: { ":p": S("STATUS#PUBLISHED") },
       ScanIndexForward: sort === "NEWEST",
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience",
       ExpressionAttributeNames: { "#s": "status" },
     }),
   );
@@ -214,6 +312,7 @@ export const adminCreateClosetItem = async (
     reason: "",
     season: input.season ?? null,
     vibes: input.vibes ?? null,
+    audience: null,
   };
 };
 
@@ -332,6 +431,7 @@ export const handler = async (event: AppSyncEvent) => {
   const field = event.info.fieldName;
 
   if (field === "adminListPending") return adminListPending(event);
+  if (field === "adminListClosetItems") return adminListClosetItems(event);
   if (field === "adminCreateClosetItem") return adminCreateClosetItem(event);
   if (field === "adminApproveItem") return adminApproveItem(event);
   if (field === "adminRejectItem") return adminRejectItem(event);
