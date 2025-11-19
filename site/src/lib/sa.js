@@ -303,11 +303,16 @@ export async function getSignedGetUrl(key) {
   )}`;
 }
 
-/** Upload a Blob or text via API Gateway presign to S3. */
-export async function signedUpload(fileOrText) {
+/**
+ * Upload a Blob or text via API Gateway presign to S3.
+ *
+ * NEW: accepts an optional options object:
+ *   signedUpload(file, { key: "uuid.jpg", kind: "closet" })
+ */
+export async function signedUpload(fileOrText, opts = {}) {
   // Prefer native helper exposed by public/sa.js if present
   if (typeof window.signedUpload === "function")
-    return window.signedUpload(fileOrText);
+    return window.signedUpload(fileOrText, opts);
 
   const SA = await getSA();
   const cfg = readCfg(SA);
@@ -316,15 +321,26 @@ export async function signedUpload(fileOrText) {
   }
 
   // Prepare payload
-  let blob, keyRaw;
+  let blob;
+  let keyRaw;
+
   if (fileOrText instanceof Blob) {
     blob = fileOrText;
     const name = fileOrText.name || `upload-${Date.now()}.bin`;
-    keyRaw = name; // API may scope under users/<sub>/ server-side
+    keyRaw = opts.key || name; // API may scope/prefix server-side
   } else {
     const text = String(fileOrText ?? "hello");
     blob = new Blob([text], { type: "text/plain" });
-    keyRaw = `dev-tests/${Date.now()}.txt`;
+    keyRaw = opts.key || `dev-tests/${Date.now()}.txt`;
+  }
+
+  const presignBody = {
+    key: keyRaw,
+    contentType: blob.type || "application/octet-stream",
+  };
+
+  if (opts.kind) {
+    presignBody.kind = opts.kind;
   }
 
   // Ask API for a presigned request
@@ -336,10 +352,7 @@ export async function signedUpload(fileOrText) {
         "Content-Type": "application/json",
         Authorization: await getIdToken(),
       },
-      body: JSON.stringify({
-        key: keyRaw,
-        contentType: blob.type || "application/octet-stream",
-      }),
+      body: JSON.stringify(presignBody),
     }
   );
 

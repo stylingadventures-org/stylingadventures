@@ -130,9 +130,10 @@ export default function AdminLayout() {
               <span>Closet upload</span>
             </NavLink>
 
-            <NavLink to="/admin/closet" className={navClass}>
-              <span className="section-nav-pill-icon">🧺</span>
-              <span>Closet queue</span>
+            {/* 🔹 NEW: Closet library nav pill */}
+            <NavLink to="/admin/closet-library" className={navClass}>
+              <span className="section-nav-pill-icon">📚</span>
+              <span>Closet library</span>
             </NavLink>
 
             <NavLink to="/admin/users" className={navClass}>
@@ -150,4 +151,5 @@ export default function AdminLayout() {
     </div>
   );
 }
+
 

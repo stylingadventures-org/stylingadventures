@@ -35,9 +35,10 @@ import BestieCloset from "./routes/bestie/Closet.jsx";
 import AdminLayout from "./routes/admin/AdminLayout.jsx";
 import AdminHome from "./routes/admin/AdminHome.jsx";
 import BestieTools from "./routes/admin/BestieTools.jsx";
-import ClosetQueue from "./routes/admin/ClosetQueue.jsx";
 import ClosetUpload from "./routes/admin/ClosetUpload.jsx";
 import Users from "./routes/admin/Users.jsx";
+// 🔹 NEW: admin closet library
+import ClosetLibrary from "./routes/admin/ClosetLibrary.jsx";
 
 import LandingRedirect from "./routes/util/LandingRedirect.jsx";
 
@@ -97,7 +98,8 @@ const router = createBrowserRouter([
           { index: true, element: <AdminHome /> },  // /admin
           { path: "bestie", element: <BestieTools /> },
           { path: "closet-upload", element: <ClosetUpload /> },
-          { path: "closet", element: <ClosetQueue /> },
+          // 🔹 NEW subpage
+          { path: "closet-library", element: <ClosetLibrary /> },
           { path: "users", element: <Users /> },
         ],
       },

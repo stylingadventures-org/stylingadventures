@@ -1,7 +1,12 @@
 // site/src/routes/admin/ClosetUpload.jsx
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+} from "react";
 import { Link } from "react-router-dom";
-import { signedUpload, getSignedGetUrl } from "../../lib/sa"; // upload helper + public URL helper
+import { signedUpload, getSignedGetUrl } from "../../lib/sa";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const GRID_PREVIEW_LIMIT = 6;
@@ -56,6 +61,7 @@ const GQL = {
         createdAt
         updatedAt
         ownerSub
+        audience
       }
     }
   `,
@@ -68,7 +74,68 @@ const GQL = {
       }
     }
   `,
+  approve: /* GraphQL */ `
+    mutation Approve($id: ID!) {
+      adminApproveItem(id: $id) {
+        id
+        status
+        updatedAt
+        audience
+      }
+    }
+  `,
+  reject: /* GraphQL */ `
+    mutation Reject($id: ID!, $reason: String) {
+      adminRejectItem(id: $id, reason: $reason) {
+        id
+        status
+        reason
+        updatedAt
+      }
+    }
+  `,
+  setAudience: /* GraphQL */ `
+    mutation SetAudience($id: ID!, $audience: ClosetAudience!) {
+      adminSetClosetAudience(id: $id, audience: $audience) {
+        audience
+      }
+    }
+  `,
 };
+
+const AUDIENCE_OPTIONS = [
+  { value: "PUBLIC", label: "Fan + Bestie" },
+  { value: "BESTIE", label: "Bestie only" },
+  { value: "EXCLUSIVE", label: "Exclusive drop" },
+];
+
+/** Prefer cleaned mediaKey; fallback to rawMediaKey if cutout not ready. */
+function effectiveKey(item) {
+  const k = item.mediaKey || item.rawMediaKey || null;
+  if (!k) return null;
+  return String(k).replace(/^\/+/, "");
+}
+
+function humanStatusLabel(item) {
+  const status = item.status || "UNKNOWN";
+  const hasCutout = !!item.mediaKey;
+
+  if (status === "PENDING" && !hasCutout && item.rawMediaKey) {
+    return "processing bg";
+  }
+  if (status === "PENDING" && hasCutout) {
+    return "ready to review";
+  }
+  return status.toLowerCase();
+}
+
+function randomId() {
+  const g = window.crypto;
+  if (g?.randomUUID) return g.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
 
 export default function ClosetUpload() {
   // Form fields
@@ -94,6 +161,14 @@ export default function ClosetUpload() {
   const [itemsError, setItemsError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | PENDING | PUBLISHED | REJECTED
+
+  // Review-state (merged queue)
+  const [viewMode, setViewMode] = useState("ACTIVITY"); // ACTIVITY | REVIEW
+  const [busyId, setBusyId] = useState(null);
+
+  // Auto-update timer
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
 
   const fileInputRef = useRef(null);
 
@@ -184,8 +259,19 @@ export default function ClosetUpload() {
 
         results.push(`Uploading “${itemTitle}”…`);
 
-        const up = await signedUpload(file); // { key, bucket, url, ... }
-        const rawMediaKey = up.key;
+        // Build a simple filename; the uploads Lambda will prefix with `closet/`
+        const ext = (file.name.split(".").pop() || "jpg")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "") || "jpg";
+        const uploadKey = `${randomId()}.${ext}`;
+
+        // signedUpload will call the presign API with { key, kind: "closet", ... }
+        const up = await signedUpload(file, {
+          key: uploadKey,   // just "uuid.ext"
+          kind: "closet",   // tells Lambda to store under closet/
+        });
+        const rawMediaKey = up.key; // e.g. "closet/8c261459-3104-43fe-908d-38ada56f881c.jpg"
+
 
         const input = {
           title: itemTitle,
@@ -211,7 +297,9 @@ export default function ClosetUpload() {
       }
 
       setUploadMsg(
-        `Finished uploading ${total} item${total > 1 ? "s" : ""}. Background removal will run shortly, then you can approve them from the Closet queue.`
+        `Finished uploading ${total} item${
+          total > 1 ? "s" : ""
+        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`
       );
       setUploadDetails(results);
 
@@ -221,6 +309,7 @@ export default function ClosetUpload() {
       setVibes("");
 
       await loadItems();
+      setViewMode("REVIEW"); // jump to review after an upload
     } catch (err) {
       console.error(err);
       setUploadMsg(err?.message || String(err));
@@ -241,7 +330,15 @@ export default function ClosetUpload() {
       ]);
 
       const pending = pendingData?.adminListPending ?? [];
-      const published = publishedData?.closetFeed ?? [];
+
+      // closetFeed may be list OR page
+      let published = [];
+      const cf = publishedData?.closetFeed;
+      if (Array.isArray(cf)) {
+        published = cf;
+      } else if (cf && Array.isArray(cf.items)) {
+        published = cf.items;
+      }
 
       const byId = {};
       for (const item of pending) {
@@ -259,7 +356,7 @@ export default function ClosetUpload() {
 
       const hydrated = await Promise.all(
         merged.map(async (item) => {
-          const key = item.mediaKey || item.rawMediaKey || null;
+          const key = effectiveKey(item);
           if (!key) return item;
           try {
             const url = await getSignedGetUrl(key);
@@ -272,6 +369,8 @@ export default function ClosetUpload() {
       );
 
       setItems(hydrated);
+      setLastUpdatedAt(Date.now());
+      setSecondsSinceUpdate(0);
     } catch (err) {
       console.error(err);
       setItemsError(err?.message || "Failed to load closet items.");
@@ -284,14 +383,45 @@ export default function ClosetUpload() {
     loadItems();
   }, []);
 
+  // polling every ~20s
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadItems();
+    }, 20000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // live "auto-updated Xs ago" timer
+  useEffect(() => {
+    if (!lastUpdatedAt) return;
+    const id = setInterval(() => {
+      setSecondsSinceUpdate(
+        Math.floor((Date.now() - lastUpdatedAt) / 1000)
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lastUpdatedAt]);
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+      if (statusFilter !== "ALL" && item.status !== statusFilter)
+        return false;
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
       return (item.title || "").toLowerCase().includes(q);
     });
   }, [items, search, statusFilter]);
+
+  // For review mode: always pending-only, regardless of statusFilter
+  const pendingItems = useMemo(() => {
+    return items.filter((item) => {
+      if (item.status !== "PENDING") return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      return (item.title || "").toLowerCase().includes(q);
+    });
+  }, [items, search]);
 
   const itemCount = filteredItems.length;
   const previewItems = filteredItems.slice(0, GRID_PREVIEW_LIMIT);
@@ -319,7 +449,77 @@ export default function ClosetUpload() {
     }
   }
 
+  // ------- Review actions (approve / reject / audience) -------
+
+  function updateLocalAudience(id, audience) {
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, audience } : it))
+    );
+  }
+
+  async function saveAudience(id, audience) {
+    try {
+      setBusyId(id);
+      await window.sa.graphql(GQL.setAudience, { id, audience });
+      await loadItems();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to save audience.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function approveItem(item) {
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.approve, { id: item.id });
+      const audience = item.audience || "PUBLIC";
+      await window.sa.graphql(GQL.setAudience, {
+        id: item.id,
+        audience,
+      });
+      await loadItems();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to approve item.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function rejectItem(item) {
+    const reason =
+      window.prompt("Reason for rejection? (optional)") || null;
+    if (!window.confirm("Reject this closet item?")) return;
+
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.reject, {
+        id: item.id,
+        reason,
+      });
+      await loadItems();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to reject item.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   // ------- Render -------
+
+  const autoLabel =
+    lastUpdatedAt == null
+      ? "—"
+      : secondsSinceUpdate < 2
+      ? "just now"
+      : `${secondsSinceUpdate}s ago`;
+
+  const isReviewMode = viewMode === "REVIEW";
+
+  const reviewList = pendingItems; // full list in review mode
 
   return (
     <div className="closet-admin-page">
@@ -329,28 +529,29 @@ export default function ClosetUpload() {
       <header className="closet-admin-header">
         <div className="closet-admin-title-block">
           <span className="closet-admin-kicker">
-            Styling Adventures with Lala
+            STYLING ADVENTURES WITH LALA
           </span>
           <h1>
             Admin Closet Studio{" "}
-            <span className="closet-admin-emoji" role="img" aria-label="dress">
+            <span
+              className="closet-admin-emoji"
+              role="img"
+              aria-label="dress"
+            >
               👗
             </span>
           </h1>
           <p>
-            Upload new looks, keep the closet tidy, and make the fan side feel
-            like a curated boutique.
+            Upload new looks, keep the closet tidy, and make the fan side
+            feel like a curated boutique.
           </p>
         </div>
 
         <div className="closet-admin-header-right">
-          <span className="closet-admin-pill">Admin portal</span>
+          <span className="closet-admin-pill">ADMIN PORTAL</span>
           <span className="closet-admin-count">
             Closet items: <strong>{items.length}</strong>
           </span>
-          <Link to="/admin/closet" className="sa-btn sa-btn--ghost">
-            Open review queue
-          </Link>
         </div>
       </header>
 
@@ -362,16 +563,17 @@ export default function ClosetUpload() {
             <div>
               <h2 className="closet-card-title">Closet upload</h2>
               <p className="closet-card-sub">
-                Drop in photos from shoots or collabs. Each file becomes its own
-                closet item.
+                Drop in photos from shoots or collabs. Each file becomes its
+                own closet item.
               </p>
             </div>
           </header>
 
-          {/* Dropzone styled like “Choose a file…” tile */}
+          {/* Dropzone */}
           <div
             className={
-              "closet-dropzone" + (isDragging ? " closet-dropzone--active" : "")
+              "closet-dropzone" +
+              (isDragging ? " closet-dropzone--active" : "")
             }
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -395,7 +597,7 @@ export default function ClosetUpload() {
             style={{ display: "none" }}
           />
 
-          {/* Meta fields below dropzone */}
+          {/* Meta fields */}
           <div className="closet-upload-fields">
             <label className="closet-field">
               <span className="closet-field-label">Base title</span>
@@ -512,19 +714,54 @@ export default function ClosetUpload() {
           </button>
 
           <p className="closet-footer-note">
-            Raw images are stored first. A Step Functions flow handles
-            background cleanup, then you can approve them in the review queue.
+            Raw images are stored first. A background-removal worker converts
+            them into cutouts, then you can approve them in the dashboard on
+            the right.
           </p>
         </section>
 
-        {/* RIGHT: Dashboard panel (preview-style) */}
+        {/* RIGHT: Dashboard panel */}
         <section className="sa-card closet-dashboard-card">
-          <header className="closet-card-header">
+          <header className="closet-card-header closet-dashboard-header">
             <div>
               <h2 className="closet-card-title">Closet dashboard</h2>
               <p className="closet-card-sub">
-                Filter, search, and peek at what fans will see in the closet.
+                Switch between recent activity and pending review, then peek
+                at what fans will see in the closet.
               </p>
+            </div>
+
+            <div className="closet-auto-meta">
+              <div className="closet-mode-toggle">
+                <button
+                  type="button"
+                  className={
+                    "closet-mode-pill" +
+                    (viewMode === "ACTIVITY"
+                      ? " closet-mode-pill--active"
+                      : "")
+                  }
+                  onClick={() => setViewMode("ACTIVITY")}
+                >
+                  Recent activity
+                </button>
+                <button
+                  type="button"
+                  className={
+                    "closet-mode-pill" +
+                    (viewMode === "REVIEW"
+                      ? " closet-mode-pill--active"
+                      : "")
+                  }
+                  onClick={() => setViewMode("REVIEW")}
+                >
+                  Pending review
+                </button>
+              </div>
+              <div className="closet-auto-block">
+                <span className="closet-auto-label">AUTO-UPDATED</span>
+                <span className="closet-auto-value">{autoLabel}</span>
+              </div>
             </div>
           </header>
 
@@ -534,10 +771,12 @@ export default function ClosetUpload() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="closet-filter-input"
+              disabled={isReviewMode} // review mode always pending
             >
               <option value="ALL">All statuses</option>
               <option value="PENDING">Pending</option>
               <option value="PUBLISHED">Published</option>
+              <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
             </select>
 
@@ -562,129 +801,311 @@ export default function ClosetUpload() {
             </button>
           </div>
 
-          <div className="closet-grid-header">
-            <span className="closet-grid-title">
-              Closet items grid · <strong>{itemCount}</strong>{" "}
-              {itemCount === 1 ? "item" : "items"}
-            </span>
-          </div>
-
-          {itemsError && (
-            <div className="closet-grid-error">{itemsError}</div>
-          )}
-
-          {itemCount === 0 && !itemsLoading && !itemsError && (
-            <div className="closet-grid-empty">
-              No items match your filters yet. Try clearing search or upload a
-              new look on the left.
-            </div>
-          )}
-
-          {itemsLoading && itemCount === 0 && (
-            <div className="closet-grid-empty">Loading closet items…</div>
-          )}
-
-          {itemCount > 0 && (
+          {!isReviewMode && (
             <>
-              <div className="closet-grid">
-                {previewItems.map((item) => {
-                  const status = item.status || "UNKNOWN";
-                  const isNewFlag = isNew(item.createdAt);
-
-                  let statusLabel = status.toLowerCase();
-                  let statusClass = "closet-status-pill--default";
-                  if (status === "PUBLISHED")
-                    statusClass = "closet-status-pill--published";
-                  else if (status === "PENDING")
-                    statusClass = "closet-status-pill--pending";
-                  else if (status === "REJECTED")
-                    statusClass = "closet-status-pill--rejected";
-
-                  return (
-                    <article key={item.id} className="closet-grid-card">
-                      <div className="closet-grid-thumb">
-                        {item.mediaUrl ? (
-                          <img
-                            src={item.mediaUrl}
-                            alt={item.title || "Closet item"}
-                          />
-                        ) : (
-                          <span className="closet-grid-thumb-empty">
-                            No preview
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="closet-grid-body">
-                        <div className="closet-grid-title-row">
-                          <div className="closet-grid-main-title">
-                            {item.title || "Untitled look"}
-                          </div>
-                          {isNewFlag && (
-                            <span className="closet-badge-new">New</span>
-                          )}
-                        </div>
-
-                        <div className="closet-grid-meta">
-                          <span
-                            className={"closet-status-pill " + statusClass}
-                          >
-                            {statusLabel}
-                          </span>
-                          <span className="closet-grid-audience">
-                            {item.audience || "Fan / Bestie"}
-                          </span>
-                        </div>
-
-                        <div className="closet-grid-footer">
-                          <span className="closet-grid-date">
-                            {item.createdAt
-                              ? new Date(
-                                  item.createdAt
-                                ).toLocaleDateString()
-                              : "—"}
-                          </span>
-                          <div className="closet-grid-actions">
-                            <button
-                              type="button"
-                              className="closet-grid-link"
-                              onClick={() =>
-                                window.open(
-                                  `/fan/closet-feed?highlight=${item.id}`,
-                                  "_blank"
-                                )
-                              }
-                            >
-                              View
-                            </button>
-                            <button
-                              type="button"
-                              className="closet-grid-link closet-grid-link--danger"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+              <div className="closet-grid-header">
+                <span className="closet-grid-title">
+                  Closet items grid · <strong>{itemCount}</strong>{" "}
+                  {itemCount === 1 ? "item" : "items"}
+                </span>
               </div>
 
-              {(hasMore || itemCount > previewItems.length) && (
-                <div className="closet-grid-footer-row">
-                  <span className="closet-grid-summary">
-                    Showing first{" "}
-                    <strong>
-                      {Math.min(GRID_PREVIEW_LIMIT, itemCount)}
-                    </strong>{" "}
-                    of <strong>{itemCount}</strong> item
-                    {itemCount === 1 ? "" : "s"}.
-                  </span>
-                  <Link to="/admin/closet" className="closet-grid-cta">
-                    View full closet queue →
-                  </Link>
+              {itemsError && (
+                <div className="closet-grid-error">{itemsError}</div>
+              )}
+
+              {itemCount === 0 && !itemsLoading && !itemsError && (
+                <div className="closet-grid-empty">
+                  No items match your filters yet. Try clearing search or
+                  upload a new look on the left.
+                </div>
+              )}
+
+              {itemsLoading && itemCount === 0 && (
+                <div className="closet-grid-empty">
+                  Loading closet items…
+                </div>
+              )}
+
+              {itemCount > 0 && (
+                <>
+                  <div className="closet-grid">
+                    {previewItems.map((item) => {
+                      const status = item.status || "UNKNOWN";
+                      const isNewFlag = isNew(item.createdAt);
+
+                      let statusClass = "closet-status-pill--default";
+                      if (status === "PUBLISHED" || status === "APPROVED")
+                        statusClass = "closet-status-pill--published";
+                      else if (status === "PENDING")
+                        statusClass = "closet-status-pill--pending";
+                      else if (status === "REJECTED")
+                        statusClass = "closet-status-pill--rejected";
+
+                      const statusLabel = humanStatusLabel(item);
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="closet-grid-card"
+                        >
+                          <div className="closet-grid-thumb">
+                            {item.mediaUrl ? (
+                              <img
+                                src={item.mediaUrl}
+                                alt={item.title || "Closet item"}
+                              />
+                            ) : (
+                              <span className="closet-grid-thumb-empty">
+                                No preview
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="closet-grid-body">
+                            <div className="closet-grid-title-row">
+                              <div className="closet-grid-main-title">
+                                {item.title || "Untitled look"}
+                              </div>
+                              {isNewFlag && (
+                                <span className="closet-badge-new">
+                                  New
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="closet-grid-meta">
+                              <span
+                                className={
+                                  "closet-status-pill " + statusClass
+                                }
+                              >
+                                {statusLabel}
+                              </span>
+                              <span className="closet-grid-audience">
+                                {item.audience
+                                  ? AUDIENCE_OPTIONS.find(
+                                      (o) =>
+                                        o.value === item.audience
+                                    )?.label || item.audience
+                                  : "Fan / Bestie"}
+                              </span>
+                            </div>
+
+                            <div className="closet-grid-footer">
+                              <span className="closet-grid-date">
+                                {item.createdAt
+                                  ? new Date(
+                                      item.createdAt
+                                    ).toLocaleDateString()
+                                  : "—"}
+                              </span>
+                              <div className="closet-grid-actions">
+                                <button
+                                  type="button"
+                                  className="closet-grid-link"
+                                  onClick={() =>
+                                    window.open(
+                                      `/fan/closet-feed?highlight=${item.id}`,
+                                      "_blank"
+                                    )
+                                  }
+                                >
+                                  View
+                                </button>
+                                <button
+                                  type="button"
+                                  className="closet-grid-link closet-grid-link--danger"
+                                  onClick={() =>
+                                    handleDelete(item.id)
+                                  }
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  {(hasMore ||
+                    itemCount > previewItems.length) && (
+                    <div className="closet-grid-footer-row">
+                      <span className="closet-grid-summary">
+                        Showing first{" "}
+                        <strong>
+                          {Math.min(GRID_PREVIEW_LIMIT, itemCount)}
+                        </strong>{" "}
+                        of <strong>{itemCount}</strong> item
+                        {itemCount === 1 ? "" : "s"}.
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {isReviewMode && (
+            <>
+              <div className="closet-grid-header closet-grid-header--review">
+                <span className="closet-grid-title">
+                  Pending review ·{" "}
+                  <strong>{reviewList.length}</strong>{" "}
+                  {reviewList.length === 1 ? "item" : "items"}
+                </span>
+                <span className="closet-grid-hint">
+                  Approve to publish to the fan closet, or reject with a
+                  note for your own records.
+                </span>
+              </div>
+
+              {itemsError && (
+                <div className="closet-grid-error">{itemsError}</div>
+              )}
+
+              {itemsLoading && reviewList.length === 0 && (
+                <div className="closet-grid-empty">
+                  Loading pending looks…
+                </div>
+              )}
+
+              {!itemsLoading &&
+                reviewList.length === 0 &&
+                !itemsError && (
+                  <div className="closet-grid-empty">
+                    Nothing waiting for review right now. 🥳
+                  </div>
+                )}
+
+              {reviewList.length > 0 && (
+                <div className="closet-grid closet-grid--review">
+                  {reviewList.map((item) => {
+                    const hasCutout = !!item.mediaKey;
+                    const statusLabel = humanStatusLabel(item);
+                    const isPending = item.status === "PENDING";
+
+                    return (
+                      <article
+                        key={item.id}
+                        className="closet-grid-card closet-grid-card--review"
+                      >
+                        <div className="closet-grid-thumb">
+                          {item.mediaUrl ? (
+                            <img
+                              src={item.mediaUrl}
+                              alt={item.title || "Closet item"}
+                            />
+                          ) : (
+                            <span className="closet-grid-thumb-empty">
+                              No preview yet
+                            </span>
+                          )}
+
+                          <div className="closet-review-pills">
+                            <span className="closet-status-pill closet-status-pill--pending">
+                              {statusLabel}
+                            </span>
+                            {isPending && !hasCutout && (
+                              <span className="closet-bg-pill">
+                                BG running
+                              </span>
+                            )}
+                            {isPending && hasCutout && (
+                              <span className="closet-bg-pill closet-bg-pill--ready">
+                                Cutout ready
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="closet-grid-body closet-grid-body--review">
+                          <div className="closet-grid-title-row">
+                            <div className="closet-grid-main-title">
+                              {item.title || "Untitled look"}
+                            </div>
+                          </div>
+
+                          <div className="closet-grid-meta closet-grid-meta--review">
+                            <span className="closet-grid-audience pill-soft">
+                              {item.audience
+                                ? AUDIENCE_OPTIONS.find(
+                                    (o) => o.value === item.audience
+                                  )?.label || item.audience
+                                : "Fan + Bestie"}
+                            </span>
+                            <span className="closet-grid-date">
+                              {item.createdAt
+                                ? new Date(
+                                    item.createdAt
+                                  ).toLocaleDateString()
+                                : "Recently"}
+                            </span>
+                          </div>
+
+                          <div className="closet-review-audience-row">
+                            <label className="closet-review-label">
+                              Audience
+                            </label>
+                            <select
+                              className="sa-input closet-review-audience"
+                              value={item.audience || "PUBLIC"}
+                              onChange={async (e) => {
+                                const val = e.target.value;
+                                updateLocalAudience(item.id, val);
+                                // if already approved later, we can persist immediately;
+                                // for pending we persist on approve.
+                                if (item.status !== "PENDING") {
+                                  await saveAudience(item.id, val);
+                                }
+                              }}
+                            >
+                              {AUDIENCE_OPTIONS.map((opt) => (
+                                <option
+                                  key={opt.value}
+                                  value={opt.value}
+                                >
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {!hasCutout && (
+                            <p className="closet-review-hint">
+                              Background is still processing. You can approve
+                              now, or wait for the cutout preview to finish.
+                            </p>
+                          )}
+
+                          <div className="closet-review-actions">
+                            <button
+                              type="button"
+                              className="sa-btn closet-review-approve"
+                              disabled={
+                                !isPending || busyId === item.id
+                              }
+                              onClick={() => approveItem(item)}
+                            >
+                              {busyId === item.id
+                                ? "Saving…"
+                                : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              className="sa-link closet-review-reject"
+                              disabled={busyId === item.id}
+                              onClick={() => rejectItem(item)}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -695,28 +1116,26 @@ export default function ClosetUpload() {
   );
 }
 
-const styles = `
+const styles = /* css */ `
 .closet-admin-page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 16px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
 }
 
-/* Header banner */
+/* HEADER -------------------------------------------------- */
 
 .closet-admin-header {
+  background:
+    radial-gradient(circle at top left,#fce7f3,#f9fafb 60%),
+    radial-gradient(circle at bottom right,#e0e7ff,#ffffff);
+  border-radius:26px;
+  padding:18px 22px;
+  box-shadow:0 18px 40px rgba(148,163,184,0.32);
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
   gap:16px;
-  padding:16px 20px;
-  border-radius:24px;
-  background:
-    radial-gradient(circle at top left, rgba(252,231,243,0.95), rgba(249,250,251,0.98)),
-    radial-gradient(circle at bottom right, rgba(224,231,255,0.95), rgba(255,255,255,1));
-  border:1px solid #e5e7eb;
-  box-shadow:0 18px 40px rgba(148,163,184,0.32);
-  margin-bottom:18px;
 }
 
 .closet-admin-title-block {
@@ -727,13 +1146,13 @@ const styles = `
 
 .closet-admin-kicker {
   font-size:11px;
+  letter-spacing:0.18em;
   text-transform:uppercase;
-  letter-spacing:.16em;
   color:#9ca3af;
   font-weight:600;
 }
 
-.closet-admin-header h1 {
+.closet-admin-title-block h1 {
   margin:0;
   font-size:22px;
   letter-spacing:-0.02em;
@@ -741,11 +1160,12 @@ const styles = `
   align-items:center;
   gap:6px;
 }
+
 .closet-admin-emoji {
   font-size:22px;
 }
 
-.closet-admin-header p {
+.closet-admin-title-block p {
   margin:2px 0 0;
   font-size:13px;
   color:#4b5563;
@@ -755,21 +1175,23 @@ const styles = `
 .closet-admin-header-right {
   display:flex;
   flex-direction:column;
-  gap:8px;
   align-items:flex-end;
+  gap:8px;
 }
+
 .closet-admin-pill {
-  font-size:11px;
-  padding:2px 10px;
+  padding:3px 10px;
   border-radius:999px;
-  background:#111827;
-  color:#fff;
+  background:#020617;
+  color:#f9fafb;
+  font-size:11px;
   text-transform:uppercase;
-  letter-spacing:.14em;
+  letter-spacing:0.14em;
 }
+
 .closet-admin-count {
   font-size:12px;
-  color:#4b5563;
+  color:#6b7280;
 }
 
 @media (max-width: 768px) {
@@ -782,26 +1204,27 @@ const styles = `
   }
 }
 
-/* Two-column shell */
+/* SHELL -------------------------------------------------- */
 
 .closet-admin-shell {
   display:grid;
-  grid-template-columns:minmax(0, 320px) minmax(0, 1fr);
+  grid-template-columns:minmax(0, 330px) minmax(0, 1fr);
   gap:18px;
 }
-@media (max-width: 900px) {
+
+@media (max-width: 960px) {
   .closet-admin-shell {
-    grid-template-columns:minmax(0, 1fr);
+    grid-template-columns:minmax(0,1fr);
   }
 }
 
-/* Shared card header */
+/* SHARED CARD HEADER ------------------------------------- */
 
 .closet-card-header {
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  gap:10px;
+  gap:16px;
   margin-bottom:10px;
 }
 
@@ -810,39 +1233,45 @@ const styles = `
   font-size:17px;
   font-weight:600;
 }
+
 .closet-card-sub {
   margin:4px 0 0;
   font-size:13px;
   color:#6b7280;
 }
 
-/* Upload card styles */
+/* UPLOAD CARD -------------------------------------------- */
 
 .closet-upload-card {
   background:#fdfbff;
-  border-radius:20px;
+  border-radius:22px;
   border:1px solid #e5e7eb;
   box-shadow:0 14px 36px rgba(148,163,184,0.28);
   padding:16px 18px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
 }
 
-/* Dropzone tile */
+/* Dropzone */
 
 .closet-dropzone {
-  margin-top:8px;
-  border-radius:18px;
+  margin-top:4px;
+  border-radius:20px;
+  padding:26px 18px;
   border:1px dashed #d1d5db;
-  padding:20px 14px;
   background:#fbf4ff;
   text-align:center;
   cursor:pointer;
   transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
+
 .closet-dropzone--active {
   border-color:#a855f7;
   background:#f3e8ff;
-  box-shadow:0 0 0 2px rgba(168,85,247,0.15);
+  box-shadow:0 0 0 2px rgba(168,85,247,0.18);
 }
+
 .closet-drop-icon {
   width:34px;
   height:34px;
@@ -855,10 +1284,12 @@ const styles = `
   color:#6d28d9;
   font-size:18px;
 }
+
 .closet-drop-title {
   font-size:14px;
   font-weight:600;
 }
+
 .closet-drop-text {
   margin-top:2px;
   font-size:12px;
@@ -867,102 +1298,162 @@ const styles = `
 
 /* Upload fields */
 
+
+/* Upload fields (Base title / Season / Vibes) --------------- */
+
 .closet-upload-fields {
-  margin-top:14px;
-  display:grid;
-  gap:10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e5e7eb;
+  display: grid;
+  gap: 12px;
 }
+
+/* each label block */
 .closet-field {
-  display:flex;
-  flex-direction:column;
-  gap:4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+
+/* main label text */
 .closet-field-label {
-  font-size:12px;
-  color:#6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  text-transform: none;      /* no all-caps */
+  letter-spacing: 0;
 }
+
+/* helper text under Base title */
 .closet-field-hint {
-  font-size:11px;
-  color:#9ca3af;
+  font-size: 11px;
+  color: #9ca3af;
 }
+
+/* row with Season / Vibes */
 .closet-upload-row {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
+
 @media (max-width: 720px) {
   .closet-upload-row {
-    grid-template-columns:1fr;
+    grid-template-columns: 1fr;
   }
+}
+
+/* pill inputs */
+.sa-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  padding: 8px 14px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+}
+
+.sa-input::placeholder {
+  color: #c4c4d3;           /* softer placeholder */
+}
+
+.sa-input:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.18);
+}
+
+.sa-input {
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  padding:8px 12px;
+  font-size:14px;
+  outline:none;
+  background:#ffffff;
+}
+
+.sa-input:focus {
+  border-color:#a855f7;
+  box-shadow:0 0 0 1px rgba(168,85,247,0.25);
 }
 
 /* File summary + preview */
 
 .closet-file-summary {
-  margin-top:10px;
+  margin-top:8px;
   padding:8px 10px;
-  border-radius:12px;
+  border-radius:14px;
   background:#f9fafb;
   border:1px solid #e5e7eb;
   font-size:12px;
 }
+
 .closet-file-summary-header {
   display:flex;
   justify-content:space-between;
   align-items:center;
   margin-bottom:4px;
 }
+
 .closet-file-list {
   list-style:disc;
   padding-left:18px;
   margin:0;
-  max-height:100px;
+  max-height:110px;
   overflow-y:auto;
 }
 
+.sa-muted {
+  color:#9ca3af;
+}
+
 .closet-preview-row {
-  margin-top:10px;
+  margin-top:8px;
   display:flex;
-  gap:12px;
+  gap:10px;
   align-items:flex-start;
 }
+
 .closet-preview-frame {
   width:132px;
   height:132px;
-  border-radius:14px;
+  border-radius:16px;
   overflow:hidden;
   border:1px solid #e5e7eb;
   background:#f3f4f6;
   flex-shrink:0;
 }
+
 .closet-preview-img {
   width:100%;
   height:100%;
   object-fit:cover;
 }
+
 .closet-preview-caption {
   font-size:12px;
   color:#6b7280;
   margin:0;
 }
 
-/* Upload status + button */
-
 .closet-upload-status {
   margin-top:10px;
   padding:8px 10px;
-  border-radius:10px;
+  border-radius:12px;
   background:#eef2ff;
   border:1px solid #e5e7eb;
   font-size:12px;
 }
+
 .closet-upload-status ul {
   margin:4px 0 0;
   padding-left:18px;
 }
 
 .closet-upload-btn {
-  margin-top:12px;
+  margin-top:10px;
   width:100%;
   border:none;
   border-radius:999px;
@@ -975,102 +1466,182 @@ const styles = `
   box-shadow:0 14px 30px rgba(129,140,248,0.6);
   transition:transform .05s ease, box-shadow .15s ease, opacity .15s ease;
 }
+
 .closet-upload-btn:hover:enabled {
   transform:translateY(-1px);
   box-shadow:0 18px 38px rgba(129,140,248,0.7);
 }
+
 .closet-upload-btn:disabled {
   opacity:0.7;
   cursor:not-allowed;
+  box-shadow:none;
 }
+
 .closet-footer-note {
-  margin-top:10px;
+  margin-top:8px;
   font-size:11px;
   color:#9ca3af;
 }
 
-/* Dashboard card */
+/* DASHBOARD CARD ----------------------------------------- */
 
 .closet-dashboard-card {
   background:#f8f5ff;
-  border-radius:20px;
+  border-radius:22px;
   border:1px solid #e5e7eb;
   box-shadow:0 14px 36px rgba(148,163,184,0.28);
   padding:16px 18px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.closet-dashboard-header {
+  align-items:flex-start;
+}
+
+.closet-auto-meta {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+}
+
+.closet-auto-block {
+  font-size:11px;
+  text-align:right;
+}
+
+.closet-auto-label {
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  color:#9ca3af;
+  display:block;
+}
+
+.closet-auto-value {
+  font-weight:600;
+  font-size:12px;
+}
+
+/* Mode pills */
+
+.closet-mode-toggle {
+  display:inline-flex;
+  padding:2px;
+  border-radius:999px;
+  background:#f3f4ff;
+  box-shadow:inset 0 0 0 1px rgba(148,163,184,0.35);
+}
+
+.closet-mode-pill {
+  border-radius:999px;
+  border:none;
+  padding:4px 10px;
+  font-size:11px;
+  cursor:pointer;
+  background:transparent;
+  color:#6b7280;
+}
+
+.closet-mode-pill--active {
+  background:#ffffff;
+  color:#111827;
+  box-shadow:0 3px 9px rgba(148,163,184,0.35);
 }
 
 /* Filters row */
 
 .closet-filters-row {
-  margin-top:8px;
-  margin-bottom:10px;
-  display:flex;
-  flex-wrap:wrap;
+  margin-top:6px;
+  display:grid;
+  grid-template-columns:minmax(0,140px) minmax(0,1fr) 180px auto;
   gap:8px;
+  align-items:center;
 }
+
 .closet-filter-input {
-  flex:1 1 150px;
-  min-width:0;
-  height:34px;
   border-radius:999px;
   border:1px solid #e5e7eb;
-  background:#f9fafb;
-  padding:0 12px;
+  padding:7px 12px;
   font-size:13px;
-  color:#4b5563;
+  background:#f9fafb;
 }
+
 .closet-filter-refresh {
   border-radius:999px;
-  padding:0 14px;
-  height:34px;
   border:1px solid #e5e7eb;
   background:#ffffff;
+  padding:7px 14px;
   font-size:13px;
   cursor:pointer;
 }
+
 .closet-filter-refresh:disabled {
   opacity:0.7;
   cursor:not-allowed;
 }
 
-/* Grid */
+@media (max-width: 720px) {
+  .closet-filters-row {
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
+/* GRID – ACTIVITY ---------------------------------------- */
 
 .closet-grid-header {
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
+  align-items:baseline;
+  margin-top:6px;
 }
+
+.closet-grid-header--review {
+  align-items:center;
+}
+
 .closet-grid-title {
   font-size:13px;
   color:#6b7280;
 }
 
+.closet-grid-hint {
+  font-size:12px;
+  color:#9ca3af;
+}
+
 .closet-grid-error {
-  margin-bottom:8px;
+  margin-top:8px;
   padding:8px 10px;
   border-radius:10px;
   background:#fef2f2;
   color:#b91c1c;
   font-size:12px;
 }
+
 .closet-grid-empty {
-  padding:14px 10px;
+  margin-top:12px;
   font-size:13px;
   color:#6b7280;
 }
 
 .closet-grid {
+  margin-top:10px;
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:14px;
-  margin-top:4px;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:12px;
+}
+
+.closet-grid--review {
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
 }
 
 .closet-grid-card {
   background:#f4ebff;
   border-radius:18px;
-  padding:10px;
+  padding:8px;
   border:1px solid #e5e0ff;
   display:flex;
   flex-direction:column;
@@ -1078,44 +1649,85 @@ const styles = `
   box-shadow:0 10px 26px rgba(148,163,184,0.4);
 }
 
+.closet-grid-card--review {
+  background:#fef9ff;
+}
+
+/* Thumbs */
+
 .closet-grid-thumb {
-  border-radius:14px;
-  overflow:hidden;
+  position:relative;
+  border-radius:16px;
   background:#ede9fe;
-  height:150px;
+  overflow:hidden;
+  height:160px;
   display:flex;
   align-items:center;
   justify-content:center;
 }
+
 .closet-grid-thumb img {
   width:100%;
   height:100%;
   object-fit:cover;
   display:block;
 }
+
 .closet-grid-thumb-empty {
   font-size:12px;
   color:#6b7280;
 }
+
+/* Pills on image (review mode) */
+
+.closet-review-pills {
+  position:absolute;
+  left:10px;
+  top:10px;
+  display:flex;
+  gap:6px;
+}
+
+.closet-bg-pill {
+  padding:2px 7px;
+  border-radius:999px;
+  background:#fee2e2;
+  color:#b91c1c;
+  font-size:10px;
+}
+
+.closet-bg-pill--ready {
+  background:#dcfce7;
+  color:#166534;
+}
+
+/* Grid body */
 
 .closet-grid-body {
   display:flex;
   flex-direction:column;
   gap:4px;
 }
+
+.closet-grid-body--review {
+  padding-top:2px;
+}
+
 .closet-grid-title-row {
   display:flex;
   justify-content:space-between;
   align-items:center;
   gap:6px;
 }
+
 .closet-grid-main-title {
   font-size:13px;
   font-weight:600;
   white-space:nowrap;
-  overflow:hidden;
   text-overflow:ellipsis;
+  overflow:hidden;
 }
+
 .closet-badge-new {
   font-size:10px;
   padding:2px 6px;
@@ -1128,93 +1740,169 @@ const styles = `
   display:flex;
   justify-content:space-between;
   align-items:center;
-  gap:6px;
+  font-size:11px;
 }
+
+.closet-grid-meta--review {
+  margin-top:2px;
+}
+
 .closet-grid-audience {
   font-size:11px;
   color:#6b7280;
 }
 
+/* Status pills */
+
 .closet-status-pill {
   border-radius:999px;
   padding:2px 8px;
   font-size:11px;
-  border:1px solid transparent;
-  text-transform:capitalize;
+  text-transform:lowercase;
 }
+
 .closet-status-pill--default {
   background:#e5e7eb;
   color:#374151;
 }
-.closet-status-pill--published {
-  background:#ecfdf3;
-  border-color:#bbf7d0;
-  color:#166534;
-}
 .closet-status-pill--pending {
   background:#fef3c7;
-  border-color:#fde68a;
   color:#92400e;
+}
+.closet-status-pill--published {
+  background:#ecfdf3;
+  color:#166534;
 }
 .closet-status-pill--rejected {
   background:#fee2e2;
-  border-color:#fecaca;
   color:#b91c1c;
 }
+
+/* Grid footer */
 
 .closet-grid-footer {
   margin-top:4px;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  gap:6px;
-}
-.closet-grid-date {
   font-size:11px;
+}
+
+.closet-grid-date {
   color:#9ca3af;
 }
+
 .closet-grid-actions {
   display:flex;
   gap:6px;
 }
+
 .closet-grid-link {
   border:none;
   background:transparent;
-  padding:0;
+  padding:2px 6px;
   font-size:11px;
-  text-decoration:underline;
+  border-radius:999px;
   cursor:pointer;
   color:#4b5563;
+  background:rgba(249,250,251,0.9);
 }
+
+.closet-grid-link:hover {
+  background:#eef2ff;
+  color:#111827;
+}
+
 .closet-grid-link--danger {
+  color:#b91c1c;
+  background:#fef2f2;
+}
+
+.closet-grid-link--danger:hover {
+  background:#fee2e2;
+}
+
+.closet-grid-footer-row {
+  margin-top:8px;
+  font-size:12px;
+  color:#6b7280;
+}
+
+/* REVIEW controls ---------------------------------------- */
+
+.closet-review-audience-row {
+  margin-top:6px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.closet-review-label {
+  font-size:11px;
+  font-weight:600;
+}
+
+.closet-review-audience {
+  max-width:200px;
+}
+
+.closet-review-hint {
+  margin-top:4px;
+  font-size:11px;
+  color:#9ca3af;
+}
+
+.closet-review-actions {
+  margin-top:8px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.closet-review-approve {
+  border-radius:999px;
+  padding:6px 14px;
+  border:none;
+  background:#4ade80;
+  font-size:13px;
+  cursor:pointer;
+}
+
+.closet-review-reject {
+  font-size:12px;
   color:#b91c1c;
 }
 
-/* Footer under preview grid */
+/* Utility pills */
 
-.closet-grid-footer-row {
-  margin-top:10px;
-  padding-top:8px;
-  border-top:1px dashed rgba(209,213,219,0.7);
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:8px;
-  font-size:12px;
-}
-.closet-grid-summary {
-  color:#6b7280;
-}
-.closet-grid-cta {
-  font-size:12px;
-  text-decoration:none;
-  padding:6px 12px;
+.pill-soft {
+  padding:2px 8px;
   border-radius:999px;
-  border:1px solid #4c1d95;
-  color:#4c1d95;
-  background:#f5f3ff;
+  background:#eef2ff;
 }
-.closet-grid-cta:hover {
-  background:#ede9fe;
+
+/* Tiny button + link helpers ---------------------------- */
+
+.sa-link {
+  border:none;
+  background:none;
+  padding:0;
+  font-size:13px;
+  color:#4f46e5;
+  text-decoration:underline;
+  cursor:pointer;
+}
+
+.sa-btn {
+  border-radius:999px;
+  border:1px solid transparent;
+  padding:6px 12px;
+  font-size:13px;
+  cursor:pointer;
+}
+
+.sa-btn--ghost {
+  background:#f9fafb;
+  border-color:#e5e7eb;
 }
 `;

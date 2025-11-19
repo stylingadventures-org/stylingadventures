@@ -1,3 +1,4 @@
+// lib/stacks/uploads-stack.ts
 import {
   Stack,
   StackProps,
@@ -38,8 +39,6 @@ export class UploadsStack extends Stack {
     const { userPool, webOrigin, cloudFrontOrigin, webBucketName, table } =
       props;
 
-    // Allow turning off Cognito auth for uploads in dev:
-    // DISABLE_UPLOAD_AUTH=true npx cdk deploy UploadsStack
     const disableUploadAuth =
       process.env.DISABLE_UPLOAD_AUTH === "true" ||
       process.env.DISABLE_UPLOAD_AUTH === "1";
@@ -202,7 +201,7 @@ export class UploadsStack extends Stack {
     }
 
     // -------- Closet background-removal worker (remove.bg) --------
-    // This worker watches for new files under "closet/" in the uploads bucket,
+    // This worker watches for new image objects in the uploads bucket,
     // calls remove.bg, and updates the closet item with the cleaned mediaKey.
     const closetBgWorkerFn = new NodejsFunction(this, "ClosetBgWorkerFn", {
       entry: path.resolve(process.cwd(), "lambda/closet/bg-worker.ts"),
@@ -222,13 +221,16 @@ export class UploadsStack extends Stack {
     table.grantReadWriteData(closetBgWorkerFn);
     this.bucket.grantReadWrite(closetBgWorkerFn);
 
-    // Trigger worker when a new closet upload is created.
-    // Make sure this prefix matches what `signedUpload` uses for admin closet uploads.
-    this.bucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(closetBgWorkerFn),
-      { prefix: "closet/" },
-    );
+    // ⬇️ IMPORTANT CHANGE:
+    // Trigger worker for *any* new image file in the uploads bucket,
+    // regardless of prefix (root, users/, closet/, etc).
+    for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
+      this.bucket.addEventNotification(
+        s3.EventType.OBJECT_CREATED,
+        new s3n.LambdaDestination(closetBgWorkerFn),
+        { suffix: ext },
+      );
+    }
 
     // ---- API Gateway (RestApi + CORS error responses) ----
     this.api = new apigw.RestApi(this, "UploadsApi", {
@@ -236,7 +238,6 @@ export class UploadsStack extends Stack {
       deployOptions: { stageName: "prod" },
     });
 
-    // CORS headers for GatewayResponses (errors before hitting Lambda)
     this.api.addGatewayResponse("Default4xxCors", {
       type: apigw.ResponseType.DEFAULT_4XX,
       responseHeaders: {
@@ -274,7 +275,6 @@ export class UploadsStack extends Stack {
     const delInt = new apigw.LambdaIntegration(presignFn, { proxy: true });
     const headInt = new apigw.LambdaIntegration(thumbHeadFn, { proxy: true });
 
-    // Shared auth config for methods
     const securedMethodAuth: apigw.MethodOptions = disableUploadAuth
       ? {
           authorizationType: apigw.AuthorizationType.NONE,

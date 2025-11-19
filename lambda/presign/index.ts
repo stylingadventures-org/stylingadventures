@@ -127,10 +127,14 @@ export const handler = async (
   try {
     // --- POST /presign ---
     if (method === "POST" && /\/presign$/.test(path)) {
-      const body = parseBody<{ key: string; contentType: string }>(event);
+      const body = parseBody<{
+        key: string;
+        contentType: string;
+        kind?: string;
+      }>(event);
       if (!body) return err(headers, 400, "Missing body");
 
-      let { key, contentType } = body;
+      let { key, contentType, kind } = body;
 
       if (!key || typeof key !== "string") {
         return err(headers, 400, 'Invalid "key"');
@@ -142,8 +146,18 @@ export const handler = async (
         return err(headers, 400, "Illegal key");
       }
 
-      // In normal authenticated mode, auto-scope under users/{sub}/
-      if (sub && !key.startsWith("users/")) {
+      // Normalise leading slashes
+      key = key.replace(/^\/+/, "");
+
+      const isClosetUpload = kind === "closet";
+
+      if (isClosetUpload) {
+        // Force all closet uploads under closet/ so the S3 trigger fires.
+        if (!key.startsWith("closet/")) {
+          key = `closet/${key}`;
+        }
+      } else if (sub && !key.startsWith("users/")) {
+        // Normal user-scoped uploads.
         key = `users/${sub}/${key}`;
       }
 
