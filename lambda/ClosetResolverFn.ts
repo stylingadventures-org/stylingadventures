@@ -3,20 +3,30 @@ import {
   DynamoDBClient,
   QueryCommand,
   UpdateItemCommand,
-  GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 
-const ddb = new DynamoDBClient({});
+const TABLE_NAME =
+  process.env.APP_TABLE || process.env.TABLE_NAME || undefined;
+const GSI1_NAME =
+  process.env.APP_GSI1_NAME || process.env.GSI1_NAME || "gsi1"; // OWNER#index
+const GSI2_NAME =
+  process.env.APP_GSI2_NAME || process.env.STATUS_GSI || "gsi2"; // STATUS#index
 
-// Base app table and GSIs (match lib/stacks/database-stack.ts)
-const TABLE_NAME = process.env.APP_TABLE!;
-const GSI1_NAME = process.env.APP_GSI1_NAME || "gsi1"; // OWNER#index
-const GSI2_NAME = process.env.APP_GSI2_NAME || "gsi2"; // STATUS#index
+if (!TABLE_NAME) {
+  // Fail fast at cold start if mis-configured
+  throw new Error("ClosetResolverFn: TABLE_NAME/APP_TABLE env var is required");
+}
 
 // ----------------- Types matching schema -----------------
 
-type ClosetStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PUBLISHED";
+type ClosetStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "PUBLISHED";
+
 type ClosetAudience = "PUBLIC" | "BESTIE" | "EXCLUSIVE";
 
 export type ClosetItem = {
@@ -27,6 +37,7 @@ export type ClosetItem = {
   createdAt: string;
   updatedAt: string;
   mediaKey?: string | null;
+  rawMediaKey?: string | null;
   title?: string | null;
   reason?: string | null;
   audience?: ClosetAudience | null;
@@ -35,11 +46,16 @@ export type ClosetItem = {
   storyTitle?: string | null;
   storySeason?: string | null;
   storyVibes?: string[] | null;
+
+  // Engagement
+  favoriteCount?: number | null;
 };
+
+type ClosetFeedSort = "NEWEST" | "MOST_LOVED";
 
 type ClosetFeedArgs = {
   limit?: number | null;
-  nextToken?: string | null;
+  sort?: ClosetFeedSort | null;
 };
 
 type UpdateStoryArgs = {
@@ -50,6 +66,8 @@ type UpdateStoryArgs = {
     storyVibes?: string[] | null;
   };
 };
+
+const ddb = new DynamoDBClient({});
 
 // ----------------- Entry point -----------------
 
@@ -66,7 +84,7 @@ export const handler = async (event: any) => {
         return await safeAdminListPending();
 
       case "closetFeed":
-        return await safeClosetFeed(event.arguments || {});
+        return await safeClosetFeed(event);
 
       default:
         break;
@@ -106,15 +124,12 @@ async function safeAdminListPending(): Promise<ClosetItem[]> {
   }
 }
 
-async function safeClosetFeed(args: ClosetFeedArgs) {
+async function safeClosetFeed(event: any): Promise<ClosetItem[]> {
   try {
-    return await handleClosetFeed(args);
+    return await handleClosetFeed(event);
   } catch (err) {
     console.error("closetFeed resolver error", err);
-    return {
-      items: [] as ClosetItem[],
-      nextToken: null as string | null,
-    };
+    return [];
   }
 }
 
@@ -213,17 +228,19 @@ async function handleAdminListPending(): Promise<ClosetItem[]> {
 }
 
 // Query.closetFeed: public community feed (Lala's Closet)
-async function handleClosetFeed(args: ClosetFeedArgs) {
+async function handleClosetFeed(event: any): Promise<ClosetItem[]> {
+  const args: ClosetFeedArgs = event?.arguments || {};
+  const sort: ClosetFeedSort = args.sort || "NEWEST";
+
   const limit =
-    args.limit && args.limit > 0 && args.limit <= 50 ? args.limit : 12;
+    args.limit && args.limit > 0 && args.limit <= 50 ? args.limit : 24;
 
   // We support APPROVED (and PUBLISHED if you later start using it).
   const statuses: ClosetStatus[] = ["APPROVED", "PUBLISHED"];
   const collected: ClosetItem[] = [];
 
   for (const status of statuses) {
-    // For now we ignore args.nextToken and just take a slice of
-    // the merged results. That's fine for v1 of the feed.
+    // For now we ignore pagination; just grab a slice from each status.
     const resp = await ddb.send(
       new QueryCommand({
         TableName: TABLE_NAME,
@@ -233,7 +250,7 @@ async function handleClosetFeed(args: ClosetFeedArgs) {
           ":pk": { S: `STATUS#${status}` },
         },
         ScanIndexForward: false, // newest first
-        Limit: limit * 2, // read a little extra before filtering
+        Limit: limit * 2, // read a little extra before filtering/merging
       })
     );
 
@@ -249,44 +266,54 @@ async function handleClosetFeed(args: ClosetFeedArgs) {
       item.status === "APPROVED" || item.status === "PUBLISHED";
 
     const audience: ClosetAudience =
-      (item.audience as any as ClosetAudience) || "PUBLIC";
+      (item.audience as ClosetAudience | null) || "PUBLIC";
     const audienceOk = audience === "PUBLIC";
 
     return statusOk && audienceOk;
   });
 
-  // Sort newest first by updatedAt (falls back to createdAt)
-  filtered.sort((a, b) => {
-    const aTime = a.updatedAt || a.createdAt || "";
-    const bTime = b.updatedAt || b.createdAt || "";
-    if (aTime < bTime) return 1;
-    if (aTime > bTime) return -1;
-    return 0;
+  // De-dupe by id in case an item appears under multiple statuses.
+  const byId = new Map<string, ClosetItem>();
+  for (const it of filtered) {
+    if (!byId.has(it.id)) {
+      byId.set(it.id, it);
+    }
+  }
+
+  const unique = Array.from(byId.values());
+
+  // Sort
+  unique.sort((a, b) => {
+    const aCreated = a.createdAt || "";
+    const bCreated = b.createdAt || "";
+
+    if (sort === "MOST_LOVED") {
+      const af = a.favoriteCount ?? 0;
+      const bf = b.favoriteCount ?? 0;
+      if (bf !== af) return bf - af;
+      return bCreated.localeCompare(aCreated);
+    }
+
+    // NEWEST
+    return bCreated.localeCompare(aCreated);
   });
 
-  const items = filtered.slice(0, limit);
-
-  return {
-    items,
-    nextToken: null as string | null, // simple v1: no pagination yet
-  };
+  return unique.slice(0, limit);
 }
 
 // Mutation.updateClosetItemStory: Bestie saves story metadata
-async function handleUpdateClosetItemStory(args: UpdateStoryArgs): Promise<ClosetItem> {
+async function handleUpdateClosetItemStory(
+  args: UpdateStoryArgs
+): Promise<ClosetItem> {
   const { id, storyTitle, storySeason, storyVibes } = args.input || ({} as any);
 
   if (!id) {
     throw new Error("updateClosetItemStory: id is required");
   }
 
-  // NOTE: we assume owners are editing their own items from the Bestie UI.
-  // Admin tooling could be extended later to allow cross-user edits.
-  const ownerSub = (globalThis as any).__lambda_event_sub || ""; // placeholder
-  // In practice we get the sub from the invocation event, not global.
-  // This resolver is called via AppSync, so we need the full event.
-  // We'll throw and let the safe wrapper handle missing identity;
+  // This mutation isn't fully implemented in this Lambda yet.
+  // Keeping explicit error so we notice if the schema starts calling it here.
   throw new Error(
-    "updateClosetItemStory should be invoked via safeUpdateClosetItemStory with event context"
+    "updateClosetItemStory is not implemented in ClosetResolverFn"
   );
 }

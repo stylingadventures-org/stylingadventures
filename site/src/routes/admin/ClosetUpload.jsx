@@ -1118,6 +1118,9 @@ export default function ClosetUpload() {
 
 const styles = /* css */ `
 .closet-admin-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
   display:flex;
   flex-direction:column;
   gap:16px;
@@ -1296,9 +1299,6 @@ const styles = /* css */ `
   color:#6b7280;
 }
 
-/* Upload fields */
-
-
 /* Upload fields (Base title / Season / Vibes) --------------- */
 
 .closet-upload-fields {
@@ -1309,29 +1309,23 @@ const styles = /* css */ `
   gap: 12px;
 }
 
-/* each label block */
 .closet-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-/* main label text */
 .closet-field-label {
   font-size: 12px;
   font-weight: 500;
   color: #4b5563;
-  text-transform: none;      /* no all-caps */
-  letter-spacing: 0;
 }
 
-/* helper text under Base title */
 .closet-field-hint {
   font-size: 11px;
   color: #9ca3af;
 }
 
-/* row with Season / Vibes */
 .closet-upload-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1348,30 +1342,16 @@ const styles = /* css */ `
 .sa-input {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  padding: 8px 14px;
-  font-size: 14px;
-  background: #ffffff;
-  outline: none;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  padding:8px 14px;
+  font-size:14px;
+  background:#ffffff;
+  outline:none;
 }
 
 .sa-input::placeholder {
-  color: #c4c4d3;           /* softer placeholder */
-}
-
-.sa-input:focus {
-  border-color: #a855f7;
-  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.18);
-}
-
-.sa-input {
-  border-radius:999px;
-  border:1px solid #e5e7eb;
-  padding:8px 12px;
-  font-size:14px;
-  outline:none;
-  background:#ffffff;
+  color:#c4c4d3;
 }
 
 .sa-input:focus {
@@ -1417,19 +1397,23 @@ const styles = /* css */ `
 }
 
 .closet-preview-frame {
-  width:132px;
-  height:132px;
-  border-radius:16px;
+  width:160px;
+  height:160px;
+  border-radius:18px;
   overflow:hidden;
   border:1px solid #e5e7eb;
-  background:#f3f4f6;
+  background:linear-gradient(135deg,#fdf2ff,#e0f2fe);
+  display:flex;
+  align-items:center;
+  justify-content:center;
   flex-shrink:0;
+  padding:8px;
 }
 
 .closet-preview-img {
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
 }
 
 .closet-preview-caption {
@@ -1630,7 +1614,7 @@ const styles = /* css */ `
 .closet-grid {
   margin-top:10px;
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
   gap:12px;
 }
 
@@ -1653,23 +1637,24 @@ const styles = /* css */ `
   background:#fef9ff;
 }
 
-/* Thumbs */
+/* Thumbs – match library (full view, centered) */
 
 .closet-grid-thumb {
   position:relative;
   border-radius:16px;
-  background:#ede9fe;
+  background:linear-gradient(135deg,#fdf2ff,#e0f2fe);
   overflow:hidden;
-  height:160px;
+  height:220px;
   display:flex;
   align-items:center;
   justify-content:center;
+  padding:8px;
 }
 
 .closet-grid-thumb img {
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
   display:block;
 }
 
