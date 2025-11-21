@@ -260,71 +260,8 @@
         "Key": {
          "FilterRules": [
           {
-           "Name": "suffix",
-           "Value": ".png"
-          }
-         ]
-        }
-       },
-       "LambdaFunctionArn": {
-        "Fn::GetAtt": [
-         "ClosetBgWorkerFn832AECE4",
-         "Arn"
-        ]
-       }
-      },
-      {
-       "Events": [
-        "s3:ObjectCreated:*"
-       ],
-       "Filter": {
-        "Key": {
-         "FilterRules": [
-          {
-           "Name": "suffix",
-           "Value": ".jpg"
-          }
-         ]
-        }
-       },
-       "LambdaFunctionArn": {
-        "Fn::GetAtt": [
-         "ClosetBgWorkerFn832AECE4",
-         "Arn"
-        ]
-       }
-      },
-      {
-       "Events": [
-        "s3:ObjectCreated:*"
-       ],
-       "Filter": {
-        "Key": {
-         "FilterRules": [
-          {
-           "Name": "suffix",
-           "Value": ".jpeg"
-          }
-         ]
-        }
-       },
-       "LambdaFunctionArn": {
-        "Fn::GetAtt": [
-         "ClosetBgWorkerFn832AECE4",
-         "Arn"
-        ]
-       }
-      },
-      {
-       "Events": [
-        "s3:ObjectCreated:*"
-       ],
-       "Filter": {
-        "Key": {
-         "FilterRules": [
-          {
-           "Name": "suffix",
-           "Value": ".webp"
+           "Name": "prefix",
+           "Value": "closet/"
           }
          ]
         }
@@ -501,7 +438,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "d6c1adf874e78c8c0a7f8cbf5367cf8f7317093902fbe6a131bcb5df1623adc6.zip"
+     "S3Key": "3283cb64cc7f32b10a19914884e7134b92a3e4320ff94000809e79c5b693a9b9.zip"
     },
     "Environment": {
      "Variables": {
@@ -540,7 +477,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/PresignFn/Resource",
-    "aws:asset:path": "asset.d6c1adf874e78c8c0a7f8cbf5367cf8f7317093902fbe6a131bcb5df1623adc6",
+    "aws:asset:path": "asset.3283cb64cc7f32b10a19914884e7134b92a3e4320ff94000809e79c5b693a9b9",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1501,7 +1438,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "fbb1528f65e37d182de8c5cbcd8fbe09565319503ab64af9a64a25b64f8fc667.zip"
+     "S3Key": "d91e6b40944272a745e9697d4966c46b534eba8b0134a583edd9934bf24885e8.zip"
     },
     "Environment": {
      "Variables": {
@@ -1509,7 +1446,7 @@
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
       "RAW_MEDIA_GSI_NAME": "rawMediaKeyIndex",
-      "REMOVE_BG_API_KEY": "NbxdVLH76a1SggN6xXxj8Wzn"
+      "REMOVE_BG_API_KEY": "VLH76a1SggN6xXxj8Wzn"
      }
     },
     "Handler": "index.handler",
@@ -1539,7 +1476,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ClosetBgWorkerFn/Resource",
-    "aws:asset:path": "asset.fbb1528f65e37d182de8c5cbcd8fbe09565319503ab64af9a64a25b64f8fc667",
+    "aws:asset:path": "asset.d91e6b40944272a745e9697d4966c46b534eba8b0134a583edd9934bf24885e8",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

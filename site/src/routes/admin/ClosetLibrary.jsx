@@ -29,6 +29,35 @@ const GQL = {
       }
     }
   `,
+  approve: /* GraphQL */ `
+    mutation AdminApproveItem($id: ID!) {
+      adminApproveItem(id: $id) {
+        id
+        status
+        updatedAt
+        audience
+      }
+    }
+  `,
+  reject: /* GraphQL */ `
+    mutation AdminRejectItem($id: ID!, $reason: String) {
+      adminRejectItem(id: $id, reason: $reason) {
+        id
+        status
+        reason
+        updatedAt
+      }
+    }
+  `,
+  setAudience: /* GraphQL */ `
+    mutation AdminSetAudience($id: ID!, $audience: ClosetAudience!) {
+      adminSetClosetAudience(id: $id, audience: $audience) {
+        id
+        audience
+        updatedAt
+      }
+    }
+  `,
 };
 
 const STATUS_OPTIONS = [
@@ -39,11 +68,20 @@ const STATUS_OPTIONS = [
   { value: "REJECTED",  label: "Rejected" },
 ];
 
+const AUDIENCE_OPTIONS = [
+  { value: "PUBLIC",    label: "Fan + Bestie" },
+  { value: "BESTIE",    label: "Bestie only" },
+  { value: "EXCLUSIVE", label: "Exclusive drop" },
+];
+
 const AUDIENCE_LABELS = {
   PUBLIC: "Fan + Bestie",
   BESTIE: "Bestie only",
   EXCLUSIVE: "Exclusive drop",
 };
+
+// In "ALL" mode, we hide rejected items by default so the library feels clean.
+const HIDE_REJECTED_IN_ALL = true;
 
 function effectiveKey(item) {
   const k = item.mediaKey || item.rawMediaKey || null;
@@ -71,6 +109,12 @@ export default function ClosetLibrary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // which item is busy (approve / reject / delete / save audience)
+  const [busyId, setBusyId] = useState(null);
+
+  // detail drawer selection
+  const [selected, setSelected] = useState(null);
+
   // "last refreshed" tracking
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
@@ -82,13 +126,18 @@ export default function ClosetLibrary() {
     try {
       const variables = {
         status: statusFilter === "ALL" ? null : statusFilter,
-        limit: 100, // simple: first 100 looks; expand later if needed
+        limit: 100,
         nextToken: null,
       };
 
       const data = await window.sa.graphql(GQL.list, variables);
       const page = data?.adminListClosetItems;
-      const rawItems = page?.items ?? [];
+      let rawItems = page?.items ?? [];
+
+      // In "ALL" mode, hide rejected items by default so they don't clutter.
+      if (statusFilter === "ALL" && HIDE_REJECTED_IN_ALL) {
+        rawItems = rawItems.filter((i) => i.status !== "REJECTED");
+      }
 
       const hydrated = await Promise.all(
         rawItems.map(async (item) => {
@@ -114,6 +163,12 @@ export default function ClosetLibrary() {
       setItems(hydrated);
       setLastUpdatedAt(Date.now());
       setSecondsSinceUpdate(0);
+
+      // keep drawer selection in sync if open
+      if (selected) {
+        const updated = hydrated.find((it) => it.id === selected.id);
+        setSelected(updated || null);
+      }
     } catch (e) {
       console.error(e);
       setError(
@@ -122,6 +177,7 @@ export default function ClosetLibrary() {
       );
     } finally {
       setLoading(false);
+      setBusyId(null);
     }
   }
 
@@ -162,6 +218,95 @@ export default function ClosetLibrary() {
   const currentFilterLabel =
     STATUS_OPTIONS.find((opt) => opt.value === statusFilter)?.label ||
     "All statuses";
+
+  // ----- actions -----
+
+  async function approveItem(item) {
+    if (!window.confirm("Approve this look and make it eligible for the fan closet?")) {
+      return;
+    }
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.approve, { id: item.id });
+
+      // If it doesn't have an explicit audience yet, default to PUBLIC.
+      const audience = item.audience || "PUBLIC";
+      await window.sa.graphql(GQL.setAudience, {
+        id: item.id,
+        audience,
+      });
+
+      await loadItems();
+      setSelected(null);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Failed to approve item.");
+      setBusyId(null);
+    }
+  }
+
+  async function rejectItem(item, opts = {}) {
+    const { deleteMode = false } = opts;
+    const defaultPrompt = deleteMode
+      ? "Delete this look from the closet library? This will mark it REJECTED and hide it from the feed."
+      : "Reject this closet item? It will not appear in the fan closet.";
+    if (!window.confirm(defaultPrompt)) return;
+
+    let reason = null;
+    if (!deleteMode) {
+      reason = window.prompt("Reason for rejection? (optional)") || null;
+    } else {
+      reason = "Deleted from admin closet library";
+    }
+
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.reject, {
+        id: item.id,
+        reason,
+      });
+
+      // After reject, if we're in "ALL" mode with hide-rejected, just remove locally.
+      if (statusFilter === "ALL" && HIDE_REJECTED_IN_ALL) {
+        setItems((prev) => prev.filter((it) => it.id !== item.id));
+        setBusyId(null);
+        setSelected(null);
+      } else {
+        await loadItems();
+        setSelected(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Failed to reject/delete item.");
+      setBusyId(null);
+    }
+  }
+
+  async function updateAudience(item, audience) {
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.setAudience, {
+        id: item.id,
+        audience,
+      });
+      await loadItems();
+      // keep drawer selection in sync
+      const updated = items.find((it) => it.id === item.id);
+      setSelected(updated || null);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Failed to update audience.");
+      setBusyId(null);
+    }
+  }
+
+  function openDrawer(item) {
+    setSelected(item);
+  }
+
+  function closeDrawer() {
+    setSelected(null);
+  }
 
   return (
     <div className="closet-admin-page closet-library-page">
@@ -273,7 +418,10 @@ export default function ClosetLibrary() {
         )}
 
         {totalCount > 0 && (
-          <div className="closet-grid closet-grid--library" style={{ marginTop: 12 }}>
+          <div
+            className="closet-grid closet-grid--library"
+            style={{ marginTop: 12 }}
+          >
             {filteredItems.map((item) => {
               const status = item.status || "UNKNOWN";
               const label = humanStatusLabel(item);
@@ -291,9 +439,18 @@ export default function ClosetLibrary() {
                 item.audience ||
                 "Fan / Bestie";
 
+              const isBusy = busyId === item.id;
+
               return (
-                <article key={item.id} className="closet-grid-card closet-grid-card--library">
-                  <div className="closet-grid-thumb">
+                <article
+                  key={item.id}
+                  className="closet-grid-card closet-grid-card--library"
+                >
+                  <div
+                    className="closet-grid-thumb"
+                    onClick={() => openDrawer(item)}
+                    style={{ cursor: "pointer" }}
+                  >
                     {item.mediaUrl ? (
                       <img
                         src={item.mediaUrl}
@@ -324,6 +481,27 @@ export default function ClosetLibrary() {
                       </span>
                     </div>
 
+                    {/* Audience / status controls */}
+                    <div className="closet-review-audience-row">
+                      <label className="closet-review-label">
+                        Audience
+                      </label>
+                      <select
+                        className="sa-input closet-review-audience"
+                        value={item.audience || "PUBLIC"}
+                        disabled={isBusy}
+                        onChange={(e) =>
+                          updateAudience(item, e.target.value)
+                        }
+                      >
+                        {AUDIENCE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="closet-grid-footer">
                       <span className="closet-grid-date">
                         {item.createdAt
@@ -331,17 +509,47 @@ export default function ClosetLibrary() {
                           : "—"}
                       </span>
                       <div className="closet-grid-actions">
+                        {/* VIEW now opens inline drawer instead of window.open */}
                         <button
                           type="button"
                           className="closet-grid-link"
-                          onClick={() =>
-                            window.open(
-                              `/fan/closet-feed?highlight=${item.id}`,
-                              "_blank"
-                            )
-                          }
+                          onClick={() => openDrawer(item)}
                         >
                           View
+                        </button>
+
+                        {item.status === "PENDING" && (
+                          <button
+                            type="button"
+                            className="closet-grid-link"
+                            disabled={isBusy}
+                            onClick={() => approveItem(item)}
+                          >
+                            {isBusy ? "Saving…" : "Approve"}
+                          </button>
+                        )}
+
+                        {item.status !== "REJECTED" && (
+                          <button
+                            type="button"
+                            className="closet-grid-link closet-grid-link--danger"
+                            disabled={isBusy}
+                            onClick={() => rejectItem(item)}
+                          >
+                            {isBusy ? "Working…" : "Reject"}
+                          </button>
+                        )}
+
+                        {/* “Delete” = reject + hide from default views */}
+                        <button
+                          type="button"
+                          className="closet-grid-link closet-grid-link--danger"
+                          disabled={isBusy}
+                          onClick={() =>
+                            rejectItem(item, { deleteMode: true })
+                          }
+                        >
+                          {isBusy ? "Working…" : "Delete"}
                         </button>
                       </div>
                     </div>
@@ -351,12 +559,139 @@ export default function ClosetLibrary() {
             })}
           </div>
         )}
+
+        {/* Detail drawer */}
+        {selected && (
+          <div
+            className="closet-drawer-backdrop"
+            onClick={closeDrawer}
+          >
+            <aside
+              className="closet-drawer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="closet-drawer-close"
+                onClick={closeDrawer}
+              >
+                ✕
+              </button>
+
+              <div className="closet-drawer-layout">
+                <div className="closet-drawer-imageWrap">
+                  <div className="closet-drawer-thumb">
+                    {selected.mediaUrl ? (
+                      <img
+                        src={selected.mediaUrl}
+                        alt={selected.title || "Closet item"}
+                      />
+                    ) : (
+                      <span className="closet-grid-thumb-empty">
+                        No preview
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="closet-drawer-meta">
+                  <h3 className="closet-drawer-title">
+                    {selected.title || "Untitled look"}
+                  </h3>
+
+                  <div className="closet-drawer-row">
+                    <span className="closet-drawer-label">Status</span>
+                    <span className="closet-status-pill closet-status-pill--default">
+                      {humanStatusLabel(selected)}
+                    </span>
+                  </div>
+
+                  <div className="closet-drawer-row">
+                    <span className="closet-drawer-label">Audience</span>
+                    <select
+                      className="sa-input closet-drawer-audienceInput"
+                      value={selected.audience || "PUBLIC"}
+                      disabled={busyId === selected.id}
+                      onChange={(e) =>
+                        updateAudience(selected, e.target.value)
+                      }
+                    >
+                      {AUDIENCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="closet-drawer-row closet-drawer-row--meta">
+                    <div>
+                      <div className="closet-drawer-label">Created</div>
+                      <div className="closet-drawer-metaText">
+                        {selected.createdAt
+                          ? new Date(
+                              selected.createdAt
+                            ).toLocaleString()
+                          : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="closet-drawer-label">Updated</div>
+                      <div className="closet-drawer-metaText">
+                        {selected.updatedAt
+                          ? new Date(
+                              selected.updatedAt
+                            ).toLocaleString()
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="closet-drawer-actions">
+                    {selected.status === "PENDING" && (
+                      <button
+                        type="button"
+                        className="sa-btn closet-drawer-approve"
+                        disabled={busyId === selected.id}
+                        onClick={() => approveItem(selected)}
+                      >
+                        {busyId === selected.id ? "Saving…" : "Approve"}
+                      </button>
+                    )}
+
+                    {selected.status !== "REJECTED" && (
+                      <button
+                        type="button"
+                        className="sa-btn closet-drawer-reject"
+                        disabled={busyId === selected.id}
+                        onClick={() => rejectItem(selected)}
+                      >
+                        Reject
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="sa-btn closet-drawer-delete"
+                      disabled={busyId === selected.id}
+                      onClick={() =>
+                        rejectItem(selected, { deleteMode: true })
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
       </section>
     </div>
   );
 }
 
-/* Closet Library styles – tuned to match Admin Closet Studio */
+/* Closet Library + Drawer styles */
 const styles = /* css */ `
 .closet-admin-page {
   max-width: 1120px;
@@ -595,22 +930,27 @@ const styles = /* css */ `
   background: #fdfbff;
 }
 
-/* Thumbnails */
+/* Thumbnails – show full image, centered */
 
 .closet-grid-thumb {
   border-radius: 16px;
-  background: #ede9fe;
+  background:
+    radial-gradient(circle at top left, #f9fafb, #ede9fe),
+    #ede9fe;
   overflow: hidden;
-  height: 160px;
+  height: 220px;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .closet-grid-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
 }
 
@@ -713,5 +1053,173 @@ const styles = /* css */ `
 .closet-grid-link:hover {
   background: #eef2ff;
   color: #111827;
+}
+
+.closet-grid-link--danger {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.closet-grid-link--danger:hover {
+  background: #fee2e2;
+}
+
+/* REVIEW / audience controls reused here */
+
+.closet-review-audience-row {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.closet-review-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.closet-review-audience {
+  max-width: 200px;
+}
+
+/* Drawer overlay ----------------------------------------- */
+
+.closet-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.35);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 40;
+}
+
+.closet-drawer {
+  width: 360px;
+  max-width: 90vw;
+  background: #fdfbff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -18px 0 40px rgba(15,23,42,0.35);
+  padding: 16px 18px 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.closet-drawer-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.closet-drawer-layout {
+  margin-top: 6px;
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+.closet-drawer-imageWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.closet-drawer-thumb {
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, #f9fafb, #ede9fe),
+    #ede9fe;
+  padding: 10px;
+  width: 100%;
+  max-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.closet-drawer-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.closet-drawer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.closet-drawer-title {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.closet-drawer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.closet-drawer-row--meta {
+  margin-top: 4px;
+  align-items: flex-start;
+}
+
+.closet-drawer-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+.closet-drawer-metaText {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.closet-drawer-audienceInput {
+  max-width: 200px;
+}
+
+.closet-drawer-actions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sa-btn {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.closet-drawer-approve {
+  background: #4ade80;
+  border-color: #22c55e;
+}
+
+.closet-drawer-reject {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.closet-drawer-delete {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
 }
 `;

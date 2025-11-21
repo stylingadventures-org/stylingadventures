@@ -201,7 +201,7 @@ export class UploadsStack extends Stack {
     }
 
     // -------- Closet background-removal worker (remove.bg) --------
-    // This worker watches for new image objects in the uploads bucket,
+    // This worker watches for new files under "closet/" in the uploads bucket,
     // calls remove.bg, and updates the closet item with the cleaned mediaKey.
     const closetBgWorkerFn = new NodejsFunction(this, "ClosetBgWorkerFn", {
       entry: path.resolve(process.cwd(), "lambda/closet/bg-worker.ts"),
@@ -221,16 +221,13 @@ export class UploadsStack extends Stack {
     table.grantReadWriteData(closetBgWorkerFn);
     this.bucket.grantReadWrite(closetBgWorkerFn);
 
-    // ⬇️ IMPORTANT CHANGE:
-    // Trigger worker for *any* new image file in the uploads bucket,
-    // regardless of prefix (root, users/, closet/, etc).
-    for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
-      this.bucket.addEventNotification(
-        s3.EventType.OBJECT_CREATED,
-        new s3n.LambdaDestination(closetBgWorkerFn),
-        { suffix: ext },
-      );
-    }
+    // ✅ Trigger worker only for admin closet uploads.
+    // Make sure this prefix matches what `signedUpload` uses for admin closet uploads.
+    this.bucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(closetBgWorkerFn),
+      { prefix: "closet/" },
+    );
 
     // ---- API Gateway (RestApi + CORS error responses) ----
     this.api = new apigw.RestApi(this, "UploadsApi", {
@@ -314,3 +311,4 @@ export class UploadsStack extends Stack {
     });
   }
 }
+

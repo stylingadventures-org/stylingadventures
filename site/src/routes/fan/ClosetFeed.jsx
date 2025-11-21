@@ -3,7 +3,25 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
 
-const GQL_FEED = /* GraphQL */ `
+// Full query – tries to use viewerHasFaved
+const GQL_FEED_FULL = /* GraphQL */ `
+  query ClosetFeedSimple($sort: ClosetFeedSort) {
+    closetFeed(sort: $sort) {
+      id
+      title
+      status
+      audience
+      mediaKey
+      rawMediaKey
+      favoriteCount
+      viewerHasFaved
+      createdAt
+    }
+  }
+`;
+
+// Legacy query – no viewerHasFaved field yet
+const GQL_FEED_LEGACY = /* GraphQL */ `
   query ClosetFeedSimple($sort: ClosetFeedSort) {
     closetFeed(sort: $sort) {
       id
@@ -14,6 +32,17 @@ const GQL_FEED = /* GraphQL */ `
       rawMediaKey
       favoriteCount
       createdAt
+    }
+  }
+`;
+
+// Backend sync for hearts – matches your schema
+const GQL_TOGGLE_FAVORITE = /* GraphQL */ `
+  mutation ToggleFavoriteClosetItem($id: ID!, $on: Boolean) {
+    toggleFavoriteClosetItem(id: $id, on: $on) {
+      id
+      favoriteCount
+      viewerHasFaved
     }
   }
 `;
@@ -30,12 +59,35 @@ function effectiveKey(item) {
   return String(k).replace(/^\/+/, "");
 }
 
+/** Map audience -> label + CSS modifier */
+function audienceChip(it) {
+  const raw = (it.audience || "PUBLIC").toUpperCase();
+
+  let label = "Fan + Bestie";
+  let mod = "public";
+
+  if (raw === "BESTIE") {
+    label = "Bestie only";
+    mod = "bestie";
+  } else if (raw === "EXCLUSIVE") {
+    label = "Exclusive drop";
+    mod = "exclusive";
+  }
+
+  return {
+    label,
+    className: `closet-chip closet-chip--audience closet-chip--${mod}`,
+  };
+}
+
 export default function ClosetFeed() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   const [sort, setSort] = useState("NEWEST"); // NEWEST | MOST_LOVED
+  const [busyId, setBusyId] = useState(null); // while syncing favorite
+
   const query = useQuery();
   const highlightId = query.get("highlight");
 
@@ -51,7 +103,21 @@ export default function ClosetFeed() {
           await window.sa.ready();
         }
 
-        const res = await window.sa.graphql(GQL_FEED, { sort });
+        // --- Try full query first (with viewerHasFaved) ---
+        let res;
+        try {
+          res = await window.sa.graphql(GQL_FEED_FULL, { sort });
+        } catch (e) {
+          const msg = String(e?.message || e);
+          if (msg.includes("FieldUndefined") && msg.includes("viewerHasFaved")) {
+            console.warn(
+              "[ClosetFeed] viewerHasFaved unsupported – using legacy feed query"
+            );
+            res = await window.sa.graphql(GQL_FEED_LEGACY, { sort });
+          } else {
+            throw e;
+          }
+        }
 
         let raw = [];
         const cf = res?.closetFeed;
@@ -61,18 +127,23 @@ export default function ClosetFeed() {
           raw = cf.items;
         }
 
-        // Filter: APPROVED/PUBLISHED + PUBLIC (backend already enforces, but double-check)
+        // Filter: APPROVED/PUBLISHED only (backend also enforces visibility)
         const visible = raw.filter((it) => {
           const statusOk =
             it.status === "APPROVED" || it.status === "PUBLISHED";
-          const audience = it.audience || "PUBLIC";
-          const audienceOk = audience === "PUBLIC";
-          return statusOk && audienceOk;
+          if (!statusOk) return false;
+
+          const audience = (it.audience || "").toUpperCase();
+          if (audience === "HIDDEN" || audience === "ADMIN_ONLY") return false;
+
+          return true;
         });
 
         const withKeys = visible.map((it) => ({
           ...it,
           effectiveKey: effectiveKey(it),
+          viewerHasFaved: Boolean(it.viewerHasFaved), // legacy feeds => false
+          favoriteCount: it.favoriteCount ?? 0,
         }));
 
         const hydrated = await Promise.all(
@@ -88,6 +159,7 @@ export default function ClosetFeed() {
           })
         );
 
+        // sort client-side in case backend doesn’t yet
         hydrated.sort((a, b) => {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
@@ -130,6 +202,48 @@ export default function ClosetFeed() {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [highlightId, items]);
+
+  // ----- hearts -----
+
+  function toggleHeartLocal(id) {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const wasFaved = !!it.viewerHasFaved;
+        const count = it.favoriteCount ?? 0;
+        return {
+          ...it,
+          viewerHasFaved: !wasFaved,
+          favoriteCount: Math.max(0, count + (wasFaved ? -1 : 1)),
+        };
+      })
+    );
+  }
+
+  async function syncFavoriteToBackend(id, on) {
+    try {
+      if (!window.sa?.graphql) return;
+      if (window.sa?.ready) {
+        await window.sa.ready();
+      }
+      await window.sa.graphql(GQL_TOGGLE_FAVORITE, { id, on });
+    } catch (e) {
+      // Non-fatal – we already updated the UI optimistically
+      console.warn("[ClosetFeed] toggleFavoriteClosetItem failed", e);
+    }
+  }
+
+  function handleToggleHeart(it) {
+    const nextOn = !it.viewerHasFaved; // compute before optimistic update
+
+    if (busyId && busyId !== it.id) {
+      // optional: you could early-return to avoid spamming multiple items
+    }
+
+    toggleHeartLocal(it.id);
+    setBusyId(it.id);
+    syncFavoriteToBackend(it.id, nextOn).finally(() => setBusyId(null));
+  }
 
   return (
     <div className="closet-feed-wrap">
@@ -235,6 +349,11 @@ export default function ClosetFeed() {
             <div className="closet-grid">
               {items.map((it) => {
                 const isHighlight = highlightId && it.id === highlightId;
+                const liked = !!it.viewerHasFaved;
+                const favCount = it.favoriteCount ?? 0;
+                const { label: audienceLabel, className: audienceClass } =
+                  audienceChip(it);
+
                 return (
                   <article
                     key={it.id}
@@ -260,11 +379,23 @@ export default function ClosetFeed() {
 
                       <button
                         type="button"
-                        className="closet-heart"
-                        aria-label="Heart this look (coming soon)"
+                        className={
+                          liked
+                            ? "closet-heart closet-heart--active"
+                            : "closet-heart"
+                        }
+                        aria-label={
+                          liked ? "Un-heart this look" : "Heart this look"
+                        }
+                        onClick={() => handleToggleHeart(it)}
+                        disabled={busyId === it.id}
                       >
-                        ♡
+                        <span className="closet-heart__icon">
+                          {liked ? "❤" : "♡"}
+                        </span>
                       </button>
+
+                      <div className="closet-heartCount">{favCount}</div>
                     </div>
 
                     <div className="closet-item__body">
@@ -272,7 +403,10 @@ export default function ClosetFeed() {
                         {it.title || "Untitled look"}
                       </div>
                       <div className="closet-item__meta">
-                        <span className="closet-chip">Closet look</span>
+                        <div className="closet-item__meta-left">
+                          <span className="closet-chip">Closet look</span>
+                          <span className={audienceClass}>{audienceLabel}</span>
+                        </div>
                         <span className="closet-meta-text">
                           Added{" "}
                           {it.createdAt
@@ -514,19 +648,36 @@ const styles = `
   box-shadow:0 12px 26px rgba(236,72,153,0.3);
 }
 
-.closet-item__thumbWrap {
-  position:relative;
-  border-radius:14px;
-  overflow:hidden;
-  background:linear-gradient(135deg,#fce7f3,#e0e7ff);
+/* highlight from admin link */
+.closet-item--highlight {
+  box-shadow:0 0 0 2px #f9a8d4, 0 16px 32px rgba(244,114,182,0.5);
 }
 
-.closet-item__thumb {
-  display:block;
-  width:100%;
-  height:210px;
-  object-fit:cover;
+/* THUMBS + HEARTS */
+.closet-item__thumbWrap {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, #fdf2ff, #fee2f2),
+    #fee2f2;
+  height: 240px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+/* image behaves like a sticker in the middle, not a background */
+.closet-item__thumb {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
 .closet-item__thumb--empty {
   height:210px;
   display:flex;
@@ -536,6 +687,7 @@ const styles = `
   color:#6b7280;
 }
 
+/* Heart button */
 .closet-heart {
   position:absolute;
   right:8px;
@@ -544,7 +696,7 @@ const styles = `
   height:28px;
   border-radius:999px;
   border:none;
-  background:rgba(255,255,255,0.85);
+  background:rgba(255,255,255,0.9);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -552,11 +704,38 @@ const styles = `
   font-size:0.9rem;
   color:#ec4899;
   box-shadow:0 4px 10px rgba(0,0,0,0.08);
+  transition:
+    transform 60ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
 }
 .closet-heart:hover {
   background:#fecdd3;
 }
+.closet-heart--active {
+  background:#ec4899;
+  color:#fff;
+  box-shadow:0 6px 14px rgba(244,114,182,0.6);
+  transform:translateY(-1px);
+}
+.closet-heart__icon {
+  font-size: 0.9rem;
+}
 
+/* little count badge in bottom-right of the image */
+.closet-heartCount {
+  position:absolute;
+  right:10px;
+  bottom:8px;
+  padding:2px 7px;
+  border-radius:999px;
+  font-size:0.7rem;
+  background:rgba(17,24,39,0.7);
+  color:#f9fafb;
+}
+
+/* BODY + META */
 .closet-item__body {
   padding:0 4px 4px;
 }
@@ -577,11 +756,18 @@ const styles = `
   gap:6px;
 }
 
+.closet-item__meta-left {
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
 .closet-meta-text {
   font-size:0.75rem;
   color:#9ca3af;
 }
 
+/* CHIPS */
 .closet-chip {
   font-size:0.7rem;
   border-radius:999px;
@@ -589,6 +775,24 @@ const styles = `
   background:#fef9c3;
   color:#92400e;
   border:1px solid #facc15;
+}
+
+.closet-chip--audience {
+  border-width:0;
+  padding:3px 8px;
+}
+
+.closet-chip--public {
+  background:#ecfdf5;
+  color:#047857;
+}
+.closet-chip--bestie {
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+.closet-chip--exclusive {
+  background:#fef2f2;
+  color:#b91c1c;
 }
 
 /* BUTTONS – reuse global vibe */
