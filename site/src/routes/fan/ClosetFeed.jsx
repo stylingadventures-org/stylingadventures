@@ -2,8 +2,12 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
+import {
+  hasLiked,
+  toggleLikeLocal,
+} from "../../lib/closetLikes";
 
-// Full query – tries to use viewerHasFaved
+// Full query – uses viewerHasFaved when available
 const GQL_FEED_FULL = /* GraphQL */ `
   query ClosetFeedSimple($sort: ClosetFeedSort) {
     closetFeed(sort: $sort) {
@@ -36,10 +40,10 @@ const GQL_FEED_LEGACY = /* GraphQL */ `
   }
 `;
 
-// Backend sync for hearts – matches your schema
+// Backend sync for hearts – matches schema (favoriteOn)
 const GQL_TOGGLE_FAVORITE = /* GraphQL */ `
-  mutation ToggleFavoriteClosetItem($id: ID!, $on: Boolean) {
-    toggleFavoriteClosetItem(id: $id, on: $on) {
+  mutation ToggleFavoriteClosetItem($id: ID!, $favoriteOn: Boolean) {
+    toggleFavoriteClosetItem(id: $id, favoriteOn: $favoriteOn) {
       id
       favoriteCount
       viewerHasFaved
@@ -80,6 +84,27 @@ function audienceChip(it) {
   };
 }
 
+// Simple skeleton card component
+function ClosetCardSkeleton() {
+  return (
+    <article className="closet-item closet-item--skeleton">
+      <div className="closet-item__thumbWrap">
+        <div className="closet-item__thumb closet-item__thumb--skeleton" />
+      </div>
+      <div className="closet-item__body">
+        <div className="closet-item__title closet-item__title--skeleton" />
+        <div className="closet-item__meta">
+          <div className="closet-item__meta-left">
+            <span className="closet-chip closet-chip--skeleton" />
+            <span className="closet-chip closet-chip--skeleton" />
+          </div>
+          <span className="closet-meta-text closet-meta-text--skeleton" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function ClosetFeed() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +112,10 @@ export default function ClosetFeed() {
 
   const [sort, setSort] = useState("NEWEST"); // NEWEST | MOST_LOVED
   const [busyId, setBusyId] = useState(null); // while syncing favorite
+
+  // client-side pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
 
   const query = useQuery();
   const highlightId = query.get("highlight");
@@ -98,6 +127,7 @@ export default function ClosetFeed() {
       try {
         setLoading(true);
         setErr("");
+        setPage(1); // reset pagination when sort changes
 
         if (window.sa?.ready) {
           await window.sa.ready();
@@ -139,12 +169,21 @@ export default function ClosetFeed() {
           return true;
         });
 
-        const withKeys = visible.map((it) => ({
-          ...it,
-          effectiveKey: effectiveKey(it),
-          viewerHasFaved: Boolean(it.viewerHasFaved), // legacy feeds => false
-          favoriteCount: it.favoriteCount ?? 0,
-        }));
+        const withKeys = visible.map((it) => {
+          const localLiked = hasLiked(it.id);
+          const apiLiked =
+            typeof it.viewerHasFaved === "boolean" ? it.viewerHasFaved : false;
+
+          // If local storage says liked, prefer that for instant UI
+          const viewerHasFaved = localLiked || apiLiked;
+
+          return {
+            ...it,
+            effectiveKey: effectiveKey(it),
+            favoriteCount: it.favoriteCount ?? 0,
+            viewerHasFaved,
+          };
+        });
 
         const hydrated = await Promise.all(
           withKeys.map(async (it) => {
@@ -159,7 +198,7 @@ export default function ClosetFeed() {
           })
         );
 
-        // sort client-side in case backend doesn’t yet
+        // Sort client-side, as a fallback
         hydrated.sort((a, b) => {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
@@ -205,45 +244,73 @@ export default function ClosetFeed() {
 
   // ----- hearts -----
 
-  function toggleHeartLocal(id) {
+  async function toggleFavoriteToBackend(item) {
+    const id = item.id;
+
+    // instant local toggle (no flicker)
+    const localLiked = toggleLikeLocal(id);
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        const wasFaved = !!it.viewerHasFaved;
         const count = it.favoriteCount ?? 0;
+        // Determine new count: if turning on, +1; if off, -1 (bounded at 0)
+        const nextCount = Math.max(
+          0,
+          count + (localLiked ? 1 : -1)
+        );
         return {
           ...it,
-          viewerHasFaved: !wasFaved,
-          favoriteCount: Math.max(0, count + (wasFaved ? -1 : 1)),
+          viewerHasFaved: localLiked,
+          favoriteCount: nextCount,
         };
       })
     );
-  }
 
-  async function syncFavoriteToBackend(id, on) {
+    setBusyId(id);
+
     try {
       if (!window.sa?.graphql) return;
       if (window.sa?.ready) {
         await window.sa.ready();
       }
-      await window.sa.graphql(GQL_TOGGLE_FAVORITE, { id, on });
+
+      const res = await window.sa.graphql(GQL_TOGGLE_FAVORITE, {
+        id,
+        favoriteOn: localLiked,
+      });
+
+      const updated = res?.toggleFavoriteClosetItem;
+      if (updated && updated.id) {
+        // trust backend counts/state
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === updated.id
+              ? {
+                  ...it,
+                  favoriteCount:
+                    typeof updated.favoriteCount === "number"
+                      ? updated.favoriteCount
+                      : it.favoriteCount ?? 0,
+                  viewerHasFaved:
+                    typeof updated.viewerHasFaved === "boolean"
+                      ? updated.viewerHasFaved
+                      : localLiked,
+                }
+              : it
+          )
+        );
+      }
     } catch (e) {
-      // Non-fatal – we already updated the UI optimistically
       console.warn("[ClosetFeed] toggleFavoriteClosetItem failed", e);
+      // Optionally roll back local like if backend failed badly
+    } finally {
+      setBusyId(null);
     }
   }
 
-  function handleToggleHeart(it) {
-    const nextOn = !it.viewerHasFaved; // compute before optimistic update
-
-    if (busyId && busyId !== it.id) {
-      // optional: you could early-return to avoid spamming multiple items
-    }
-
-    toggleHeartLocal(it.id);
-    setBusyId(it.id);
-    syncFavoriteToBackend(it.id, nextOn).finally(() => setBusyId(null));
-  }
+  // pagination slice
+  const visibleItems = items.slice(0, page * pageSize);
+  const hasMore = items.length > visibleItems.length;
 
   return (
     <div className="closet-feed-wrap">
@@ -258,7 +325,7 @@ export default function ClosetFeed() {
 
           <div className="closet-hero__content">
             <div className="closet-hero__left">
-              <div className="closet-pill-label">Lala’s Closet</div>
+              <div className="closet-pill-label">Lala&apos;s Closet</div>
               <h1 className="closet-hero__title">Come style me, bestie 💕</h1>
               <p className="closet-hero__subtitle">
                 Browse my favorite saved looks, heart your faves, and get ideas
@@ -290,10 +357,10 @@ export default function ClosetFeed() {
         <section className="closet-shell card">
           <div className="closet-shell__header">
             <div>
-              <h2 className="closet-shell__title">Lala’s Closet grid</h2>
+              <h2 className="closet-shell__title">Lala&apos;s Closet grid</h2>
               <p className="closet-shell__subtitle">
-                Tap a card to view the full look details (coming soon). For now,
-                use this as inspo while you play in Style Lab.
+                Tap a card to view the full look details (coming soon). For
+                now, use this as inspo while you play in Style Lab.
               </p>
             </div>
 
@@ -329,8 +396,10 @@ export default function ClosetFeed() {
           )}
 
           {isInitialLoading && (
-            <div className="closet-empty">
-              Loading Lala&apos;s closet looks…
+            <div className="closet-grid">
+              {Array.from({ length: pageSize }).map((_, i) => (
+                <ClosetCardSkeleton key={i} />
+              ))}
             </div>
           )}
 
@@ -345,89 +414,105 @@ export default function ClosetFeed() {
             </div>
           )}
 
-          {!err && items.length > 0 && (
-            <div className="closet-grid">
-              {items.map((it) => {
-                const isHighlight = highlightId && it.id === highlightId;
-                const liked = !!it.viewerHasFaved;
-                const favCount = it.favoriteCount ?? 0;
-                const { label: audienceLabel, className: audienceClass } =
-                  audienceChip(it);
+          {!err && visibleItems.length > 0 && (
+            <>
+              <div className="closet-grid">
+                {visibleItems.map((it) => {
+                  const isHighlight = highlightId && it.id === highlightId;
+                  const liked = !!it.viewerHasFaved;
+                  const favCount = it.favoriteCount ?? 0;
+                  const { label: audienceLabel, className: audienceClass } =
+                    audienceChip(it);
 
-                return (
-                  <article
-                    key={it.id}
-                    data-closet-id={it.id}
-                    className={
-                      "closet-item" +
-                      (isHighlight ? " closet-item--highlight" : "")
-                    }
+                  return (
+                    <article
+                      key={it.id}
+                      data-closet-id={it.id}
+                      className={
+                        "closet-item" +
+                        (isHighlight ? " closet-item--highlight" : "")
+                      }
+                    >
+                      <div className="closet-item__thumbWrap">
+                        {it.mediaUrl ? (
+                          <img
+                            src={it.mediaUrl}
+                            alt={it.title || "Closet item"}
+                            className="closet-item__thumb"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="closet-item__thumb closet-item__thumb--empty">
+                            Look coming soon…
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className={
+                            liked
+                              ? "closet-heart closet-heart--active"
+                              : "closet-heart"
+                          }
+                          aria-label={
+                            liked ? "Un-heart this look" : "Heart this look"
+                          }
+                          onClick={() => toggleFavoriteToBackend(it)}
+                          disabled={busyId === it.id}
+                        >
+                          <span className="closet-heart__icon">
+                            {liked ? "❤" : "♡"}
+                          </span>
+                        </button>
+
+                        <div className="closet-heartCount">{favCount}</div>
+                      </div>
+
+                      <div className="closet-item__body">
+                        <div className="closet-item__title">
+                          {it.title || "Untitled look"}
+                        </div>
+                        <div className="closet-item__meta">
+                          <div className="closet-item__meta-left">
+                            <span className="closet-chip">Closet look</span>
+                            <span className={audienceClass}>
+                              {audienceLabel}
+                            </span>
+                          </div>
+                          <span className="closet-meta-text">
+                            Added{" "}
+                            {it.createdAt
+                              ? new Date(it.createdAt).toLocaleDateString()
+                              : "recently"}
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {hasMore && (
+                <div className="closet-pagination">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={loading}
                   >
-                    <div className="closet-item__thumbWrap">
-                      {it.mediaUrl ? (
-                        <img
-                          src={it.mediaUrl}
-                          alt={it.title || "Closet item"}
-                          className="closet-item__thumb"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="closet-item__thumb closet-item__thumb--empty">
-                          Look coming soon…
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        className={
-                          liked
-                            ? "closet-heart closet-heart--active"
-                            : "closet-heart"
-                        }
-                        aria-label={
-                          liked ? "Un-heart this look" : "Heart this look"
-                        }
-                        onClick={() => handleToggleHeart(it)}
-                        disabled={busyId === it.id}
-                      >
-                        <span className="closet-heart__icon">
-                          {liked ? "❤" : "♡"}
-                        </span>
-                      </button>
-
-                      <div className="closet-heartCount">{favCount}</div>
-                    </div>
-
-                    <div className="closet-item__body">
-                      <div className="closet-item__title">
-                        {it.title || "Untitled look"}
-                      </div>
-                      <div className="closet-item__meta">
-                        <div className="closet-item__meta-left">
-                          <span className="closet-chip">Closet look</span>
-                          <span className={audienceClass}>{audienceLabel}</span>
-                        </div>
-                        <span className="closet-meta-text">
-                          Added{" "}
-                          {it.createdAt
-                            ? new Date(it.createdAt).toLocaleDateString()
-                            : "recently"}
-                        </span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                    {loading ? "Loading…" : "Load more looks"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
-
+      {/* inject component-scoped styles */}
       <style>{styles}</style>
     </div>
   );
 }
-
 
 const styles = `
 .closet-feed-wrap {
@@ -440,7 +525,7 @@ const styles = `
   padding: 0 16px;
 }
 
-/* ✨ HERO AREA ✨ */
+/* HERO AREA */
 .closet-hero {
   border-radius: 24px;
   padding: 16px 18px 18px;

@@ -6,9 +6,9 @@ scalar AWSEmail
 scalar AWSURL
 scalar AWSJSON
 
-# -----------------------------------------------------------------------------
-# Closet / Users
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# Base: Closet / Users
+# ─────────────────────────────────────────────────────────────────────────────
 
 enum ClosetStatus {
   DRAFT
@@ -25,7 +25,6 @@ enum ClosetAudience {
   EXCLUSIVE
 }
 
-# Sort options for fan-facing feed
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
@@ -48,15 +47,14 @@ type ClosetItem {
   reason: String
   audience: ClosetAudience
 
-  # Story-style metadata used for fan-facing "Lala's Closet" view
+  # Story-style metadata used for fan-facing “Lala’s Closet” view
   storyTitle: String
   storySeason: String
   storyVibes: [String!]
 
   # Aggregate favorites (nullable for back-compat)
   favoriteCount: Int
-
-  # Per-viewer flag (nullable so existing resolvers are safe)
+  # Per-viewer flag (nullable; UI treats missing as false)
   viewerHasFaved: Boolean
 }
 
@@ -104,15 +102,15 @@ type AdminUsersPage {
   nextToken: String
 }
 
-# Paged admin view of closet items
+# New: paged admin view of closet items
 type AdminClosetItemsPage {
   items: [ClosetItem!]!
   nextToken: String
 }
 
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # Bestie Tier
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 type BestieStatus {
   active: Boolean!
@@ -126,9 +124,9 @@ type EarlyAccessGate {
   reason: String
 }
 
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # Fans/Game — Types & Inputs
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 type GameProfile {
   userId: ID!
@@ -204,14 +202,14 @@ input AdminCreateClosetItemInput {
   vibes: String
 }
 
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # Root: Queries
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 type Query {
   hello: String!
 
-  """Signed-in creator's items."""
+  """Signed-in creator’s items."""
   myCloset: [ClosetItem!]!
 
   """Items awaiting moderation."""
@@ -233,15 +231,11 @@ type Query {
   Lala's Closet — fan-facing feed.
 
   Resolver enforces: status = PUBLISHED (gsi2pk = "STATUS#PUBLISHED")
-  and audience = PUBLIC.
+  and (later) audience visibility rules.
   """
   closetFeed(sort: ClosetFeedSort = NEWEST): [ClosetItem!]!
 
-  """Small snippet for dashboards (Bestie + fan home)."""
-  topClosetLooks(limit: Int): [ClosetItem!]!
-
   me: UserProfile
-
   adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
     @aws_auth(cognito_groups: ["ADMIN"])
 
@@ -254,62 +248,59 @@ type Query {
   getPoll(pollId: ID!): Poll
 }
 
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # Root: Mutations
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 type Mutation {
-  # Closet basics
+  # Closet / creator flows
   createClosetItem(title: String, mediaKey: String): ClosetItem!
   requestClosetApproval(id: ID!): String!
   updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
 
-  # Fan / favorite interaction
-  toggleFavoriteClosetItem(id: ID!, on: Boolean): ClosetItem!
-
-  # Admin create / moderation / audience
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
   adminApproveItem(id: ID!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
-
   adminRejectItem(id: ID!, reason: String): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
   adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
     @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
 
-  # Bestie-side story metadata for closet items
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 
-  # Roles / tiers
+  """
+  Fan / favorite interaction.
+  If favoriteOn is null, the resolver may toggle based on current state.
+  Returns the updated ClosetItem with favoriteCount + viewerHasFaved
+  hydrated for the caller.
+  """
+  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem
+  #                                             note: no "!"
+
   setUserRole(input: SetUserRoleInput!): UserProfile!
 
-  # Bestie billing / status
+  # Bestie / Stripe flows
   startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!
   claimBestieTrial: BestieStatus!
-
   adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
-
   adminRevokeBestie(userSub: ID!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
-
   adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
-
   adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!
     @aws_auth(cognito_groups: ["ADMIN"])
 
-  # Game / engagement
+  # Game / fan flows
   logGameEvent(input: GameEventInput!): GameProfile!
   createPoll(input: CreatePollInput!): Poll
   votePoll(pollId: ID!, optionIndex: Int!): Poll
 
   awardCoins(input: AwardInput!): GameProfile!
     @aws_auth(cognito_groups: ["ADMIN"])
-
   grantBadge(userId: ID!, badge: String!): GameProfile!
     @aws_auth(cognito_groups: ["ADMIN"])
 

@@ -146,6 +146,11 @@ export class ApiStack extends Stack {
       fieldName: "updateClosetMediaKey",
     });
 
+    closetDs.createResolver("UpdateClosetItemStory", {
+      typeName: "Mutation",
+      fieldName: "updateClosetItemStory",
+    });
+
     // ────────────────────────────────────────────────────────────
     // CLOSET ADMIN (moderation + public feed + admin library)
     // ────────────────────────────────────────────────────────────
@@ -164,7 +169,7 @@ export class ApiStack extends Stack {
 
     table.grantReadWriteData(closetAdminFn);
 
-    // DynamoDB access (query/scan/update)
+    // DynamoDB access (query/scan/update + favorites R/W)
     closetAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -172,6 +177,8 @@ export class ApiStack extends Stack {
           "dynamodb:Scan",
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
         ],
         resources: [table.tableArn, `${table.tableArn}/index/*`],
       }),
@@ -196,7 +203,7 @@ export class ApiStack extends Stack {
       fieldName: "adminListPending",
     });
 
-    // NEW: Admin library / Closet library page
+    // Admin library / Closet library page
     closetAdminSource.createResolver("AdminListClosetItemsResolver", {
       typeName: "Query",
       fieldName: "adminListClosetItems",
@@ -214,7 +221,7 @@ export class ApiStack extends Stack {
       fieldName: "topClosetLooks",
     });
 
-    // NEW: admin create
+    // Admin create
     closetAdminSource.createResolver("AdminCreateClosetItemResolver", {
       typeName: "Mutation",
       fieldName: "adminCreateClosetItem",
@@ -235,6 +242,10 @@ export class ApiStack extends Stack {
       typeName: "Mutation",
       fieldName: "adminSetClosetAudience",
     });
+
+    // NOTE: we intentionally do NOT create a resolver for
+    // toggleFavoriteClosetItem here, because one already exists
+    // in AppSync (wired to lambda/closet/toggleFavoriteClosetItem.js).
 
     // ────────────────────────────────────────────────────────────
     // BESTIE / TIER RESOLVERS

@@ -14,7 +14,8 @@ function saveLikes(map) {
 }
 
 export function getLikedIds() {
-  return Object.keys(loadLikes()).filter((k) => !!loadLikes()[k]);
+  const map = loadLikes();
+  return Object.keys(map).filter((k) => !!map[k]);
 }
 
 export function hasLiked(id) {

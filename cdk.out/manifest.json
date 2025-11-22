@@ -651,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/52b3ef6edb57cc53855f1bcfb89f5d99174aa34ac4a377eebfde3985c7c48519.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7924af056490acbb99cd6f4f253a66e1347ba528ce0ae615d55b6f67b63962f8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -797,6 +797,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiUpdateClosetMediaKeyD01273A7"
+          }
+        ],
+        "/ApiStack/StylingApi/UpdateClosetItemStory/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUpdateClosetItemStory1E53C9EF"
           }
         ],
         "/ApiStack/StylingApi/ClosetAdminSource/ServiceRole/Resource": [

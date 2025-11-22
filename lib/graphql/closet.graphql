@@ -51,7 +51,7 @@ type ClosetItem {
   # Aggregate favorites (nullable for back-compat)
   favoriteCount: Int
 
-  # Per-viewer flag (nullable; will be false in UI if missing)
+  # Per-viewer flag (nullable; will be treated as false in UI if missing)
   viewerHasFaved: Boolean
 }
 
@@ -92,9 +92,10 @@ type Query {
   """
   Fan-facing closet feed.
 
-  Implementation note: current resolver enforces status = PUBLISHED and
-  (later) audience = PUBLIC. It returns a simple list rather than a paged
-  object, even though limit/nextToken may be accepted for future use.
+  Implementation note: resolver enforces status = PUBLISHED using the
+  status GSI (default index name "gsi2") and filters by audience visibility.
+  It currently returns a simple list, but accepts limit/nextToken for
+  future pagination.
   """
   closetFeed(
     limit: Int
@@ -128,6 +129,12 @@ type Mutation {
   # Bestie-side story metadata for closet items
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 
-  # Fan / favorite interaction
-  toggleFavoriteClosetItem(id: ID!, on: Boolean): ClosetItem!
+  """
+  Fan / favorite interaction.
+
+  If "favoriteOn" is null, the resolver may toggle based on current state.
+  Returns the updated ClosetItem with favoriteCount + viewerHasFaved
+  hydrated for the caller (or null while backend is still stubbed).
+  """
+  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem
 }
