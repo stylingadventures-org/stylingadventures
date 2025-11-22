@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-import { Auth, dailyLoginOnce } from "./lib/sa";
+import { dailyLoginOnce } from "./lib/sa";
 
 // Shell + top-level pages
 import Layout from "./ui/Layout.jsx";
@@ -42,11 +42,10 @@ import ClosetLibrary from "./routes/admin/ClosetLibrary.jsx";
 
 import LandingRedirect from "./routes/util/LandingRedirect.jsx";
 
-import "./styles.css";
+// 🔹 REAL auth callback handler
+import Callback from "./routes/auth/Callback.jsx";
 
-function CallbackScreen() {
-  return <div>Signing you in…</div>;
-}
+import "./styles.css";
 
 const router = createBrowserRouter([
   // Utility landing – sends people to fan/bestie/admin based on role
@@ -107,16 +106,18 @@ const router = createBrowserRouter([
   },
 
   // Cognito callback route (no Layout chrome)
-  { path: "/callback", element: <CallbackScreen /> },
+  { path: "/callback", element: <Callback /> },
 ]);
 
 function AppBoot() {
   useEffect(() => {
     (async () => {
-      // Handles Cognito /callback redirect (saves tokens & rewrites URL)
-      await Auth.handleCallbackIfPresent();
       // Best-effort once/day XP ping
-      await dailyLoginOnce();
+      try {
+        await dailyLoginOnce();
+      } catch (err) {
+        console.error("[AppBoot] dailyLoginOnce error", err);
+      }
     })();
   }, []);
 

@@ -3,6 +3,7 @@ import {
   DynamoDBClient,
   QueryCommand,
   UpdateItemCommand,
+  GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 
@@ -49,6 +50,8 @@ export type ClosetItem = {
 
   // Engagement
   favoriteCount?: number | null;
+  // We don't persist this yet, but we can return it to callers.
+  viewerHasFaved?: boolean | null;
 };
 
 type ClosetFeedSort = "NEWEST" | "MOST_LOVED";
@@ -94,7 +97,12 @@ export const handler = async (event: any) => {
   if (typeName === "Mutation") {
     switch (fieldName) {
       case "updateClosetItemStory":
-        return await safeUpdateClosetItemStory(event.arguments as UpdateStoryArgs);
+        return await safeUpdateClosetItemStory(
+          event.arguments as UpdateStoryArgs
+        );
+
+      case "toggleFavoriteClosetItem":
+        return await safeToggleFavoriteClosetItem(event); // <-- new case
 
       default:
         break;
@@ -139,6 +147,18 @@ async function safeUpdateClosetItemStory(args: UpdateStoryArgs) {
   } catch (err) {
     console.error("updateClosetItemStory resolver error", err);
     throw err;
+  }
+}
+
+// NEW: stubbed safety wrapper for toggleFavoriteClosetItem
+async function safeToggleFavoriteClosetItem(
+  event: any
+): Promise<ClosetItem> {
+  try {
+    return await handleToggleFavoriteClosetItem(event);
+  } catch (err) {
+    console.error("toggleFavoriteClosetItem resolver error", err);
+    throw err; // must throw, because return type is ClosetItem!
   }
 }
 
@@ -316,4 +336,29 @@ async function handleUpdateClosetItemStory(
   throw new Error(
     "updateClosetItemStory is not implemented in ClosetResolverFn"
   );
+}
+
+// NEW: Mutation.toggleFavoriteClosetItem stub – returns a ClosetItem-shaped object
+async function handleToggleFavoriteClosetItem(
+  event: any
+): Promise<ClosetItem> {
+  const { id, favoriteOn } = event.arguments || {};
+  if (!id) {
+    throw new Error("toggleFavoriteClosetItem: id is required");
+  }
+
+  // TODO: real DynamoDB update logic here.
+  // For now, you *must* return a ClosetItem-shaped object, not null.
+  // Example super-simple placeholder:
+  return {
+    id,
+    userId: "TEMP",
+    ownerSub: "TEMP",
+    status: "APPROVED",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    title: "Temp favorite",
+    favoriteCount: favoriteOn ? 1 : 0,
+    viewerHasFaved: !!favoriteOn,
+  };
 }

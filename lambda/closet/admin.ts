@@ -478,7 +478,16 @@ export const toggleFavoriteClosetItem = async (
   const { sub } = getIdentity(event);
 
   const id = event.arguments?.id as string;
-  const onArg = event.arguments?.on as boolean | null | undefined;
+  const favoriteOnArg = event.arguments?.favoriteOn as
+    | boolean
+    | null
+    | undefined;
+  const legacyOnArg = event.arguments?.on as boolean | null | undefined;
+
+  // accept new favoriteOn first, then legacy "on"
+  const onArg =
+    typeof favoriteOnArg === "boolean" ? favoriteOnArg : legacyOnArg;
+
   if (!id) throw new Error("id required");
 
   // load base closet item
@@ -545,7 +554,7 @@ export const toggleFavoriteClosetItem = async (
     );
   }
 
-  const currentCountAttr = base.favoriteCount?.N;
+  const currentCountAttr = (base as any).favoriteCount?.N;
   const currentCount =
     typeof currentCountAttr === "string" ? Number(currentCountAttr) : 0;
   const nextCount = Math.max(0, currentCount + delta);

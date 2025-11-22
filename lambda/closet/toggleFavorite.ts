@@ -1,26 +1,51 @@
-// lambda/toggleFavoriteClosetItem.js
+// lambda/closet/toggleFavorite.ts
 import {
   DynamoDBClient,
   GetItemCommand,
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
+import type { AppSyncResolverEvent } from "aws-lambda";
 
 const ddb = new DynamoDBClient({});
-const CLOSET_TABLE = process.env.CLOSET_TABLE;
-const FAVORITES_TABLE = process.env.CLOSET_FAVORITES_TABLE;
 
-export const handler = async (event) => {
-  const { id, on } = event.arguments || {};
-  const identity = event.identity || {};
-  const userSub = identity.sub;
+// Env vars set in your stack
+const CLOSET_TABLE = process.env.CLOSET_TABLE!;
+const FAVORITES_TABLE = process.env.CLOSET_FAVORITES_TABLE!;
+
+type ToggleArgs = {
+  id: string;
+  favoriteOn?: boolean | null;
+  // back-compat: some older code might send `on`
+  on?: boolean | null;
+};
+
+type ClosetItem = {
+  id: string;
+  favoriteCount?: number | null;
+  [key: string]: any; // allow extra attributes
+};
+
+export const handler = async (
+  event: AppSyncResolverEvent<ToggleArgs>
+): Promise<ClosetItem> => {
+  const { id, favoriteOn, on } = event.arguments || ({} as ToggleArgs);
+  const userSub =
+    (event.identity as any)?.sub ||
+    (event.identity as any)?.username ||
+    (event.identity as any)?.claims?.sub;
 
   if (!userSub) {
     throw new Error("Not authenticated");
   }
+
   if (!id) {
     throw new Error("Missing closet item id");
   }
+
+  // Accept either favoriteOn (new) or on (old)
+  const explicitFlag =
+    typeof favoriteOn === "boolean" ? favoriteOn : typeof on === "boolean" ? on : undefined;
 
   const itemKey = {
     PK: { S: `CLOSET#${id}` },
@@ -43,9 +68,9 @@ export const handler = async (event) => {
 
   const currentlyOn = !!favResp.Item;
   const desiredOn =
-    typeof on === "boolean" ? on : !currentlyOn; // explicit or toggle
+    typeof explicitFlag === "boolean" ? explicitFlag : !currentlyOn; // explicit or toggle
 
-  // No change needed? Just return the current item.
+  // No change? just return current item with the viewer flag
   if (desiredOn === currentlyOn) {
     const itemResp = await ddb.send(
       new GetItemCommand({
@@ -57,7 +82,7 @@ export const handler = async (event) => {
     if (!itemResp.Item) {
       throw new Error("Closet item not found");
     }
-    const item = unmarshall(itemResp.Item);
+    const item = unmarshall(itemResp.Item) as ClosetItem;
     return {
       ...item,
       favoriteCount: item.favoriteCount ?? 0,
@@ -67,17 +92,17 @@ export const handler = async (event) => {
 
   const increment = desiredOn ? 1 : -1;
 
-  // 2) Atomically update count + favorite row using a transaction
-  const txItems = [];
+  // 2) Transaction: update aggregate count + per-user record
+  const txItems: any[] = [];
 
-  // Update favoriteCount on main item
+  // Update favoriteCount on the main item
   txItems.push({
     Update: {
       TableName: CLOSET_TABLE,
       Key: itemKey,
       UpdateExpression:
         "SET favoriteCount = if_not_exists(favoriteCount, :zero) + :inc",
-      ConditionExpression: "attribute_exists(PK)", // must exist
+      ConditionExpression: "attribute_exists(PK)",
       ExpressionAttributeValues: {
         ":zero": { N: "0" },
         ":inc": { N: String(increment) },
@@ -86,7 +111,7 @@ export const handler = async (event) => {
   });
 
   if (desiredOn) {
-    // Turning ON: put a row in favorites table
+    // Turning ON: insert favorites row
     txItems.push({
       Put: {
         TableName: FAVORITES_TABLE,
@@ -95,16 +120,16 @@ export const handler = async (event) => {
           closetItemId: { S: id },
           createdAt: { S: new Date().toISOString() },
         },
-        ConditionExpression: "attribute_not_exists(PK)", // no double-like
+        ConditionExpression: "attribute_not_exists(PK)",
       },
     });
   } else {
-    // Turning OFF: delete the row
+    // Turning OFF: delete favorites row
     txItems.push({
       Delete: {
         TableName: FAVORITES_TABLE,
         Key: favKey,
-        ConditionExpression: "attribute_exists(PK)", // only if it existed
+        ConditionExpression: "attribute_exists(PK)",
       },
     });
   }
@@ -115,7 +140,7 @@ export const handler = async (event) => {
     })
   );
 
-  // 3) Read the updated item and return it with viewerHasFaved flag
+  // 3) Read back the updated item and return it with viewerHasFaved
   const itemResp = await ddb.send(
     new GetItemCommand({
       TableName: CLOSET_TABLE,
@@ -128,12 +153,12 @@ export const handler = async (event) => {
     throw new Error("Closet item not found after update");
   }
 
-  const item = unmarshall(itemResp.Item);
+  const item = unmarshall(itemResp.Item) as ClosetItem;
   const favoriteCount = item.favoriteCount ?? 0;
 
   return {
     ...item,
-    favoriteCount: favoriteCount < 0 ? 0 : favoriteCount, // safety clamp
+    favoriteCount: favoriteCount < 0 ? 0 : favoriteCount,
     viewerHasFaved: desiredOn,
   };
 };
