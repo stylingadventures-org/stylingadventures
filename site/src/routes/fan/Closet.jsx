@@ -2,9 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-
 /**
- * Style Lala — local-only mini game
+ * Style Lab — local-only mini game
  * - Picks Top / Bottom / Shoes
  * - Scores the combo
  * - Persists leaderboard + player progress to localStorage
@@ -184,26 +183,76 @@ export default function Closet() {
   const lastXpGain =
     lastScore != null ? Math.max(1, Math.round(lastScore / 5)) : null;
 
+  function handleSaveLook() {
+    alert(
+      "Saving looks to your Closet is coming soon! For now, keep experimenting and note your favorite combos, bestie 💖"
+    );
+  }
+
+  function handleShareLook() {
+    alert(
+      "Sharing to Bestie uploads will connect this lab to the full community soon. Stay tuned!"
+    );
+  }
+
   return (
     <div className="style-lab">
       {/* HERO */}
       <section className="style-lab-hero" aria-label="Style lab overview">
         <div className="style-lab-hero__copy">
           <div className="style-lab-hero__badge">🎮 Style Lab</div>
-          <h1 className="style-lab-hero__title">Lala&apos;s Closet lab</h1>
+          <h1 className="style-lab-hero__title">
+            Welcome to Lala&apos;s Style Lab
+          </h1>
           <p className="style-lab-hero__subtitle">
-            Mix outfits for Lala, earn petals (XP), and chase your best score.
-            When you discover a favorite combo, send the vibe into{" "}
-            <strong>Lala&apos;s Closet</strong> for other fans to ❤️.
+            Step into Lala&apos;s world and experiment with outfits for every
+            episode. Mix tops, bottoms, and shoes, earn petals (XP), and get
+            ready to send your fave looks into{" "}
+            <strong>Lala&apos;s Closet</strong> for other Besties to love.
           </p>
+
+          <div className="style-lab-hero__steps">
+            <div className="style-step">
+              <span className="style-step__bubble">1</span>
+              <div className="style-step__copy">
+                <div className="style-step__label">Style a look</div>
+                <div className="style-step__text">
+                  Pick a top, bottom, and shoes that feel very Lala.
+                </div>
+              </div>
+            </div>
+            <div className="style-step">
+              <span className="style-step__bubble">2</span>
+              <div className="style-step__copy">
+                <div className="style-step__label">Score it</div>
+                <div className="style-step__text">
+                  Hit <strong>Style it!</strong> and see your score & XP boost.
+                </div>
+              </div>
+            </div>
+            <div className="style-step">
+              <span className="style-step__bubble">3</span>
+              <div className="style-step__copy">
+                <div className="style-step__label">Share the vibe</div>
+                <div className="style-step__text">
+                  Soon you&apos;ll be able to send lab looks into Lala&apos;s
+                  Closet & Bestie uploads.
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="style-lab-hero__links">
             <Link to="/fan/closet-feed" className="lab-btn lab-btn-primary">
               Browse Lala&apos;s Closet →
             </Link>
-            <span className="hero-helper">
-              Fans can heart looks there and build a wishlist for future drops.
-            </span>
+            <div className="hero-helper">
+              Want more inspo?{" "}
+              <Link to="/fan/episodes" className="hero-helper__link">
+                Watch an episode
+              </Link>{" "}
+              then come back and recreate your favorite fit.
+            </div>
           </div>
         </div>
 
@@ -243,7 +292,8 @@ export default function Closet() {
               />
             </div>
             <div className="hero-level-hint">
-              {levelMeta.toNext} XP to level {levelMeta.level + 1}
+              {levelMeta.toNext} XP to level {levelMeta.level + 1}. Style a few
+              more looks to level up, bestie ✨
             </div>
           </div>
 
@@ -252,132 +302,196 @@ export default function Closet() {
             className="lab-link-danger"
             onClick={resetProgress}
           >
-            Reset progress
+            Reset XP & level (this device only)
           </button>
         </div>
       </section>
 
       {/* MAIN GRID: game + leaderboard */}
       <section className="style-lab-grid">
-        {/* Outfit builder */}
+        {/* Outfit builder + preview */}
         <section className="lab-card lab-card--game">
-          <h2 className="lab-title">Style a look</h2>
-          <p className="lab-subtitle">
-            Pick a top, bottom, and shoes for Lala. Hit{" "}
-            <strong>Style it!</strong> to score the combo and earn XP.
-          </p>
-
-          <div className="lab-form-row">
-            <div className="lab-field">
-              <label className="lab-label">Top</label>
-              <div className="lab-select-wrap">
-                <span className="lab-select-icon">👕</span>
-                <select
-                  className="lab-select"
-                  value={top}
-                  onChange={(e) => setTop(e.target.value)}
-                >
-                  {TOPS.map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="lab-header-row">
+            <div>
+              <h2 className="lab-title">Style a lab look</h2>
+              <p className="lab-subtitle">
+                Pick a combo for Lala, preview the vibe, then{" "}
+                <strong>Style it!</strong> to see your score and XP.
+              </p>
             </div>
-
-            <div className="lab-field">
-              <label className="lab-label">Bottom</label>
-              <div className="lab-select-wrap">
-                <span className="lab-select-icon">👖</span>
-                <select
-                  className="lab-select"
-                  value={bottom}
-                  onChange={(e) => setBottom(e.target.value)}
-                >
-                  {BOTTOMS.map((b) => (
-                    <option key={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="lab-field">
-              <label className="lab-label">Shoes</label>
-              <div className="lab-select-wrap">
-                <span className="lab-select-icon">👟</span>
-                <select
-                  className="lab-select"
-                  value={shoes}
-                  onChange={(e) => setShoes(e.target.value)}
-                >
-                  {SHOES.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <div className="lab-tag">Local mini game</div>
           </div>
 
-          <div className="lab-actions-row">
-            <button
-              type="button"
-              className="lab-btn lab-btn-primary"
-              onClick={styleIt}
-            >
-              Style it!
-            </button>
-            <button
-              type="button"
-              className="lab-btn lab-btn-secondary"
-              onClick={randomizeLook}
-            >
-              Randomize look 🎲
-            </button>
-          </div>
-
-          {lastScore != null && (
-            <div className="lab-result">
-              <div className="lab-score-line">
-                <span className="lab-score-label">Score</span>
-                <span className="lab-score-value">{lastScore}</span>
-                {lastXpGain != null && (
-                  <span className="lab-chip lab-chip--xp">
-                    +{lastXpGain} XP
-                  </span>
-                )}
-              </div>
-              <div className="lab-result-hints">
-                {isNewHigh && (
-                  <span className="lab-chip lab-chip--highlight">
-                    New high score! 🏆
-                  </span>
-                )}
-                {!isNewHigh && lastScore < 60 && (
-                  <span className="lab-hint">
-                    Cute! Try bolder combos to push your score higher.
-                  </span>
-                )}
-                {!isNewHigh && lastScore >= 60 && (
-                  <span className="lab-hint">
-                    Nice! You&apos;re getting closer to the top of your lab
-                    leaderboard.
-                  </span>
-                )}
+          <div className="lab-main-layout">
+            {/* Outfit preview card */}
+            <div className="lab-preview">
+              <div className="lab-preview-inner">
+                <div className="lab-preview-avatar" />
+                <div className="lab-preview-body">
+                  <div className="lab-preview-label">Today&apos;s lab fit</div>
+                  <div className="lab-preview-line">
+                    <span className="lab-preview-tag">Top</span>
+                    <span className="lab-preview-value">{top}</span>
+                  </div>
+                  <div className="lab-preview-line">
+                    <span className="lab-preview-tag">Bottom</span>
+                    <span className="lab-preview-value">{bottom}</span>
+                  </div>
+                  <div className="lab-preview-line">
+                    <span className="lab-preview-tag">Shoes</span>
+                    <span className="lab-preview-value">{shoes}</span>
+                  </div>
+                  <div className="lab-preview-hint">
+                    Pro tip: Blouse + Skirt is a chic bonus. Hoodie + Jeans
+                    brings streetwear energy.
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Controls */}
+            <div className="lab-controls">
+              <div className="lab-form-row">
+                <div className="lab-field">
+                  <label className="lab-label">Top</label>
+                  <div className="lab-select-wrap">
+                    <span className="lab-select-icon">👕</span>
+                    <select
+                      className="lab-select"
+                      value={top}
+                      onChange={(e) => setTop(e.target.value)}
+                    >
+                      {TOPS.map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="lab-field">
+                  <label className="lab-label">Bottom</label>
+                  <div className="lab-select-wrap">
+                    <span className="lab-select-icon">👖</span>
+                    <select
+                      className="lab-select"
+                      value={bottom}
+                      onChange={(e) => setBottom(e.target.value)}
+                    >
+                      {BOTTOMS.map((b) => (
+                        <option key={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="lab-field">
+                  <label className="lab-label">Shoes</label>
+                  <div className="lab-select-wrap">
+                    <span className="lab-select-icon">👟</span>
+                    <select
+                      className="lab-select"
+                      value={shoes}
+                      onChange={(e) => setShoes(e.target.value)}
+                    >
+                      {SHOES.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lab-actions-row">
+                <button
+                  type="button"
+                  className="lab-btn lab-btn-primary"
+                  onClick={styleIt}
+                >
+                  Style it!
+                </button>
+                <button
+                  type="button"
+                  className="lab-btn lab-btn-secondary"
+                  onClick={randomizeLook}
+                >
+                  Randomize look 🎲
+                </button>
+              </div>
+
+              {lastScore != null && (
+                <div className="lab-result">
+                  <div className="lab-score-line">
+                    <span className="lab-score-label">Score</span>
+                    <span className="lab-score-value">{lastScore}</span>
+                    {lastXpGain != null && (
+                      <span className="lab-chip lab-chip--xp">
+                        +{lastXpGain} XP
+                      </span>
+                    )}
+                    {isNewHigh && (
+                      <span className="lab-chip lab-chip--highlight">
+                        New high score! 🏆
+                      </span>
+                    )}
+                  </div>
+                  <div className="lab-result-hints">
+                    {lastScore < 60 && (
+                      <span className="lab-hint">
+                        Cute! Try mixing chic pieces (blouse, skirt, heels) or
+                        streetwear (hoodie, jeans, sneakers) to boost your
+                        score.
+                      </span>
+                    )}
+                    {lastScore >= 60 && !isNewHigh && (
+                      <span className="lab-hint">
+                        Nice work! Keep experimenting with bolder combos to beat
+                        your top score.
+                      </span>
+                    )}
+                    {isNewHigh && (
+                      <span className="lab-hint">
+                        You&apos;re setting the lab standard. Screenshot or jot
+                        down this combo so you can recreate it later in
+                        Lala&apos;s Closet.
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="lab-save-row">
+                    <button
+                      type="button"
+                      className="lab-btn lab-btn-ghost lab-btn-small"
+                      onClick={handleSaveLook}
+                    >
+                      Save this look (coming soon)
+                    </button>
+                    <button
+                      type="button"
+                      className="lab-btn lab-btn-ghost lab-btn-small"
+                      onClick={handleShareLook}
+                    >
+                      Share with Besties (coming soon)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* Leaderboard */}
         <section className="lab-card lab-card--scores">
           <h2 className="lab-title">Style lab leaderboard</h2>
           <p className="lab-subtitle">
-            Your best experiment looks on this browser only. Perfect for
-            testing combos before sending favorites into Bestie uploads.
+            Your best experiments on this device only. Perfect for practicing
+            fits before sending favorites into Lala&apos;s Closet & Bestie
+            uploads later.
           </p>
 
           {board.length === 0 ? (
             <div className="lab-empty">
-              No entries yet — style your first look to start the board. ✨
+              No entries yet — style your first lab look and claim the #1 spot,
+              bestie ✨
             </div>
           ) : (
             <ol className="lab-board">
@@ -417,6 +531,57 @@ export default function Closet() {
         </section>
       </section>
 
+      {/* RAIL: tie back to episodes / closet / community */}
+      <section className="style-lab-rails">
+        <header className="rails-header">
+          <h2 className="rails-header__title">Where to take your fit next</h2>
+          <p className="rails-header__subtitle">
+            Watch an episode for inspo, browse Lala&apos;s Closet, then chat
+            with Besties about your favorite looks.
+          </p>
+        </header>
+        <div className="rails-grid">
+          <article className="rail rail--episodes">
+            <div className="rail__head">
+              <div className="rail__label">Episodes</div>
+              <Link to="/fan/episodes" className="rail__link">
+                Binge episodes →
+              </Link>
+            </div>
+            <p className="rail__text">
+              Need a moodboard? Rewatch the Pilot or Holiday Glam Drop and
+              style a look inspired by your favorite scene.
+            </p>
+          </article>
+
+          <article className="rail rail--closet">
+            <div className="rail__head">
+              <div className="rail__label">Lala&apos;s Closet</div>
+              <Link to="/fan/closet-feed" className="rail__link">
+                See all looks →
+              </Link>
+            </div>
+            <p className="rail__text">
+              Browse outfits that Lala and Besties have created. Soon you&apos;ll
+              be able to send your lab experiments here too.
+            </p>
+          </article>
+
+          <article className="rail rail--community">
+            <div className="rail__head">
+              <div className="rail__label">Community</div>
+              <Link to="/fan/community" className="rail__link">
+                Join the chat →
+              </Link>
+            </div>
+            <p className="rail__text">
+              Share what you styled in the lab, trade outfit ideas, and vote on
+              which vibe Lala should rock next.
+            </p>
+          </article>
+        </div>
+      </section>
+
       {/* PAGE-SPECIFIC STYLES */}
       <style>{`
         .style-lab {
@@ -433,9 +598,12 @@ export default function Closet() {
           position: relative;
           border-radius: 26px;
           padding: 18px 20px;
-          background: linear-gradient(135deg, #fde7f4, #e0f2ff);
+          background:
+            radial-gradient(circle at top left, #f9a8d4, #fef3ff 40%, transparent 70%),
+            radial-gradient(circle at bottom right, #bfdbfe, #e0f2fe 45%, transparent 75%),
+            linear-gradient(135deg, #6366f1, #ec4899);
           border: 1px solid rgba(255,255,255,0.9);
-          box-shadow: 0 18px 46px rgba(15,23,42,0.12);
+          box-shadow: 0 22px 60px rgba(15,23,42,0.25);
           display: flex;
           align-items: stretch;
           justify-content: space-between;
@@ -448,8 +616,8 @@ export default function Closet() {
           position: absolute;
           inset: -40%;
           background:
-            radial-gradient(circle at 0 0, rgba(255,255,255,0.7), transparent 60%),
-            radial-gradient(circle at 100% 0, rgba(255,255,255,0.5), transparent 60%);
+            radial-gradient(circle at 0 0, rgba(255,255,255,0.75), transparent 60%),
+            radial-gradient(circle at 100% 0, rgba(255,255,255,0.45), transparent 60%);
           pointer-events: none;
           opacity: 0.9;
         }
@@ -459,7 +627,7 @@ export default function Closet() {
           z-index: 1;
         }
         .style-lab-hero__copy {
-          flex: 1.4;
+          flex: 1.5;
           min-width: 0;
         }
         .style-lab-hero__badge {
@@ -471,14 +639,14 @@ export default function Closet() {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: .14em;
-          background: rgba(255,255,255,0.9);
-          border: 1px solid rgba(148,163,184,0.6);
+          background: rgba(255,255,255,0.92);
+          border: 1px solid rgba(196,181,253,0.85);
           color: #6b21a8;
           margin-bottom: 6px;
         }
         .style-lab-hero__title {
           margin: 0 0 6px;
-          font-size: 1.6rem;
+          font-size: 1.7rem;
           line-height: 1.2;
           color: #0f172a;
           letter-spacing: -0.02em;
@@ -486,9 +654,47 @@ export default function Closet() {
         .style-lab-hero__subtitle {
           margin: 0;
           font-size: 0.96rem;
-          color: #4b5563;
+          color: #111827;
           max-width: 520px;
         }
+
+        .style-lab-hero__steps {
+          margin-top: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .style-step {
+          display: flex;
+          gap: 8px;
+          align-items: flex-start;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.95);
+          border: 1px solid rgba(226,232,240,0.9);
+        }
+        .style-step__bubble {
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          background: linear-gradient(135deg,#6366f1,#ec4899);
+          color:#fff;
+          font-size: 0.75rem;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:600;
+        }
+        .style-step__label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color:#111827;
+        }
+        .style-step__text {
+          font-size: 0.78rem;
+          color:#4b5563;
+        }
+
         .style-lab-hero__links {
           margin-top: 14px;
           display: flex;
@@ -498,17 +704,21 @@ export default function Closet() {
         }
         .hero-helper {
           font-size: 0.8rem;
-          color: #4b5563;
+          color: #111827;
+        }
+        .hero-helper__link {
+          color: #4c1d95;
+          text-decoration: underline;
         }
 
         .style-lab-hero__panel {
           flex: 1;
           min-width: 260px;
           max-width: 340px;
-          background: rgba(255,255,255,0.92);
+          background: rgba(255,255,255,0.94);
           border-radius: 20px;
-          border: 1px solid rgba(226,232,240,0.9);
-          box-shadow: 0 12px 32px rgba(148,163,184,0.45);
+          border: 1px solid rgba(226,232,240,0.95);
+          box-shadow: 0 18px 44px rgba(15,23,42,0.45);
           padding: 14px 14px 12px;
           display: flex;
           flex-direction: column;
@@ -555,7 +765,7 @@ export default function Closet() {
           align-items: center;
           padding: 4px 10px;
           border-radius: 999px;
-          background: #111827;
+          background: #020617;
           color: #f9fafb;
           font-size: 0.78rem;
           font-weight: 600;
@@ -622,6 +832,21 @@ export default function Closet() {
           flex-direction: column;
           gap: 12px;
         }
+        .lab-header-row {
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:10px;
+        }
+        .lab-tag {
+          padding:4px 10px;
+          border-radius:999px;
+          background:#eef2ff;
+          color:#4338ca;
+          font-size:0.75rem;
+          font-weight:600;
+          white-space:nowrap;
+        }
         .lab-title {
           margin: 0;
           font-size: 1.1rem;
@@ -634,8 +859,86 @@ export default function Closet() {
           color: #6b7280;
         }
 
-        .lab-form-row {
+        .lab-main-layout {
           margin-top: 8px;
+          display:grid;
+          grid-template-columns: minmax(0,1.15fr) minmax(0,1.4fr);
+          gap:16px;
+          align-items:stretch;
+        }
+
+        /* preview */
+        .lab-preview {
+          background: radial-gradient(circle at top,#eef2ff,#fdf2ff);
+          border-radius:18px;
+          padding:10px;
+          border:1px solid #e5e7eb;
+          display:flex;
+          align-items:stretch;
+        }
+        .lab-preview-inner {
+          display:flex;
+          gap:10px;
+          align-items:center;
+        }
+        .lab-preview-avatar {
+          width:70px;
+          height:100px;
+          border-radius:18px;
+          background:linear-gradient(135deg,#6366f1,#ec4899);
+          box-shadow:0 14px 30px rgba(129,140,248,0.55);
+          position:relative;
+        }
+        .lab-preview-avatar::before {
+          content:"";
+          position:absolute;
+          inset:18% 18% 34% 18%;
+          border-radius:18px;
+          background:#f9fafb;
+          opacity:0.9;
+        }
+        .lab-preview-body {
+          flex:1;
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          min-width:0;
+        }
+        .lab-preview-label {
+          font-size:0.78rem;
+          text-transform:uppercase;
+          letter-spacing:.12em;
+          color:#6b21a8;
+        }
+        .lab-preview-line {
+          display:flex;
+          justify-content:space-between;
+          gap:6px;
+          font-size:0.86rem;
+        }
+        .lab-preview-tag {
+          color:#6b7280;
+        }
+        .lab-preview-value {
+          font-weight:600;
+          color:#111827;
+          text-align:right;
+          flex:1;
+        }
+        .lab-preview-hint {
+          margin-top:4px;
+          font-size:0.78rem;
+          color:#6b7280;
+        }
+
+        /* controls */
+        .lab-controls {
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .lab-form-row {
+          margin-top: 4px;
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
@@ -674,7 +977,7 @@ export default function Closet() {
         }
 
         .lab-actions-row {
-          margin-top: 10px;
+          margin-top: 8px;
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
@@ -788,6 +1091,12 @@ export default function Closet() {
         .lab-hint {
           opacity: 0.9;
         }
+        .lab-save-row {
+          margin-top: 4px;
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+        }
 
         /* Leaderboard */
         .lab-empty {
@@ -854,6 +1163,75 @@ export default function Closet() {
           opacity: 0.9;
         }
 
+        /* RAILS */
+        .style-lab-rails {
+          max-width: 1100px;
+          margin: 4px auto 0;
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .rails-header__title {
+          margin:0;
+          font-size:1.1rem;
+          font-weight:600;
+        }
+        .rails-header__subtitle {
+          margin:2px 0 0;
+          font-size:0.9rem;
+          color:#6b7280;
+        }
+        .rails-grid {
+          display:grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap:12px;
+        }
+        .rail {
+          border-radius:18px;
+          padding:12px 12px 14px;
+          border:1px solid #e5e7eb;
+          background:#fff;
+          box-shadow:0 12px 36px rgba(148,163,184,0.3);
+          display:flex;
+          flex-direction:column;
+          gap:6px;
+        }
+        .rail--episodes {
+          background:radial-gradient(circle at top left,#e0e7ff,#fdf2ff);
+        }
+        .rail--closet {
+          background:radial-gradient(circle at top,#fdf2ff,#e0f2fe);
+        }
+        .rail--community {
+          background:radial-gradient(circle at top,#eef2ff,#ffe4f3);
+        }
+        .rail__head {
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:8px;
+        }
+        .rail__label {
+          font-size:0.8rem;
+          text-transform:uppercase;
+          letter-spacing:0.14em;
+          color:#6b21a8;
+        }
+        .rail__link {
+          font-size:0.8rem;
+          color:#4338ca;
+          text-decoration:none;
+          white-space:nowrap;
+        }
+        .rail__link:hover {
+          text-decoration:underline;
+        }
+        .rail__text {
+          margin:0;
+          font-size:0.86rem;
+          color:#374151;
+        }
+
         @media (max-width: 900px) {
           .style-lab {
             padding-inline: 12px;
@@ -864,14 +1242,20 @@ export default function Closet() {
           .style-lab-grid {
             grid-template-columns: minmax(0, 1fr);
           }
+          .lab-main-layout {
+            grid-template-columns:minmax(0,1fr);
+          }
           .lab-form-row {
             grid-template-columns: minmax(0, 1fr);
+          }
+          .rails-grid {
+            grid-template-columns:minmax(0,1fr);
           }
         }
 
         @media (max-width: 640px) {
           .style-lab-hero__title {
-            font-size: 1.4rem;
+            font-size: 1.45rem;
           }
           .style-lab-hero__panel {
             max-width: 100%;

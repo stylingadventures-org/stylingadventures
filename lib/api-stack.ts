@@ -194,6 +194,12 @@ export class ApiStack extends Stack {
       fieldName: "adminClosetItemComments",
     });
 
+    // 👇 NEW: field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
+    closetDs.createResolver("PinnedClosetItemsResolver", {
+      typeName: "GameProfile",
+      fieldName: "pinnedClosetItems",
+    });
+
     // ────────────────────────────────────────────────────────────
     // CLOSET ADMIN (moderation + public feed + admin library)
     // ────────────────────────────────────────────────────────────

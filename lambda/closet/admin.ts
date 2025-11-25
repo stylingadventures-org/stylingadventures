@@ -21,7 +21,7 @@ const { TABLE_NAME = "" } = process.env;
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
 
 const nowIso = () => new Date().toISOString();
-const S = (v: string) => ({ S: v });
+const S = (v: string): AttributeValue => ({ S: v });
 
 type AppSyncEvent = {
   info: { fieldName: string };
@@ -82,10 +82,17 @@ type AdminCreateClosetItemInput = {
 };
 
 type AdminUpdateClosetItemInput = {
+  // many schemas send id inside input, so support that
+  id?: string | null;
+
   title?: string | null;
   category?: string | null;
   subcategory?: string | null;
   audience?: string | null;
+
+  pinned?: boolean | null;
+  season?: string | null;
+  vibes?: string | null;
 };
 
 type AdminClosetItemsPage = {
@@ -279,32 +286,24 @@ export const closetFeed = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem[]> => {
   const { sub } = getIdentity(event); // ensure authed, capture viewer
-  const { sort = "NEWEST" } = event.arguments || {};
+  const sortArg = (event.arguments?.sort as string | undefined) ?? "NEWEST";
+  const sort: "NEWEST" | "MOST_LOVED" =
+    sortArg === "MOST_LOVED" ? "MOST_LOVED" : "NEWEST";
 
-  const [itemsOut, favOut] = await Promise.all([
-    ddb.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: "gsi2",
-        KeyConditionExpression: "gsi2pk = :p",
-        ExpressionAttributeValues: { ":p": S("STATUS#PUBLISHED") },
-        ScanIndexForward: sort === "NEWEST",
-        ProjectionExpression:
-          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount, category, subcategory, season, vibes, pinned",
-        ExpressionAttributeNames: { "#s": "status" },
-      }),
-    ),
-    ddb.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-        ExpressionAttributeValues: {
-          ":pk": S(`FAV#${sub}`),
-          ":sk": S("CLOSET#"),
-        },
-      }),
-    ),
-  ]);
+  // We want both APPROVED and PUBLISHED looks in the fan feed.
+  const statuses: ClosetStatus[] = ["APPROVED", "PUBLISHED"];
+
+  // Favorites for this viewer
+  const favOut = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+      ExpressionAttributeValues: {
+        ":pk": S(`FAV#${sub}`),
+        ":sk": S("CLOSET#"),
+      },
+    }),
+  );
 
   const favIds = new Set(
     (favOut.Items || []).map((f) => {
@@ -316,31 +315,55 @@ export const closetFeed = async (
     }),
   );
 
-  let items = (itemsOut.Items || []).map((it) =>
-    mapItem(
-      {
-        ...it,
-        status: it["status"],
-      },
-      {
-        viewerHasFaved: favIds.has(it.id.S as string),
-      },
-    ),
-  );
+  const collected: ClosetItem[] = [];
 
-  if (sort === "MOST_LOVED") {
-    items.sort((a, b) => {
+  for (const status of statuses) {
+    const itemsOut = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: "gsi2",
+        KeyConditionExpression: "gsi2pk = :p",
+        ExpressionAttributeValues: { ":p": S(`STATUS#${status}`) },
+        // we'll sort in code; index order doesn't matter
+        ScanIndexForward: true,
+        ProjectionExpression:
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount, category, subcategory, season, vibes, pinned",
+        ExpressionAttributeNames: { "#s": "status" },
+      }),
+    );
+
+    const chunk = (itemsOut.Items || []).map((it) =>
+      mapItem(
+        {
+          ...it,
+          status: it["status"],
+        },
+        {
+          viewerHasFaved: favIds.has(it.id.S as string),
+        },
+      ),
+    );
+
+    collected.push(...chunk);
+  }
+
+  // Sort client-side
+  collected.sort((a, b) => {
+    const aTime = new Date(a.createdAt || 0).getTime();
+    const bTime = new Date(b.createdAt || 0).getTime();
+
+    if (sort === "MOST_LOVED") {
       const af = a.favoriteCount ?? 0;
       const bf = b.favoriteCount ?? 0;
       if (bf !== af) return bf - af;
-      return (
-        new Date(b.createdAt || 0).getTime() -
-        new Date(a.createdAt || 0).getTime()
-      );
-    });
-  }
+      return bTime - aTime;
+    }
 
-  return items;
+    // NEWEST
+    return bTime - aTime;
+  });
+
+  return collected;
 };
 
 export const topClosetLooks = async (
@@ -522,17 +545,49 @@ export const adminRejectItem = async (
   });
 };
 
-// adminUpdateClosetItem – update title/category/subcategory/audience
+// adminUpdateClosetItem – update title/category/subcategory/audience/pinned/season/vibes
 export const adminUpdateClosetItem = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem> => {
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
 
-  const id = event.arguments?.closetItemId as string;
-  const input = (event.arguments?.input || {}) as AdminUpdateClosetItemInput;
+  const args = event.arguments || {};
+  const rawInput = (args.input || {}) as AdminUpdateClosetItemInput;
 
-  if (!id) throw new Error("closetItemId required");
+  const id =
+    (args.closetItemId as string | undefined) ??
+    (rawInput.id as string | undefined) ??
+    (args.id as string | undefined);
+
+  if (!id) throw new Error("closetItemId or input.id required");
+
+  // First make sure the item exists
+  const existing = await ddb.send(
+    new GetItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: S(`ITEM#${id}`), sk: S("META") },
+    }),
+  );
+  if (!existing.Item) {
+    throw new Error("Closet item not found");
+  }
+
+  // Merge top-level args into input if they exist (for maximum schema compatibility)
+  const input: AdminUpdateClosetItemInput = { ...rawInput };
+  ([
+    "title",
+    "category",
+    "subcategory",
+    "audience",
+    "pinned",
+    "season",
+    "vibes",
+  ] as const).forEach((field) => {
+    if ((args as any)[field] !== undefined && (input as any)[field] === undefined) {
+      (input as any)[field] = (args as any)[field];
+    }
+  });
 
   const now = nowIso();
 
@@ -571,6 +626,26 @@ export const adminUpdateClosetItem = async (
       input.audience === null ? { NULL: true } : S(input.audience);
   }
 
+  if (input.season !== undefined) {
+    updateExpr.push("season = :season");
+    exprValues[":season"] =
+      input.season === null ? { NULL: true } : S(input.season);
+  }
+
+  if (input.vibes !== undefined) {
+    updateExpr.push("vibes = :vibes");
+    exprValues[":vibes"] =
+      input.vibes === null ? { NULL: true } : S(input.vibes);
+  }
+
+  if (input.pinned !== undefined) {
+    updateExpr.push("pinned = :pinned");
+    exprValues[":pinned"] =
+      input.pinned === null
+        ? { NULL: true }
+        : { BOOL: Boolean(input.pinned) };
+  }
+
   if (updateExpr.length === 1) {
     throw new Error("No fields provided to update");
   }
@@ -587,6 +662,7 @@ export const adminUpdateClosetItem = async (
   );
 
   if (!out.Attributes) {
+    // Extremely unlikely now, but keep a clear error if AWS ever returns nothing.
     throw new Error("Closet item not found");
   }
 

@@ -7,6 +7,34 @@ import {
   getEpisodesOrdered,
 } from "../../lib/episodes";
 
+/**
+ * Helper: determine whether a BestieStatus object represents
+ * an active Bestie membership.
+ */
+function isBestieActive(status) {
+  if (!status) return false;
+
+  // If schema exposes activeSubscription, respect it
+  if (typeof status.activeSubscription === "boolean") {
+    if (!status.activeSubscription) return false;
+  }
+
+  // Optional expiry guard
+  if (status.expiresAt) {
+    const exp = Date.parse(status.expiresAt);
+    if (!Number.isNaN(exp) && exp < Date.now()) {
+      return false;
+    }
+  }
+
+  // Fallback: isBestie boolean
+  if (typeof status.isBestie === "boolean") {
+    return status.isBestie;
+  }
+
+  return false;
+}
+
 export default function Episodes() {
   const nav = useNavigate();
   const [now, setNow] = useState(Date.now());
@@ -25,11 +53,20 @@ export default function Episodes() {
     let alive = true;
     (async () => {
       try {
+        if (window.sa?.ready) {
+          await window.sa.ready();
+        }
         const data = await window.sa?.graphql?.(
-          `query { meBestieStatus { active } }`
+          `query MeBestieStatus {
+             meBestieStatus {
+               isBestie
+               activeSubscription
+               expiresAt
+             }
+           }`
         );
         if (!alive) return;
-        setIsBestie(!!data?.meBestieStatus?.active);
+        setIsBestie(isBestieActive(data?.meBestieStatus));
       } catch {
         if (!alive) return;
         setIsBestie(false);
@@ -43,10 +80,17 @@ export default function Episodes() {
   }, []);
 
   const ordered = useMemo(() => getEpisodesOrdered(), []);
+  const featured = ordered[0] || null;
 
   async function unlockBestieForEpisode(epId) {
     try {
       setErr("");
+
+      if (window.sa?.ready) {
+        await window.sa.ready();
+      }
+
+      // make sure they're signed in
       const idTok =
         window.sa?.session?.idToken ||
         localStorage.getItem("sa:idToken") ||
@@ -64,7 +108,7 @@ export default function Episodes() {
       // Try checkout -> return to /watch/:id
       try {
         const r = await window.sa.graphql(
-          `mutation Start($successPath: String){ 
+          `mutation StartBestieCheckout($successPath: String){ 
              startBestieCheckout(successPath:$successPath){ url } 
            }`,
           { successPath: `/watch/${epId}` }
@@ -75,13 +119,21 @@ export default function Episodes() {
           return;
         }
       } catch {
-        // ignore, try trial
+        // ignore, try trial next
       }
 
+      // Trial fallback – only ask for __typename to avoid
+      // touching fields that may be non-null in schema but null in resolver
       const trial = await window.sa.graphql(
-        `mutation { claimBestieTrial { active } }`
+        `mutation ClaimBestieTrial {
+           claimBestieTrial {
+             __typename
+           }
+         }`
       );
-      if (trial?.claimBestieTrial?.active) {
+
+      if (trial?.claimBestieTrial) {
+        // trial succeeded or they were already a Bestie
         setIsBestie(true);
       }
     } catch (e) {
@@ -96,7 +148,7 @@ export default function Episodes() {
     if (!early || isBestie) {
       return (
         <button
-          className="btn btn-primary"
+          className="ep-btn ep-btn-primary"
           onClick={() => nav(`/watch/${ep.id}`)}
         >
           Watch now
@@ -106,141 +158,189 @@ export default function Episodes() {
 
     return (
       <>
-        <div className="ep-countdown">
-          Public in <strong>{countdown}</strong>
-        </div>
         <button
-          className="btn btn-primary"
+          className="ep-btn ep-btn-primary"
           onClick={() => unlockBestieForEpisode(ep.id)}
         >
           Unlock with Bestie
         </button>
+        <div className="ep-card-countdown">
+          Public in <strong>{countdown}</strong>
+        </div>
       </>
     );
   };
 
+  function smallStatusLine(ep) {
+    const early = now < ep.publicAt;
+    const countdown = fmtCountdown(ep.publicAt, now);
+    if (!early || isBestie) {
+      return `Public now · ${new Date(ep.publicAt).toLocaleDateString()}`;
+    }
+    return `Early for Besties · Public in ${countdown}`;
+  }
+
   return (
     <div className="ep-page">
-      {/* HERO */}
+      {/* HERO / SERIES HEADER */}
       <header className="ep-hero">
         <div className="ep-hero-inner">
-          <div className="ep-hero-left">
-            <div className="ep-hero-badge">📺 Style Lab • Episodes</div>
-            <h1 className="ep-hero-title">Binge Styling Adventures</h1>
-            <p className="ep-hero-sub">
-              Watch new drops, earn petals (XP), and get early access as a
-              Bestie. When you spot a favorite outfit, jump into{" "}
-              <strong>Lala&apos;s Closet</strong> to heart the look.
-            </p>
-
-            <div className="ep-hero-actions">
-              <Link to="/fan" className="ep-hero-btn ep-hero-btn-ghost">
-                ← Back to fan home
-              </Link>
-              <Link
-                to="/fan/closet"
-                className="ep-hero-btn ep-hero-btn-soft"
+          <div className="ep-hero-topRow">
+            <div className="ep-hero-pill">📺 Style Lab • Episodes</div>
+            <div className="ep-hero-bestie">
+              <span
+                className={
+                  "ep-bestie-pill" +
+                  (isBestie ? " ep-bestie-pill--active" : "")
+                }
               >
-                Open style games
-              </Link>
+                {isBestie ? "Active Bestie 💖" : "Bestie locked"}
+              </span>
+              {loading && (
+                <span className="ep-bestie-meta">Checking…</span>
+              )}
+              {!loading && !isBestie && (
+                <span className="ep-bestie-meta">
+                  Unlock early access and bonus drops.
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="ep-hero-right">
-            <div className="ep-status-card">
-              <div className="ep-status-label">Bestie status</div>
-              <div className="ep-status-row">
-                <span
-                  className={
-                    "ep-status-pill" +
-                    (isBestie ? " ep-status-pill--active" : "")
-                  }
-                >
-                  {isBestie ? "Active Bestie 💖" : "Locked"}
-                </span>
-                {loading && (
-                  <span className="ep-status-meta">Checking…</span>
-                )}
-                {!loading && !isBestie && (
-                  <span className="ep-status-meta">
-                    Unlock early episodes with Bestie.
-                  </span>
-                )}
-              </div>
-              <p className="ep-status-footnote">
-                Besties see episodes before the public release date. Public
-                drops unlock automatically once the countdown hits zero.
+          <div className="ep-hero-main">
+            <div className="ep-hero-left">
+              <h1 className="ep-hero-title">Binge Styling Adventures</h1>
+              <p className="ep-hero-sub">
+                New episodes drop regularly with fresh fits, challenges, and
+                Bestie-only early access. Watch, earn petals, then jump into{" "}
+                <strong>Lala&apos;s Closet</strong> to heart your favorite
+                looks.
               </p>
+
+              <div className="ep-hero-actions">
+                <Link to="/fan" className="ep-hero-link">
+                  ← Back to fan home
+                </Link>
+                <Link to="/fan/closet" className="ep-hero-link">
+                  Open Style Lab games →
+                </Link>
+              </div>
             </div>
+
+            {/* Featured episode “hero card” */}
+            {featured && (
+              <div className="ep-featured-card">
+                <div className="ep-featured-thumb">
+                  <div className="ep-featured-episodeTag">
+                    EP{" "}
+                    {ordered.findIndex((x) => x.id === featured.id) + 1 ||
+                      1}
+                  </div>
+                  <div className="ep-featured-thumbOverlay" />
+                </div>
+                <div className="ep-featured-body">
+                  <div className="ep-featured-label">Featured episode</div>
+                  <h2 className="ep-featured-title">{featured.title}</h2>
+                  <div className="ep-featured-meta">
+                    <span className="ep-pill ep-pill--series">
+                      Styling Adventures
+                    </span>
+                    <span className="ep-pill ep-pill--status">
+                      {smallStatusLine(featured)}
+                    </span>
+                  </div>
+                  <div className="ep-featured-cta">
+                    {renderCta(featured)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <main className="ep-main">
-        {err && <div className="notice notice--error">{err}</div>}
+        {err && <div className="ep-notice ep-notice--error">{err}</div>}
         {loading && (
-          <div className="ep-loading">
-            Checking your Bestie status…
-          </div>
+          <div className="ep-loading">Checking your Bestie status…</div>
         )}
 
-        <div className="ep-grid">
-          {ordered.map((ep, idx) => {
-            const early = now < ep.publicAt;
-            const countdown = fmtCountdown(ep.publicAt, now);
+        {/* Episodes rail */}
+        <section className="ep-row">
+          <div className="ep-row-header">
+            <div>
+              <h2 className="ep-row-title">Latest episodes</h2>
+              <p className="ep-row-sub">
+                Start from the top or skip to the vibe you&apos;re in the mood
+                for. Locked thumbnails are early access for Besties.
+              </p>
+            </div>
+            <button
+              className="ep-btn ep-btn-ghost ep-row-refresh"
+              type="button"
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </button>
+          </div>
 
-            return (
-              <article key={ep.id} className="ep-card">
-                <div className="ep-card-thumb">
-                  <span className="ep-card-episode-tag">
-                    EP {idx + 1}
-                  </span>
-                </div>
+          <div className="ep-rail">
+            {ordered.map((ep, idx) => {
+              const early = now < ep.publicAt;
+              const countdown = fmtCountdown(ep.publicAt, now);
+              const locked = early && !isBestie;
 
-                <div className="ep-card-body">
-                  <div className="ep-card-header">
-                    <h2 className="ep-card-title">{ep.title}</h2>
-                    {early && <span className="ep-lock">🔒</span>}
-                  </div>
-
-                  <div className="ep-card-meta">
-                    <span
-                      className={
-                        "ep-pill" +
-                        (early ? "" : " ep-pill--public")
-                      }
-                    >
-                      {early
-                        ? `Public in ${countdown}`
-                        : "Public now"}
-                    </span>
-                    <span className="ep-pill ep-pill--date">
-                      Public:{" "}
-                      {new Date(ep.publicAt).toLocaleString()}
-                    </span>
-                    {early && (
-                      <span className="ep-pill ep-pill--bestie">
-                        Bestie early access
+              return (
+                <article key={ep.id} className="ep-tile">
+                  <div className="ep-tile-thumbWrap">
+                    <div className="ep-tile-thumb">
+                      <span className="ep-tile-episodeTag">
+                        EP {idx + 1}
                       </span>
-                    )}
+                      {locked && (
+                        <div className="ep-tile-lockOverlay">
+                          <span className="ep-tile-lockIcon">🔒</span>
+                          <span className="ep-tile-lockText">
+                            Early for Besties
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="ep-card-actions">
-                    {renderCta(ep)}
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      onClick={() => window.location.reload()}
-                    >
-                      Refresh
-                    </button>
+                  <div className="ep-tile-body">
+                    <h3 className="ep-tile-title">{ep.title}</h3>
+                    <div className="ep-tile-meta">
+                      <span
+                        className={
+                          "ep-pill ep-pill--small " +
+                          (locked ? "" : "ep-pill--public")
+                        }
+                      >
+                        {locked
+                          ? `Public in ${countdown}`
+                          : "Public now"}
+                      </span>
+                      <span className="ep-pill ep-pill--small ep-pill--date">
+                        {new Date(ep.publicAt).toLocaleDateString()}
+                      </span>
+                      {early && (
+                        <span className="ep-pill ep-pill--small ep-pill--bestie">
+                          Bestie early access
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="ep-tile-actions">
+                      {renderCta(ep)}
+                    </div>
                   </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </main>
 
       <style>{styles}</style>
@@ -250,326 +350,488 @@ export default function Episodes() {
 
 const styles = `
 .ep-page {
-  display:flex;
-  flex-direction:column;
-  gap:18px;
+  padding: 16px 0 32px;
 }
 
-/* HERO */
+/* HERO / SERIES HEADER – pink/purple/blue gradient --------------------- */
+
 .ep-hero {
-  border-radius:22px;
   background:
-    radial-gradient(circle at top left, #fde7f4 0, #fdf2ff 35%, transparent 65%),
-    radial-gradient(circle at bottom right, #dbeafe 0, #eef2ff 35%, transparent 70%);
-  border:1px solid rgba(248,250,252,0.95);
-  box-shadow:0 18px 40px rgba(15,23,42,0.08);
+    radial-gradient(circle at top left, #f9a8d4 0, #fdf2ff 35%, transparent 70%),
+    radial-gradient(circle at bottom right, #bfdbfe 0, #eff6ff 35%, transparent 75%),
+    linear-gradient(135deg, #6366f1, #ec4899);
+  border-radius: 24px;
+  border: 1px solid rgba(216, 180, 254, 0.9);
+  box-shadow: 0 18px 40px rgba(129,140,248,0.55);
+  color: #0f172a;
 }
+
 .ep-hero-inner {
-  max-width:1100px;
-  margin:0 auto;
-  padding:18px 20px 18px;
-  display:grid;
-  grid-template-columns:minmax(0, 3fr) minmax(0, 2fr);
-  gap:18px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
+
+.ep-hero-topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ep-hero-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(196,181,253,0.9);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b21a8;
+}
+
+.ep-hero-bestie {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ep-bestie-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(196,181,253,0.9);
+  background: rgba(255,255,255,0.9);
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.ep-bestie-pill--active {
+  background: linear-gradient(135deg,#6366f1,#ec4899);
+  border-color: #a855f7;
+  color: #f9fafb;
+}
+.ep-bestie-meta {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.ep-hero-main {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 2.3fr);
+  gap: 18px;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .ep-hero-main {
+    grid-template-columns: minmax(0,1fr);
+  }
+}
+
 .ep-hero-left {
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
 }
-.ep-hero-badge {
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:4px 10px;
-  border-radius:999px;
-  font-size:11px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  background:rgba(255,255,255,0.92);
-  color:#6b21a8;
-  border:1px solid rgba(148,163,184,0.5);
-}
+
 .ep-hero-title {
-  margin:0;
-  font-size:1.6rem;
-  letter-spacing:-0.02em;
-  color:#0f172a;
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: -0.02em;
+  color: #111827;
 }
+
 .ep-hero-sub {
-  margin:0;
-  font-size:0.96rem;
-  color:#4b5563;
-  max-width:520px;
+  margin: 0;
+  font-size: 0.95rem;
+  color: #374151;
 }
+
 .ep-hero-actions {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:4px;
-}
-.ep-hero-btn {
-  border-radius:999px;
-  padding:8px 16px;
-  font-size:0.9rem;
-  font-weight:600;
-  border:1px solid transparent;
-  cursor:pointer;
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  transition:background .15s ease, box-shadow .15s ease, transform .04s ease, border-color .15s ease;
-}
-.ep-hero-btn-ghost {
-  background:rgba(255,255,255,0.96);
-  border-color:rgba(148,163,184,0.5);
-  color:#111827;
-}
-.ep-hero-btn-ghost:hover {
-  background:#f9fafb;
-}
-.ep-hero-btn-soft {
-  background:#4f46e5;
-  border-color:#4f46e5;
-  color:#fff;
-  box-shadow:0 10px 26px rgba(79,70,229,0.45);
-}
-.ep-hero-btn-soft:hover {
-  background:#4338ca;
-  border-color:#4338ca;
-  transform:translateY(-1px);
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.ep-hero-right {
-  display:flex;
-  align-items:stretch;
-  justify-content:flex-end;
+.ep-hero-link {
+  font-size: 0.85rem;
+  color: #312e81;
+  text-decoration: none;
 }
-.ep-status-card {
-  background:rgba(255,255,255,0.96);
-  border-radius:18px;
-  padding:12px 14px;
-  border:1px solid rgba(226,232,240,0.9);
-  box-shadow:0 14px 30px rgba(15,23,42,0.10);
-  min-width:240px;
-}
-.ep-status-label {
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:.16em;
-  color:#9ca3af;
-  margin-bottom:4px;
-}
-.ep-status-row {
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  align-items:center;
-  margin-bottom:6px;
-}
-.ep-status-pill {
-  padding:4px 10px;
-  border-radius:999px;
-  background:#f9fafb;
-  border:1px solid #e5e7eb;
-  font-size:11px;
-  font-weight:600;
-  color:#4b5563;
-}
-.ep-status-pill--active {
-  background:#111827;
-  border-color:#111827;
-  color:#f9fafb;
-}
-.ep-status-meta {
-  font-size:11px;
-  color:#6b7280;
-}
-.ep-status-footnote {
-  margin:0;
-  font-size:11px;
-  color:#6b7280;
+.ep-hero-link:hover {
+  text-decoration: underline;
 }
 
-/* MAIN */
+/* Featured episode card */
+
+.ep-featured-card {
+  background: rgba(15,23,42,0.85);
+  border-radius: 18px;
+  border: 1px solid rgba(165,180,252,0.9);
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr);
+  gap: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 40px rgba(15,23,42,0.6);
+  color: #e5e7eb;
+}
+@media (max-width: 600px) {
+  .ep-featured-card {
+    grid-template-columns: minmax(0,1fr);
+  }
+}
+
+.ep-featured-thumb {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left,#f9a8d4,#ec4899),
+    radial-gradient(circle at bottom,#6366f1,#312e81);
+  min-height: 130px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.ep-featured-thumbOverlay {
+  flex: 1;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(15,23,42,0.1),
+    rgba(15,23,42,0.55)
+  );
+}
+
+.ep-featured-episodeTag {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.95);
+  color: #f9fafb;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ep-featured-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.ep-featured-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #c7d2fe;
+}
+
+.ep-featured-title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.ep-featured-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ep-featured-cta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* MAIN ----------------------------------------------------- */
+
 .ep-main {
-  max-width:1100px;
-  margin:0 auto 24px;
+  max-width: 1120px;
+  margin: 14px auto 0;
 }
 
 .ep-loading {
-  margin-bottom:10px;
-  font-size:0.9rem;
-  color:#6b7280;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: #6b7280;
 }
 
-.notice {
-  padding:10px 12px;
-  border-radius:10px;
-  margin-bottom:12px;
+.ep-notice {
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
 }
-.notice--error {
-  border:1px solid #ffd4d4;
-  background:#fff6f6;
-  color:#7a1a1a;
-  font-size:0.9rem;
+.ep-notice--error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #7f1d1d;
 }
 
-/* GRID + CARDS */
-.ep-grid {
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap:14px;
+/* Episodes row / rail -------------------------------------- */
+
+.ep-row {
+  margin-top: 4px;
 }
-.ep-card {
-  display:grid;
-  grid-template-columns:110px minmax(0,1fr);
-  gap:12px;
-  padding:12px;
-  border-radius:18px;
-  background:#ffffff;
-  border:1px solid #e5e7eb;
-  box-shadow:0 12px 32px rgba(15,23,42,0.06);
+
+.ep-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
 }
-.ep-card-thumb {
-  border-radius:14px;
-  background:linear-gradient(135deg,#e0e7ff,#fef3ff);
-  position:relative;
+
+.ep-row-title {
+  margin: 0;
+  font-size: 1.1rem;
 }
-.ep-card-episode-tag {
-  position:absolute;
-  left:10px;
-  bottom:10px;
-  padding:4px 10px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.92);
-  color:#f9fafb;
-  font-size:11px;
-  font-weight:600;
+
+.ep-row-sub {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
 }
-.ep-card-body {
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+
+.ep-row-refresh {
+  align-self: flex-start;
 }
-.ep-card-header {
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:8px;
+
+/* horizontal rail */
+
+.ep-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 2px;
+  scroll-snap-type: x mandatory;
 }
-.ep-card-title {
-  margin:0;
-  font-size:1.0rem;
-  font-weight:600;
-  color:#111827;
+
+.ep-rail::-webkit-scrollbar {
+  height: 6px;
 }
-.ep-lock {
-  font-size:1.1rem;
+.ep-rail::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 999px;
 }
-.ep-card-meta {
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  align-items:center;
+
+/* Episode tiles -------------------------------------------- */
+
+.ep-tile {
+  scroll-snap-align: start;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 24px rgba(148,163,184,0.32);
+  width: 220px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+
+.ep-tile-thumbWrap {
+  position: relative;
+}
+
+.ep-tile-thumb {
+  position: relative;
+  background:
+    radial-gradient(circle at top left,#e0e7ff,#c4b5fd),
+    radial-gradient(circle at bottom right,#fecaca,#f9a8d4);
+  aspect-ratio: 16 / 9;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+.ep-tile-episodeTag {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  color: #f9fafb;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ep-tile-lockOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(88,28,135,0.4),
+    rgba(30,64,175,0.9)
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #f9fafb;
+  font-size: 0.8rem;
+}
+
+.ep-tile-lockIcon {
+  font-size: 1.2rem;
+}
+
+.ep-tile-body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ep-tile-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ep-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.ep-card-countdown {
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
+.ep-tile-actions {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Pills & buttons ------------------------------------------ */
+
 .ep-pill {
-  border-radius:999px;
-  padding:3px 9px;
-  font-size:0.76rem;
-  border:1px solid #e5e7eb;
-  background:#f9fafb;
-  color:#111827;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #111827;
 }
+
+.ep-pill--small {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+}
+
+.ep-pill--series {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.ep-pill--status {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #4b5563;
+}
+
 .ep-pill--public {
-  background:#ecfdf3;
-  border-color:#bbf7d0;
-  color:#166534;
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #3730a3;
 }
+
 .ep-pill--date {
-  background:#f3f4ff;
-  border-color:#e0e7ff;
-  color:#4338ca;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
+
 .ep-pill--bestie {
-  background:#fef3c7;
-  border-color:#fde68a;
-  color:#b45309;
+  background: #fdf2ff;
+  border-color: #f9a8d4;
+  color: #be185d;
 }
 
-.ep-card-actions {
-  margin-top:6px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  align-items:center;
+/* generic episode buttons */
+
+.ep-btn {
+  appearance: none;
+  border-radius: 999px;
+  padding: 7px 13px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #111827;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition:
+    transform 40ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.ep-btn:hover {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  box-shadow: 0 6px 16px rgba(129,140,248,0.35);
+}
+.ep-btn:active {
+  transform: translateY(1px);
 }
 
-/* Buttons – reuse across page */
-.btn {
-  appearance:none;
-  border-radius:999px;
-  padding:8px 14px;
-  border:1px solid #e5e7eb;
-  background:#f9fafb;
-  color:#111827;
-  cursor:pointer;
-  font-size:0.86rem;
-  font-weight:500;
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  transition:transform 40ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+.ep-btn-primary {
+  background: linear-gradient(135deg,#6366f1,#ec4899);
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(236,72,153,0.45);
 }
-.btn:hover {
-  background:#f3f4ff;
-  border-color:#e0e7ff;
-  box-shadow:0 6px 16px rgba(148,163,184,0.3);
-}
-.btn:active {
-  transform:translateY(1px);
-}
-.btn-primary {
-  background:#4f46e5;
-  border-color:#4f46e5;
-  color:#ffffff;
-}
-.btn-primary:hover {
-  background:#4338ca;
-  border-color:#4338ca;
-}
-.btn-ghost {
-  background:#ffffff;
-  border-color:#e5e7eb;
-  color:#4b5563;
-}
-.btn-ghost:hover {
-  background:#f9fafb;
+.ep-btn-primary:hover {
+  background: linear-gradient(135deg,#4f46e5,#db2777);
+  border-color: #4f46e5;
 }
 
-/* Countdown text */
-.ep-countdown {
-  font-size:0.82rem;
-  color:#374151;
+.ep-btn-ghost {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #4b5563;
 }
 
-/* Responsive */
-@media (max-width:900px) {
-  .ep-hero-inner {
-    grid-template-columns:minmax(0,1fr);
+/* Responsive tweaks ---------------------------------------- */
+
+@media (max-width: 768px) {
+  .ep-rail {
+    gap: 10px;
   }
-  .ep-card {
-    grid-template-columns:minmax(0,1fr);
+  .ep-tile {
+    width: 200px;
   }
 }
-@media (max-width:640px) {
+
+@media (max-width: 640px) {
   .ep-hero-inner {
-    padding:14px 14px 14px;
+    padding: 14px 14px 14px;
   }
   .ep-hero-title {
-    font-size:1.4rem;
+    font-size: 1.5rem;
   }
 }
 `;
