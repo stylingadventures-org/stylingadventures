@@ -48,6 +48,7 @@ function coerceMeta(m: unknown): Record<string, any> | null {
   }
   return typeof m === "object" ? (m as any) : { value: m };
 }
+
 function levelFromXp(xp: number): number {
   let lvl = 1,
     need = 100,
@@ -79,7 +80,7 @@ function isYesterdayUtc(aIso: string, bIso: string) {
   const a = new Date(aIso); // last login
   const b = new Date(bIso); // now
   const y = new Date(
-    Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate() - 1)
+    Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate() - 1),
   );
   return (
     a.getUTCFullYear() === y.getUTCFullYear() &&
@@ -104,6 +105,16 @@ export const handler = async (event: AppSyncEvent) => {
     const evType: string = input.type || "UNKNOWN";
     const metadata = coerceMeta(input.metadata);
 
+    // Shape we must return for GameEventResult:
+    // {
+    //   success: Boolean!
+    //   xp: Int
+    //   coins: Int
+    //   newXP: Int
+    //   newCoins: Int
+    //   lastEventAt: AWSDateTime
+    // }
+
     // ── DAILY_LOGIN with streak logic ───────────────────────────
     if (evType === "DAILY_LOGIN") {
       const got = await ddb.send(
@@ -112,7 +123,7 @@ export const handler = async (event: AppSyncEvent) => {
           Key: { pk: `USER#${userId}`, sk: "PROFILE" },
           ProjectionExpression:
             "lastLoginAt, streakCount, xp, coins, badges, displayName, lastEventAt",
-        })
+        }),
       );
 
       const lastLoginRaw = got.Item?.lastLoginAt as string | undefined;
@@ -162,9 +173,12 @@ export const handler = async (event: AppSyncEvent) => {
             ":st": streak,
           },
           ReturnValues: "ALL_NEW",
-        })
+        }),
       );
       const xpNow = Number(upd.Attributes?.xp ?? 0);
+      const coinsNow = Number(upd.Attributes?.coins ?? 0);
+      const lastEventAt =
+        (upd.Attributes?.lastEventAt as string | undefined) ?? nowIso;
 
       // keep leaderboard row updated
       await ddb.send(
@@ -176,26 +190,22 @@ export const handler = async (event: AppSyncEvent) => {
             gsi1pk: "LEADERBOARD#GLOBAL",
             gsi1sk: `XP#${pad(xpNow)}#${userId}`,
             xp: xpNow,
-            coins: Number(upd.Attributes?.coins ?? 0),
+            coins: coinsNow,
             streakCount: streak,
             updatedAt: nowIso,
             type: "LEADER",
           },
-        })
+        }),
       );
 
+      // Return GameEventResult
       return {
-        userId,
-        displayName: (upd.Attributes?.displayName as string) || null,
-        level: levelFromXp(xpNow),
+        success: true,
         xp: xpNow,
-        coins: Number(upd.Attributes?.coins ?? 0),
-        badges: Array.isArray(upd.Attributes?.badges)
-          ? (upd.Attributes!.badges as string[])
-          : [],
-        lastEventAt: (upd.Attributes?.lastEventAt as string) ?? nowIso,
-        lastLoginAt: nowIso,
-        streakCount: streak,
+        coins: coinsNow,
+        newXP: xpInc,
+        newCoins: coinInc,
+        lastEventAt,
       };
     }
 
@@ -227,9 +237,12 @@ export const handler = async (event: AppSyncEvent) => {
           ":now": nowIso,
         },
         ReturnValues: "ALL_NEW",
-      })
+      }),
     );
     const xpNow = Number(upd.Attributes?.xp ?? 0);
+    const coinsNow = Number(upd.Attributes?.coins ?? 0);
+    const lastEventAt =
+      (upd.Attributes?.lastEventAt as string | undefined) ?? nowIso;
 
     await ddb.send(
       new PutCommand({
@@ -240,11 +253,11 @@ export const handler = async (event: AppSyncEvent) => {
           gsi1pk: "LEADERBOARD#GLOBAL",
           gsi1sk: `XP#${pad(xpNow)}#${userId}`,
           xp: xpNow,
-          coins: Number(upd.Attributes?.coins ?? 0),
+          coins: coinsNow,
           updatedAt: nowIso,
           type: "LEADER",
         },
-      })
+      }),
     );
 
     await ddb
@@ -260,20 +273,18 @@ export const handler = async (event: AppSyncEvent) => {
             at: nowIso,
           },
           ConditionExpression: "attribute_not_exists(pk)",
-        })
+        }),
       )
       .catch(() => {});
 
+    // Return GameEventResult
     return {
-      userId,
-      displayName: (upd.Attributes?.displayName as string) || null,
-      level: levelFromXp(xpNow),
+      success: true,
       xp: xpNow,
-      coins: Number(upd.Attributes?.coins ?? 0),
-      badges: Array.isArray(upd.Attributes?.badges)
-        ? (upd.Attributes!.badges as string[])
-        : [],
-      lastEventAt: (upd.Attributes?.lastEventAt as string) ?? nowIso,
+      coins: coinsNow,
+      newXP: xpInc,
+      newCoins: coinInc,
+      lastEventAt,
     };
   }
 
@@ -297,7 +308,7 @@ export const handler = async (event: AppSyncEvent) => {
           ":x": incXp,
         },
         ReturnValues: "ALL_NEW",
-      })
+      }),
     );
     const xpNow = Number(upd.Attributes?.xp ?? 0);
 
@@ -314,9 +325,10 @@ export const handler = async (event: AppSyncEvent) => {
           updatedAt: new Date().toISOString(),
           type: "LEADER",
         },
-      })
+      }),
     );
 
+    // awardCoins still returns GameProfile (per schema)
     return {
       userId,
       displayName: (upd.Attributes?.displayName as string) || null,
@@ -337,7 +349,7 @@ export const handler = async (event: AppSyncEvent) => {
   if (fieldName === "topXP") {
     const limit = Math.max(
       1,
-      Math.min(100, Number(event.arguments?.limit ?? 10))
+      Math.min(100, Number(event.arguments?.limit ?? 10)),
     );
     const out = await ddb.send(
       new QueryCommand({
@@ -347,7 +359,7 @@ export const handler = async (event: AppSyncEvent) => {
         ExpressionAttributeValues: { ":p": "LEADERBOARD#GLOBAL" },
         ScanIndexForward: false, // highest XP first
         Limit: limit,
-      })
+      }),
     );
     const items = out.Items ?? [];
     const results = await Promise.all(
@@ -360,7 +372,7 @@ export const handler = async (event: AppSyncEvent) => {
               TableName: TABLE_NAME,
               Key: { pk: `USER#${userId}`, sk: "PROFILE" },
               ProjectionExpression: "displayName",
-            })
+            }),
           );
           displayName = got.Item?.displayName as string | undefined;
         } catch {}
@@ -371,7 +383,7 @@ export const handler = async (event: AppSyncEvent) => {
           coins: Number(it.coins ?? 0),
           rank: i + 1,
         };
-      })
+      }),
     );
     return results;
   }

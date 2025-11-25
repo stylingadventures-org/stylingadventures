@@ -1,11 +1,9 @@
-// site/src/routes/admin/ClosetUpload.jsx
 import React, {
   useState,
   useEffect,
   useRef,
   useMemo,
 } from "react";
-import { Link } from "react-router-dom";
 import { signedUpload, getSignedGetUrl } from "../../lib/sa";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,6 +26,8 @@ const GQL = {
         audience
         mediaKey
         rawMediaKey
+        category
+        subcategory
         createdAt
         updatedAt
       }
@@ -47,6 +47,8 @@ const GQL = {
         ownerSub
         reason
         audience
+        category
+        subcategory
       }
     }
   `,
@@ -62,12 +64,14 @@ const GQL = {
         updatedAt
         ownerSub
         audience
+        category
+        subcategory
       }
     }
   `,
   rejectAsDelete: /* GraphQL */ `
-    mutation AdminRejectItem($id: ID!, $reason: String) {
-      adminRejectItem(id: $id, reason: $reason) {
+    mutation AdminRejectItem($closetItemId: ID!, $reason: String) {
+      adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
         id
         status
         reason
@@ -75,8 +79,8 @@ const GQL = {
     }
   `,
   approve: /* GraphQL */ `
-    mutation Approve($id: ID!) {
-      adminApproveItem(id: $id) {
+    mutation Approve($closetItemId: ID!) {
+      adminApproveItem(closetItemId: $closetItemId) {
         id
         status
         updatedAt
@@ -85,8 +89,8 @@ const GQL = {
     }
   `,
   reject: /* GraphQL */ `
-    mutation Reject($id: ID!, $reason: String) {
-      adminRejectItem(id: $id, reason: $reason) {
+    mutation Reject($closetItemId: ID!, $reason: String) {
+      adminRejectItem(closetItemId: ID!, $reason: String) {
         id
         status
         reason
@@ -95,8 +99,11 @@ const GQL = {
     }
   `,
   setAudience: /* GraphQL */ `
-    mutation SetAudience($id: ID!, $audience: ClosetAudience!) {
-      adminSetClosetAudience(id: $id, audience: $audience) {
+    mutation SetAudience($closetItemId: ID!, $audience: ClosetAudience!) {
+      adminSetClosetAudience(
+        closetItemId: $closetItemId
+        audience: $audience
+      ) {
         audience
       }
     }
@@ -108,6 +115,56 @@ const AUDIENCE_OPTIONS = [
   { value: "BESTIE", label: "Bestie only" },
   { value: "EXCLUSIVE", label: "Exclusive drop" },
 ];
+
+// High-level closet categories
+const CATEGORY_OPTIONS = [
+  { value: "", label: "Select category" },
+  { value: "Dresses", label: "Dresses" },
+  { value: "Tops", label: "Tops" },
+  { value: "Bottoms", label: "Bottoms" },
+  { value: "Sets", label: "Matching sets" },
+  { value: "Outerwear", label: "Outerwear" },
+  { value: "Shoes", label: "Shoes" },
+  { value: "Bags", label: "Bags" },
+  { value: "Jewelry", label: "Jewelry" },
+  { value: "Accessories", label: "Accessories" },
+  { value: "Beauty", label: "Beauty / Perfume" },
+];
+
+// Subcategories per category
+const SUBCATEGORY_BY_CATEGORY = {
+  Dresses: [
+    "Mini dress",
+    "Midi dress",
+    "Maxi dress",
+    "Bodycon",
+    "Slip dress",
+    "Party dress",
+  ],
+  Tops: [
+    "Crop top",
+    "T-shirt",
+    "Blouse",
+    "Corset top",
+    "Sweater",
+    "Hoodie",
+  ],
+  Bottoms: [
+    "Jeans",
+    "Trousers",
+    "Shorts",
+    "Skirt",
+    "Leggings",
+    "Cargo",
+  ],
+  Sets: ["Skirt set", "Pant set", "Sweatsuit", "Lounge set"],
+  Outerwear: ["Denim jacket", "Blazer", "Coat", "Bomber", "Puffer", "Cardigan"],
+  Shoes: ["Heels", "Sneakers", "Boots", "Sandals", "Flats"],
+  Bags: ["Shoulder bag", "Tote", "Mini bag", "Crossbody", "Clutch"],
+  Jewelry: ["Necklace", "Earrings", "Bracelet", "Rings", "Body jewelry"],
+  Accessories: ["Hat", "Scarf", "Belt", "Sunglasses", "Hair accessory"],
+  Beauty: ["Perfume", "Body mist", "Lip product", "Face", "Eyes"],
+};
 
 /** Prefer cleaned mediaKey; fallback to rawMediaKey if cutout not ready. */
 function effectiveKey(item) {
@@ -142,6 +199,10 @@ export default function ClosetUpload() {
   const [title, setTitle] = useState("");
   const [season, setSeason] = useState("");
   const [vibes, setVibes] = useState("");
+
+  // NEW: categorization fields
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
 
   // Files + preview
   const [files, setFiles] = useState([]); // Array<File>
@@ -265,19 +326,19 @@ export default function ClosetUpload() {
           .replace(/[^a-z0-9]/g, "") || "jpg";
         const uploadKey = `${randomId()}.${ext}`;
 
-        // signedUpload will call the presign API with { key, kind: "closet", ... }
         const up = await signedUpload(file, {
-          key: uploadKey,   // just "uuid.ext"
-          kind: "closet",   // tells Lambda to store under closet/
+          key: uploadKey,
+          kind: "closet",
         });
-        const rawMediaKey = up.key; // e.g. "closet/8c261459-3104-43fe-908d-38ada56f881c.jpg"
-
+        const rawMediaKey = up.key; // e.g. "closet/…jpg"
 
         const input = {
           title: itemTitle,
           rawMediaKey,
           ...(season.trim() ? { season: season.trim() } : {}),
           ...(vibes.trim() ? { vibes: vibes.trim() } : {}),
+          ...(category ? { category } : {}),
+          ...(subcategory ? { subcategory } : {}),
         };
 
         const data = await window.sa.graphql(GQL.create, { input });
@@ -307,6 +368,8 @@ export default function ClosetUpload() {
       setTitle("");
       setSeason("");
       setVibes("");
+      setCategory("");
+      setSubcategory("");
 
       await loadItems();
       setViewMode("REVIEW"); // jump to review after an upload
@@ -331,7 +394,6 @@ export default function ClosetUpload() {
 
       const pending = pendingData?.adminListPending ?? [];
 
-      // closetFeed may be list OR page
       let published = [];
       const cf = publishedData?.closetFeed;
       if (Array.isArray(cf)) {
@@ -439,7 +501,7 @@ export default function ClosetUpload() {
     }
     try {
       await window.sa.graphql(GQL.rejectAsDelete, {
-        id,
+        closetItemId: id,
         reason: "Deleted from admin upload page",
       });
       await loadItems();
@@ -460,7 +522,10 @@ export default function ClosetUpload() {
   async function saveAudience(id, audience) {
     try {
       setBusyId(id);
-      await window.sa.graphql(GQL.setAudience, { id, audience });
+      await window.sa.graphql(GQL.setAudience, {
+        closetItemId: id,
+        audience,
+      });
       await loadItems();
     } catch (err) {
       console.error(err);
@@ -473,10 +538,10 @@ export default function ClosetUpload() {
   async function approveItem(item) {
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.approve, { id: item.id });
+      await window.sa.graphql(GQL.approve, { closetItemId: item.id });
       const audience = item.audience || "PUBLIC";
       await window.sa.graphql(GQL.setAudience, {
-        id: item.id,
+        closetItemId: item.id,
         audience,
       });
       await loadItems();
@@ -496,7 +561,7 @@ export default function ClosetUpload() {
     try {
       setBusyId(item.id);
       await window.sa.graphql(GQL.reject, {
-        id: item.id,
+        closetItemId: item.id,
         reason,
       });
       await loadItems();
@@ -518,8 +583,9 @@ export default function ClosetUpload() {
       : `${secondsSinceUpdate}s ago`;
 
   const isReviewMode = viewMode === "REVIEW";
+  const reviewList = pendingItems;
 
-  const reviewList = pendingItems; // full list in review mode
+  const currentSubcats = SUBCATEGORY_BY_CATEGORY[category] || [];
 
   return (
     <div className="closet-admin-page">
@@ -549,9 +615,14 @@ export default function ClosetUpload() {
 
         <div className="closet-admin-header-right">
           <span className="closet-admin-pill">ADMIN PORTAL</span>
-          <span className="closet-admin-count">
-            Closet items: <strong>{items.length}</strong>
-          </span>
+          <div className="closet-admin-count-block">
+            <span className="closet-admin-count">
+              Closet items: <strong>{items.length}</strong>
+            </span>
+            <span className="closet-admin-count">
+              Auto-updated <strong>{autoLabel}</strong>
+            </span>
+          </div>
         </div>
       </header>
 
@@ -581,7 +652,7 @@ export default function ClosetUpload() {
             onClick={() => fileInputRef.current?.click()}
           >
             <div className="closet-drop-icon">＋</div>
-            <div className="closet-drop-title">Choose a file…</div>
+            <div className="closet-drop-title">Choose files…</div>
             <div className="closet-drop-text">
               Drag & drop or click to browse. You can add multiple images at
               once.
@@ -634,6 +705,59 @@ export default function ClosetUpload() {
                   className="sa-input"
                   placeholder="e.g. cozy, barbiecore"
                 />
+              </label>
+            </div>
+
+            {/* NEW: category / subcategory */}
+            <div className="closet-upload-row">
+              <label className="closet-field">
+                <span className="closet-field-label">
+                  Closet category
+                </span>
+                <select
+                  className="sa-input"
+                  value={category}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCategory(val);
+                    setSubcategory("");
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="closet-field-hint">
+                  e.g. Dresses, Tops, Shoes, Beauty…
+                </span>
+              </label>
+
+              <label className="closet-field">
+                <span className="closet-field-label">
+                  Subcategory (optional)
+                </span>
+                <select
+                  className="sa-input"
+                  value={subcategory}
+                  disabled={!category}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                >
+                  <option value="">
+                    {category
+                      ? "Select subcategory"
+                      : "Choose a category first"}
+                  </option>
+                  {currentSubcats.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ))}
+                </select>
+                <span className="closet-field-hint">
+                  Helps keep Lala&apos;s digital closet super organized.
+                </span>
               </label>
             </div>
           </div>
@@ -722,7 +846,7 @@ export default function ClosetUpload() {
 
         {/* RIGHT: Dashboard panel */}
         <section className="sa-card closet-dashboard-card">
-          <header className="closet-card-header closet-dashboard-header">
+          <header className="closet-dashboard-header">
             <div>
               <h2 className="closet-card-title">Closet dashboard</h2>
               <p className="closet-card-sub">
@@ -732,38 +856,50 @@ export default function ClosetUpload() {
             </div>
 
             <div className="closet-auto-meta">
-              <div className="closet-mode-toggle">
-                <button
-                  type="button"
-                  className={
-                    "closet-mode-pill" +
-                    (viewMode === "ACTIVITY"
-                      ? " closet-mode-pill--active"
-                      : "")
-                  }
-                  onClick={() => setViewMode("ACTIVITY")}
-                >
-                  Recent activity
-                </button>
-                <button
-                  type="button"
-                  className={
-                    "closet-mode-pill" +
-                    (viewMode === "REVIEW"
-                      ? " closet-mode-pill--active"
-                      : "")
-                  }
-                  onClick={() => setViewMode("REVIEW")}
-                >
-                  Pending review
-                </button>
-              </div>
-              <div className="closet-auto-block">
+              <span className="closet-auto-block">
                 <span className="closet-auto-label">AUTO-UPDATED</span>
                 <span className="closet-auto-value">{autoLabel}</span>
-              </div>
+              </span>
+              <a
+                href="/fan/closet-feed"
+                target="_blank"
+                rel="noreferrer"
+                className="closet-admin-viewlink"
+              >
+                Open fan closet →
+              </a>
             </div>
           </header>
+
+          {/* Tabs */}
+          <div className="closet-tabs">
+            <button
+              type="button"
+              className={
+                "closet-tab" +
+                (viewMode === "ACTIVITY" ? " closet-tab--active" : "")
+              }
+              onClick={() => setViewMode("ACTIVITY")}
+            >
+              Activity
+              <span className="closet-tab-count">
+                {itemCount}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={
+                "closet-tab" +
+                (viewMode === "REVIEW" ? " closet-tab--active" : "")
+              }
+              onClick={() => setViewMode("REVIEW")}
+            >
+              Pending review
+              <span className="closet-tab-count">
+                {reviewList.length}
+              </span>
+            </button>
+          </div>
 
           {/* Filters row */}
           <div className="closet-filters-row">
@@ -787,9 +923,9 @@ export default function ClosetUpload() {
               onChange={(e) => setSearch(e.target.value)}
             />
 
-            <select className="closet-filter-input" disabled>
-              <option>Sort by newest (default)</option>
-            </select>
+            <span className="closet-filter-pill">
+              Showing newest first
+            </span>
 
             <button
               type="button"
@@ -801,6 +937,7 @@ export default function ClosetUpload() {
             </button>
           </div>
 
+          {/* ACTIVITY MODE */}
           {!isReviewMode && (
             <>
               <div className="closet-grid-header">
@@ -843,6 +980,9 @@ export default function ClosetUpload() {
                         statusClass = "closet-status-pill--rejected";
 
                       const statusLabel = humanStatusLabel(item);
+                      const categoryLabel =
+                        item.category ||
+                        (item.subcategory ? "Uncategorized" : "");
 
                       return (
                         <article
@@ -891,6 +1031,21 @@ export default function ClosetUpload() {
                                   : "Fan / Bestie"}
                               </span>
                             </div>
+
+                            {(categoryLabel || item.subcategory) && (
+                              <div className="closet-grid-tags">
+                                {categoryLabel && (
+                                  <span className="closet-grid-tag">
+                                    {categoryLabel}
+                                  </span>
+                                )}
+                                {item.subcategory && (
+                                  <span className="closet-grid-tag closet-grid-tag--soft">
+                                    {item.subcategory}
+                                  </span>
+                                )}
+                              </div>
+                            )}
 
                             <div className="closet-grid-footer">
                               <span className="closet-grid-date">
@@ -948,6 +1103,7 @@ export default function ClosetUpload() {
             </>
           )}
 
+          {/* REVIEW MODE */}
           {isReviewMode && (
             <>
               <div className="closet-grid-header closet-grid-header--review">
@@ -986,6 +1142,9 @@ export default function ClosetUpload() {
                     const hasCutout = !!item.mediaKey;
                     const statusLabel = humanStatusLabel(item);
                     const isPending = item.status === "PENDING";
+                    const categoryLabel =
+                      item.category ||
+                      (item.subcategory ? "Uncategorized" : "");
 
                     return (
                       <article
@@ -1045,6 +1204,21 @@ export default function ClosetUpload() {
                             </span>
                           </div>
 
+                          {(categoryLabel || item.subcategory) && (
+                            <div className="closet-grid-tags">
+                              {categoryLabel && (
+                                <span className="closet-grid-tag">
+                                  {categoryLabel}
+                                </span>
+                              )}
+                              {item.subcategory && (
+                                <span className="closet-grid-tag closet-grid-tag--soft">
+                                  {item.subcategory}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           <div className="closet-review-audience-row">
                             <label className="closet-review-label">
                               Audience
@@ -1055,8 +1229,6 @@ export default function ClosetUpload() {
                               onChange={async (e) => {
                                 const val = e.target.value;
                                 updateLocalAudience(item.id, val);
-                                // if already approved later, we can persist immediately;
-                                // for pending we persist on approve.
                                 if (item.status !== "PENDING") {
                                   await saveAudience(item.id, val);
                                 }
@@ -1192,6 +1364,13 @@ const styles = /* css */ `
   letter-spacing:0.14em;
 }
 
+.closet-admin-count-block {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:2px;
+}
+
 .closet-admin-count {
   font-size:12px;
   color:#6b7280;
@@ -1211,7 +1390,7 @@ const styles = /* css */ `
 
 .closet-admin-shell {
   display:grid;
-  grid-template-columns:minmax(0, 330px) minmax(0, 1fr);
+  grid-template-columns:minmax(0, 340px) minmax(0, 1fr);
   gap:18px;
 }
 
@@ -1299,7 +1478,7 @@ const styles = /* css */ `
   color:#6b7280;
 }
 
-/* Upload fields (Base title / Season / Vibes) --------------- */
+/* Upload fields --------------- */
 
 .closet-upload-fields {
   margin-top: 18px;
@@ -1482,7 +1661,10 @@ const styles = /* css */ `
 }
 
 .closet-dashboard-header {
+  display:flex;
+  justify-content:space-between;
   align-items:flex-start;
+  gap:16px;
 }
 
 .closet-auto-meta {
@@ -1509,36 +1691,62 @@ const styles = /* css */ `
   font-size:12px;
 }
 
-/* Mode pills */
+.closet-admin-viewlink {
+  font-size:11px;
+  color:#4f46e5;
+  text-decoration:none;
+}
 
-.closet-mode-toggle {
+.closet-admin-viewlink:hover {
+  text-decoration:underline;
+}
+
+/* Tabs --------------------------------------------------- */
+
+.closet-tabs {
+  margin-top:10px;
   display:inline-flex;
-  padding:2px;
+  padding:3px;
   border-radius:999px;
   background:#f3f4ff;
   box-shadow:inset 0 0 0 1px rgba(148,163,184,0.35);
 }
 
-.closet-mode-pill {
+.closet-tab {
   border-radius:999px;
   border:none;
-  padding:4px 10px;
+  padding:6px 12px;
   font-size:11px;
   cursor:pointer;
   background:transparent;
   color:#6b7280;
+  display:flex;
+  align-items:center;
+  gap:6px;
 }
 
-.closet-mode-pill--active {
+.closet-tab--active {
   background:#ffffff;
   color:#111827;
   box-shadow:0 3px 9px rgba(148,163,184,0.35);
 }
 
+.closet-tab-count {
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  border-radius:999px;
+  background:#eef2ff;
+  font-size:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
 /* Filters row */
 
 .closet-filters-row {
-  margin-top:6px;
+  margin-top:10px;
   display:grid;
   grid-template-columns:minmax(0,140px) minmax(0,1fr) 180px auto;
   gap:8px;
@@ -1567,13 +1775,22 @@ const styles = /* css */ `
   cursor:not-allowed;
 }
 
+.closet-filter-pill {
+  font-size:12px;
+  color:#6b7280;
+  padding:7px 12px;
+  border-radius:999px;
+  background:#f3f4ff;
+  border:1px solid #e5e7eb;
+}
+
 @media (max-width: 720px) {
   .closet-filters-row {
     grid-template-columns:minmax(0,1fr);
   }
 }
 
-/* GRID – ACTIVITY ---------------------------------------- */
+/* GRID – Shared ------------------------------------------ */
 
 .closet-grid-header {
   display:flex;
@@ -1637,7 +1854,7 @@ const styles = /* css */ `
   background:#fef9ff;
 }
 
-/* Thumbs – match library (full view, centered) */
+/* Thumbs */
 
 .closet-grid-thumb {
   position:relative;
@@ -1734,6 +1951,28 @@ const styles = /* css */ `
 
 .closet-grid-audience {
   font-size:11px;
+  color:#6b7280;
+}
+
+/* Category tags */
+
+.closet-grid-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-top:2px;
+}
+
+.closet-grid-tag {
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:#3730a3;
+}
+
+.closet-grid-tag--soft {
+  background:#f9fafb;
   color:#6b7280;
 }
 
@@ -1885,9 +2124,5 @@ const styles = /* css */ `
   font-size:13px;
   cursor:pointer;
 }
-
-.sa-btn--ghost {
-  background:#f9fafb;
-  border-color:#e5e7eb;
-}
 `;
+

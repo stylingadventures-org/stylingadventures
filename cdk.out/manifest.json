@@ -651,7 +651,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7924af056490acbb99cd6f4f253a66e1347ba528ce0ae615d55b6f67b63962f8.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/585b26a20970f551b994df1e16f00afdf030c81551bb41a68b0b8f2ad2bd66b9.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -781,6 +781,12 @@
             "data": "StylingApiMyClosetC8373A07"
           }
         ],
+        "/ApiStack/StylingApi/MyWishlistResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMyWishlistResolver426A19B4"
+          }
+        ],
         "/ApiStack/StylingApi/CreateClosetItem/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -803,6 +809,48 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiUpdateClosetItemStory1E53C9EF"
+          }
+        ],
+        "/ApiStack/StylingApi/LikeClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLikeClosetItemResolverDDD008BD"
+          }
+        ],
+        "/ApiStack/StylingApi/CommentOnClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCommentOnClosetItemResolver7F7A6E8F"
+          }
+        ],
+        "/ApiStack/StylingApi/PinHighlightResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiPinHighlightResolver002B0CAF"
+          }
+        ],
+        "/ApiStack/StylingApi/ToggleWishlistItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiToggleWishlistItemResolverDE94C35B"
+          }
+        ],
+        "/ApiStack/StylingApi/ClosetItemCommentsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClosetItemCommentsResolver56F9E376"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminClosetItemLikesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminClosetItemLikesResolverFC561E87"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminClosetItemCommentsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminClosetItemCommentsResolver42C32439"
           }
         ],
         "/ApiStack/StylingApi/ClosetAdminSource/ServiceRole/Resource": [
@@ -841,12 +889,6 @@
             "data": "StylingApiClosetFeedResolverA7586067"
           }
         ],
-        "/ApiStack/StylingApi/TopClosetLooksResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTopClosetLooksResolver10574B51"
-          }
-        ],
         "/ApiStack/StylingApi/AdminCreateClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -869,6 +911,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiAdminSetClosetAudienceBD88A9DD"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminUpdateClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminUpdateClosetItemResolver5BCA141E"
           }
         ],
         "/ApiStack/StylingApi/BestieDs/ServiceRole/Resource": [
@@ -1061,6 +1109,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiSetDisplayName8C104CD4"
+          }
+        ],
+        "/ApiStack/StylingApi/UpdateProfile/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUpdateProfile4D453D81"
           }
         ],
         "/ApiStack/StylingApi/TopXP/Resource": [

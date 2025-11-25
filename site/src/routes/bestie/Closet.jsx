@@ -6,6 +6,69 @@ import { getThumbUrlForMediaKey } from "../../lib/thumbs";
 // Simple helper so we don't crash on unknown statuses
 const initialStats = { approved: 0, pending: 0, drafts: 0, rejected: 0 };
 
+// Clothing category options for the filter
+const CATEGORY_OPTIONS = [
+  { value: "ALL", label: "All categories" },
+  { value: "TOPS", label: "Tops" },
+  { value: "BOTTOMS", label: "Bottoms" },
+  { value: "DRESSES", label: "Dresses" },
+  { value: "SHOES", label: "Shoes" },
+  { value: "ACCESSORIES", label: "Accessories" },
+  { value: "OTHER", label: "Other" },
+];
+
+/**
+ * Heuristic category detector.
+ *
+ * - If you later add an explicit field (e.g. item.pieceCategory),
+ *   prefer that and fall back to these string matches.
+ */
+function deriveCategory(item) {
+  // If backend adds a field, prefer it:
+  const explicit =
+    (item.pieceCategory ||
+      item.category ||
+      item.type ||
+      item.kind ||
+      "").toString();
+
+  const source =
+    explicit ||
+    [
+      item.title,
+      item.storyTitle,
+      item.storySeason,
+      Array.isArray(item.storyVibes) ? item.storyVibes.join(" ") : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+  const s = source.toLowerCase();
+
+  if (s.match(/\b(top|tee|t\-shirt|shirt|blouse|sweater|hoodie)\b/)) {
+    return "TOPS";
+  }
+  if (s.match(/\b(jeans|pants|trousers|shorts|skirt|bottom)\b/)) {
+    return "BOTTOMS";
+  }
+  if (s.match(/\b(dress|gown)\b/)) {
+    return "DRESSES";
+  }
+  if (s.match(/\b(heel|shoe|sneaker|boot|sandal|loafer)\b/)) {
+    return "SHOES";
+  }
+  if (
+    s.match(
+      /\b(bag|purse|hat|belt|scarf|earring|necklace|ring|accessor(y|ies))\b/
+    )
+  ) {
+    return "ACCESSORIES";
+  }
+
+  return "OTHER";
+}
+
 export default function BestieCloset() {
   const [stats, setStats] = useState(initialStats);
   const [items, setItems] = useState([]);
@@ -21,10 +84,13 @@ export default function BestieCloset() {
   });
   const [savingStory, setSavingStory] = useState(false);
 
-  // simple client-side search
+  // filters
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
 
   const hasItems = items && items.length > 0;
+  const totalPieces = items.length;
+  const styledLooks = stats.approved; // you can change this mapping later
 
   const loadCloset = useCallback(async () => {
     setLoading(true);
@@ -49,17 +115,18 @@ export default function BestieCloset() {
 
       const list = Array.isArray(res?.myCloset) ? res.myCloset : [];
 
-      // hydrate with thumbnails
+      // hydrate with thumbnails + category
       const hydrated = await Promise.all(
         list.map(async (it) => {
           const thumbUrl = it.mediaKey
             ? await getThumbUrlForMediaKey(it.mediaKey)
             : null;
-          return { ...it, thumbUrl };
+          const category = deriveCategory(it);
+          return { ...it, thumbUrl, category };
         })
       );
 
-      // compute stats
+      // compute stats by status
       const nextStats = hydrated.reduce(
         (acc, it) => {
           const s = (it.status || "").toUpperCase();
@@ -94,9 +161,7 @@ export default function BestieCloset() {
     setStoryDraft({
       title: item.storyTitle || item.title || "",
       season: item.storySeason || "",
-      vibes: Array.isArray(item.storyVibes)
-        ? item.storyVibes.join(", ")
-        : "",
+      vibes: Array.isArray(item.storyVibes) ? item.storyVibes.join(", ") : "",
     });
   }
 
@@ -127,6 +192,12 @@ export default function BestieCloset() {
               storyTitle: trimmedTitle || null,
               storySeason: trimmedSeason || null,
               storyVibes: vibesArr,
+              category: deriveCategory({
+                ...it,
+                storyTitle: trimmedTitle || null,
+                storySeason: trimmedSeason || null,
+                storyVibes: vibesArr,
+              }),
             }
           : it
       )
@@ -165,6 +236,12 @@ export default function BestieCloset() {
                   storyTitle: updated.storyTitle ?? null,
                   storySeason: updated.storySeason ?? null,
                   storyVibes: updated.storyVibes ?? [],
+                  category: deriveCategory({
+                    ...it,
+                    storyTitle: updated.storyTitle ?? null,
+                    storySeason: updated.storySeason ?? null,
+                    storyVibes: updated.storyVibes ?? [],
+                  }),
                 }
               : it
           )
@@ -179,178 +256,175 @@ export default function BestieCloset() {
     }
   }
 
-  // filter by simple search
+  // ---- filters: category + search ----
   const visibleItems = hasItems
     ? items.filter((it) => {
+        // category filter
+        if (categoryFilter !== "ALL" && it.category !== categoryFilter) {
+          return false;
+        }
+
+        // search filter
         if (!search.trim()) return true;
         const q = search.toLowerCase();
         return (
           (it.title || "").toLowerCase().includes(q) ||
-          (it.storyTitle || "").toLowerCase().includes(q)
+          (it.storyTitle || "").toLowerCase().includes(q) ||
+            (Array.isArray(it.storyVibes)
+              ? it.storyVibes.join(" ").toLowerCase()
+              : ""
+            ).includes(q)
         );
       })
     : [];
 
   return (
-    <div className="bestie-closet">
+    <div className="bestie-closet-page">
       <style>{`
-        .bestie-closet {
+        .bestie-closet-page {
           display:flex;
           flex-direction:column;
-          gap:18px;
+          gap:20px;
         }
 
-        /* TOP TITLE */
-        .bestie-closet-title {
-          font-size:22px;
-          font-weight:700;
-          letter-spacing:-0.02em;
-          margin:0 0 4px;
+        /* TYPOGRAPHY / GENERAL */
+        .bc-title-main {
+          font-size: 26px;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          margin: 0 0 6px;
         }
-        .bestie-closet-sub {
-          margin:0 0 4px;
-          font-size:14px;
+        .bc-sub-main {
+          margin: 0;
+          font-size: 14px;
+          color: #6b7280;
+          max-width: 540px;
+        }
+
+        .bc-pill-stat-label {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+          color:#9ca3af;
+          margin-bottom: 2px;
+        }
+        .bc-pill-stat-value {
+          font-size: 18px;
+          font-weight: 700;
+          color:#111827;
+        }
+        .bc-section-title {
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          margin: 0 0 4px;
+        }
+        .bc-section-sub {
+          margin: 0;
+          font-size: 13px;
           color:#6b7280;
         }
 
-        /* TWO-PANEL SHELL */
-        .bestie-closet-shell {
-          display:grid;
-          grid-template-columns:minmax(0,320px) minmax(0,1fr);
-          gap:18px;
-        }
-        @media (max-width:900px){
-          .bestie-closet-shell {
-            grid-template-columns:minmax(0,1fr);
-          }
-        }
-
-        .closet-pane {
-          background:#f9f5ff;
-          border-radius:24px;
-          border:1px solid rgba(209,213,219,0.7);
-          box-shadow:0 18px 40px rgba(15,23,42,0.06);
-          padding:16px 18px 18px;
-        }
-        .closet-pane--right {
-          background:#f5f3ff;
-        }
-
-        .closet-pane-header {
+        /* HERO */
+        .bc-hero {
           display:flex;
+          flex-wrap:wrap;
           justify-content:space-between;
+          gap:16px;
+          padding:18px 20px;
+          border-radius:24px;
+          background:linear-gradient(135deg, #fce7f3, #ede9fe);
+          border:1px solid rgba(229,231,235,0.8);
+          box-shadow:0 18px 40px rgba(15,23,42,0.06);
+        }
+        .bc-hero-left {
+          min-width:260px;
+        }
+        .bc-hero-right {
+          display:flex;
+          gap:10px;
           align-items:flex-start;
-          gap:8px;
-          margin-bottom:14px;
         }
-        .closet-pane-title {
-          margin:0;
-          font-size:18px;
-          font-weight:600;
-          letter-spacing:-0.01em;
-        }
-        .closet-pane-caption {
-          margin:4px 0 0;
-          font-size:13px;
-          color:#6b7280;
-        }
-
-        /* LEFT UPLOAD CARD */
-        .closet-upload-drop {
-          border-radius:18px;
-          border:1px dashed rgba(148,163,184,0.7);
+        .bc-stat-card {
+          min-width:120px;
+          border-radius:16px;
+          padding:10px 12px;
           background:rgba(255,255,255,0.9);
-          padding:20px 14px;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          text-align:center;
-          gap:8px;
-          margin-bottom:14px;
-        }
-        .closet-upload-icon {
-          width:40px;
-          height:40px;
-          border-radius:999px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          background:#ede9fe;
-          color:#4c1d95;
-          font-size:20px;
-        }
-        .closet-upload-label {
-          font-size:14px;
-          font-weight:600;
-        }
-        .closet-upload-hint {
-          font-size:12px;
-          color:#6b7280;
+          border:1px solid rgba(229,231,235,0.9);
+          box-shadow:0 10px 20px rgba(15,23,42,0.05);
         }
 
-        .closet-upload-btn {
-          margin-top:6px;
-          height:38px;
-          padding:0 18px;
+        /* GENERIC SECTION CARD */
+        .bc-card {
+          border-radius:24px;
+          background:#fdfcff;
+          border:1px solid rgba(229,231,235,0.8);
+          box-shadow:0 18px 40px rgba(15,23,42,0.04);
+          padding:18px 20px 20px;
+        }
+
+        /* ADD NEW PIECES */
+        .bc-add-row {
+          display:flex;
+          flex-wrap:wrap;
+          align-items:flex-end;
+          justify-content:space-between;
+          gap:12px;
+          margin-top:10px;
+        }
+        .bc-primary-btn {
+          height:40px;
+          padding:0 22px;
           border-radius:999px;
           border:none;
           background:#a855f7;
           color:#fff;
-          font-weight:600;
           font-size:14px;
+          font-weight:600;
           cursor:pointer;
-          box-shadow:0 12px 26px rgba(168,85,247,0.35);
-          transition:transform .04s ease, box-shadow .15s ease, background .15s ease;
+          box-shadow:0 14px 32px rgba(168,85,247,0.45);
+          transition:transform .05s ease, box-shadow .15s ease, background .15s ease;
         }
-        .closet-upload-btn:hover {
+        .bc-primary-btn:hover {
           background:#9333ea;
-          box-shadow:0 14px 30px rgba(147,51,234,0.4);
+          box-shadow:0 16px 40px rgba(147,51,234,0.5);
           transform:translateY(-1px);
         }
-        .closet-upload-btn:active {
+        .bc-primary-btn:active {
           transform:translateY(1px);
-          box-shadow:0 8px 18px rgba(147,51,234,0.3);
+          box-shadow:0 10px 24px rgba(147,51,234,0.4);
+        }
+        .bc-link-quiet {
+          font-size:13px;
+          color:#6b21a8;
+          cursor:pointer;
+          text-decoration:underline;
+          text-underline-offset:2px;
+          white-space:nowrap;
+        }
+        .bc-add-helper {
+          margin-top:10px;
+          font-size:12px;
+          color:#6b7280;
         }
 
-        /* SMALL STATS IN LEFT PANE */
-        .closet-stats-grid {
-          display:grid;
-          grid-template-columns:repeat(2,minmax(0,1fr));
-          gap:10px;
-          margin-top:4px;
+        /* CLOSET SECTION */
+        .bc-closet-header {
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          margin-bottom:10px;
         }
-        .closet-stat-chip {
-          border-radius:14px;
-          background:rgba(255,255,255,0.9);
-          border:1px solid rgba(229,231,235,0.9);
-          padding:8px 10px;
-        }
-        .closet-stat-chip label {
-          display:block;
-          font-size:11px;
-          text-transform:uppercase;
-          letter-spacing:.12em;
-          color:#9ca3af;
-          margin-bottom:2px;
-        }
-        .closet-stat-chip strong {
-          font-size:16px;
-          font-weight:700;
-          color:#111827;
-        }
-
-        /* RIGHT DASHBOARD */
-        .closet-filters-row {
+        .bc-closet-filters {
           display:flex;
           flex-wrap:wrap;
           gap:10px;
-          margin-bottom:12px;
         }
-        .closet-filter-select,
-        .closet-filter-search {
+        .bc-filter-select,
+        .bc-filter-search {
           flex:1 1 150px;
           min-width:0;
-          height:34px;
+          height:36px;
           border-radius:999px;
           border:1px solid #e5e7eb;
           background:#f9fafb;
@@ -358,42 +432,66 @@ export default function BestieCloset() {
           font-size:13px;
           color:#4b5563;
         }
+        .bc-filter-search {
+          display:flex;
+          align-items:center;
+        }
+        .bc-filter-search input {
+          border:none;
+          outline:none;
+          background:transparent;
+          font-size:13px;
+          width:100%;
+          color:#4b5563;
+        }
+        .bc-filter-search span {
+          margin-right:4px;
+          font-size:13px;
+          color:#9ca3af;
+        }
 
-        .closet-items-header {
+        .bc-closet-top-row {
           display:flex;
           justify-content:space-between;
           align-items:center;
-          gap:8px;
-          margin-bottom:8px;
+          gap:10px;
+          margin:12px 0 8px;
+          font-size:13px;
         }
-        .closet-items-title {
-          font-size:14px;
-          font-weight:600;
+        .bc-closet-count {
+          color:#4b5563;
         }
-        .closet-items-link {
-          font-size:12px;
-          color:#4c1d95;
-          text-decoration:none;
+        .bc-refresh-btn {
+          height:30px;
+          padding:0 12px;
+          border-radius:999px;
+          border:1px solid #e5e7eb;
+          background:#f9fafb;
+          font-size:11px;
+          cursor:pointer;
         }
 
-        .closet-items-grid {
+        .bc-closet-grid {
           display:grid;
-          grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
-          gap:12px;
+          grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+          gap:14px;
         }
 
-        .closet-item-card {
-          border-radius:16px;
-          border:1px solid rgba(229,231,235,0.95);
+        /* ITEM CARD */
+        .bc-item-card {
+          border-radius:20px;
           background:#ffffff;
-          padding:10px;
+          border:1px solid rgba(229,231,235,0.95);
+          box-shadow:0 12px 26px rgba(15,23,42,0.04);
+          padding:10px 10px 12px;
           display:grid;
+          grid-template-rows:auto auto 1fr auto;
           gap:6px;
         }
-        .closet-item-thumb {
-          border-radius:12px;
+        .bc-item-thumb {
+          border-radius:16px;
           background:linear-gradient(135deg,#e0f2fe,#fdf2ff);
-          height:150px;
+          height:160px;
           display:flex;
           align-items:center;
           justify-content:center;
@@ -401,56 +499,81 @@ export default function BestieCloset() {
           font-size:12px;
           color:#9ca3af;
         }
-        .closet-item-thumb img {
+        .bc-item-thumb img {
           width:100%;
           height:100%;
           object-fit:cover;
         }
-        .closet-item-title {
+        .bc-item-title-row {
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:6px;
+        }
+        .bc-item-title {
           font-weight:600;
           font-size:13px;
           overflow:hidden;
           text-overflow:ellipsis;
           white-space:nowrap;
         }
-        .closet-item-meta {
-          display:flex;
-          justify-content:space-between;
+        .bc-status-dot {
+          font-size:9px;
+          padding:2px 6px;
+          border-radius:999px;
+          background:#f3f4f6;
+          color:#6b7280;
+          text-transform:uppercase;
+          letter-spacing:.12em;
+        }
+        .bc-item-category {
+          display:inline-flex;
           align-items:center;
-          gap:6px;
+          padding:2px 9px;
+          border-radius:999px;
+          background:#fef3c7;
+          color:#92400e;
+          font-size:10px;
+          text-transform:uppercase;
+          letter-spacing:.12em;
+          margin-top:2px;
+        }
+        .bc-item-story {
           font-size:11px;
+          color:#4b5563;
+          margin-top:4px;
         }
-        .closet-status-pill {
-          border-radius:999px;
-          padding:2px 8px;
-          font-weight:500;
+        .bc-item-vibes {
+          margin-top:4px;
+          display:flex;
+          flex-wrap:wrap;
+          gap:4px;
         }
-        .closet-audience-pill {
-          border-radius:999px;
+        .bc-vibe-pill {
           padding:2px 8px;
+          border-radius:999px;
           background:#eef2ff;
           color:#4338ca;
-          white-space:nowrap;
+          font-size:10px;
         }
-
-        .closet-item-story {
-          font-size:11px;
-          color:#6b7280;
-        }
-
-        .closet-item-edit-btn {
-          margin-top:4px;
-          height:30px;
+        .bc-item-btn {
+          margin-top:8px;
+          height:32px;
           border-radius:999px;
-          border:1px solid #e5e7eb;
-          background:#f9fafb;
-          font-size:11px;
-          font-weight:500;
+          border:none;
+          background:#a855f7;
+          color:#fff;
+          font-size:12px;
+          font-weight:600;
           cursor:pointer;
+        }
+        .bc-item-btn[disabled] {
+          opacity:0.6;
+          cursor:default;
         }
 
         /* Story inline editor */
-        .closet-story-edit {
+        .bc-story-edit {
           margin-top:8px;
           padding-top:8px;
           border-top:1px dashed #e5e7eb;
@@ -458,7 +581,7 @@ export default function BestieCloset() {
           gap:6px;
           font-size:12px;
         }
-        .closet-story-edit label {
+        .bc-story-edit label {
           display:block;
           font-size:10px;
           text-transform:uppercase;
@@ -466,20 +589,20 @@ export default function BestieCloset() {
           color:#9ca3af;
           margin-bottom:2px;
         }
-        .closet-story-edit input {
+        .bc-story-edit input {
           width:100%;
           padding:6px 8px;
           border-radius:8px;
           border:1px solid #e5e7eb;
           font-size:12px;
         }
-        .closet-story-actions {
+        .bc-story-actions {
           display:flex;
           justify-content:flex-end;
           gap:6px;
           margin-top:4px;
         }
-        .closet-story-btn {
+        .bc-story-btn {
           height:28px;
           padding:0 10px;
           border-radius:999px;
@@ -488,22 +611,22 @@ export default function BestieCloset() {
           font-size:11px;
           cursor:pointer;
         }
-        .closet-story-btn.primary {
+        .bc-story-btn.primary {
           background:#111827;
           color:#fff;
           border-color:#111827;
         }
 
-        .closet-empty {
+        /* EMPTY / ERROR */
+        .bc-empty {
           padding:18px 10px;
           text-align:center;
           font-size:13px;
           color:#6b7280;
         }
-
-        .closet-error {
-          margin-top:8px;
-          margin-bottom:4px;
+        .bc-error {
+          margin-top:4px;
+          margin-bottom:2px;
           padding:10px 12px;
           border-radius:10px;
           border:1px solid #fecaca;
@@ -511,275 +634,306 @@ export default function BestieCloset() {
           color:#991b1b;
           font-size:13px;
         }
+
+        @media (max-width: 768px) {
+          .bc-hero {
+            padding:16px 14px;
+          }
+          .bc-card {
+            padding:16px 14px 18px;
+          }
+        }
       `}</style>
 
-      {/* Page title (inside the main Bestie layout card) */}
-      <header>
-        <h1 className="bestie-closet-title">Lala&apos;s Closet – Bestie uploads</h1>
-        <p className="bestie-closet-sub">
-          Manage outfits you&apos;ve submitted for Lala. Approvals here flow into
-          the fan-facing closet experience.
-        </p>
-      </header>
+      {/* HERO */}
+      <section className="bc-hero">
+        <div className="bc-hero-left">
+          <h1 className="bc-title-main">Your pieces, styled with Lala ✨</h1>
+          <p className="bc-sub-main">
+            Save real pieces from your wardrobe so I can pull looks, drops, and
+            styling ideas just for you.
+          </p>
+        </div>
+        <div className="bc-hero-right">
+          <div className="bc-stat-card">
+            <div className="bc-pill-stat-label">Pieces added</div>
+            <div className="bc-pill-stat-value">{totalPieces}</div>
+          </div>
+          <div className="bc-stat-card">
+            <div className="bc-pill-stat-label">Looks we&apos;ve styled</div>
+            <div className="bc-pill-stat-value">{styledLooks}</div>
+          </div>
+        </div>
+      </section>
 
       {err && (
-        <div className="closet-error">
+        <div className="bc-error">
           <strong>Oops:</strong> {err}
         </div>
       )}
 
-      <div className="bestie-closet-shell">
-        {/* LEFT: upload helper + stats */}
-        <section className="closet-pane">
-          <div className="closet-pane-header">
-            <div>
-              <h2 className="closet-pane-title">Closet upload</h2>
-              <p className="closet-pane-caption">
-                Upload from the fan area today. A native Bestie uploader can live here later.
-              </p>
-            </div>
+      {/* ADD NEW PIECES SECTION */}
+      <section className="bc-card">
+        <header>
+          <h2 className="bc-section-title">Add new pieces</h2>
+          <p className="bc-section-sub">
+            Upload photos from your phone, name each piece, and add a quick note
+            so I know how you love to wear it.
+          </p>
+        </header>
+
+        <div className="bc-add-row">
+          <button
+            type="button"
+            className="bc-primary-btn"
+            onClick={() => (window.location.href = "/fan/closet")}
+          >
+            Add a new piece
+          </button>
+          <div
+            className="bc-link-quiet"
+            onClick={() => (window.location.href = "/fan/closet")}
+          >
+            View upload history
+          </div>
+        </div>
+
+        <p className="bc-add-helper">
+          We&apos;ll send you to the upload screen. Once your upload finishes,
+          your pieces will appear in your closet below.
+        </p>
+      </section>
+
+      {/* CLOSET SECTION */}
+      <section className="bc-card">
+        <div className="bc-closet-header">
+          <div>
+            <h2 className="bc-section-title">Your closet</h2>
+            <p className="bc-section-sub">
+              Filter by category or vibe tags to find pieces fast. Tap any item
+              to add style notes.
+            </p>
           </div>
 
-          <div className="closet-upload-drop">
-            <div className="closet-upload-icon">☁︎</div>
-            <div className="closet-upload-label">Choose a file in Fan Closet</div>
-            <div className="closet-upload-hint">
-              Use the fan closet to add photos. They&apos;ll show up here automatically.
-            </div>
-            <button
-              className="closet-upload-btn"
-              type="button"
-              onClick={() => (window.location.href = "/fan/closet")}
-            >
-              Open fan closet upload
-            </button>
-          </div>
-
-          <div className="closet-stats-grid">
-            <div className="closet-stat-chip">
-              <label>Approved</label>
-              <strong>{stats.approved}</strong>
-            </div>
-            <div className="closet-stat-chip">
-              <label>Pending</label>
-              <strong>{stats.pending}</strong>
-            </div>
-            <div className="closet-stat-chip">
-              <label>Drafts</label>
-              <strong>{stats.drafts}</strong>
-            </div>
-            <div className="closet-stat-chip">
-              <label>Rejected</label>
-              <strong>{stats.rejected}</strong>
-            </div>
-          </div>
-        </section>
-
-        {/* RIGHT: dashboard + grid */}
-        <section className="closet-pane closet-pane--right">
-          <div className="closet-pane-header">
-            <div>
-              <h2 className="closet-pane-title">Closet dashboard</h2>
-              <p className="closet-pane-caption">
-                Review looks, track status, and turn uploads into named stories.
-              </p>
-            </div>
-          </div>
-
-          {/* Filter row */}
-          <div className="closet-filters-row">
+          <div className="bc-closet-filters">
             <select
-              disabled
-              className="closet-filter-select"
-              defaultValue="all"
+              className="bc-filter-select"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              <option value="all">All categories (coming soon)</option>
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
-            <input
-              className="closet-filter-search"
-              placeholder="Search title or story…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
 
-          {/* Items header */}
-          <div className="closet-items-header">
-            <div className="closet-items-title">
-              Closet items grid{visibleItems.length ? ` · ${visibleItems.length}` : ""}
+            <div className="bc-filter-search">
+              <span>🔍</span>
+              <input
+                placeholder="Search by piece name or notes…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-            <button
-              type="button"
-              className="closet-story-btn"
-              style={{ borderRadius: 999 }}
-              onClick={loadCloset}
-            >
-              Refresh
-            </button>
           </div>
+        </div>
 
-          {/* Items grid */}
-          {loading && !hasItems && (
-            <div className="closet-empty">Loading your closet…</div>
-          )}
+        <div className="bc-closet-top-row">
+          <div className="bc-closet-count">
+            {visibleItems.length > 0
+              ? `Showing ${visibleItems.length} piece${
+                  visibleItems.length === 1 ? "" : "s"
+                }`
+              : hasItems
+              ? "No pieces match this filter"
+              : "No pieces yet"}
+          </div>
+          <button type="button" className="bc-refresh-btn" onClick={loadCloset}>
+            Refresh closet
+          </button>
+        </div>
 
-          {!loading && !hasItems && (
-            <div className="closet-empty">
-              You don&apos;t have any looks yet. Upload from the fan closet to see them here.
-            </div>
-          )}
+        {/* CONTENT */}
+        {loading && !hasItems && (
+          <div className="bc-empty">Loading your closet…</div>
+        )}
 
-          {visibleItems.length > 0 && (
-            <div className="closet-items-grid">
-              {visibleItems.map((item) => {
-                const status = (item.status || "").toUpperCase();
-                let statusColor = "#6b7280";
-                let statusBg = "#f3f4f6";
-                if (status === "APPROVED" || status === "PUBLISHED") {
-                  statusColor = "#166534";
-                  statusBg = "#dcfce7";
-                } else if (status === "PENDING") {
-                  statusColor = "#92400e";
-                  statusBg = "#ffedd5";
-                } else if (status === "REJECTED") {
-                  statusColor = "#b91c1c";
-                  statusBg = "#fee2e2";
-                }
+        {!loading && !hasItems && (
+          <div className="bc-empty">
+            Your closet is empty… for now 👀 <br />
+            Start by adding 3–5 pieces you wear all the time. I&apos;ll use
+            them to build your first looks.
+          </div>
+        )}
 
-                const storyLabel =
-                  item.storyTitle ||
-                  (Array.isArray(item.storyVibes) &&
-                    item.storyVibes.length > 0 &&
-                    item.storyVibes.join(", "));
+        {visibleItems.length > 0 && (
+          <div className="bc-closet-grid">
+            {visibleItems.map((item) => {
+              const status = (item.status || "").toUpperCase();
+              let statusLabel = "DRAFT";
+              let statusClass = "bc-status-dot";
 
-                return (
-                  <article key={item.id} className="closet-item-card">
-                    <div className="closet-item-thumb">
-                      {item.thumbUrl ? (
-                        <img src={item.thumbUrl} alt={item.title || "Look"} />
-                      ) : (
-                        "No preview"
-                      )}
+              if (status === "APPROVED" || status === "PUBLISHED") {
+                statusLabel = "READY";
+              } else if (status === "PENDING") {
+                statusLabel = "PENDING";
+              } else if (status === "REJECTED") {
+                statusLabel = "REVIEW";
+              }
+
+              const categoryLabel =
+                CATEGORY_OPTIONS.find((opt) => opt.value === item.category)
+                  ?.label || "Other";
+
+              const vibesArray = Array.isArray(item.storyVibes)
+                ? item.storyVibes
+                : [];
+
+              const hasStory =
+                item.storyTitle || item.storySeason || vibesArray.length > 0;
+
+              return (
+                <article key={item.id} className="bc-item-card">
+                  <div className="bc-item-thumb">
+                    {item.thumbUrl ? (
+                      <img src={item.thumbUrl} alt={item.title || "Closet"} />
+                    ) : (
+                      "No preview yet"
+                    )}
+                  </div>
+
+                  <div className="bc-item-title-row">
+                    <div className="bc-item-title">
+                      {item.title || "Untitled piece"}
                     </div>
+                    <div className={statusClass}>{statusLabel}</div>
+                  </div>
 
-                    <div className="closet-item-title">
-                      {item.title || "Untitled look"}
-                    </div>
+                  <div className="bc-item-category">{categoryLabel}</div>
 
-                    <div className="closet-item-meta">
-                      <span
-                        className="closet-status-pill"
-                        style={{ background: statusBg, color: statusColor }}
-                      >
-                        {status || "DRAFT"}
-                      </span>
-                      <span className="closet-audience-pill">
-                        {item.audience || "Bestie only"}
-                      </span>
-                    </div>
-
-                    {storyLabel && (
-                      <div className="closet-item-story">
-                        Story: <strong>{storyLabel}</strong>
+                  <div className="bc-item-story">
+                    {hasStory ? (
+                      <>
+                        <strong>
+                          {item.storyTitle || "Style story"}
+                        </strong>
                         {item.storySeason && (
                           <>
-                            {" "}
-                            · <span>{item.storySeason}</span>
+                            {" · "}
+                            <span>{item.storySeason}</span>
                           </>
                         )}
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        No style notes yet — tell me when you wear this or what
+                        you&apos;re stuck styling.
+                      </>
                     )}
+                  </div>
 
-                    <button
-                      type="button"
-                      className="closet-item-edit-btn"
-                      onClick={() => beginStoryEdit(item)}
-                      disabled={savingStory && editingId === item.id}
-                    >
-                      {editingId === item.id
-                        ? savingStory
-                          ? "Saving story…"
-                          : "Editing story…"
-                        : "Save look as story"}
-                    </button>
+                  {vibesArray.length > 0 && (
+                    <div className="bc-item-vibes">
+                      {vibesArray.slice(0, 4).map((v) => (
+                        <span key={v} className="bc-vibe-pill">
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                    {editingId === item.id && (
-                      <div className="closet-story-edit">
-                        <div>
-                          <label htmlFor={`story-title-${item.id}`}>
-                            Story title
-                          </label>
-                          <input
-                            id={`story-title-${item.id}`}
-                            value={storyDraft.title}
-                            onChange={(e) =>
-                              setStoryDraft((d) => ({
-                                ...d,
-                                title: e.target.value,
-                              }))
-                            }
-                            placeholder="e.g. Holiday Glam Drop"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor={`story-season-${item.id}`}>
-                            Season / drop
-                          </label>
-                          <input
-                            id={`story-season-${item.id}`}
-                            value={storyDraft.season}
-                            onChange={(e) =>
-                              setStoryDraft((d) => ({
-                                ...d,
-                                season: e.target.value,
-                              }))
-                            }
-                            placeholder="e.g. Holiday 2025, Spring Drop 1"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor={`story-vibes-${item.id}`}>
-                            Vibe tags (comma separated)
-                          </label>
-                          <input
-                            id={`story-vibes-${item.id}`}
-                            value={storyDraft.vibes}
-                            onChange={(e) =>
-                              setStoryDraft((d) => ({
-                                ...d,
-                                vibes: e.target.value,
-                              }))
-                            }
-                            placeholder="e.g. cozy, monochrome, night-out"
-                          />
-                        </div>
-                        <div className="closet-story-actions">
-                          <button
-                            type="button"
-                            className="closet-story-btn"
-                            onClick={cancelStoryEdit}
-                            disabled={savingStory}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            className="closet-story-btn primary"
-                            onClick={saveStoryDraft}
-                            disabled={savingStory}
-                          >
-                            Save story
-                          </button>
-                        </div>
+                  <button
+                    type="button"
+                    className="bc-item-btn"
+                    onClick={() => beginStoryEdit(item)}
+                    disabled={savingStory && editingId === item.id}
+                  >
+                    {editingId === item.id
+                      ? savingStory
+                        ? "Saving style notes…"
+                        : "Editing style notes…"
+                      : hasStory
+                      ? "Edit style notes"
+                      : "Add style notes"}
+                  </button>
+
+                  {editingId === item.id && (
+                    <div className="bc-story-edit">
+                      <div>
+                        <label htmlFor={`story-title-${item.id}`}>
+                          Story name
+                        </label>
+                        <input
+                          id={`story-title-${item.id}`}
+                          value={storyDraft.title}
+                          onChange={(e) =>
+                            setStoryDraft((d) => ({
+                              ...d,
+                              title: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Date-night blazer look"
+                        />
                       </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
+                      <div>
+                        <label htmlFor={`story-season-${item.id}`}>
+                          When do you wear this?
+                        </label>
+                        <input
+                          id={`story-season-${item.id}`}
+                          value={storyDraft.season}
+                          onChange={(e) =>
+                            setStoryDraft((d) => ({
+                              ...d,
+                              season: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Fall / winter, holiday events"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={`story-vibes-${item.id}`}>
+                          Vibe tags (comma separated)
+                        </label>
+                        <input
+                          id={`story-vibes-${item.id}`}
+                          value={storyDraft.vibes}
+                          onChange={(e) =>
+                            setStoryDraft((d) => ({
+                              ...d,
+                              vibes: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. cozy, glam, neutral tones"
+                        />
+                      </div>
+                      <div className="bc-story-actions">
+                        <button
+                          type="button"
+                          className="bc-story-btn"
+                          onClick={cancelStoryEdit}
+                          disabled={savingStory}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="bc-story-btn primary"
+                          onClick={saveStoryDraft}
+                          disabled={savingStory}
+                        >
+                          Save story
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

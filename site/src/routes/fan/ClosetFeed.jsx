@@ -2,10 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
-import {
-  hasLiked,
-  toggleLikeLocal,
-} from "../../lib/closetLikes";
+import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
 
 // Full query – uses viewerHasFaved when available
 const GQL_FEED_FULL = /* GraphQL */ `
@@ -17,6 +14,9 @@ const GQL_FEED_FULL = /* GraphQL */ `
       audience
       mediaKey
       rawMediaKey
+      category
+      subcategory
+      pinned
       favoriteCount
       viewerHasFaved
       createdAt
@@ -34,8 +34,33 @@ const GQL_FEED_LEGACY = /* GraphQL */ `
       audience
       mediaKey
       rawMediaKey
+      category
+      subcategory
+      pinned
       favoriteCount
       createdAt
+    }
+  }
+`;
+
+// Fallback: use admin list of approved items if closetFeed is empty
+const GQL_ADMIN_FALLBACK = /* GraphQL */ `
+  query AdminListClosetItemsForFeed {
+    adminListClosetItems(status: APPROVED, limit: 100) {
+      items {
+        id
+        title
+        status
+        audience
+        mediaKey
+        rawMediaKey
+        category
+        subcategory
+        pinned
+        favoriteCount
+        createdAt
+      }
+      nextToken
     }
   }
 `;
@@ -110,7 +135,8 @@ export default function ClosetFeed() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const [sort, setSort] = useState("NEWEST"); // NEWEST | MOST_LOVED
+  // sort UI: NEWEST | MOST_LOVED | LALAS_PICK
+  const [sort, setSort] = useState("NEWEST");
   const [busyId, setBusyId] = useState(null); // while syncing favorite
 
   // client-side pagination
@@ -133,17 +159,28 @@ export default function ClosetFeed() {
           await window.sa.ready();
         }
 
+        // Map UI sort state to backend sort enum
+        const sortForBackend =
+          sort === "LALAS_PICK" ? "MOST_LOVED" : sort;
+
         // --- Try full query first (with viewerHasFaved) ---
         let res;
         try {
-          res = await window.sa.graphql(GQL_FEED_FULL, { sort });
+          res = await window.sa.graphql(GQL_FEED_FULL, {
+            sort: sortForBackend,
+          });
         } catch (e) {
           const msg = String(e?.message || e);
-          if (msg.includes("FieldUndefined") && msg.includes("viewerHasFaved")) {
+          if (
+            msg.includes("FieldUndefined") &&
+            msg.includes("viewerHasFaved")
+          ) {
             console.warn(
               "[ClosetFeed] viewerHasFaved unsupported – using legacy feed query"
             );
-            res = await window.sa.graphql(GQL_FEED_LEGACY, { sort });
+            res = await window.sa.graphql(GQL_FEED_LEGACY, {
+              sort: sortForBackend,
+            });
           } else {
             throw e;
           }
@@ -157,14 +194,37 @@ export default function ClosetFeed() {
           raw = cf.items;
         }
 
-        // Filter: APPROVED/PUBLISHED only (backend also enforces visibility)
+        // ── Fallback for now: if closetFeed is empty, try admin list of APPROVED ──
+        if (!raw.length) {
+          try {
+            const adminRes = await window.sa.graphql(
+              GQL_ADMIN_FALLBACK,
+              {}
+            );
+            const adminItems =
+              adminRes?.adminListClosetItems?.items ?? [];
+            if (adminItems.length) {
+              raw = adminItems;
+            }
+          } catch (e) {
+            console.warn(
+              "[ClosetFeed] adminListClosetItems fallback failed",
+              e
+            );
+          }
+        }
+
+        // Visibility filter – allow APPROVED/PUBLISHED (or null), hide obvious non-fan states
         const visible = raw.filter((it) => {
-          const statusOk =
-            it.status === "APPROVED" || it.status === "PUBLISHED";
-          if (!statusOk) return false;
+          const status = (it.status || "").toUpperCase();
+
+          if (status === "REJECTED" || status === "DRAFT") return false;
+          if (status === "PENDING") return false;
 
           const audience = (it.audience || "").toUpperCase();
-          if (audience === "HIDDEN" || audience === "ADMIN_ONLY") return false;
+          if (audience === "HIDDEN" || audience === "ADMIN_ONLY") {
+            return false;
+          }
 
           return true;
         });
@@ -172,9 +232,10 @@ export default function ClosetFeed() {
         const withKeys = visible.map((it) => {
           const localLiked = hasLiked(it.id);
           const apiLiked =
-            typeof it.viewerHasFaved === "boolean" ? it.viewerHasFaved : false;
+            typeof it.viewerHasFaved === "boolean"
+              ? it.viewerHasFaved
+              : false;
 
-          // If local storage says liked, prefer that for instant UI
           const viewerHasFaved = localLiked || apiLiked;
 
           return {
@@ -203,7 +264,7 @@ export default function ClosetFeed() {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
 
-          if (sort === "MOST_LOVED") {
+          if (sort === "MOST_LOVED" || sort === "LALAS_PICK") {
             const af = a.favoriteCount ?? 0;
             const bf = b.favoriteCount ?? 0;
             if (bf !== af) return bf - af;
@@ -214,7 +275,13 @@ export default function ClosetFeed() {
           return bTime - aTime;
         });
 
-        if (!cancelled) setItems(hydrated);
+        // When "Lala's pick" tab is active, show only pinned looks
+        let next = hydrated;
+        if (sort === "LALAS_PICK") {
+          next = hydrated.filter((it) => !!it.pinned);
+        }
+
+        if (!cancelled) setItems(next);
       } catch (e) {
         console.error(e);
         if (!cancelled) {
@@ -236,7 +303,9 @@ export default function ClosetFeed() {
   // scroll highlight into view on first render
   useEffect(() => {
     if (!highlightId) return;
-    const el = document.querySelector(`[data-closet-id="${highlightId}"]`);
+    const el = document.querySelector(
+      `[data-closet-id="${highlightId}"]`
+    );
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -253,7 +322,6 @@ export default function ClosetFeed() {
       prev.map((it) => {
         if (it.id !== id) return it;
         const count = it.favoriteCount ?? 0;
-        // Determine new count: if turning on, +1; if off, -1 (bounded at 0)
         const nextCount = Math.max(
           0,
           count + (localLiked ? 1 : -1)
@@ -281,7 +349,6 @@ export default function ClosetFeed() {
 
       const updated = res?.toggleFavoriteClosetItem;
       if (updated && updated.id) {
-        // trust backend counts/state
         setItems((prev) =>
           prev.map((it) =>
             it.id === updated.id
@@ -301,8 +368,10 @@ export default function ClosetFeed() {
         );
       }
     } catch (e) {
-      console.warn("[ClosetFeed] toggleFavoriteClosetItem failed", e);
-      // Optionally roll back local like if backend failed badly
+      console.warn(
+        "[ClosetFeed] toggleFavoriteClosetItem failed",
+        e
+      );
     } finally {
       setBusyId(null);
     }
@@ -312,6 +381,9 @@ export default function ClosetFeed() {
   const visibleItems = items.slice(0, page * pageSize);
   const hasMore = items.length > visibleItems.length;
 
+  const totalLooks = items.length;
+  const showingLooks = visibleItems.length;
+
   return (
     <div className="closet-feed-wrap">
       <main className="closet-feed">
@@ -319,25 +391,28 @@ export default function ClosetFeed() {
         <header className="closet-hero">
           <div className="closet-hero__top">
             <Link to="/fan/closet" className="closet-crumb">
-              ← Back to Style lab
+              ← Back to Style Lab
             </Link>
           </div>
 
           <div className="closet-hero__content">
             <div className="closet-hero__left">
               <div className="closet-pill-label">Lala&apos;s Closet</div>
-              <h1 className="closet-hero__title">Come style me, bestie 💕</h1>
+              <h1 className="closet-hero__title">
+                Come style me, bestie 💜
+              </h1>
               <p className="closet-hero__subtitle">
-                Browse my favorite saved looks, heart your faves, and get ideas
-                for your next Style Lab combo. The most-loved outfits inspire
-                future Bestie drops.
+                Heart your fave looks and I&apos;ll use them to inspire
+                future drops &amp; Style Lab combos.
               </p>
             </div>
 
             <div className="closet-hero__right">
               <div className="closet-hero__card">
                 <p className="closet-hero__stat-label">Closet mood</p>
-                <p className="closet-hero__stat-value">Pastel Barbiecore</p>
+                <p className="closet-hero__stat-value">
+                  Pastel Barbiecore
+                </p>
                 <p className="closet-hero__stat-sub">
                   New looks will appear here as Lala&apos;s team approves
                   uploads.
@@ -353,22 +428,14 @@ export default function ClosetFeed() {
           </div>
         </header>
 
-        {/* Main closet card */}
-        <section className="closet-shell card">
-          <div className="closet-shell__header">
-            <div>
-              <h2 className="closet-shell__title">Lala&apos;s Closet grid</h2>
-              <p className="closet-shell__subtitle">
-                Tap a card to view the full look details (coming soon). For
-                now, use this as inspo while you play in Style Lab.
-              </p>
-            </div>
-
-            {/* Sort toggle */}
+        {/* Filter / sort strip under hero */}
+        <section className="closet-filterBar">
+          <div className="closet-filterBar-left">
             <div className="closet-sort">
               {[
                 { value: "NEWEST", label: "Newest" },
                 { value: "MOST_LOVED", label: "Most loved" },
+                { value: "LALAS_PICK", label: "Lala&apos;s pick" },
               ].map((opt) => {
                 const active = opt.value === sort;
                 return (
@@ -382,10 +449,34 @@ export default function ClosetFeed() {
                         : "closet-sort__btn"
                     }
                   >
-                    {opt.label}
+                    {/* handle apostrophe safely */}
+                    {opt.label === "Lala&apos;s pick"
+                      ? "Lala's pick"
+                      : opt.label}
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="closet-filterBar-right">
+            {totalLooks > 0
+              ? `Showing ${showingLooks} of ${totalLooks} look${
+                  totalLooks === 1 ? "" : "s"
+                }`
+              : "No looks yet"}
+          </div>
+        </section>
+
+        {/* Main closet card */}
+        <section className="closet-shell card">
+          <div className="closet-shell__header">
+            <div>
+              <h2 className="closet-shell__title">Lala&apos;s Closet feed</h2>
+              <p className="closet-shell__subtitle">
+                Tap a look to heart it and save inspo. The most-loved looks
+                help decide future Bestie drops.
+              </p>
             </div>
           </div>
 
@@ -404,13 +495,13 @@ export default function ClosetFeed() {
           )}
 
           {!isInitialLoading && !err && items.length === 0 && (
-            <div className="closet-empty">
+            <div className="closet-empty" style={{ marginTop: 12 }}>
               <span role="img" aria-label="empty closet">
                 🧺
               </span>{" "}
               No approved closet items yet. Style Lala in the{" "}
-              <Link to="/fan/closet">Style Lab</Link> and submit your looks for
-              review to see them appear here.
+              <Link to="/fan/closet">Style Lab</Link> and submit your
+              looks for review to see them appear here.
             </div>
           )}
 
@@ -418,11 +509,30 @@ export default function ClosetFeed() {
             <>
               <div className="closet-grid">
                 {visibleItems.map((it) => {
-                  const isHighlight = highlightId && it.id === highlightId;
+                  const isHighlight =
+                    highlightId && it.id === highlightId;
                   const liked = !!it.viewerHasFaved;
                   const favCount = it.favoriteCount ?? 0;
-                  const { label: audienceLabel, className: audienceClass } =
-                    audienceChip(it);
+                  const {
+                    label: audienceLabel,
+                    className: audienceClass,
+                  } = audienceChip(it);
+
+                  let socialLine = "";
+                  if (favCount === 0) {
+                    socialLine = "Heart this if you’d wear it 💗";
+                  } else if (liked && favCount === 1) {
+                    socialLine = "You love this look";
+                  } else if (liked && favCount > 1) {
+                    const others = favCount - 1;
+                    socialLine = `You and ${others} other${
+                      others === 1 ? "" : "s"
+                    } love this look`;
+                  } else {
+                    socialLine = `${favCount} fan${
+                      favCount === 1 ? "" : "s"
+                    } love this look`;
+                  }
 
                   return (
                     <article
@@ -455,7 +565,9 @@ export default function ClosetFeed() {
                               : "closet-heart"
                           }
                           aria-label={
-                            liked ? "Un-heart this look" : "Heart this look"
+                            liked
+                              ? "Un-heart this look"
+                              : "Heart this look"
                           }
                           onClick={() => toggleFavoriteToBackend(it)}
                           disabled={busyId === it.id}
@@ -465,7 +577,9 @@ export default function ClosetFeed() {
                           </span>
                         </button>
 
-                        <div className="closet-heartCount">{favCount}</div>
+                        <div className="closet-heartCount">
+                          {favCount}
+                        </div>
                       </div>
 
                       <div className="closet-item__body">
@@ -474,7 +588,9 @@ export default function ClosetFeed() {
                         </div>
                         <div className="closet-item__meta">
                           <div className="closet-item__meta-left">
-                            <span className="closet-chip">Closet look</span>
+                            <span className="closet-chip">
+                              Closet look
+                            </span>
                             <span className={audienceClass}>
                               {audienceLabel}
                             </span>
@@ -482,9 +598,31 @@ export default function ClosetFeed() {
                           <span className="closet-meta-text">
                             Added{" "}
                             {it.createdAt
-                              ? new Date(it.createdAt).toLocaleDateString()
+                              ? new Date(
+                                  it.createdAt
+                                ).toLocaleDateString()
                               : "recently"}
                           </span>
+                        </div>
+
+                        {/* NEW: category / subcategory chips */}
+                        {(it.category || it.subcategory) && (
+                          <div className="fan-closet-tags">
+                            {it.category && (
+                              <span className="fan-closet-tag">
+                                {it.category}
+                              </span>
+                            )}
+                            {it.subcategory && (
+                              <span className="fan-closet-tag fan-closet-tag--soft">
+                                {it.subcategory}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="closet-item__social">
+                          {socialLine}
                         </div>
                       </div>
                     </article>
@@ -508,11 +646,13 @@ export default function ClosetFeed() {
           )}
         </section>
       </main>
-      {/* inject component-scoped styles */}
+
+      {/* component-scoped styles */}
       <style>{styles}</style>
     </div>
   );
 }
+
 
 const styles = `
 .closet-feed-wrap {
@@ -529,7 +669,7 @@ const styles = `
 .closet-hero {
   border-radius: 24px;
   padding: 16px 18px 18px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   background:
     radial-gradient(circle at top left, rgba(251,207,232,0.9), rgba(255,255,255,0.9)),
     radial-gradient(circle at bottom right, rgba(196,181,253,0.9), rgba(255,255,255,1));
@@ -584,7 +724,7 @@ const styles = `
 
 .closet-hero__title {
   margin:8px 0 4px;
-  font-size:1.7rem;
+  font-size:1.8rem;
   letter-spacing:-0.03em;
   color:#111827;
 }
@@ -634,6 +774,29 @@ const styles = `
   width:100%;
 }
 
+/* FILTER BAR UNDER HERO */
+.closet-filterBar {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin: 0 0 12px;
+  padding: 0 2px;
+}
+
+.closet-filterBar-left {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.closet-filterBar-right {
+  font-size:0.8rem;
+  color:#6b7280;
+}
+
 /* CARD SHELL */
 .card {
   background:#ffffff;
@@ -664,7 +827,7 @@ const styles = `
   color:#6b7280;
 }
 
-/* SORT TOGGLE */
+/* SORT TOGGLE (used inside filterBar) */
 .closet-sort {
   display:inline-flex;
   align-items:center;
@@ -852,6 +1015,12 @@ const styles = `
   color:#9ca3af;
 }
 
+.closet-item__social {
+  margin-top:4px;
+  font-size:0.8rem;
+  color:#4b5563;
+}
+
 /* CHIPS */
 .closet-chip {
   font-size:0.7rem;
@@ -919,5 +1088,25 @@ const styles = `
 .btn-primary:hover {
   background:linear-gradient(135deg,#4f46e5,#db2777);
   border-color:#4f46e5;
+}
+  /* Fan-facing closet category chips */
+.fan-closet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.fan-closet-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #111827;
+}
+
+.fan-closet-tag--soft {
+  background: #f9fafb;
+  color: #6b7280;
 }
 `;
