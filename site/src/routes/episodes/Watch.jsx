@@ -10,6 +10,31 @@ import {
   getRelatedEpisodes,
 } from "../../lib/episodes.js";
 
+/**
+ * Helper: determine whether a BestieStatus object represents
+ * an active Bestie membership.
+ */
+function isBestieActive(status) {
+  if (!status) return false;
+
+  if (typeof status.activeSubscription === "boolean") {
+    if (!status.activeSubscription) return false;
+  }
+
+  if (status.expiresAt) {
+    const exp = Date.parse(status.expiresAt);
+    if (!Number.isNaN(exp) && exp < Date.now()) {
+      return false;
+    }
+  }
+
+  if (typeof status.isBestie === "boolean") {
+    return status.isBestie;
+  }
+
+  return false;
+}
+
 export default function Watch() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -22,6 +47,23 @@ export default function Watch() {
   const [showNext, setShowNext] = useState(false);
   const [err, setErr] = useState("");
 
+  // lightweight comment thread (local-only for now)
+  const [comments, setComments] = useState([
+    {
+      id: "c1",
+      author: "Style fan",
+      text: "I’d totally wear this fit to brunch ✨",
+      ts: "Just now",
+    },
+    {
+      id: "c2",
+      author: "Closet bestie",
+      text: "Saving this episode so I can recreate the airport look.",
+      ts: "2h ago",
+    },
+  ]);
+  const [commentText, setCommentText] = useState("");
+
   // keep a tick so countdown updates
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -33,11 +75,20 @@ export default function Watch() {
     let alive = true;
     (async () => {
       try {
+        if (window.sa?.ready) {
+          await window.sa.ready();
+        }
         const data = await window.sa?.graphql?.(
-          `query { meBestieStatus { active } }`
+          `query MeBestieStatus {
+             meBestieStatus {
+               isBestie
+               activeSubscription
+               expiresAt
+             }
+           }`,
         );
         if (!alive) return;
-        setIsBestie(!!data?.meBestieStatus?.active);
+        setIsBestie(isBestieActive(data?.meBestieStatus));
       } catch {
         if (!alive) return;
         setIsBestie(false);
@@ -53,23 +104,23 @@ export default function Watch() {
   // Recompute with `now` so countdown live-updates.
   const early = useMemo(() => {
     if (!ep) return false;
-    return Date.now() < new Date(ep.publicAt || 0).getTime();
+    return now < new Date(ep.publicAt || 0).getTime();
   }, [ep, now]);
 
   const countdown = useMemo(
     () => (ep ? fmtCountdown(ep.publicAt, now) : ""),
-    [ep, now]
+    [ep, now],
   );
 
   // Build related + next using helpers
   const all = useMemo(() => getEpisodesOrdered(), []);
   const nextEp = useMemo(
     () => (ep ? getNextEpisode(ep.id, all) : null),
-    [ep, all]
+    [ep, all],
   );
   const related = useMemo(
     () => (ep ? getRelatedEpisodes(ep.id, 6, all) : []),
-    [ep, all]
+    [ep, all],
   );
 
   const onEnded = () => setShowNext(true);
@@ -96,6 +147,11 @@ export default function Watch() {
   async function unlockBestieHere() {
     try {
       setErr("");
+
+      if (window.sa?.ready) {
+        await window.sa.ready();
+      }
+
       // sign-in first if needed
       const idTok =
         window.sa?.session?.idToken ||
@@ -114,10 +170,10 @@ export default function Watch() {
       // Try checkout (returns to this watch page)
       try {
         const r = await window.sa.graphql(
-          `mutation Start($successPath: String){ 
+          `mutation StartBestieCheckout($successPath: String){ 
              startBestieCheckout(successPath:$successPath){ url } 
            }`,
-          { successPath: `/watch/${id}` }
+          { successPath: `/watch/${id}` },
         );
         const url = r?.startBestieCheckout?.url;
         if (url) {
@@ -128,16 +184,35 @@ export default function Watch() {
         // ignore — try trial next
       }
 
-      // Fallback: trial
+      // Fallback: trial – only ask for __typename so we don't
+      // touch any non-null fields that may be null in resolvers.
       const trial = await window.sa.graphql(
-        `mutation { claimBestieTrial { active } }`
+        `mutation ClaimBestieTrial {
+           claimBestieTrial {
+             __typename
+           }
+         }`,
       );
-      if (trial?.claimBestieTrial?.active) {
+      if (trial?.claimBestieTrial) {
         setIsBestie(true);
       }
     } catch (e) {
       setErr(e?.message || String(e));
     }
+  }
+
+  function handleAddComment(e) {
+    e.preventDefault();
+    const text = commentText.trim();
+    if (!text) return;
+    const newComment = {
+      id: `c-${Date.now()}`,
+      author: "You",
+      text,
+      ts: "Just now",
+    };
+    setComments((prev) => [newComment, ...prev]);
+    setCommentText("");
   }
 
   // ---------- render branches ----------
@@ -170,19 +245,22 @@ export default function Watch() {
   if (early && !isBestie) {
     return (
       <div className="watch-wrap">
-        <header className="hero hero--watch">
-          <div className="hero__inner">
-            <div className="title-row">
-              <h1 className="title">{ep.title}</h1>
-              <span className="pill">Fan</span>
+        <header className="watch-hero">
+          <div className="watch-hero-inner">
+            <div className="watch-hero-top">
+              <Link className="crumb" to="/fan/episodes">
+                ← Episodes
+              </Link>
+              <span className="watch-hero-pill">Early access</span>
             </div>
+            <h1 className="title">{ep.title}</h1>
             <p className="muted">
               Public in <strong>{countdown}</strong> · Early access for Besties
             </p>
           </div>
         </header>
 
-        <main className="stage">
+        <main className="watch-main">
           <div className="lock-card card">
             <div className="lock-head">
               <span className="lock-emoji" aria-hidden>
@@ -215,80 +293,143 @@ export default function Watch() {
 
   return (
     <div className="watch-wrap">
-      <header className="hero hero--watch">
-        <div className="hero__inner">
-          <div className="title-row">
+      {/* top bar */}
+      <header className="watch-hero">
+        <div className="watch-hero-inner">
+          <div className="watch-hero-top">
             <Link className="crumb" to="/fan/episodes">
               ← Episodes
             </Link>
-            <h1 className="title">{ep.title}</h1>
-            <span className={`pill ${early ? "pill--bestie" : "pill--public"}`}>
+            <span
+              className={
+                "watch-status-pill" +
+                (early ? " watch-status-pill--early" : " watch-status-pill--public")
+              }
+            >
               {early ? `Early • Public in ${countdown}` : "Public episode"}
             </span>
           </div>
-          {err && <div className="notice notice--error">{err}</div>}
+          <h1 className="title">{ep.title}</h1>
         </div>
       </header>
 
-      <main className="stage">
-        {/* two-column layout */}
-        <section className="watch-layout">
-          {/* LEFT: video card */}
-          <article className="player-card card">
-            {ep.video ? (
-              ep.video.includes("youtube.com") ||
-              ep.video.includes("youtu.be") ? (
-                <div className="yt-wrap">
-                  <iframe
-                    src={ep.video}
-                    title={ep.title}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-              ) : (
-                <video
-                  ref={videoRef}
-                  key={ep.id}
-                  className="player"
-                  controls
-                  autoPlay
-                  playsInline
-                  onEnded={onEnded}
-                >
-                  <source src={ep.video} />
-                </video>
-              )
-            ) : (
-              <div className="poster">
-                <div className="poster__title">{ep.title}</div>
-                <div className="poster__sub">Video coming soon…</div>
+      <main className="watch-main">
+        {/* cinema shell: video + comments + sidebar */}
+        <section className="watch-shell">
+          <div className="watch-shell-left">
+            <article className="player-card card">
+              <div className="player-frame">
+                {ep.video ? (
+                  ep.video.includes("youtube.com") ||
+                  ep.video.includes("youtu.be") ? (
+                    <div className="yt-wrap">
+                      <iframe
+                        src={ep.video}
+                        title={ep.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      key={ep.id}
+                      className="player"
+                      controls
+                      autoPlay
+                      playsInline
+                      onEnded={onEnded}
+                    >
+                      <source src={ep.video} />
+                    </video>
+                  )
+                ) : (
+                  <div className="poster">
+                    <div className="poster__title">{ep.title}</div>
+                    <div className="poster__sub">Video coming soon…</div>
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="player-meta">
-              <span className="pill pill--meta">
-                Episode ID: <strong>{ep.id}</strong>
-              </span>
-              <span className="pill pill--meta">
-                Public:{" "}
-                <strong>{new Date(ep.publicAt).toLocaleString()}</strong>
-              </span>
-            </div>
+              <div className="player-meta">
+                <span className="pill pill--meta">
+                  Episode ID: <strong>{ep.id}</strong>
+                </span>
+                <span className="pill pill--meta">
+                  Public:{" "}
+                  <strong>{new Date(ep.publicAt).toLocaleString()}</strong>
+                </span>
+              </div>
 
-            <div className="watch-video-ctas">
-              <Link to="/fan/closet" className="btn btn-primary">
-                Open Style Games
-              </Link>
-              <Link to="/fan/closet-feed" className="btn btn-ghost">
-                Browse Lala&apos;s Closet
-              </Link>
-            </div>
-          </article>
+              <div className="watch-video-ctas">
+                <Link to="/fan/closet" className="btn btn-primary">
+                  Open Style Games
+                </Link>
+                <Link to="/fan/closet-feed" className="btn btn-ghost">
+                  Browse Lala&apos;s Closet
+                </Link>
+              </div>
+            </article>
 
-          {/* RIGHT: side details + styling panel */}
-          <aside className="watch-side">
+            {/* Comments panel – Crunchyroll style */}
+            <section className="comments-card card">
+              <div className="comments-header">
+                <h2 className="comments-title">
+                  Episode chat{" "}
+                  <span className="comments-count">
+                    · {comments.length} comment
+                    {comments.length === 1 ? "" : "s"}
+                  </span>
+                </h2>
+                <span className="comments-hint">
+                  Share outfit ideas, favorite moments, and styling prompts.
+                </span>
+              </div>
+
+              <form className="comments-form" onSubmit={handleAddComment}>
+                <textarea
+                  className="comments-input"
+                  rows={3}
+                  placeholder="What look from this episode would you style IRL?"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                />
+                <div className="comments-form-footer">
+                  <span className="comments-form-note">
+                    Comments are local to your device for now.
+                  </span>
+                  <button
+                    type="submit"
+                    className="btn btn-primary comments-submit"
+                    disabled={!commentText.trim()}
+                  >
+                    Post comment
+                  </button>
+                </div>
+              </form>
+
+              <div className="comments-list">
+                {comments.map((c) => (
+                  <div key={c.id} className="comment">
+                    <div className="comment-avatar">
+                      {c.author.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="comment-body">
+                      <div className="comment-meta">
+                        <span className="comment-author">{c.author}</span>
+                        <span className="comment-ts">{c.ts}</span>
+                      </div>
+                      <p className="comment-text">{c.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* RIGHT: episode info + mini queue */}
+          <aside className="watch-shell-right">
             <section className="watch-side-card">
               <h2 className="watch-side-title">Episode details</h2>
               <dl className="watch-details">
@@ -344,10 +485,57 @@ export default function Watch() {
                 </Link>
               </div>
             </section>
+
+            {/* Crunchyroll-style up-next sidebar list */}
+            <section className="watch-side-card">
+              <h2 className="watch-side-title">Up next</h2>
+              <div className="upnext-list">
+                {all.map((e, index) => {
+                  const isCurrent = e.id === ep.id;
+                  const isEarlyQueue =
+                    Date.now() < new Date(e.publicAt || 0).getTime();
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={
+                        "upnext-item" +
+                        (isCurrent ? " upnext-item--current" : "")
+                      }
+                      onClick={() => !isCurrent && playEpisode(e.id)}
+                    >
+                      <div className="upnext-thumb">
+                        <span className="upnext-epTag">EP {index + 1}</span>
+                      </div>
+                      <div className="upnext-body">
+                        <div className="upnext-title">{e.title}</div>
+                        <div className="upnext-metaRow">
+                          <span
+                            className={
+                              "upnext-pill" +
+                              (isEarlyQueue
+                                ? " upnext-pill--early"
+                                : " upnext-pill--public")
+                            }
+                          >
+                            {isEarlyQueue ? "Early" : "Public"}
+                          </span>
+                          {isCurrent && (
+                            <span className="upnext-currentLabel">
+                              Now playing
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </aside>
         </section>
 
-        {/* Netflix-style Next Up overlay */}
+        {/* Next up overlay (auto-advance) */}
         {nextEp && (
           <NextUpOverlay
             show={showNext}
@@ -359,7 +547,7 @@ export default function Watch() {
           />
         )}
 
-        {/* Related grid */}
+        {/* Related grid under everything */}
         {related.length > 0 && (
           <section className="related">
             <div className="related-header">
@@ -408,104 +596,167 @@ const styles = `
   gap:16px;
 }
 
-/* light hero with a bit more glow */
-.hero {
+/* HERO BAR -------------------------------------------------- */
+
+.watch-hero {
   background:
-    radial-gradient(circle at top left, rgba(251,207,232,0.7), rgba(255,255,255,0.7)),
-    radial-gradient(circle at bottom right, rgba(191,219,254,0.8), rgba(255,255,255,0.9));
+    radial-gradient(circle at top left, #f9a8d4 0, #fdf2ff 35%, transparent 70%),
+    radial-gradient(circle at bottom right, #bfdbfe 0, #eff6ff 35%, transparent 75%),
+    linear-gradient(135deg, #6366f1, #ec4899);
   border-radius:20px;
-  padding:18px 16px;
-  border:1px solid rgba(248,250,252,0.9);
-  box-shadow:0 16px 40px rgba(15,23,42,0.08);
-}
-.hero__inner,
-.stage {
-  max-width: 1100px;
-  margin: 0 auto;
+  padding:14px 16px;
+  border:1px solid rgba(216,180,254,0.9);
+  box-shadow:0 16px 40px rgba(129,140,248,0.45);
 }
 
-.title-row {
+.watch-hero-inner {
+  max-width:1100px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.watch-hero-top {
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:10px;
   flex-wrap:wrap;
 }
+
+.watch-hero-pill {
+  padding:4px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.9);
+  border:1px solid rgba(196,181,253,0.9);
+  font-size:11px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:#6b21a8;
+}
+
+.watch-status-pill {
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  background:rgba(255,255,255,0.9);
+  border:1px solid rgba(196,181,253,0.9);
+  color:#4c1d95;
+}
+.watch-status-pill--public {
+  background:#ecfdf5;
+  border-color:#a7f3d0;
+  color:#065f46;
+}
+.watch-status-pill--early {
+  background:#fdf2ff;
+  border-color:#f9a8d4;
+  color:#9d174d;
+}
+
 .crumb {
   text-decoration:none;
-  color:#374151;
+  color:#111827;
+  font-size:0.9rem;
 }
 .crumb:hover {
   text-decoration:underline;
 }
+
 .title {
   margin:0;
   font-size:1.7rem;
   line-height:1.2;
   letter-spacing:-0.03em;
+  color:#0f172a;
 }
+
 .muted {
   color:#586073;
 }
 
-/* main layout */
-.stage {
-  margin-top:14px;
+/* MAIN CINEMA SHELL ---------------------------------------- */
+
+.watch-main {
+  max-width:1100px;
+  margin:0 auto 28px;
 }
-.watch-layout {
+
+.watch-shell {
+  margin-top:14px;
   display:grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns:minmax(0, 3.2fr) minmax(0, 2.2fr);
   gap:18px;
 }
 @media (max-width: 900px) {
-  .watch-layout {
-    grid-template-columns: minmax(0,1fr);
+  .watch-shell {
+    grid-template-columns:minmax(0,1fr);
   }
 }
 
-/* cards + player */
+.watch-shell-left {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.watch-shell-right {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* CARDS & PLAYER ------------------------------------------- */
+
 .card {
-  background:#fff;
+  background:#ffffff;
   border:1px solid #eceef3;
   border-radius:18px;
-  padding:18px 18px 16px;
-  box-shadow:0 10px 28px rgba(15,23,42,0.06);
+  padding:16px 16px 14px;
+  box-shadow:0 10px 28px rgba(148,163,184,0.25);
 }
 
 .player-card {
-  display:grid;
-  gap:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  background:radial-gradient(circle at top,#eef2ff,#fdf2ff);
+}
+
+.player-frame {
+  border-radius:16px;
+  overflow:hidden;
+  background:#020617;
 }
 
 .player {
   width:100%;
   max-height:70vh;
   background:#000;
-  border-radius:16px;
+  display:block;
 }
 
 .yt-wrap {
   position:relative;
   padding-bottom:56.25%;
   height:0;
-  border-radius:16px;
-  overflow:hidden;
-  background:#000;
 }
 .yt-wrap iframe {
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
-  border:0;
 }
 
 .poster {
   height:420px;
-  border-radius:16px;
-  background:radial-gradient(circle at top, #eef2ff, #fef3ff);
   display:grid;
   place-items:center;
   text-align:center;
+  background:radial-gradient(circle at top, #eef2ff, #fef3ff);
 }
 .poster__title {
   font-weight:700;
@@ -521,76 +772,69 @@ const styles = `
   flex-wrap:wrap;
 }
 
+/* pills */
+
 .pill {
   display:inline-flex;
   align-items:center;
-  height:26px;
-  padding:0 10px;
+  padding:3px 10px;
   border-radius:999px;
-  border:1px solid #e7e7ef;
-  background:#f7f8ff;
-  color:#222;
-  font-size:.85rem;
-}
-.pill--bestie {
-  background:#ecf0ff;
-  border-color:#c9d2ff;
-  color:#2e47d1;
-}
-.pill--public {
-  background:#ecfdf3;
-  border-color:#bbf7d0;
-  color:#166534;
-}
-.pill--meta {
+  border:1px solid #e5e7eb;
   background:#f9fafb;
-  border-color:#e5e7eb;
+  color:#111827;
   font-size:0.78rem;
+}
+
+.pill--meta {
+  background:#ffffff;
+  border-color:#e5e7eb;
   color:#4b5563;
 }
 
-/* buttons under the player */
+/* video CTAs */
+
 .watch-video-ctas {
   display:flex;
   flex-wrap:wrap;
   gap:10px;
-  margin-top:6px;
+  margin-top:2px;
 }
 .watch-video-ctas .btn {
-  min-width:170px;
+  min-height:46px;
+  padding:11px 18px;
 }
 
-/* side column */
-.watch-side {
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
+/* SIDE CARDS ------------------------------------------------ */
+
 .watch-side-card {
   background:#ffffff;
   border-radius:16px;
   border:1px solid #e5e7eb;
-  box-shadow:0 10px 25px rgba(15,23,42,0.05);
-  padding:14px 16px 16px;
+  box-shadow:0 10px 24px rgba(148,163,184,0.18);
+  padding:12px 14px 14px;
 }
+
 .watch-side-title {
-  margin:0 0 6px;
+  margin:0 0 4px;
   font-size:1rem;
   font-weight:600;
   color:#111827;
 }
+
 .watch-side-text {
   margin:0;
   font-size:0.9rem;
   color:#4b5563;
 }
+
 .watch-details {
   margin:6px 0 0;
   padding:0;
 }
+
 .watch-details-row {
   display:grid;
-  grid-template-columns: 90px minmax(0,1fr);
+  grid-template-columns:90px minmax(0,1fr);
   gap:6px;
   font-size:0.86rem;
   color:#4b5563;
@@ -603,19 +847,244 @@ const styles = `
 .watch-details-row dd {
   margin:0;
 }
+
 .watch-side-actions {
-  margin-top:12px;
+  margin-top:10px;
   display:flex;
   flex-direction:column;
   gap:8px;
 }
+
+/* force the two style buttons to be identical size */
+.watch-side-actions .btn {
+  width:100%;
+  min-height:48px;
+  padding:12px 18px;
+}
+
+/* shared "full width" utility (kept for clarity) */
 .watch-btn-full {
   width:100%;
 }
 
-/* lock / early gate */
-.lock-card {
+/* UP-NEXT LIST --------------------------------------------- */
+
+.upnext-list {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-height:320px;
+  overflow:auto;
+}
+
+.upnext-item {
   display:grid;
+  grid-template-columns:70px minmax(0,1fr);
+  gap:8px;
+  align-items:center;
+  border-radius:12px;
+  border:1px solid transparent;
+  background:#f9fafb;
+  padding:6px;
+  cursor:pointer;
+  text-align:left;
+  transition:background 140ms ease, border-color 140ms ease, transform 40ms ease;
+}
+.upnext-item:hover {
+  background:#f3e8ff;
+  border-color:#ddd6fe;
+  transform:translateY(-1px);
+}
+.upnext-item--current {
+  background:#ede9fe;
+  border-color:#a855f7;
+}
+
+.upnext-thumb {
+  border-radius:10px;
+  background:linear-gradient(135deg,#6366f1,#ec4899);
+  height:52px;
+  position:relative;
+  overflow:hidden;
+}
+.upnext-epTag {
+  position:absolute;
+  left:6px;
+  bottom:4px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.85);
+  color:#f9fafb;
+  font-size:10px;
+  font-weight:600;
+}
+
+.upnext-body {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.upnext-title {
+  font-size:0.86rem;
+  font-weight:600;
+  color:#111827;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.upnext-metaRow {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.upnext-pill {
+  padding:2px 7px;
+  border-radius:999px;
+  font-size:0.7rem;
+  border:1px solid #e5e7eb;
+  background:#ffffff;
+}
+.upnext-pill--public {
+  background:#ecfdf5;
+  border-color:#bbf7d0;
+  color:#166534;
+}
+.upnext-pill--early {
+  background:#fdf2ff;
+  border-color:#f9a8d4;
+  color:#9d174d;
+}
+
+.upnext-currentLabel {
+  font-size:0.7rem;
+  color:#4c1d95;
+}
+
+/* COMMENTS PANEL ------------------------------------------- */
+
+.comments-card {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.comments-header {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.comments-title {
+  margin:0;
+  font-size:1rem;
+  font-weight:600;
+}
+.comments-count {
+  font-weight:400;
+  font-size:0.9rem;
+  color:#6b7280;
+}
+.comments-hint {
+  font-size:0.8rem;
+  color:#6b7280;
+}
+
+.comments-form {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.comments-input {
+  width:100%;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  padding:8px 10px;
+  resize:vertical;
+  font-size:0.9rem;
+  font-family:inherit;
+}
+.comments-input:focus {
+  outline:none;
+  border-color:#a855f7;
+  box-shadow:0 0 0 1px rgba(168,85,247,0.25);
+}
+
+.comments-form-footer {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.comments-form-note {
+  font-size:0.78rem;
+  color:#9ca3af;
+}
+.comments-submit {
+  padding-inline:14px;
+}
+
+.comments-list {
+  margin-top:6px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:260px;
+  overflow:auto;
+}
+
+.comment {
+  display:flex;
+  gap:8px;
+}
+
+.comment-avatar {
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#6366f1,#ec4899);
+  color:#f9fafb;
+  font-size:0.85rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+
+.comment-body {
+  flex:1;
+  min-width:0;
+}
+
+.comment-meta {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:0.78rem;
+}
+.comment-author {
+  font-weight:600;
+}
+.comment-ts {
+  color:#9ca3af;
+}
+.comment-text {
+  margin:0;
+  font-size:0.86rem;
+  color:#111827;
+}
+
+/* LOCK / EARLY GATE ---------------------------------------- */
+
+.lock-card {
+  max-width:640px;
+  margin:24px auto 0;
+  display:flex;
+  flex-direction:column;
   gap:10px;
 }
 .lock-head {
@@ -630,10 +1099,18 @@ const styles = `
   margin:0;
 }
 
-/* related grid */
+.actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+/* RELATED GRID --------------------------------------------- */
+
 .related {
   margin-top:26px;
 }
+
 .related-header {
   display:flex;
   justify-content:space-between;
@@ -658,6 +1135,7 @@ const styles = `
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap:12px;
 }
+
 .rel-card {
   text-align:left;
   padding:12px;
@@ -670,7 +1148,7 @@ const styles = `
   transition:background 140ms ease, box-shadow 140ms ease, transform 40ms ease;
 }
 .rel-card:hover {
-  background:#fafbff;
+  background:#faf5ff;
   box-shadow:0 10px 22px rgba(148,163,184,0.35);
   transform:translateY(-1px);
 }
@@ -678,7 +1156,7 @@ const styles = `
   width:100%;
   aspect-ratio:16/9;
   border-radius:12px;
-  background: linear-gradient(135deg, rgba(17,24,39,.12), rgba(17,24,39,.06));
+  background:linear-gradient(135deg,#e0e7ff,#fbcfe8);
   display:grid;
   place-items:center;
   font-weight:600;
@@ -699,21 +1177,22 @@ const styles = `
 
 .chip {
   border:1px solid #e5e7eb;
-  background:#fff;
+  background:#f9fafb;
   color:#111827;
   border-radius:999px;
-  padding:6px 10px;
-  font-size:.8rem;
+  padding:4px 10px;
+  font-size:.78rem;
 }
 
-/* ✨ BUTTON GLOW-UP ✨ */
+/* BUTTONS -------------------------------------------------- */
+
 .btn {
   appearance:none;
   border:1px solid #e5e7eb;
   background:#ffffff;
   color:#111827;
   border-radius:999px;
-  padding:11px 20px;
+  padding:9px 16px;
   min-height:40px;
   cursor:pointer;
   transition:
@@ -730,7 +1209,7 @@ const styles = `
 }
 .btn:hover {
   background:#f5f3ff;
-  border-color:#e0e7ff;
+  border-color:#ddd6fe;
   box-shadow:0 6px 16px rgba(129,140,248,0.35);
 }
 .btn:active {
@@ -738,13 +1217,13 @@ const styles = `
 }
 
 .btn-primary {
-  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  background:linear-gradient(135deg,#6366f1,#ec4899);
   border-color:#6366f1;
   color:#fff;
-  box-shadow:0 8px 18px rgba(99,102,241,0.45);
+  box-shadow:0 8px 18px rgba(236,72,153,0.45);
 }
 .btn-primary:hover {
-  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  background:linear-gradient(135deg,#4f46e5,#db2777);
   border-color:#4f46e5;
   box-shadow:0 10px 24px rgba(79,70,229,0.55);
 }
@@ -753,15 +1232,27 @@ const styles = `
   color:#374151;
 }
 
-/* notices */
+/* NOTICES -------------------------------------------------- */
+
 .notice {
   padding:10px 12px;
   border-radius:10px;
   margin-top:10px;
 }
 .notice--error {
-  border:1px solid #ffd4d4;
-  background:#fff6f6;
-  color:#7a1a1a;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#7f1d1d;
+}
+
+/* RESPONSIVE ----------------------------------------------- */
+
+@media (max-width: 640px) {
+  .watch-hero-inner {
+    padding-inline:2px;
+  }
+  .title {
+    font-size:1.4rem;
+  }
 }
 `;

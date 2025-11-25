@@ -65,7 +65,7 @@ const GQL_ADMIN_FALLBACK = /* GraphQL */ `
   }
 `;
 
-// Backend sync for hearts – matches schema (favoriteOn)
+// Hearts backend – matches toggleFavoriteClosetItem(id, favoriteOn)
 const GQL_TOGGLE_FAVORITE = /* GraphQL */ `
   mutation ToggleFavoriteClosetItem($id: ID!, $favoriteOn: Boolean) {
     toggleFavoriteClosetItem(id: $id, favoriteOn: $favoriteOn) {
@@ -135,7 +135,7 @@ export default function ClosetFeed() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // sort UI: NEWEST | MOST_LOVED | LALAS_PICK
+  // sort UI: NEWEST | MOST_LOVED | LALAS_PICK | MY_FAVES
   const [sort, setSort] = useState("NEWEST");
   const [busyId, setBusyId] = useState(null); // while syncing favorite
 
@@ -160,8 +160,9 @@ export default function ClosetFeed() {
         }
 
         // Map UI sort state to backend sort enum
+        // LALAS_PICK & MY_FAVES reuse MOST_LOVED ordering from backend
         const sortForBackend =
-          sort === "LALAS_PICK" ? "MOST_LOVED" : sort;
+          sort === "LALAS_PICK" || sort === "MY_FAVES" ? "MOST_LOVED" : sort;
 
         // --- Try full query first (with viewerHasFaved) ---
         let res;
@@ -176,7 +177,7 @@ export default function ClosetFeed() {
             msg.includes("viewerHasFaved")
           ) {
             console.warn(
-              "[ClosetFeed] viewerHasFaved unsupported – using legacy feed query"
+              "[ClosetFeed] viewerHasFaved unsupported – using legacy feed query",
             );
             res = await window.sa.graphql(GQL_FEED_LEGACY, {
               sort: sortForBackend,
@@ -194,27 +195,27 @@ export default function ClosetFeed() {
           raw = cf.items;
         }
 
-        // ── Fallback for now: if closetFeed is empty, try admin list of APPROVED ──
+        // Fallback: if closetFeed is empty, try admin list of APPROVED
         if (!raw.length) {
           try {
             const adminRes = await window.sa.graphql(
               GQL_ADMIN_FALLBACK,
-              {}
+              {},
             );
-            const adminItems =
-              adminRes?.adminListClosetItems?.items ?? [];
+            const adminItems = adminRes?.adminListClosetItems?.items ?? [];
             if (adminItems.length) {
               raw = adminItems;
             }
           } catch (e) {
             console.warn(
               "[ClosetFeed] adminListClosetItems fallback failed",
-              e
+              e,
             );
           }
         }
 
-        // Visibility filter – allow APPROVED/PUBLISHED (or null), hide obvious non-fan states
+        // Visibility filter – allow APPROVED/PUBLISHED (or unknown),
+        // hide obvious non-fan states and admin-only/hide audiences.
         const visible = raw.filter((it) => {
           const status = (it.status || "").toUpperCase();
 
@@ -230,11 +231,10 @@ export default function ClosetFeed() {
         });
 
         const withKeys = visible.map((it) => {
+          // Local cache of likes (for snappy UX / offline-ish)
           const localLiked = hasLiked(it.id);
           const apiLiked =
-            typeof it.viewerHasFaved === "boolean"
-              ? it.viewerHasFaved
-              : false;
+            typeof it.viewerHasFaved === "boolean" ? it.viewerHasFaved : false;
 
           const viewerHasFaved = localLiked || apiLiked;
 
@@ -246,6 +246,7 @@ export default function ClosetFeed() {
           };
         });
 
+        // Hydrate S3 URLs
         const hydrated = await Promise.all(
           withKeys.map(async (it) => {
             if (!it.effectiveKey) return it;
@@ -256,15 +257,19 @@ export default function ClosetFeed() {
               console.warn("[ClosetFeed] getSignedGetUrl failed", e);
               return it;
             }
-          })
+          }),
         );
 
-        // Sort client-side, as a fallback
+        // Sort client-side as a fallback (backend already gives NEWEST / MOST_LOVED)
         hydrated.sort((a, b) => {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
 
-          if (sort === "MOST_LOVED" || sort === "LALAS_PICK") {
+          if (
+            sort === "MOST_LOVED" ||
+            sort === "LALAS_PICK" ||
+            sort === "MY_FAVES"
+          ) {
             const af = a.favoriteCount ?? 0;
             const bf = b.favoriteCount ?? 0;
             if (bf !== af) return bf - af;
@@ -275,10 +280,14 @@ export default function ClosetFeed() {
           return bTime - aTime;
         });
 
-        // When "Lala's pick" tab is active, show only pinned looks
+        // Tab-specific filters:
+        // - LALAS_PICK: Lala's editorial picks (pinned === true)
+        // - MY_FAVES: viewerHasFaved === true
         let next = hydrated;
         if (sort === "LALAS_PICK") {
           next = hydrated.filter((it) => !!it.pinned);
+        } else if (sort === "MY_FAVES") {
+          next = hydrated.filter((it) => !!it.viewerHasFaved);
         }
 
         if (!cancelled) setItems(next);
@@ -300,11 +309,11 @@ export default function ClosetFeed() {
 
   const isInitialLoading = loading && items.length === 0;
 
-  // scroll highlight into view on first render
+  // Scroll highlight into view on first render
   useEffect(() => {
     if (!highlightId) return;
     const el = document.querySelector(
-      `[data-closet-id="${highlightId}"]`
+      `[data-closet-id="${highlightId}"]`,
     );
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -322,16 +331,13 @@ export default function ClosetFeed() {
       prev.map((it) => {
         if (it.id !== id) return it;
         const count = it.favoriteCount ?? 0;
-        const nextCount = Math.max(
-          0,
-          count + (localLiked ? 1 : -1)
-        );
+        const nextCount = Math.max(0, count + (localLiked ? 1 : -1));
         return {
           ...it,
           viewerHasFaved: localLiked,
           favoriteCount: nextCount,
         };
-      })
+      }),
     );
 
     setBusyId(id);
@@ -363,15 +369,12 @@ export default function ClosetFeed() {
                       ? updated.viewerHasFaved
                       : localLiked,
                 }
-              : it
-          )
+              : it,
+          ),
         );
       }
     } catch (e) {
-      console.warn(
-        "[ClosetFeed] toggleFavoriteClosetItem failed",
-        e
-      );
+      console.warn("[ClosetFeed] toggleFavoriteClosetItem failed", e);
     } finally {
       setBusyId(null);
     }
@@ -402,17 +405,15 @@ export default function ClosetFeed() {
                 Come style me, bestie 💜
               </h1>
               <p className="closet-hero__subtitle">
-                Heart your fave looks and I&apos;ll use them to inspire
-                future drops &amp; Style Lab combos.
+                Heart your fave looks and I&apos;ll use them to inspire future
+                drops &amp; Style Lab combos.
               </p>
             </div>
 
             <div className="closet-hero__right">
               <div className="closet-hero__card">
                 <p className="closet-hero__stat-label">Closet mood</p>
-                <p className="closet-hero__stat-value">
-                  Pastel Barbiecore
-                </p>
+                <p className="closet-hero__stat-value">Pastel Barbiecore</p>
                 <p className="closet-hero__stat-sub">
                   New looks will appear here as Lala&apos;s team approves
                   uploads.
@@ -435,7 +436,8 @@ export default function ClosetFeed() {
               {[
                 { value: "NEWEST", label: "Newest" },
                 { value: "MOST_LOVED", label: "Most loved" },
-                { value: "LALAS_PICK", label: "Lala&apos;s pick" },
+                { value: "LALAS_PICK", label: "Lala's pick" },
+                { value: "MY_FAVES", label: "My faves" },
               ].map((opt) => {
                 const active = opt.value === sort;
                 return (
@@ -449,10 +451,7 @@ export default function ClosetFeed() {
                         : "closet-sort__btn"
                     }
                   >
-                    {/* handle apostrophe safely */}
-                    {opt.label === "Lala&apos;s pick"
-                      ? "Lala's pick"
-                      : opt.label}
+                    {opt.label}
                   </button>
                 );
               })}
@@ -474,8 +473,8 @@ export default function ClosetFeed() {
             <div>
               <h2 className="closet-shell__title">Lala&apos;s Closet feed</h2>
               <p className="closet-shell__subtitle">
-                Tap a look to heart it and save inspo. The most-loved looks
-                help decide future Bestie drops.
+                Tap a look to heart it and save inspo. The most-loved looks help
+                decide future Bestie drops.
               </p>
             </div>
           </div>
@@ -500,8 +499,8 @@ export default function ClosetFeed() {
                 🧺
               </span>{" "}
               No approved closet items yet. Style Lala in the{" "}
-              <Link to="/fan/closet">Style Lab</Link> and submit your
-              looks for review to see them appear here.
+              <Link to="/fan/closet">Style Lab</Link> and submit your looks for
+              review to see them appear here.
             </div>
           )}
 
@@ -509,8 +508,7 @@ export default function ClosetFeed() {
             <>
               <div className="closet-grid">
                 {visibleItems.map((it) => {
-                  const isHighlight =
-                    highlightId && it.id === highlightId;
+                  const isHighlight = highlightId && it.id === highlightId;
                   const liked = !!it.viewerHasFaved;
                   const favCount = it.favoriteCount ?? 0;
                   const {
@@ -577,9 +575,7 @@ export default function ClosetFeed() {
                           </span>
                         </button>
 
-                        <div className="closet-heartCount">
-                          {favCount}
-                        </div>
+                        <div className="closet-heartCount">{favCount}</div>
                       </div>
 
                       <div className="closet-item__body">
@@ -588,24 +584,25 @@ export default function ClosetFeed() {
                         </div>
                         <div className="closet-item__meta">
                           <div className="closet-item__meta-left">
-                            <span className="closet-chip">
-                              Closet look
-                            </span>
+                            <span className="closet-chip">Closet look</span>
                             <span className={audienceClass}>
                               {audienceLabel}
                             </span>
+                            {it.pinned && (
+                              <span className="closet-chip closet-chip--lala">
+                                Lala&apos;s pick
+                              </span>
+                            )}
                           </div>
                           <span className="closet-meta-text">
                             Added{" "}
                             {it.createdAt
-                              ? new Date(
-                                  it.createdAt
-                                ).toLocaleDateString()
+                              ? new Date(it.createdAt).toLocaleDateString()
                               : "recently"}
                           </span>
                         </div>
 
-                        {/* NEW: category / subcategory chips */}
+                        {/* category / subcategory chips */}
                         {(it.category || it.subcategory) && (
                           <div className="fan-closet-tags">
                             {it.category && (
@@ -652,7 +649,6 @@ export default function ClosetFeed() {
     </div>
   );
 }
-
 
 const styles = `
 .closet-feed-wrap {
@@ -986,6 +982,9 @@ const styles = `
 /* BODY + META */
 .closet-item__body {
   padding:0 4px 4px;
+  display:flex;
+  flex-direction:column;
+  min-height: 120px;
 }
 
 .closet-item__title {
@@ -999,24 +998,29 @@ const styles = `
 
 .closet-item__meta {
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:space-between;
   gap:6px;
 }
 
 .closet-item__meta-left {
   display:flex;
+  flex-wrap: wrap;
   align-items:center;
   gap:4px;
+  row-gap: 2px;
+  max-width: 70%;
 }
 
 .closet-meta-text {
   font-size:0.75rem;
   color:#9ca3af;
+  white-space: nowrap;
 }
 
 .closet-item__social {
-  margin-top:4px;
+  margin-top:auto;
+  padding-top:4px;
   font-size:0.8rem;
   color:#4b5563;
 }
@@ -1047,6 +1051,12 @@ const styles = `
 .closet-chip--exclusive {
   background:#fef2f2;
   color:#b91c1c;
+}
+
+/* NEW: Lala's pick chip */
+.closet-chip--lala {
+  background:#f5f3ff;
+  color:#7c3aed;
 }
 
 /* BUTTONS – reuse global vibe */
@@ -1089,7 +1099,8 @@ const styles = `
   background:linear-gradient(135deg,#4f46e5,#db2777);
   border-color:#4f46e5;
 }
-  /* Fan-facing closet category chips */
+
+/* Fan-facing closet category chips */
 .fan-closet-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1110,3 +1121,5 @@ const styles = `
   color: #6b7280;
 }
 `;
+
+
