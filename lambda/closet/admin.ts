@@ -29,7 +29,13 @@ type AppSyncEvent = {
   identity?: any;
 };
 
-type ClosetStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PUBLISHED";
+type ClosetStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "PUBLISHED"
+  | "ARCHIVED";
 
 type ClosetItem = {
   id: string;
@@ -45,15 +51,41 @@ type ClosetItem = {
   season?: string | null;
   vibes?: string | null;
   audience?: string | null;
+
+  // categorization
+  category?: string | null;
+  subcategory?: string | null;
+
+  // pinned highlight flag
+  pinned?: boolean;
+
   favoriteCount?: number;
   viewerHasFaved?: boolean;
 };
 
 type AdminCreateClosetItemInput = {
+  ownerId?: string | null;
+
   title: string;
-  rawMediaKey: string;
+  rawMediaKey?: string | null;
+  mediaKey?: string | null;
+
   season?: string | null;
   vibes?: string | null;
+
+  category?: string | null;
+  subcategory?: string | null;
+
+  description?: string | null;
+  story?: string | null;
+  audience?: string | null;
+};
+
+type AdminUpdateClosetItemInput = {
+  title?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  audience?: string | null;
 };
 
 type AdminClosetItemsPage = {
@@ -84,6 +116,10 @@ function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
   const favoriteCount =
     typeof favoriteCountAttr === "string" ? Number(favoriteCountAttr) : 0;
 
+  const pinnedAttr = raw.pinned as any;
+  const pinned =
+    typeof pinnedAttr?.BOOL === "boolean" ? pinnedAttr.BOOL : undefined;
+
   return {
     id: raw.id.S!,
     userId: raw.ownerSub.S!,
@@ -98,6 +134,14 @@ function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
     season: raw.season?.S ?? null,
     vibes: raw.vibes?.S ?? null,
     audience: raw.audience?.S ?? null,
+
+    // categorization
+    category: raw.category?.S ?? null,
+    subcategory: raw.subcategory?.S ?? null,
+
+    // pinned flag
+    pinned,
+
     favoriteCount,
     viewerHasFaved: false,
     ...extra,
@@ -145,7 +189,7 @@ export const adminListPending = async (
       ExpressionAttributeValues: { ":p": S("STATUS#PENDING") },
       ScanIndexForward: true,
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
       ExpressionAttributeNames: { "#s": "status" },
     }),
   );
@@ -177,7 +221,7 @@ export const adminListClosetItems = async (
         ExpressionAttributeValues: { ":p": S(`STATUS#${status}`) },
         ScanIndexForward: false, // newest first
         ProjectionExpression:
-          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount",
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
         ExpressionAttributeNames: { "#s": "status" },
         Limit: limit,
         ExclusiveStartKey: exclusiveKey,
@@ -204,7 +248,7 @@ export const adminListClosetItems = async (
       FilterExpression: "begins_with(pk, :p)",
       ExpressionAttributeValues: { ":p": S("ITEM#") },
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
       ExpressionAttributeNames: { "#s": "status" },
       Limit: limit,
       ExclusiveStartKey: exclusiveKey,
@@ -246,7 +290,7 @@ export const closetFeed = async (
         ExpressionAttributeValues: { ":p": S("STATUS#PUBLISHED") },
         ScanIndexForward: sort === "NEWEST",
         ProjectionExpression:
-          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount",
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount, category, subcategory, season, vibes, pinned",
         ExpressionAttributeNames: { "#s": "status" },
       }),
     ),
@@ -317,7 +361,10 @@ export const adminCreateClosetItem = async (
   const input = (event.arguments?.input || {}) as AdminCreateClosetItemInput;
 
   if (!input.title?.trim()) throw new Error("title is required");
-  if (!input.rawMediaKey) throw new Error("rawMediaKey is required");
+
+  // Allow either rawMediaKey or mediaKey; the new upload flow sends rawMediaKey.
+  const rawKey = input.rawMediaKey || input.mediaKey;
+  if (!rawKey) throw new Error("rawMediaKey is required");
 
   const id = randomId();
   const now = nowIso();
@@ -336,10 +383,16 @@ export const adminCreateClosetItem = async (
         createdAt: S(now),
         updatedAt: S(now),
         title: S(input.title.trim()),
-        rawMediaKey: S(input.rawMediaKey),
+        rawMediaKey: S(rawKey),
         favoriteCount: { N: "0" },
+
         ...(input.season ? { season: S(input.season) } : {}),
         ...(input.vibes ? { vibes: S(input.vibes) } : {}),
+        ...(input.category ? { category: S(input.category) } : {}),
+        ...(input.subcategory ? { subcategory: S(input.subcategory) } : {}),
+        ...(input.audience ? { audience: S(input.audience) } : {}),
+        ...(input.description ? { description: S(input.description) } : {}),
+        ...(input.story ? { story: S(input.story) } : {}),
       },
     }),
   );
@@ -353,11 +406,13 @@ export const adminCreateClosetItem = async (
     updatedAt: now,
     title: input.title.trim(),
     mediaKey: "",
-    rawMediaKey: input.rawMediaKey,
+    rawMediaKey: rawKey,
     reason: "",
     season: input.season ?? null,
     vibes: input.vibes ?? null,
-    audience: null,
+    audience: input.audience ?? null,
+    category: input.category ?? null,
+    subcategory: input.subcategory ?? null,
     favoriteCount: 0,
     viewerHasFaved: false,
   };
@@ -369,8 +424,8 @@ export const adminApproveItem = async (
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
 
-  const id = event.arguments?.id as string;
-  if (!id) throw new Error("id required");
+  const id = event.arguments?.closetItemId as string;
+  if (!id) throw new Error("closetItemId required");
 
   const now = nowIso();
 
@@ -419,9 +474,9 @@ export const adminRejectItem = async (
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
 
-  const id = event.arguments?.id as string;
+  const id = event.arguments?.closetItemId as string;
   const reason = (event.arguments?.reason as string) || "";
-  if (!id) throw new Error("id required");
+  if (!id) throw new Error("closetItemId required");
 
   const now = nowIso();
 
@@ -467,9 +522,110 @@ export const adminRejectItem = async (
   });
 };
 
-export const adminSetClosetAudience = async (): Promise<string> => {
-  // still a stub
-  return "NOT_IMPLEMENTED";
+// adminUpdateClosetItem – update title/category/subcategory/audience
+export const adminUpdateClosetItem = async (
+  event: AppSyncEvent,
+): Promise<ClosetItem> => {
+  const { isAdmin } = getIdentity(event);
+  if (!isAdmin) throw new Error("Forbidden");
+
+  const id = event.arguments?.closetItemId as string;
+  const input = (event.arguments?.input || {}) as AdminUpdateClosetItemInput;
+
+  if (!id) throw new Error("closetItemId required");
+
+  const now = nowIso();
+
+  const updateExpr: string[] = ["#updatedAt = :u"];
+  const exprNames: Record<string, string> = {
+    "#updatedAt": "updatedAt",
+  };
+  const exprValues: Record<string, AttributeValue> = {
+    ":u": S(now),
+  };
+
+  if (input.title !== undefined) {
+    updateExpr.push("#title = :title");
+    exprNames["#title"] = "title";
+    exprValues[":title"] =
+      input.title === null ? { NULL: true } : S(input.title);
+  }
+
+  if (input.category !== undefined) {
+    updateExpr.push("#category = :category");
+    exprNames["#category"] = "category";
+    exprValues[":category"] =
+      input.category === null ? { NULL: true } : S(input.category);
+  }
+
+  if (input.subcategory !== undefined) {
+    updateExpr.push("#subcategory = :subcategory");
+    exprNames["#subcategory"] = "subcategory";
+    exprValues[":subcategory"] =
+      input.subcategory === null ? { NULL: true } : S(input.subcategory);
+  }
+
+  if (input.audience !== undefined) {
+    updateExpr.push("audience = :audience");
+    exprValues[":audience"] =
+      input.audience === null ? { NULL: true } : S(input.audience);
+  }
+
+  if (updateExpr.length === 1) {
+    throw new Error("No fields provided to update");
+  }
+
+  const out = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: S(`ITEM#${id}`), sk: S("META") },
+      UpdateExpression: `SET ${updateExpr.join(", ")}`,
+      ExpressionAttributeNames: exprNames,
+      ExpressionAttributeValues: exprValues,
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!out.Attributes) {
+    throw new Error("Closet item not found");
+  }
+
+  return mapItem(out.Attributes);
+};
+
+// adminSetClosetAudience – simple audience-only helper
+export const adminSetClosetAudience = async (
+  event: AppSyncEvent,
+): Promise<ClosetItem> => {
+  const { isAdmin } = getIdentity(event);
+  if (!isAdmin) throw new Error("Forbidden");
+
+  const id = event.arguments?.closetItemId as string;
+  const audience = event.arguments?.audience as string;
+
+  if (!id) throw new Error("closetItemId required");
+  if (!audience) throw new Error("audience required");
+
+  const now = nowIso();
+
+  const out = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: S(`ITEM#${id}`), sk: S("META") },
+      UpdateExpression: "SET audience = :aud, updatedAt = :u",
+      ExpressionAttributeValues: {
+        ":aud": S(audience),
+        ":u": S(now),
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!out.Attributes) {
+    throw new Error("Closet item not found");
+  }
+
+  return mapItem(out.Attributes);
 };
 
 export const toggleFavoriteClosetItem = async (
@@ -575,7 +731,10 @@ export const handler = async (event: AppSyncEvent) => {
   if (field === "adminCreateClosetItem") return adminCreateClosetItem(event);
   if (field === "adminApproveItem") return adminApproveItem(event);
   if (field === "adminRejectItem") return adminRejectItem(event);
-  if (field === "adminSetClosetAudience") return adminSetClosetAudience();
+  if (field === "adminSetClosetAudience")
+    return adminSetClosetAudience(event);
+  if (field === "adminUpdateClosetItem")
+    return adminUpdateClosetItem(event);
   if (field === "closetFeed") return closetFeed(event);
   if (field === "topClosetLooks") return topClosetLooks(event);
   if (field === "toggleFavoriteClosetItem")

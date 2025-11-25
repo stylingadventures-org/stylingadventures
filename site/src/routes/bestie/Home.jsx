@@ -3,14 +3,15 @@ import React, { useCallback, useEffect, useState } from "react";
 import { getThumbUrlForMediaKey } from "../../lib/thumbs";
 
 const GQL = {
+  // Use existing closetFeed instead of non-existent topClosetLooks
   topLooks: /* GraphQL */ `
-    query TopClosetLooks($limit: Int) {
-      topClosetLooks(limit: $limit) {
+    query BestieTopClosetLooks($sort: ClosetFeedSort) {
+      closetFeed(sort: $sort) {
         id
         title
-        storyTitle
         favoriteCount
         mediaKey
+        createdAt
       }
     }
   `,
@@ -52,8 +53,20 @@ export default function BestieHome() {
       try {
         setErr("");
         setLoading(true);
-        const data = await runGql(GQL.topLooks, { limit: 1 });
-        const first = data?.topClosetLooks?.[0];
+
+        // Ask for the most-loved looks
+        const data = await runGql(GQL.topLooks, { sort: "MOST_LOVED" });
+
+        // closetFeed can be either an array OR a { items } connection
+        let list = [];
+        const cf = data?.closetFeed;
+        if (Array.isArray(cf)) {
+          list = cf;
+        } else if (cf && Array.isArray(cf.items)) {
+          list = cf.items;
+        }
+
+        const first = list[0];
 
         if (first) {
           const thumbUrl = await getThumbUrlForMediaKey(first.mediaKey);
@@ -72,6 +85,8 @@ export default function BestieHome() {
       }
     })();
   }, [runGql]);
+
+  const spotlightTitle = topLook?.title || "Untitled look";
 
   return (
     <div className="bestie-home">
@@ -96,7 +111,9 @@ export default function BestieHome() {
           </p>
 
           <div className="bh-hero-cta-row">
-            <button className="bh-btn bh-btn-primary">✨ Style Me, Bestie</button>
+            <button className="bh-btn bh-btn-primary">
+              ✨ Style Me, Bestie
+            </button>
             <button className="bh-btn bh-btn-ghost">View All Outfits</button>
           </div>
         </div>
@@ -165,9 +182,7 @@ export default function BestieHome() {
           </p>
 
           <div className="bh-justin-row">
-            {loading && !topLook && (
-              <div className="bh-skeleton-row" />
-            )}
+            {loading && !topLook && <div className="bh-skeleton-row" />}
 
             {topLook && (
               <div className="bh-spotlight">
@@ -175,11 +190,7 @@ export default function BestieHome() {
                   {topLook.thumbUrl ? (
                     <img
                       src={topLook.thumbUrl}
-                      alt={
-                        topLook.storyTitle ||
-                        topLook.title ||
-                        "Closet look"
-                      }
+                      alt={spotlightTitle}
                     />
                   ) : (
                     <div className="bh-spotlight-placeholder">
@@ -188,11 +199,7 @@ export default function BestieHome() {
                   )}
                 </div>
                 <div className="bh-spotlight-meta">
-                  <div className="bh-spotlight-title">
-                    {topLook.storyTitle ||
-                      topLook.title ||
-                      "Untitled look"}
-                  </div>
+                  <div className="bh-spotlight-title">{spotlightTitle}</div>
                   <div className="bh-spotlight-caption">
                     ❤️ {topLook.favoriteCount || 0}{" "}
                     {topLook.favoriteCount === 1 ? "like" : "likes"} from
@@ -240,9 +247,7 @@ export default function BestieHome() {
 
       {/* Bottom full-width CTAs */}
       <section className="bh-bottom-row">
-        <button className="bh-btn bh-btn-soft">
-          Upload New Item
-        </button>
+        <button className="bh-btn bh-btn-soft">Upload New Item</button>
         <button className="bh-btn bh-btn-soft bh-btn-soft--primary">
           Open Full Planner
         </button>

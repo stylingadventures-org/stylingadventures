@@ -14,12 +14,13 @@ export interface WorkflowsProps extends StackProps {
 }
 
 export class WorkflowsStack extends Stack {
+  /** Standard workflow for closet upload approval */
   public readonly closetApprovalSm: sfn.StateMachine;
 
   constructor(scope: Construct, id: string, props: WorkflowsProps) {
     super(scope, id, props);
 
-    // --- tiny stub lambdas used by the workflow (virus/moderation/pii/publish/reject)
+    // --- Tiny stub Lambdas used by the workflow (virus/moderation/pii/publish/reject)
     const mk = (name: string) =>
       new lambda.Function(this, name, {
         runtime: lambda.Runtime.NODEJS_20_X,
@@ -43,7 +44,7 @@ export class WorkflowsStack extends Stack {
     props.table.grantReadWriteData(publishFn);
     props.table.grantReadWriteData(rejectFn);
 
-    // --- SNS topic used with WAIT_FOR_TASK_TOKEN
+    // --- SNS topic used with WAIT_FOR_TASK_TOKEN (human approval)
     const approvalTopic = new sns.Topic(this, "ClosetApprovalTopic");
 
     // Subscriber that saves the Step Functions task token on the item
@@ -64,6 +65,7 @@ export class WorkflowsStack extends Stack {
       },
       timeout: Duration.seconds(10),
     });
+
     props.table.grantReadWriteData(saveTokenFn);
     approvalTopic.addSubscription(new subs.LambdaSubscription(saveTokenFn));
 
@@ -80,7 +82,7 @@ export class WorkflowsStack extends Stack {
       resultPath: sfn.JsonPath.DISCARD,
     });
 
-    // --- state machine definition
+    // --- State machine definition
     const definition = new tasks.LambdaInvoke(this, "VirusScan", {
       lambdaFunction: virusScanFn,
       resultPath: sfn.JsonPath.DISCARD,

@@ -1,315 +1,369 @@
-"""Auth directive used in this API (mapped to Cognito user pools in AppSync)."""
-directive @aws_auth(cognito_groups: [String]) on FIELD_DEFINITION | OBJECT
-
+# ─────────────────────────────────────────────
+# SCALARS
+# ─────────────────────────────────────────────
 scalar AWSDateTime
-scalar AWSEmail
-scalar AWSURL
 scalar AWSJSON
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Base: Closet / Users
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# ROOT TYPES
+# ─────────────────────────────────────────────
 
+type Query {
+  # Simple test
+  hello: String!
+
+  # Basic identity derived from Cognito JWT
+  me: Me!
+
+  # Closet (fan/bestie)
+  myCloset: [ClosetItem!]!
+  myWishlist: [ClosetItem!]!
+  closetItemComments(closetItemId: ID!): [ClosetComment!]!
+
+  # Admin closet views
+  adminClosetItemLikes(closetItemId: ID!): [ClosetLike!]!
+  adminClosetItemComments(closetItemId: ID!): [ClosetComment!]!
+  adminListPending: [ClosetItem!]!
+
+  # Paginated admin list used by Closet Library UI
+  adminListClosetItems(
+    status: ClosetStatus
+    limit: Int
+    nextToken: String
+  ): ClosetItemConnection!
+
+  # Fan-facing closet feed
+  closetFeed(
+    sort: ClosetFeedSort
+    status: ClosetStatus
+    ownerSub: String
+  ): [ClosetItem!]!
+
+  # Bestie / tiers
+  meBestieStatus: BestieStatus!
+
+  # Episodes early-access gate
+  isEpisodeEarlyAccess(episodeId: ID!): Boolean!
+
+  # Game: leaderboard & polls & profile
+  topXP(limit: Int): [LeaderboardEntry!]!
+  topCoins(limit: Int): [LeaderboardEntry!]!
+  getPoll(id: ID!): Poll
+  getMyProfile: GameProfile!
+}
+
+type Mutation {
+  # Roles
+  setUserRole(userId: ID!, role: UserRole!): UserRoleAssignment!
+
+  # Closet (fan/bestie)
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
+  requestClosetApproval(closetItemId: ID!): ClosetItem!
+  updateClosetMediaKey(closetItemId: ID!, mediaKey: String!): ClosetItem!
+  updateClosetItemStory(closetItemId: ID!, story: String!): ClosetItem!
+
+  likeClosetItem(closetItemId: ID!): ClosetItem!
+  commentOnClosetItem(closetItemId: ID!, text: String!): ClosetComment!
+  pinHighlight(closetItemId: ID!, pinned: Boolean!): ClosetItem!
+  toggleWishlistItem(closetItemId: ID!): ClosetItem!
+
+  # Closet admin
+  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+  adminApproveItem(closetItemId: ID!): ClosetItem!
+  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+  adminSetClosetAudience(
+    closetItemId: ID!
+    audience: ClosetAudience!
+  ): ClosetItem!
+  adminUpdateClosetItem(
+    closetItemId: ID!
+    input: AdminUpdateClosetItemInput!
+  ): ClosetItem!
+
+  # Hearts for fan closet feed
+  # NOTE: made return type nullable to avoid AppSync "Cannot return null for non-nullable type 'ClosetItem'" errors
+  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem
+
+  # Bestie / tiers
+  startBestieCheckout: BestieCheckoutSession!
+  claimBestieTrial: BestieStatus!
+
+  adminSetBestie(userId: ID!): BestieStatus!
+  adminRevokeBestie(userId: ID!): BestieStatus!
+  adminSetBestieByEmail(email: String!): BestieStatus!
+  adminRevokeBestieByEmail(email: String!): BestieStatus!
+
+  # Game
+  logGameEvent(input: LogGameEventInput!): GameEventResult!
+  awardCoins(userId: ID!, amount: Int!): GameProfile!
+
+  createPoll(input: CreatePollInput!): Poll!
+  votePoll(pollId: ID!, optionId: ID!): Poll!
+
+  grantBadge(userId: ID!, badgeId: ID!): GameProfile!
+  setDisplayName(name: String!): GameProfile!
+  updateProfile(input: UpdateProfileInput!): GameProfile!
+}
+
+# ─────────────────────────────────────────────
+# IDENTITY / USER
+# ─────────────────────────────────────────────
+
+type Me {
+  id: ID!
+  email: String
+  role: String
+  tier: String
+}
+
+enum UserRole {
+  FAN
+  BESTIE
+  ADMIN
+}
+
+type UserRoleAssignment {
+  userId: ID!
+  role: UserRole!
+}
+
+# ─────────────────────────────────────────────
+# CLOSET DOMAIN
+# ─────────────────────────────────────────────
+
+# Audience enum – include all values the UI might use
+enum ClosetAudience {
+  PRIVATE
+  FOLLOWERS
+  PUBLIC
+  BESTIE
+  EXCLUSIVE
+  ADMIN_ONLY
+  HIDDEN
+}
+
+# Status enum – for item.status + filters
 enum ClosetStatus {
   DRAFT
   PENDING
   APPROVED
   REJECTED
   PUBLISHED
+  ARCHIVED
 }
 
-# Who can see the item once it’s approved/published
-enum ClosetAudience {
-  PUBLIC
-  BESTIE
-  EXCLUSIVE
-}
-
+# Sorting enum for fan closet feed
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
 }
 
-type ClosetItem {
-  id: ID!
-  userId: ID!
-  ownerSub: String!
-  status: ClosetStatus!
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-
-  # Media
-  mediaKey: String
-  rawMediaKey: String
-
-  # Basic metadata
-  title: String!
-  reason: String
-  audience: ClosetAudience
-
-  # Story-style metadata used for fan-facing “Lala’s Closet” view
-  storyTitle: String
-  storySeason: String
-  storyVibes: [String!]
-
-  # Aggregate favorites (nullable for back-compat)
-  favoriteCount: Int
-  # Per-viewer flag (nullable; UI treats missing as false)
-  viewerHasFaved: Boolean
-}
-
-"""RBAC: roles & tiers (existing enum-backed user model)."""
-enum Role {
-  FAN
-  BESTIE
-  CREATOR
-  COLLAB
-  ADMIN
-}
-
-enum Tier {
-  FREE
-  PRIME
-}
-
-type User {
-  id: ID!
-  email: AWSEmail
-  role: Role!
-  tier: Tier
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-}
-
-input SetUserRoleInput {
-  userId: ID!
-  email: AWSEmail
-  role: Role!
-  tier: Tier
-}
-
-type UserProfile {
-  id: ID!
-  email: String
-  role: String!
-  tier: String!
-  createdAt: AWSDateTime
-  updatedAt: AWSDateTime
-}
-
-type AdminUsersPage {
-  items: [User!]!
-  nextToken: String
-}
-
-# New: paged admin view of closet items
-type AdminClosetItemsPage {
+# Connection wrapper for adminListClosetItems
+type ClosetItemConnection {
   items: [ClosetItem!]!
   nextToken: String
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Bestie Tier
-# ─────────────────────────────────────────────────────────────────────────────
+type ClosetItem {
+  id: ID!
+  ownerSub: ID
+  userId: ID
+  title: String
+  description: String
+  story: String
+  status: ClosetStatus
+  audience: ClosetAudience
+  mediaKey: String
+  rawMediaKey: String
+
+  # Categorization
+  category: String
+  subcategory: String
+
+  # Extra admin-upload metadata
+  season: String
+  vibes: String
+
+  # Admin metadata (e.g. rejection reason)
+  reason: String
+
+  # Lala's pick flag
+  pinned: Boolean
+
+  # Computed flags/metrics
+  isInWishlist: Boolean!
+  isPinnedHighlight: Boolean!
+  likesCount: Int!
+  commentsCount: Int!
+
+  # Fan “heart” data
+  favoriteCount: Int
+  viewerHasFaved: Boolean
+
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
+}
+
+input CreateClosetItemInput {
+  # existing fan-side fields
+  title: String
+  description: String
+  story: String
+  audience: ClosetAudience
+
+  # media keys
+  mediaKey: String
+  rawMediaKey: String
+
+  # categorization
+  category: String
+  subcategory: String
+}
+
+input AdminCreateClosetItemInput {
+  # optional: allow admins to create on behalf of another user if needed
+  ownerId: ID
+
+  title: String
+  description: String
+  story: String
+
+  # if a cutout already exists we could pass mediaKey,
+  # but for the new upload flow we send rawMediaKey
+  mediaKey: String
+  rawMediaKey: String
+
+  audience: ClosetAudience
+
+  # upload-studio metadata
+  season: String
+  vibes: String
+
+  # categorization
+  category: String
+  subcategory: String
+}
+
+input AdminUpdateClosetItemInput {
+  title: String
+  category: String
+  subcategory: String
+  audience: ClosetAudience
+}
+
+type ClosetComment {
+  id: ID!
+  closetItemId: ID!
+  authorId: ID!
+  text: String!
+  createdAt: AWSDateTime!
+}
+
+type ClosetLike {
+  closetItemId: ID!
+  userId: ID!
+  createdAt: AWSDateTime!
+}
+
+# ─────────────────────────────────────────────
+# BESTIE / TIERS
+# ─────────────────────────────────────────────
+
+enum BestieTier {
+  FREE
+  PAID
+}
 
 type BestieStatus {
-  active: Boolean!
-  since: AWSDateTime
-  until: AWSDateTime
-  source: String
-}
-
-type EarlyAccessGate {
-  allowed: Boolean!
-  reason: String
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Fans/Game — Types & Inputs
-# ─────────────────────────────────────────────────────────────────────────────
-
-type GameProfile {
   userId: ID!
-  displayName: String
-  avatarUrl: AWSURL
-  bio: String
-  level: Int!
-  xp: Int!
-  coins: Int!
-  badges: [String!]!
-  lastEventAt: AWSDateTime
-  streakCount: Int
-  lastLoginAt: AWSDateTime
+  isBestie: Boolean!
+  tier: BestieTier!
+  expiresAt: AWSDateTime
+  activeSubscription: Boolean!
 }
+
+type BestieCheckoutSession {
+  url: String!
+}
+
+# ─────────────────────────────────────────────
+# EPISODES / EARLY ACCESS
+# ─────────────────────────────────────────────
+
+type EpisodeAccess {
+  episodeId: ID!
+  isEarlyAccess: Boolean!
+}
+
+# ─────────────────────────────────────────────
+# GAME / PROFILE / LEADERBOARD / POLLS
+# ─────────────────────────────────────────────
 
 type LeaderboardEntry {
   userId: ID!
   displayName: String
-  xp: Int
-  coins: Int
-  rank: Int
+  xp: Int!
+  coins: Int!
+  rank: Int!
 }
 
-type Poll {
-  pollId: ID!
-  question: String!
-  options: [String!]!
-  totals: [Int!]!
-  createdBy: String!
+type GameProfile {
+  userId: ID!
+  displayName: String
+  xp: Int!
+  coins: Int!
+  badges: [Badge!]!
   createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
 }
 
-input GameEventInput {
+type Badge {
+  id: ID!
+  name: String!
+  description: String
+  earnedAt: AWSDateTime!
+}
+
+input UpdateProfileInput {
+  displayName: String
+}
+
+input LogGameEventInput {
   type: String!
+  episodeId: ID
   metadata: AWSJSON
 }
 
-input AwardInput {
-  userId: ID!
-  coins: Int!
+type GameEventResult {
+  success: Boolean!
+
+  # Legacy fields (kept for backwards compatibility)
+  newXP: Int
+  newCoins: Int
+
+  # Fields used by the current client
   xp: Int
-  reason: String
+  coins: Int
+  lastEventAt: AWSDateTime
+}
+
+type Poll {
+  id: ID!
+  question: String!
+  options: [PollOption!]!
+  createdAt: AWSDateTime!
+  closesAt: AWSDateTime
+  totalVotes: Int!
+}
+
+type PollOption {
+  id: ID!
+  text: String!
+  votes: Int!
 }
 
 input CreatePollInput {
   question: String!
   options: [String!]!
+  closesAt: AWSDateTime
 }
-
-input UpdateProfileInput {
-  displayName: String
-  avatarUrl: AWSURL
-  bio: String
-}
-
-input UpdateClosetItemStoryInput {
-  id: ID!
-  storyTitle: String
-  storySeason: String
-  storyVibes: [String!]
-}
-
-input AdminCreateClosetItemInput {
-  title: String!
-
-  """
-  MUST be the exact S3 object key where the file was uploaded,
-  including prefix (for example: "closet/<uuid>.jpg" or "users/<sub>/<uuid>.jpg").
-  """
-  rawMediaKey: String!
-
-  season: String
-  vibes: String
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Root: Queries
-# ─────────────────────────────────────────────────────────────────────────────
-
-type Query {
-  hello: String!
-
-  """Signed-in creator’s items."""
-  myCloset: [ClosetItem!]!
-
-  """Items awaiting moderation."""
-  adminListPending: [ClosetItem!]!
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
-
-  """
-  Admin library of closet items, with optional status filter.
-  If status is omitted, returns all items (scan-based for now).
-  """
-  adminListClosetItems(
-    status: ClosetStatus
-    limit: Int
-    nextToken: String
-  ): AdminClosetItemsPage
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB", "PRIME"])
-
-  """
-  Lala's Closet — fan-facing feed.
-
-  Resolver enforces: status = PUBLISHED (gsi2pk = "STATUS#PUBLISHED")
-  and (later) audience visibility rules.
-  """
-  closetFeed(sort: ClosetFeedSort = NEWEST): [ClosetItem!]!
-
-  me: UserProfile
-  adminListUsers(search: String, limit: Int, nextToken: String): AdminUsersPage
-    @aws_auth(cognito_groups: ["ADMIN"])
-
-  meBestieStatus: BestieStatus!
-  isEpisodeEarlyAccess(id: ID!): EarlyAccessGate!
-
-  getMyProfile: GameProfile!
-  topXP(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
-  topCoins(limit: Int = 10, season: String = "GLOBAL"): [LeaderboardEntry!]!
-  getPoll(pollId: ID!): Poll
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Root: Mutations
-# ─────────────────────────────────────────────────────────────────────────────
-
-type Mutation {
-  # Closet / creator flows
-  createClosetItem(title: String, mediaKey: String): ClosetItem!
-  requestClosetApproval(id: ID!): String!
-  updateClosetMediaKey(id: ID!, mediaKey: String!): ClosetItem!
-
-  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
-
-  adminApproveItem(id: ID!): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
-  adminRejectItem(id: ID!, reason: String): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
-
-  adminSetClosetAudience(id: ID!, audience: ClosetAudience!): ClosetItem!
-    @aws_auth(cognito_groups: ["ADMIN", "COLLAB"])
-
-  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
-
-  """
-  Fan / favorite interaction.
-  If favoriteOn is null, the resolver may toggle based on current state.
-  Returns the updated ClosetItem with favoriteCount + viewerHasFaved
-  hydrated for the caller.
-  """
-  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem
-  #                                             note: no "!"
-
-  setUserRole(input: SetUserRoleInput!): UserProfile!
-
-  # Bestie / Stripe flows
-  startBestieCheckout(successUrl: AWSURL, cancelUrl: AWSURL): AWSURL!
-  claimBestieTrial: BestieStatus!
-  adminSetBestie(userSub: ID!, active: Boolean!): BestieStatus!
-    @aws_auth(cognito_groups: ["ADMIN"])
-  adminRevokeBestie(userSub: ID!): BestieStatus!
-    @aws_auth(cognito_groups: ["ADMIN"])
-  adminSetBestieByEmail(email: AWSEmail!, active: Boolean!): BestieStatus!
-    @aws_auth(cognito_groups: ["ADMIN"])
-  adminRevokeBestieByEmail(email: AWSEmail!): BestieStatus!
-    @aws_auth(cognito_groups: ["ADMIN"])
-
-  # Game / fan flows
-  logGameEvent(input: GameEventInput!): GameProfile!
-  createPoll(input: CreatePollInput!): Poll
-  votePoll(pollId: ID!, optionIndex: Int!): Poll
-
-  awardCoins(input: AwardInput!): GameProfile!
-    @aws_auth(cognito_groups: ["ADMIN"])
-  grantBadge(userId: ID!, badge: String!): GameProfile!
-    @aws_auth(cognito_groups: ["ADMIN"])
-
-  setDisplayName(displayName: String!): GameProfile!
-  updateProfile(input: UpdateProfileInput!): GameProfile!
-}
-
-schema {
-  query: Query
-  mutation: Mutation
-}
-
