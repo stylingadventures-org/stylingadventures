@@ -130,10 +130,19 @@ export default function AdminLayout() {
               <span>Closet upload</span>
             </NavLink>
 
-            {/* 🔹 NEW: Closet library nav pill */}
+            {/* Closet library + Bestie sub-page */}
             <NavLink to="/admin/closet-library" className={navClass}>
               <span className="section-nav-pill-icon">📚</span>
               <span>Closet library</span>
+            </NavLink>
+
+            {/* Subpage under closet library: Bestie closet */}
+            <NavLink
+              to="/admin/closet-library/bestie"
+              className={navClass}
+            >
+              <span className="section-nav-pill-icon">🧺</span>
+              <span>Bestie closet</span>
             </NavLink>
 
             <NavLink to="/admin/users" className={navClass}>

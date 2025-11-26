@@ -1,648 +1,489 @@
 // site/src/routes/bestie/Home.jsx
-import React, { useCallback, useEffect, useState } from "react";
-import { getThumbUrlForMediaKey } from "../../lib/thumbs";
-
-const GQL = {
-  // Use existing closetFeed instead of non-existent topClosetLooks
-  topLooks: /* GraphQL */ `
-    query BestieTopClosetLooks($sort: ClosetFeedSort) {
-      closetFeed(sort: $sort) {
-        id
-        title
-        favoriteCount
-        mediaKey
-        createdAt
-      }
-    }
-  `,
-};
-
-async function fallbackGraphql(query, variables) {
-  const url =
-    window.sa?.cfg?.appsyncUrl ||
-    (window.__SA__ && window.__SA__.appsyncUrl);
-  const idToken =
-    localStorage.getItem("sa:idToken") ||
-    localStorage.getItem("idToken") ||
-    (window.sa?.session && window.sa.session.idToken);
-
-  if (!url || !idToken) throw new Error("Not signed in");
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: idToken },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors?.length) throw new Error(json.errors[0].message);
-  return json.data;
-}
+import React from "react";
+import { Link, useOutletContext } from "react-router-dom";
 
 export default function BestieHome() {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [topLook, setTopLook] = useState(null);
+  const ctx = useOutletContext() || {};
+  const { bestieStatus, isBestie, isAdmin } = ctx;
 
-  const runGql = useCallback(async (q, v) => {
-    if (window.sa?.graphql) return window.sa.graphql(q, v);
-    return fallbackGraphql(q, v);
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setErr("");
-        setLoading(true);
-
-        // Ask for the most-loved looks
-        const data = await runGql(GQL.topLooks, { sort: "MOST_LOVED" });
-
-        // closetFeed can be either an array OR a { items } connection
-        let list = [];
-        const cf = data?.closetFeed;
-        if (Array.isArray(cf)) {
-          list = cf;
-        } else if (cf && Array.isArray(cf.items)) {
-          list = cf.items;
-        }
-
-        const first = list[0];
-
-        if (first) {
-          const thumbUrl = await getThumbUrlForMediaKey(first.mediaKey);
-          setTopLook({
-            ...first,
-            thumbUrl: thumbUrl || null,
-          });
-        } else {
-          setTopLook(null);
-        }
-      } catch (e) {
-        setErr(String(e.message || e));
-        setTopLook(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [runGql]);
-
-  const spotlightTitle = topLook?.title || "Untitled look";
+  const tier = bestieStatus?.tier || "FREE";
+  const expiresAt = bestieStatus?.expiresAt
+    ? new Date(bestieStatus.expiresAt).toLocaleDateString()
+    : null;
 
   return (
     <div className="bestie-home">
-      {/* Page title */}
-      <header className="bh-header">
-        <h1 className="bh-title">Lala&apos;s Closet</h1>
-      </header>
+      {/* TOP: Hero (style + content) + status/perks */}
+      <section className="bestie-home-top">
+        {/* Hero / main CTA */}
+        <article className="sa-card bestie-home-hero">
+          <header className="bestie-home-hero-header">
+            <div className="bestie-home-pill">WELCOME BACK, BESTIE ✨</div>
+            <h2 className="bestie-home-title">
+              Turn your personal style into content & community.
+            </h2>
+          </header>
 
-      {err && <div className="bh-notice bh-notice--error">{err}</div>}
-
-      {/* ==== TOP ROW: HERO ================================================= */}
-      <section className="bh-hero">
-        {/* Left: welcome copy */}
-        <div className="bh-hero-left">
-          <div className="bh-hero-greeting">
-            <span className="bh-hero-emoji">👋</span>
-            <span>Hey Bestie, welcome back!</span>
-          </div>
-          <p className="bh-hero-text">
-            Closet total, saved outfits, and new drops will all live here.
-            You get early access to styles before everyone else.
+          <p className="bestie-home-body">
+            Bestie Studio is your HQ for styling outfits, keeping up with new
+            episodes, and growing your socials with content that actually feels
+            like you.
           </p>
 
-          <div className="bh-hero-cta-row">
-            <button className="bh-btn bh-btn-primary">
-              ✨ Style Me, Bestie
-            </button>
-            <button className="bh-btn bh-btn-ghost">View All Outfits</button>
-          </div>
-        </div>
+          <ul className="bestie-home-list">
+            <li>🧺 Log real outfits & pieces in your digital closet.</li>
+            <li>🎬 Watch new episodes and turn ideas into content plans.</li>
+            <li>🤝 Stay close to the community and track your social glow-up.</li>
+          </ul>
 
-        {/* Right: outfit preview card */}
-        <div className="bh-hero-right">
-          <div className="bh-outfit-card">
-            <div className="bh-outfit-figures">
-              {/* Simple pastel placeholder “outfit” shapes */}
-              <div className="bh-outfit-piece bh-outfit-top" />
-              <div className="bh-outfit-piece bh-outfit-bag" />
-              <div className="bh-outfit-piece bh-outfit-hat" />
-              <div className="bh-outfit-piece bh-outfit-shoes" />
+          <div className="bestie-home-actions">
+            <Link to="/bestie/closet" className="bestie-btn bestie-btn-primary">
+              Style an outfit
+            </Link>
+            <Link to="/fan/episodes" className="bestie-btn bestie-btn-secondary">
+              Watch latest episode
+            </Link>
+            <Link to="/bestie/content" className="bestie-btn bestie-btn-ghost">
+              Plan a post
+            </Link>
+          </div>
+        </article>
+
+        {/* Status / tier + quick perks */}
+        <aside className="sa-card bestie-home-status">
+          <div className="bestie-status-header">
+            <div className="bestie-status-pill-main">
+              <span className="bestie-status-dot-main" />
+              <span className="bestie-status-label-main">
+                {isAdmin
+                  ? "Admin access"
+                  : isBestie
+                  ? "Active Bestie"
+                  : "Bestie mode"}
+              </span>
             </div>
-            <button className="bh-btn bh-btn-primary bh-outfit-cta">
-              ✨ Style Me, Bestie
-            </button>
+            <div className="bestie-status-meta">
+              <span className="bestie-status-chip">
+                Tier: <strong>{tier}</strong>
+              </span>
+              {expiresAt && (
+                <span className="bestie-status-chip">
+                  Renews / ends on <strong>{expiresAt}</strong>
+                </span>
+              )}
+            </div>
           </div>
+
+          <p className="bestie-status-copy">
+            You&apos;re in the inner circle. This is where new perks, experiments,
+            and community drops will show up first.
+          </p>
+
+          <ul className="bestie-status-list">
+            <li>✨ Early access to select episodes</li>
+            <li>🧺 Bestie-only closet looks & experiments</li>
+            <li>📈 Content & social growth tools (rolling out)</li>
+            <li>🎁 Surprise mini-drops, polls, and bonuses</li>
+          </ul>
+
+          <div className="bestie-status-actions">
+            <Link to="/bestie/perks" className="bestie-link">
+              View all perks →
+            </Link>
+            <Link to="/bestie/overview" className="bestie-link bestie-link-muted">
+              How Bestie works →
+            </Link>
+          </div>
+        </aside>
+      </section>
+
+      {/* TODAY SECTION: style, episodes, social growth */}
+      <section className="bestie-home-today">
+        <header className="bestie-home-grid-header">
+          <h3>Today in Bestie Studio</h3>
+          <p>
+            Three small moves that keep your style, content, and socials growing
+            over time.
+          </p>
+        </header>
+
+        <div className="bestie-home-today-grid">
+          {/* Style mission */}
+          <article className="sa-card bestie-home-today-card">
+            <div className="bestie-card-kicker">STYLE MISSION</div>
+            <h4>Log one outfit you love</h4>
+            <p>
+              Snap a fit, add notes on how it made you feel, and tag it so you
+              can reuse it for future reels and posts.
+            </p>
+            <ul className="bestie-card-list">
+              <li>📸 Upload a new closet piece</li>
+              <li>🏷 Add category + vibes tags</li>
+              <li>⭐ Mark it as a &quot;repeatable&quot; look</li>
+            </ul>
+            <Link to="/bestie/closet" className="bestie-link">
+              Open my closet →
+            </Link>
+          </article>
+
+          {/* Watch & learn */}
+          <article className="sa-card bestie-home-today-card">
+            <div className="bestie-card-kicker">WATCH & LEARN</div>
+            <h4>Catch up on the latest episode</h4>
+            <p>
+              Watch styling breakdowns, real-life closet edits, and content
+              ideas you can adapt to your own style.
+            </p>
+            <ul className="bestie-card-list">
+              <li>🎧 Watch while you get ready</li>
+              <li>📝 Save one idea you want to try</li>
+              <li>📌 Turn that idea into a Bestie content card</li>
+            </ul>
+            <Link to="/fan/episodes" className="bestie-link">
+              Watch episodes →
+            </Link>
+          </article>
+
+          {/* Social growth */}
+          <article className="sa-card bestie-home-today-card">
+            <div className="bestie-card-kicker">SOCIAL GROWTH</div>
+            <h4>Plan one piece of content</h4>
+            <p>
+              Use Bestie content as your tiny content studio: outline a reel,
+              carousel, or TikTok based on your closet.
+            </p>
+            <ul className="bestie-card-list">
+              <li>🧠 Pick a closet look or vibe</li>
+              <li>🗂 Choose a content format (reel, carousel, story)</li>
+              <li>✅ Write 3–4 bullet points you&apos;ll film</li>
+            </ul>
+            <Link to="/bestie/content" className="bestie-link">
+              Plan a post →
+            </Link>
+          </article>
         </div>
       </section>
 
-      {/* ==== GRID: 2 COLUMNS ============================================== */}
-      <section className="bh-grid">
-        {/* Closet Stats (placeholder for now) */}
-        <article className="bh-card">
-          <h2 className="bh-card-title">Closet Stats</h2>
-          <div className="bh-stats-body">
-            <div className="bh-stats-pie" />
-            <ul className="bh-stats-list">
-              <li>
-                <span className="bh-dot bh-dot-top" />
-                Tops <span className="bh-stat-count">– 15</span>
-              </li>
-              <li>
-                <span className="bh-dot bh-dot-bottom" />
-                Bottoms <span className="bh-stat-count">– 12</span>
-              </li>
-              <li>
-                <span className="bh-dot bh-dot-dress" />
-                Dresses <span className="bh-stat-count">– 8</span>
-              </li>
-              <li>
-                <span className="bh-dot bh-dot-shoes" />
-                Shoes <span className="bh-stat-count">– 20</span>
-              </li>
-              <li>
-                <span className="bh-dot bh-dot-acc" />
-                Accessories <span className="bh-stat-count">– 20</span>
-              </li>
-            </ul>
-          </div>
-        </article>
-
-        {/* Just In / Spotlight Look */}
-        <article className="bh-card">
-          <div className="bh-card-header-row">
-            <h2 className="bh-card-title">Just In</h2>
-            <a href="/fan/closet-feed" className="bh-link-arrow">
-              View all →
-            </a>
-          </div>
-          <p className="bh-card-sub">
-            {topLook
-              ? "Just added: community favorites this week."
-              : "New pieces will appear here as you add to your closet."}
+      {/* COMMUNITY + PERKS + COMING SOON */}
+      <section className="bestie-home-grid">
+        <header className="bestie-home-grid-header">
+          <h3>Community, perks & your glow-up</h3>
+          <p>
+            Bestie isn&apos;t just a membership — it&apos;s tools + people +
+            experiments to keep you inspired.
           </p>
+        </header>
 
-          <div className="bh-justin-row">
-            {loading && !topLook && <div className="bh-skeleton-row" />}
+        <div className="bestie-home-grid-cards">
+          <article className="sa-card bestie-home-grid-card">
+            <div className="bestie-card-kicker">COMMUNITY</div>
+            <h4>Stay close to the Styling Adventures fam</h4>
+            <p>
+              Show up in comments, polls, and future community spots. As we roll
+              out more features, this is where they&apos;ll plug in.
+            </p>
+            <Link to="/fan/bestie" className="bestie-link">
+              Go to Bestie hub →
+            </Link>
+          </article>
 
-            {topLook && (
-              <div className="bh-spotlight">
-                <div className="bh-spotlight-thumb">
-                  {topLook.thumbUrl ? (
-                    <img
-                      src={topLook.thumbUrl}
-                      alt={spotlightTitle}
-                    />
-                  ) : (
-                    <div className="bh-spotlight-placeholder">
-                      Lala&apos;s look
-                    </div>
-                  )}
-                </div>
-                <div className="bh-spotlight-meta">
-                  <div className="bh-spotlight-title">{spotlightTitle}</div>
-                  <div className="bh-spotlight-caption">
-                    ❤️ {topLook.favoriteCount || 0}{" "}
-                    {topLook.favoriteCount === 1 ? "like" : "likes"} from
-                    the community.
-                  </div>
-                </div>
-              </div>
-            )}
+          <article className="sa-card bestie-home-grid-card">
+            <div className="bestie-card-kicker">PERKS</div>
+            <h4>Keep an eye on new drops</h4>
+            <p>
+              Early access episodes, closet experiments, bonus coins, and
+              future collabs will all roll through your perks page.
+            </p>
+            <Link to="/bestie/perks" className="bestie-link">
+              View perks dashboard →
+            </Link>
+          </article>
 
-            {!loading && !topLook && !err && (
-              <div className="bh-spotlight-empty">
-                Once Lala&apos;s looks start getting ❤️&apos;s, you&apos;ll see
-                the hottest outfits show up here first.
-              </div>
-            )}
-          </div>
-        </article>
-
-        {/* Lala's Daily Tip */}
-        <article className="bh-card">
-          <h2 className="bh-card-title">Lala&apos;s Daily Tip</h2>
-          <p className="bh-card-sub">
-            Don&apos;t sleep on those white jeans – they&apos;re calling for a
-            remix. Add a pastel top and one bold accessory. ✨
-          </p>
-          <button className="bh-btn bh-btn-ghost">See style tips</button>
-        </article>
-
-        {/* Outfit Planner */}
-        <article className="bh-card">
-          <h2 className="bh-card-title">Outfit Planner</h2>
-          <p className="bh-card-sub">Today&apos;s look preview.</p>
-          <div className="bh-planner-preview">
-            <div className="bh-outfit-piece bh-planner-top" />
-            <div className="bh-outfit-piece bh-planner-bag" />
-          </div>
-          <div className="bh-planner-actions">
-            <button className="bh-btn bh-btn-ghost">Open Next Fit</button>
-            <button className="bh-btn bh-btn-primary">
-              Open Full Planner
-            </button>
-          </div>
-        </article>
+          <article className="sa-card bestie-home-grid-card">
+            <div className="bestie-card-kicker bestie-card-kicker-soon">
+              COMING SOON
+            </div>
+            <h4>Progress & social stats</h4>
+            <p>
+              Track how often you post, what outfits perform best, and how your
+              style content is growing across platforms.
+            </p>
+            <span className="bestie-coming-note">
+              We&apos;ll plug this in automatically when it&apos;s ready — no extra
+              setup needed.
+            </span>
+          </article>
+        </div>
       </section>
 
-      {/* Bottom full-width CTAs */}
-      <section className="bh-bottom-row">
-        <button className="bh-btn bh-btn-soft">Upload New Item</button>
-        <button className="bh-btn bh-btn-soft bh-btn-soft--primary">
-          Open Full Planner
-        </button>
-      </section>
-
-      {/* ==== LOCAL STYLES =================================================== */}
-      <style>{`
-        .bestie-home {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-
-        .bh-header {
-          margin-bottom: 4px;
-        }
-        .bh-title {
-          margin: 0;
-          font-size: 1.7rem;
-          font-weight: 700;
-          color: #111827;
-        }
-
-        .bh-notice {
-          padding: 10px 12px;
-          border-radius: 12px;
-          font-size: 0.9rem;
-        }
-        .bh-notice--error {
-          border: 1px solid #fecaca;
-          background: #fef2f2;
-          color: #7f1d1d;
-        }
-
-        /* HERO */
-        .bh-hero {
-          display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-          gap: 18px;
-          padding: 18px 18px 16px;
-          border-radius: 24px;
-          border: 1px solid rgba(248,250,252,0.9);
-          background: linear-gradient(
-            135deg,
-            #fdf2ff,
-            #eef2ff
-          );
-          box-shadow: 0 18px 40px rgba(15,23,42,0.06);
-        }
-
-        .bh-hero-left {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .bh-hero-greeting {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-weight: 600;
-          font-size: 1.1rem;
-        }
-        .bh-hero-emoji {
-          font-size: 1.4rem;
-        }
-
-        .bh-hero-text {
-          margin: 0;
-          font-size: 0.95rem;
-          color: #4b5563;
-          max-width: 420px;
-        }
-
-        .bh-hero-cta-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-top: 6px;
-        }
-
-        .bh-hero-right {
-          display: flex;
-          justify-content: flex-end;
-          align-items: stretch;
-        }
-
-        .bh-outfit-card {
-          width: 100%;
-          max-width: 260px;
-          border-radius: 20px;
-          padding: 14px 14px 12px;
-          background: #f9fafb;
-          box-shadow: 0 14px 32px rgba(148,163,184,0.35);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .bh-outfit-figures {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          grid-auto-rows: 68px;
-          gap: 8px;
-        }
-
-        .bh-outfit-piece {
-          border-radius: 16px;
-          background: #e5e7eb;
-        }
-        .bh-outfit-top {
-          grid-column: span 2;
-          background: linear-gradient(135deg,#e9d5ff,#fee2e2);
-        }
-        .bh-outfit-bag {
-          background: linear-gradient(135deg,#fee2e2,#fef3c7);
-        }
-        .bh-outfit-hat {
-          background: linear-gradient(135deg,#fef3c7,#e0f2fe);
-        }
-        .bh-outfit-shoes {
-          background: linear-gradient(135deg,#e0f2fe,#e9d5ff);
-        }
-
-        .bh-outfit-cta {
-          width: 100%;
-          margin-top: 4px;
-        }
-
-        /* GRID */
-        .bh-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 16px;
-        }
-
-        .bh-card {
-          background: #ffffff;
-          border-radius: 22px;
-          border: 1px solid #e5e7eb;
-          padding: 14px 14px 16px;
-          box-shadow: 0 10px 30px rgba(15,23,42,0.06);
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .bh-card-title {
-          margin: 0;
-          font-size: 1.05rem;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .bh-card-header-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .bh-card-sub {
-          margin: 0;
-          font-size: 0.9rem;
-          color: #6b7280;
-        }
-
-        .bh-link-arrow {
-          font-size: 0.85rem;
-          color: #7c3aed;
-          text-decoration: none;
-        }
-        .bh-link-arrow:hover {
-          text-decoration: underline;
-        }
-
-        /* Closet Stats */
-        .bh-stats-body {
-          margin-top: 6px;
-          display: grid;
-          grid-template-columns: 140px minmax(0, 1fr);
-          gap: 10px;
-          align-items: center;
-        }
-
-        .bh-stats-pie {
-          width: 120px;
-          height: 120px;
-          border-radius: 999px;
-          background: conic-gradient(
-            #a855f7 0 75deg,
-            #22c55e 75deg 150deg,
-            #f97316 150deg 220deg,
-            #06b6d4 220deg 310deg,
-            #e5e7eb 310deg 360deg
-          );
-          box-shadow: 0 10px 25px rgba(148,163,184,0.4);
-        }
-
-        .bh-stats-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          font-size: 0.85rem;
-          color: #4b5563;
-          display: grid;
-          gap: 4px;
-        }
-
-        .bh-stat-count {
-          color: #6b7280;
-        }
-
-        .bh-dot {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          margin-right: 6px;
-        }
-        .bh-dot-top { background:#a855f7; }
-        .bh-dot-bottom { background:#22c55e; }
-        .bh-dot-dress { background:#f97316; }
-        .bh-dot-shoes { background:#06b6d4; }
-        .bh-dot-acc { background:#e5e7eb; }
-
-        /* Just In */
-        .bh-justin-row {
-          margin-top: 6px;
-        }
-
-        .bh-skeleton-row {
-          height: 80px;
-          border-radius: 16px;
-          background: linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 37%,#f3f4f6 63%);
-          background-size: 400% 100%;
-          animation: bh-shimmer 1.2s ease-in-out infinite;
-        }
-
-        .bh-spotlight {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-        }
-
-        .bh-spotlight-thumb {
-          width: 72px;
-          height: 72px;
-          border-radius: 16px;
-          overflow: hidden;
-          background: linear-gradient(135deg,#dbeafe,#f9fafb);
-          flex-shrink: 0;
-        }
-        .bh-spotlight-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .bh-spotlight-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.75rem;
-          color: #9ca3af;
-        }
-
-        .bh-spotlight-meta {
-          flex: 1;
-          min-width: 0;
-        }
-        .bh-spotlight-title {
-          font-size: 0.95rem;
-          font-weight: 600;
-          margin-bottom: 2px;
-        }
-        .bh-spotlight-caption {
-          font-size: 0.8rem;
-          color: #6b7280;
-        }
-
-        .bh-spotlight-empty {
-          font-size: 0.85rem;
-          color: #6b7280;
-        }
-
-        /* Planner */
-        .bh-planner-preview {
-          display: flex;
-          gap: 8px;
-          margin-top: 6px;
-        }
-        .bh-planner-top {
-          flex: 2;
-          background: linear-gradient(135deg,#e9d5ff,#bfdbfe);
-        }
-        .bh-planner-bag {
-          flex: 1;
-          background: linear-gradient(135deg,#fee2e2,#fef3c7);
-        }
-
-        .bh-planner-actions {
-          display: flex;
-          gap: 8px;
-          margin-top: 10px;
-          flex-wrap: wrap;
-        }
-
-        /* Bottom row */
-        .bh-bottom-row {
-          margin-top: 4px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-
-        /* Buttons */
-        .bh-btn {
-          border-radius: 999px;
-          padding: 8px 18px;
-          font-size: 0.92rem;
-          font-weight: 600;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
-          color: #111827;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          text-decoration: none;
-          transition:
-            background 0.15s ease,
-            box-shadow 0.15s ease,
-            transform 0.04s ease,
-            border-color 0.15s ease;
-        }
-        .bh-btn-primary {
-          background: #8b5cf6;
-          border-color: #8b5cf6;
-          color: #ffffff;
-          box-shadow: 0 10px 28px rgba(139,92,246,0.6);
-        }
-        .bh-btn-primary:hover {
-          background: #7c3aed;
-          border-color: #7c3aed;
-          transform: translateY(-1px);
-        }
-        .bh-btn-ghost {
-          background: transparent;
-          border-color: #e5e7eb;
-          color: #4b5563;
-        }
-        .bh-btn-ghost:hover {
-          background: #f3f4ff;
-        }
-
-        .bh-btn-soft {
-          flex: 1;
-          background: #f3e8ff;
-          border-color: transparent;
-          color: #4b5563;
-        }
-        .bh-btn-soft--primary {
-          background: #c4b5fd;
-          color: #111827;
-        }
-
-        @keyframes bh-shimmer {
-          0% { background-position: 100% 0; }
-          100% { background-position: 0 0; }
-        }
-
-        @media (max-width: 900px) {
-          .bh-hero {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .bh-hero-right {
-            justify-content: flex-start;
-          }
-          .bh-grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-        }
-
-        @media (max-width: 640px) {
-          .bh-title {
-            font-size: 1.4rem;
-          }
-          .bh-outfit-card {
-            max-width: 100%;
-          }
-        }
-      `}</style>
+      <style>{styles}</style>
     </div>
   );
 }
+
+const styles = `
+.bestie-home {
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+/* top two-column area */
+.bestie-home-top {
+  display:grid;
+  grid-template-columns:minmax(0, 2.1fr) minmax(0, 1.4fr);
+  gap:18px;
+}
+@media (max-width: 900px) {
+  .bestie-home-top {
+    grid-template-columns: minmax(0,1fr);
+  }
+}
+
+.bestie-home-hero {
+  padding:18px 18px 20px;
+}
+
+.bestie-home-hero-header {
+  margin-bottom:10px;
+}
+
+.bestie-home-pill {
+  display:inline-flex;
+  align-items:center;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:0.68rem;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  background:#eef2ff;
+  color:#4f46e5;
+  font-weight:700;
+}
+
+.bestie-home-title {
+  margin:6px 0 4px;
+  font-size:1.4rem;
+}
+
+.bestie-home-body {
+  margin:0 0 10px;
+  font-size:0.92rem;
+  color:#4b5563;
+}
+
+.bestie-home-list {
+  margin:0 0 12px 1rem;
+  padding:0;
+  font-size:0.9rem;
+  color:#4b5563;
+}
+
+.bestie-home-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
+}
+
+.bestie-btn {
+  border-radius:999px;
+  height:34px;
+  padding:0 14px;
+  font-size:0.9rem;
+  border:1px solid transparent;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  text-decoration:none;
+}
+.bestie-btn-primary {
+  background:linear-gradient(90deg,#4f46e5,#ec4899);
+  color:#fff;
+  box-shadow:0 10px 24px rgba(79,70,229,0.45);
+}
+.bestie-btn-secondary {
+  background:#111827;
+  color:#f9fafb;
+}
+.bestie-btn-ghost {
+  background:#f9fafb;
+  border-color:#e5e7eb;
+  color:#111827;
+}
+
+/* status card */
+.bestie-home-status {
+  padding:14px 16px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.bestie-status-header {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.bestie-status-pill-main {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 12px;
+  border-radius:999px;
+  background:#ecfdf3;
+  border:1px solid #bbf7d0;
+  color:#166534;
+  font-size:0.8rem;
+  font-weight:600;
+  align-self:flex-start;
+}
+
+.bestie-status-dot-main {
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:#22c55e;
+}
+
+.bestie-status-meta {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.bestie-status-chip {
+  font-size:0.75rem;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#f3f4f6;
+  color:#4b5563;
+}
+
+.bestie-status-copy {
+  margin:0;
+  font-size:0.9rem;
+  color:#4b5563;
+}
+
+.bestie-status-list {
+  margin:0 0 4px 1rem;
+  padding:0;
+  font-size:0.86rem;
+  color:#4b5563;
+}
+
+.bestie-status-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:auto;
+}
+
+/* links */
+.bestie-link {
+  font-size:0.86rem;
+  color:#4f46e5;
+  text-decoration:none;
+  font-weight:500;
+}
+.bestie-link:hover {
+  text-decoration:underline;
+}
+.bestie-link-muted {
+  color:#6b7280;
+}
+
+/* TODAY SECTION */
+.bestie-home-today {
+  margin-top:4px;
+}
+
+.bestie-home-grid-header h3 {
+  margin:0 0 4px;
+  font-size:1.05rem;
+}
+.bestie-home-grid-header p {
+  margin:0;
+  font-size:0.88rem;
+  color:#6b7280;
+}
+
+.bestie-home-today-grid {
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 900px) {
+  .bestie-home-today-grid {
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
+.bestie-home-today-card {
+  padding:14px 14px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+/* Shared card elements */
+.bestie-card-kicker {
+  font-size:0.7rem;
+  text-transform:uppercase;
+  letter-spacing:0.16em;
+  color:#6b7280;
+}
+.bestie-card-kicker-soon {
+  color:#db2777;
+}
+
+.bestie-card-list {
+  margin:4px 0 8px 1rem;
+  padding:0;
+  font-size:0.84rem;
+  color:#4b5563;
+}
+
+.bestie-coming-note {
+  font-size:0.8rem;
+  color:#6b7280;
+}
+
+/* where bestie shows up / community grid */
+.bestie-home-grid {
+  margin-top:4px;
+}
+
+.bestie-home-grid-cards {
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 900px) {
+  .bestie-home-grid-cards {
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
+.bestie-home-grid-card {
+  padding:14px 14px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.bestie-home-grid-card h4 {
+  margin:0;
+  font-size:0.98rem;
+}
+.bestie-home-grid-card p {
+  margin:0;
+  font-size:0.88rem;
+  color:#4b5563;
+}
+`;
+

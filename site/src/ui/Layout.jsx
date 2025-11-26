@@ -3,28 +3,73 @@ import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import AuthStatus from "./AuthStatus";
 import { getSA } from "../lib/sa";
+import { fetchBestieStatus, isBestieActive } from "../lib/bestie";
 
 export default function Layout() {
   const [role, setRole] = useState("FAN");
+  const [bestiePath, setBestiePath] = useState("/fan/bestie");
 
   useEffect(() => {
+    let alive = true;
+
     (async () => {
-      const sa = await getSA();
-      setRole(sa?.getRole?.() || "FAN");
+      try {
+        const sa = await getSA();
+        const r = sa?.getRole?.() || "FAN";
+        if (!alive) return;
+        setRole(r);
+
+        // Admins always get direct access to /bestie
+        if (r === "ADMIN") {
+          setBestiePath("/bestie");
+        }
+
+        // If role already says BESTIE, prefer /bestie while we fetch status.
+        if (r === "BESTIE") {
+          setBestiePath("/bestie");
+        }
+
+        // Ask backend for real Bestie membership (works even if role is FAN)
+        try {
+          const status = await fetchBestieStatus();
+          if (!alive) return;
+
+          if (isBestieActive(status)) {
+            setBestiePath("/bestie");
+          } else if (r !== "ADMIN" && r !== "BESTIE") {
+            setBestiePath("/fan/bestie");
+          }
+        } catch (innerErr) {
+          console.warn("[Layout] bestie status fetch failed", innerErr);
+          // If we already decided /bestie for admin/BESTIE, keep it.
+          if (r !== "ADMIN" && r !== "BESTIE") {
+            setBestiePath("/fan/bestie");
+          }
+        }
+      } catch (err) {
+        if (!alive) return;
+        console.warn("[Layout] SA init failed", err);
+        setRole("FAN");
+        setBestiePath("/fan/bestie");
+      }
     })();
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return (
     <>
       <style>{`
         :root {
-          --bg: #f8f5ff;          /* soft lilac wash */
+          --bg: #f8f5ff;
           --card: #ffffff;
           --ink: #0f172a;
           --muted: #6b7280;
           --ring: #e5e7eb;
-          --brand: #4f46e5;       /* indigo */
-          --accent-pink: #ec4899; /* pink highlight */
+          --brand: #4f46e5;
+          --accent-pink: #ec4899;
           --brand-ink: #ffffff;
         }
 
@@ -47,8 +92,6 @@ export default function Layout() {
           margin:0 auto;
           padding:0 20px;
         }
-
-        /* HEADER */
 
         header.site {
           position:sticky;
@@ -140,13 +183,9 @@ export default function Layout() {
           flex:1 1 auto;
         }
 
-        /* MAIN CONTENT */
-
         main.page {
           padding:28px 0 36px;
         }
-
-        /* FOOTER */
 
         footer.site {
           border-top:1px solid rgba(226,232,240,0.9);
@@ -183,20 +222,22 @@ export default function Layout() {
             >
               Home
             </NavLink>
+
             <NavLink
               to="/fan"
               className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
             >
               Fan
             </NavLink>
-            {(role === "BESTIE" || role === "ADMIN") && (
-              <NavLink
-                to="/bestie"
-                className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
-              >
-                Bestie
-              </NavLink>
-            )}
+
+            {/* Bestie tab – visible to everyone, target depends on membership/role */}
+            <NavLink
+              to={bestiePath}
+              className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
+            >
+              Bestie
+            </NavLink>
+
             {role === "ADMIN" && (
               <NavLink
                 to="/admin"
@@ -225,4 +266,3 @@ export default function Layout() {
     </>
   );
 }
-
