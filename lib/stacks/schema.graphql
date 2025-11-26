@@ -32,6 +32,14 @@ type Query {
     nextToken: String
   ): ClosetItemConnection!
 
+  # Bestie closet library (uses same shape, different resolver/filter)
+  adminListBestieClosetItems(
+    limit: Int
+    nextToken: String
+    search: String
+    ownerSub: ID
+  ): BestieClosetItemConnection!
+
   # Fan-facing closet feed
   closetFeed(
     sort: ClosetFeedSort
@@ -162,6 +170,12 @@ enum ClosetFeedSort {
 
 # Connection wrapper for adminListClosetItems
 type ClosetItemConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+# Bestie-specific connection wrapper (same item shape, different resolver/filter)
+type BestieClosetItemConnection {
   items: [ClosetItem!]!
   nextToken: String
 }

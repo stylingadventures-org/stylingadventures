@@ -282,6 +282,29 @@ export const adminListClosetItems = async (
   };
 };
 
+/**
+ * Bestie closet admin list – reuse adminListClosetItems and filter
+ * down to Bestie-style audiences (BESTIE / EXCLUSIVE).
+ */
+export const adminListBestieClosetItems = async (
+  event: AppSyncEvent,
+): Promise<AdminClosetItemsPage> => {
+  // Reuse core admin list + filter for Bestie audiences.
+  const page = await adminListClosetItems(event);
+
+  const bestieAudiences = new Set<string>(["BESTIE", "EXCLUSIVE"]);
+
+  const filtered = page.items.filter((it) => {
+    const aud = (it.audience || "").toUpperCase();
+    return bestieAudiences.has(aud);
+  });
+
+  return {
+    ...page,
+    items: filtered,
+  };
+};
+
 export const closetFeed = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem[]> => {
@@ -804,6 +827,8 @@ export const handler = async (event: AppSyncEvent) => {
 
   if (field === "adminListPending") return adminListPending(event);
   if (field === "adminListClosetItems") return adminListClosetItems(event);
+  if (field === "adminListBestieClosetItems")
+    return adminListBestieClosetItems(event);
   if (field === "adminCreateClosetItem") return adminCreateClosetItem(event);
   if (field === "adminApproveItem") return adminApproveItem(event);
   if (field === "adminRejectItem") return adminRejectItem(event);
