@@ -13,6 +13,10 @@ export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
   table: dynamodb.ITable;
   closetApprovalSm: sfn.IStateMachine;
+
+  // 👇 NEW Besties workflows
+  backgroundChangeSm: sfn.IStateMachine;
+  storyPublishSm: sfn.IStateMachine;
 }
 
 export class ApiStack extends Stack {
@@ -21,7 +25,13 @@ export class ApiStack extends Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    const { userPool, table, closetApprovalSm } = props;
+    const {
+      userPool,
+      table,
+      closetApprovalSm,
+      backgroundChangeSm,
+      storyPublishSm,
+    } = props;
 
     // Shared DynamoDB env for all Lambdas using the single-table design.
     const DDB_ENV = {
@@ -68,29 +78,6 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // USER ROLES
-    // ────────────────────────────────────────────────────────────
-    const rolesFn = new NodejsFunction(this, "RolesFn", {
-      entry: "lambda/roles/index.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...DDB_ENV,
-      },
-    });
-
-    table.grantReadWriteData(rolesFn);
-
-    const rolesDs = this.api.addLambdaDataSource("RolesDs", rolesFn);
-
-    rolesDs.createResolver("SetUserRole", {
-      typeName: "Mutation",
-      fieldName: "setUserRole",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
     // QUERY.me (NONE DATA SOURCE)
     // ────────────────────────────────────────────────────────────
     const noneDs = this.api.addNoneDataSource("NoneDs");
@@ -103,7 +90,7 @@ export class ApiStack extends Stack {
       }`),
       responseMappingTemplate: appsync.MappingTemplate.fromString(`
         $util.toJson({
-          "id": $ctx.identity.sub,
+          "id": $util.defaultIfNull($ctx.identity.sub, "anonymous"),
           "email": $util.defaultIfNull($ctx.identity.claims.email, ""),
           "role": "FAN",
           "tier": "FREE"
@@ -121,11 +108,23 @@ export class ApiStack extends Stack {
       environment: {
         ...DDB_ENV,
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+        BG_CHANGE_SM_ARN: backgroundChangeSm.stateMachineArn,
+        STORY_PUBLISH_SM_ARN: storyPublishSm.stateMachineArn,
       },
     });
 
     table.grantReadWriteData(closetFn);
     closetApprovalSm.grantStartExecution(closetFn);
+    backgroundChangeSm.grantStartExecution(closetFn);
+    storyPublishSm.grantStartExecution(closetFn);
+
+    // 👇 allow GraphQL Lambda to emit engagement events to EventBridge
+    closetFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["events:PutEvents"],
+        resources: ["*"], // default event bus
+      }),
+    );
 
     const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFn);
 
@@ -137,6 +136,12 @@ export class ApiStack extends Stack {
     closetDs.createResolver("MyWishlistResolver", {
       typeName: "Query",
       fieldName: "myWishlist",
+    });
+
+    // NEW: Bestie closet alias (same Lambda, different field)
+    closetDs.createResolver("QueryBestieClosetItemsResolver", {
+      typeName: "Query",
+      fieldName: "bestieClosetItems",
     });
 
     closetDs.createResolver("CreateClosetItem", {
@@ -194,10 +199,45 @@ export class ApiStack extends Stack {
       fieldName: "adminClosetItemComments",
     });
 
-    // 👇 NEW: field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
+    // 👇 field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
     closetDs.createResolver("PinnedClosetItemsResolver", {
       typeName: "GameProfile",
       fieldName: "pinnedClosetItems",
+    });
+
+    // 👇 Besties mutations / hooks (tier-aware logic lives inside lambda/graphql)
+    // Background change request (Besties-only mutation)
+    closetDs.createResolver("RequestBgChangeResolver", {
+      typeName: "Mutation",
+      fieldName: "requestClosetBackgroundChange",
+    });
+
+    // Story creation + publish (Besties-only)
+    closetDs.createResolver("CreateStoryResolver", {
+      typeName: "Mutation",
+      fieldName: "createStory",
+    });
+
+    closetDs.createResolver("PublishStoryResolver", {
+      typeName: "Mutation",
+      fieldName: "publishStory",
+    });
+
+    // Community feed selection (Besties can push/remove their own items)
+    closetDs.createResolver("AddClosetItemToFeedResolver", {
+      typeName: "Mutation",
+      fieldName: "addClosetItemToCommunityFeed",
+    });
+
+    closetDs.createResolver("RemoveClosetItemFromFeedResolver", {
+      typeName: "Mutation",
+      fieldName: "removeClosetItemFromCommunityFeed",
+    });
+
+    // Pinterest share hook (writes an event; external call runs elsewhere)
+    closetDs.createResolver("ShareClosetItemToPinterestResolver", {
+      typeName: "Mutation",
+      fieldName: "shareClosetItemToPinterest",
     });
 
     // ────────────────────────────────────────────────────────────
@@ -484,3 +524,4 @@ export class ApiStack extends Stack {
     new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }
 }
+

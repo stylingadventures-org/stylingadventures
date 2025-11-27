@@ -17,6 +17,12 @@ export class WorkflowsStack extends Stack {
   /** Standard workflow for closet upload approval */
   public readonly closetApprovalSm: sfn.StateMachine;
 
+  /** Besties: background change approval workflow */
+  public readonly backgroundChangeSm: sfn.StateMachine;
+
+  /** Besties: story publish workflow */
+  public readonly storyPublishSm: sfn.StateMachine;
+
   constructor(scope: Construct, id: string, props: WorkflowsProps) {
     super(scope, id, props);
 
@@ -82,7 +88,7 @@ export class WorkflowsStack extends Stack {
       resultPath: sfn.JsonPath.DISCARD,
     });
 
-    // --- State machine definition
+    // --- State machine definition for closet upload approval
     const definition = new tasks.LambdaInvoke(this, "VirusScan", {
       lambdaFunction: virusScanFn,
       resultPath: sfn.JsonPath.DISCARD,
@@ -117,12 +123,53 @@ export class WorkflowsStack extends Stack {
           ),
       );
 
-    this.closetApprovalSm = new sfn.StateMachine(this, "ClosetUploadApproval", {
-      definitionBody: sfn.DefinitionBody.fromChainable(definition),
-      timeout: Duration.hours(6),
-      tracingEnabled: true,
-      stateMachineType: sfn.StateMachineType.STANDARD,
-    });
+    this.closetApprovalSm = new sfn.StateMachine(
+      this,
+      "ClosetUploadApproval",
+      {
+        definitionBody: sfn.DefinitionBody.fromChainable(definition),
+        timeout: Duration.hours(6),
+        tracingEnabled: true,
+        stateMachineType: sfn.StateMachineType.STANDARD,
+      },
+    );
+
+    // ─────────────────────────────────────────────
+    // Besties: Background Change workflow (Standard)
+    // (stub chain you can extend later)
+    // ─────────────────────────────────────────────
+    const bgDefinition = new sfn.Pass(this, "BgChange_Start")
+      .next(new sfn.Pass(this, "BgChange_Moderation"))
+      .next(new sfn.Pass(this, "BgChange_Complete"));
+
+    this.backgroundChangeSm = new sfn.StateMachine(
+      this,
+      "BackgroundChangeApproval",
+      {
+        definitionBody: sfn.DefinitionBody.fromChainable(bgDefinition),
+        timeout: Duration.minutes(30),
+        tracingEnabled: true,
+        stateMachineType: sfn.StateMachineType.STANDARD,
+      },
+    );
+
+    // ─────────────────────────────────────────────
+    // Besties: Story Publish workflow (Standard)
+    // (stub chain you can extend later with Scheduler, etc.)
+    // ─────────────────────────────────────────────
+    const storyDefinition = new sfn.Pass(this, "StoryPublish_Compose")
+      .next(new sfn.Pass(this, "StoryPublish_ScheduleOrPublish"));
+
+    this.storyPublishSm = new sfn.StateMachine(
+      this,
+      "StoryPublishWorkflow",
+      {
+        definitionBody: sfn.DefinitionBody.fromChainable(storyDefinition),
+        timeout: Duration.hours(1),
+        tracingEnabled: true,
+        stateMachineType: sfn.StateMachineType.STANDARD,
+      },
+    );
 
     // NOTE: ApiStack grants startExecution permission to the resolver lambda.
   }

@@ -14,8 +14,10 @@
     "@aws-sdk/client-s3": "^3.906.0",
     "@aws-sdk/client-sfn": "^3.911.0",
     "@aws-sdk/client-sqs": "^3.906.0",
+    "@aws-sdk/client-eventbridge": "^3.913.0",
     "@aws-sdk/lib-dynamodb": "^3.913.0",
     "@aws-sdk/s3-request-presigner": "^3.906.0",
+    "@aws-sdk/util-dynamodb": "^3.913.0",
     "dotenv": "^17.2.3",
     "form-data": "^4.0.4",
     "jimp": "^0.22.12",
@@ -39,3 +41,4 @@
     "typescript": "^5.9.3"
   }
 }
+

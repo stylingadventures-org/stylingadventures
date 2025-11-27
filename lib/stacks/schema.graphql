@@ -18,6 +18,13 @@ type Query {
   # Closet (fan/bestie)
   myCloset: [ClosetItem!]!
   myWishlist: [ClosetItem!]!
+
+  # NEW Bestie closet UI – paginated connection
+  bestieClosetItems(
+    limit: Int
+    nextToken: String
+  ): BestieClosetItemsConnection!
+
   closetItemComments(closetItemId: ID!): [ClosetComment!]!
 
   # Admin closet views
@@ -69,13 +76,21 @@ type Mutation {
   requestClosetApproval(closetItemId: ID!): ClosetItem!
   updateClosetMediaKey(closetItemId: ID!, mediaKey: String!): ClosetItem!
 
-  # 👇 match Bestie closet + Lambda: use input object
+  # Legacy story metadata
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
 
   likeClosetItem(closetItemId: ID!): ClosetItem!
   commentOnClosetItem(closetItemId: ID!, text: String!): ClosetComment!
   pinHighlight(closetItemId: ID!, pinned: Boolean!): ClosetItem!
   toggleWishlistItem(closetItemId: ID!): ClosetItem!
+
+  # ⭐ NEW – Bestie closet CRUD used by BestieCloset.jsx
+  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
+  bestieUpdateClosetItem(
+    id: ID!
+    input: BestieUpdateClosetItemInput!
+  ): ClosetItem!
+  bestieDeleteClosetItem(id: ID!): ClosetItem!
 
   # Closet admin
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
@@ -91,7 +106,6 @@ type Mutation {
   ): ClosetItem!
 
   # Hearts for fan closet feed
-  # NOTE: return type nullable to avoid "Cannot return null for non-nullable" errors
   toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem
 
   # Bestie / tiers
@@ -113,6 +127,24 @@ type Mutation {
   grantBadge(userId: ID!, badgeId: ID!): GameProfile!
   setDisplayName(name: String!): GameProfile!
   updateProfile(input: UpdateProfileInput!): GameProfile!
+
+  # BESTIES – CLOSET & BACKGROUNDS
+  requestClosetBackgroundChange(
+    input: RequestBackgroundChangeInput!
+  ): ClosetItem!
+
+  attachAffiliateLink(input: AttachAffiliateLinkInput!): ClosetItem!
+  approveAffiliateLink(closetItemId: ID!): ClosetItem!
+  rejectAffiliateLink(closetItemId: ID!, reason: String): ClosetItem!
+
+  # BESTIES – STORIES
+  createStory(input: CreateStoryInput!): Story!
+  publishStory(storyId: ID!): Story!
+
+  # COMMUNITY / PINTEREST FEED
+  addClosetItemToCommunityFeed(closetItemId: ID!): ClosetItem!
+  removeClosetItemFromCommunityFeed(closetItemId: ID!): ClosetItem!
+  shareClosetItemToPinterest(closetItemId: ID!): Boolean!
 }
 
 # ─────────────────────────────────────────────
@@ -141,7 +173,6 @@ type UserRoleAssignment {
 # CLOSET DOMAIN
 # ─────────────────────────────────────────────
 
-# Audience enum – include all values the UI might use
 enum ClosetAudience {
   PRIVATE
   FOLLOWERS
@@ -152,7 +183,6 @@ enum ClosetAudience {
   HIDDEN
 }
 
-# Status enum – for item.status + filters
 enum ClosetStatus {
   DRAFT
   PENDING
@@ -162,7 +192,6 @@ enum ClosetStatus {
   ARCHIVED
 }
 
-# Sorting enum for fan closet feed
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
@@ -176,6 +205,12 @@ type ClosetItemConnection {
 
 # Bestie-specific connection wrapper (same item shape, different resolver/filter)
 type BestieClosetItemConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+# Connection wrapper used by the Bestie closet UI
+type BestieClosetItemsConnection {
   items: [ClosetItem!]!
   nextToken: String
 }
@@ -205,6 +240,11 @@ type ClosetItem {
   season: String
   vibes: String
 
+  # Bestie closet metadata
+  colorTags: [String!]
+  notes: String
+  visibility: ClosetAudience
+
   # Admin metadata (e.g. rejection reason)
   reason: String
 
@@ -226,41 +266,26 @@ type ClosetItem {
 }
 
 input CreateClosetItemInput {
-  # existing fan-side fields
   title: String
   description: String
   story: String
   audience: ClosetAudience
-
-  # media keys
   mediaKey: String
   rawMediaKey: String
-
-  # categorization
   category: String
   subcategory: String
 }
 
 input AdminCreateClosetItemInput {
-  # optional: allow admins to create on behalf of another user if needed
   ownerId: ID
-
   title: String
   description: String
   story: String
-
-  # if a cutout already exists we could pass mediaKey,
-  # but for the new upload flow we send rawMediaKey
   mediaKey: String
   rawMediaKey: String
-
   audience: ClosetAudience
-
-  # upload-studio metadata
   season: String
   vibes: String
-
-  # categorization
   category: String
   subcategory: String
 }
@@ -273,12 +298,34 @@ input AdminUpdateClosetItemInput {
   pinned: Boolean
 }
 
-# 👇 new input used by updateClosetItemStory mutation
+# 👇 used by updateClosetItemStory mutation
 input UpdateClosetItemStoryInput {
   id: ID!
   storyTitle: String
   storySeason: String
   storyVibes: [String!]
+}
+
+# For Bestie closet uploads (BestieCloset.jsx)
+input BestieCreateClosetItemInput {
+  title: String
+  rawMediaKey: String!          # S3 key from signedUpload – required
+  category: String!             # required
+  subcategory: String!          # required
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetAudience
+}
+
+input BestieUpdateClosetItemInput {
+  title: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetAudience
 }
 
 type ClosetComment {
@@ -317,6 +364,57 @@ type BestieCheckoutSession {
 }
 
 # ─────────────────────────────────────────────
+# BESTIES – STORIES, BACKGROUNDS, AFFILIATE, FEED
+# ─────────────────────────────────────────────
+
+enum StoryVisibility {
+  PRIVATE
+  BESTIES
+  PUBLIC
+}
+
+type Story {
+  id: ID!
+  ownerSub: ID!
+  title: String!
+  body: String
+  closetItemIds: [ID!]!
+  stickers: AWSJSON
+  polls: AWSJSON
+  status: ClosetStatus!
+  visibility: StoryVisibility!
+  scheduledAt: AWSDateTime
+  publishedAt: AWSDateTime
+  shareToCommunityFeed: Boolean!
+  shareToPinterest: Boolean!
+}
+
+input CreateStoryInput {
+  title: String!
+  body: String
+  closetItemIds: [ID!]!
+  stickers: AWSJSON
+  polls: AWSJSON
+  visibility: StoryVisibility = BESTIES
+  scheduledAt: AWSDateTime
+  shareToCommunityFeed: Boolean = false
+  shareToPinterest: Boolean = false
+}
+
+input RequestBackgroundChangeInput {
+  closetItemId: ID!
+  requestedBackgroundStyle: String!
+  notes: String
+}
+
+input AttachAffiliateLinkInput {
+  closetItemId: ID!
+  url: String!
+  provider: String
+  campaignTag: String
+}
+
+# ─────────────────────────────────────────────
 # EPISODES / EARLY ACCESS
 # ─────────────────────────────────────────────
 
@@ -345,8 +443,6 @@ type GameProfile {
   badges: [Badge!]!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime
-
-  # Top Picks / pinned looks backing your "Top Picks" UI
   pinnedClosetItems: [ClosetItem!]!
 }
 
@@ -369,12 +465,8 @@ input LogGameEventInput {
 
 type GameEventResult {
   success: Boolean!
-
-  # Legacy fields (kept for backwards compatibility)
   newXP: Int
   newCoins: Int
-
-  # Fields used by the current client
   xp: Int
   coins: Int
   lastEventAt: AWSDateTime
