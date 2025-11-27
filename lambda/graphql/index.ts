@@ -1,4 +1,3 @@
-// lambda/graphql/index.ts
 import {
   BatchGetItemCommand,
   DeleteItemCommand,
@@ -9,15 +8,25 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
+import {
+  EventBridgeClient,
+  PutEventsCommand,
+} from "@aws-sdk/client-eventbridge";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 
+const ddbMarshal = (value: any) =>
+  marshall(value, { removeUndefinedValues: true });
+
 const TABLE_NAME = process.env.TABLE_NAME!;
 const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN!;
+const BG_CHANGE_SM_ARN = process.env.BG_CHANGE_SM_ARN!;
+const STORY_PUBLISH_SM_ARN = process.env.STORY_PUBLISH_SM_ARN!;
 const STATUS_GSI = process.env.STATUS_GSI ?? "gsi1"; // status index name
 
 const ddb = new DynamoDBClient({});
 const sfn = new SFNClient({});
+const eb = new EventBridgeClient({});
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -39,6 +48,8 @@ type ClosetAudience =
   | "EXCLUSIVE"
   | "ADMIN_ONLY"
   | "HIDDEN";
+
+type UserTier = "FREE" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN" | "PRIME";
 
 interface ClosetItem {
   id: string;
@@ -67,6 +78,12 @@ interface ClosetItem {
 
   // Bestie / profile highlight
   pinned?: boolean;
+
+  // Bestie: pending background change
+  pendingBackgroundKey?: string | null;
+
+  // Community feed flag (Lala’s Closet front page)
+  inCommunityFeed?: boolean;
 
   // Aggregates
   favoriteCount?: number;
@@ -101,6 +118,18 @@ type ClosetFeedArgs = {
   sort?: ClosetFeedSort | null;
 };
 
+interface Story {
+  id: string;
+  userId: string;
+  ownerSub: string;
+  title?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: "DRAFT" | "PENDING_PUBLISH" | "PUBLISHED" | "ARCHIVED";
+  closetItemIds?: string[];
+  scheduledAt?: string | null;
+}
+
 // ────────────────────────────────────────────────────────────
 // Small helpers
 // ────────────────────────────────────────────────────────────
@@ -115,6 +144,10 @@ function pkForUser(userId: string) {
 
 function skForClosetItem(id: string) {
   return `CLOSET#${id}`;
+}
+
+function skForStory(id: string) {
+  return `STORY#${id}`;
 }
 
 // Root partition for item-level aggregates (likes, comments, favorites, etc.)
@@ -136,6 +169,28 @@ function extractIdFromSk(sk: unknown): string | undefined {
 }
 
 /**
+ * Fire a BestieEngagement event to EventBridge.
+ * Engagement Lambda consumes these.
+ */
+async function putEngagementEvent(detail: any) {
+  try {
+    await eb.send(
+      new PutEventsCommand({
+        Entries: [
+          {
+            Source: "stylingadventures.besties",
+            DetailType: "BestieEngagement",
+            Detail: JSON.stringify(detail),
+          },
+        ],
+      }),
+    );
+  } catch (err) {
+    console.error("Failed to put engagement event", err);
+  }
+}
+
+/**
  * Map a raw DynamoDB item into our ClosetItem shape.
  * Defensive so we never return null for non-nullable GraphQL fields.
  */
@@ -143,9 +198,7 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
   const item = unmarshall(raw) as any;
 
   const id: string =
-    item.id ??
-    extractIdFromSk(item.sk) ??
-    randomUUID(); // last-ditch fallback (keeps GraphQL ID non-null)
+    item.id ?? extractIdFromSk(item.sk) ?? randomUUID(); // last-ditch fallback (keeps GraphQL ID non-null)
 
   // Fallbacks between userId and ownerSub so we always have an owner
   const inferredUserFromPk =
@@ -183,6 +236,8 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
     storySeason: item.storySeason,
     storyVibes: item.storyVibes,
     pinned: item.pinned,
+    pendingBackgroundKey: item.pendingBackgroundKey,
+    inCommunityFeed: item.inCommunityFeed,
     favoriteCount: item.favoriteCount,
     likeCount: item.likeCount,
     commentCount: item.commentCount,
@@ -219,6 +274,51 @@ function isAdminIdentity(identity: any): boolean {
   return groups.includes("ADMIN") || groups.includes("COLLAB");
 }
 
+function getUserTier(identity: any): UserTier {
+  const claims = identity?.claims || {};
+
+  // Prefer explicit tier claim if present.
+  const tierClaim =
+    (claims["custom:tier"] as string | undefined) ||
+    (claims["tier"] as string | undefined);
+
+  let tier: UserTier = "FREE";
+  if (
+    tierClaim &&
+    ["FREE", "BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"].includes(
+      tierClaim,
+    )
+  ) {
+    tier = tierClaim as UserTier;
+  }
+
+  // Fallback: infer from cognito groups if present.
+  const rawGroups = claims["cognito:groups"];
+  const groups = Array.isArray(rawGroups)
+    ? rawGroups
+    : String(rawGroups || "")
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+
+  if (groups.includes("ADMIN")) return "ADMIN";
+  if (groups.includes("COLLAB")) return "COLLAB";
+  if (groups.includes("PRIME")) return "PRIME";
+  if (groups.includes("CREATOR")) return "CREATOR";
+  if (groups.includes("BESTIE")) return "BESTIE";
+
+  return tier;
+}
+
+function requireBestieTier(identity: any): UserTier {
+  const tier = getUserTier(identity);
+  const allowed: UserTier[] = ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"];
+  if (!allowed.includes(tier)) {
+    throw new Error("Bestie tier required");
+  }
+  return tier;
+}
+
 // ────────────────────────────────────────────────────────────
 // 1) myCloset – return all items owned by the current user.
 // ────────────────────────────────────────────────────────────
@@ -230,7 +330,7 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pk": pkForUser(sub),
         ":sk": "CLOSET#",
       }),
@@ -242,6 +342,27 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
     .filter((ci) => ci.id && ci.id !== "undefined");
 }
 
+// Bestie closet paginated connection – for now, just wraps myCloset
+async function handleBestieClosetItems(
+  args: { limit?: number | null; nextToken?: string | null },
+  identity: any,
+): Promise<{ items: ClosetItem[]; nextToken: string | null }> {
+  // reuse existing logic for user's closet
+  const allItems = await handleMyCloset(identity);
+
+  const limit =
+    args.limit && args.limit > 0
+      ? Math.min(args.limit, allItems.length)
+      : allItems.length;
+
+  const items = allItems.slice(0, limit);
+
+  // No real pagination yet, so always null
+  return {
+    items,
+    nextToken: null,
+  };
+}
 // ────────────────────────────────────────────────────────────
 // 2) createClosetItem – create a new item in DRAFT.
 // ────────────────────────────────────────────────────────────
@@ -285,7 +406,7 @@ async function handleCreateClosetItem(
   await ddb.send(
     new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: marshall({
+      Item: ddbMarshal({
         pk: pkForUser(sub),
         sk: skForClosetItem(id),
 
@@ -319,13 +440,13 @@ async function handleUpdateClosetMediaKey(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(sub),
         sk: skForClosetItem(args.closetItemId),
       }),
       UpdateExpression:
         "SET mediaKey = :mediaKey, updatedAt = :updatedAt, gsi1pk = :gsi1pk, gsi1sk = :gsi1sk",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":mediaKey": args.mediaKey,
         ":updatedAt": now,
         ":gsi1pk": gsi1ForStatus("DRAFT"),
@@ -356,14 +477,14 @@ async function handleRequestClosetApproval(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(sub),
         sk: skForClosetItem(args.closetItemId),
       }),
       ConditionExpression: "status = :draft",
       UpdateExpression:
         "SET status = :pending, updatedAt = :updatedAt, gsi1pk = :gsi1pk, gsi1sk = :gsi1sk",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":draft": "DRAFT",
         ":pending": "PENDING",
         ":updatedAt": now,
@@ -411,13 +532,13 @@ async function handleUpdateClosetItemStory(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(sub),
         sk: skForClosetItem(closetItemId),
       }),
       UpdateExpression:
         "SET storyTitle = :storyTitle, updatedAt = :updatedAt",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":storyTitle": story,
         ":updatedAt": now,
       }),
@@ -443,7 +564,7 @@ async function loadClosetItemById(
     new ScanCommand({
       TableName: TABLE_NAME,
       FilterExpression: "sk = :sk",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":sk": skForClosetItem(closetItemId),
       }),
     }),
@@ -490,7 +611,7 @@ async function handleLikeClosetItem(
     await ddb.send(
       new PutItemCommand({
         TableName: TABLE_NAME,
-        Item: marshall(likeItem),
+        Item: ddbMarshal(likeItem),
         // de-dupe per viewer
         ConditionExpression: "attribute_not_exists(sk)",
       }),
@@ -504,13 +625,13 @@ async function handleLikeClosetItem(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(ownerId),
         sk: skForClosetItem(closetItemId),
       }),
       UpdateExpression:
         "SET likeCount = if_not_exists(likeCount, :zero) + :one, updatedAt = :now",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":zero": 0,
         ":one": 1,
         ":now": now,
@@ -525,6 +646,16 @@ async function handleLikeClosetItem(
 
   const item = mapClosetItem(res.Attributes);
   item.viewerHasLiked = true;
+
+  // Engagement: increment like analytics
+  await putEngagementEvent({
+    action: "LIKED",
+    closetItemId,
+    ownerSub: ownerId,
+    actorSub: viewerSub,
+    delta: 1,
+  });
+
   return item;
 }
 
@@ -557,20 +688,20 @@ async function handleCommentOnClosetItem(
   await ddb.send(
     new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: marshall(commentItem),
+      Item: ddbMarshal(commentItem),
     }),
   );
 
   await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(ownerId),
         sk: skForClosetItem(closetItemId),
       }),
       UpdateExpression:
         "SET commentCount = if_not_exists(commentCount, :zero) + :one, updatedAt = :now",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":zero": 0,
         ":one": 1,
         ":now": now,
@@ -585,6 +716,16 @@ async function handleCommentOnClosetItem(
     text,
     createdAt: now,
   };
+
+  // Engagement: comment analytics
+  await putEngagementEvent({
+    action: "COMMENTED",
+    closetItemId,
+    ownerSub: ownerId,
+    actorSub: authorSub,
+    commentId,
+    commentText: text,
+  });
 
   return comment;
 }
@@ -618,12 +759,12 @@ async function handlePinHighlight(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(base.userId),
         sk: skForClosetItem(base.id),
       }),
       UpdateExpression: "SET pinned = :pinned, updatedAt = :now",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pinned": pinned,
         ":now": now,
       }),
@@ -651,7 +792,7 @@ async function handleClosetItemComments(args: {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pk": pkForClosetRoot(closetItemId),
         ":sk": "COMMENT#",
       }),
@@ -682,7 +823,7 @@ async function handleAdminClosetItemLikes(args: {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pk": pkForClosetRoot(closetItemId),
         ":sk": "LIKE#",
       }),
@@ -725,11 +866,12 @@ async function handleToggleWishlistItem(
   const wishlistPk = pkForUser(viewerSub);
   const wishlistSk = `WISHLIST#${closetItemId}`;
 
+  // Turning OFF
   if (on === false) {
     await ddb.send(
       new DeleteItemCommand({
         TableName: TABLE_NAME,
-        Key: marshall({
+        Key: ddbMarshal({
           pk: wishlistPk,
           sk: wishlistSk,
         }),
@@ -742,14 +884,14 @@ async function handleToggleWishlistItem(
       const res = await ddb.send(
         new UpdateItemCommand({
           TableName: TABLE_NAME,
-          Key: marshall({
+          Key: ddbMarshal({
             pk: pkForUser(ownerId),
             sk: skForClosetItem(closetItemId),
           }),
           UpdateExpression:
             "SET wishlistCount = if_not_exists(wishlistCount, :zero) - :one, updatedAt = :now",
           ConditionExpression: "wishlistCount >= :one",
-          ExpressionAttributeValues: marshall({
+          ExpressionAttributeValues: ddbMarshal({
             ":zero": 0,
             ":one": 1,
             ":now": now,
@@ -768,7 +910,7 @@ async function handleToggleWishlistItem(
         new QueryCommand({
           TableName: TABLE_NAME,
           KeyConditionExpression: "pk = :pk AND sk = :sk",
-          ExpressionAttributeValues: marshall({
+          ExpressionAttributeValues: ddbMarshal({
             ":pk": pkForUser(ownerId),
             ":sk": skForClosetItem(closetItemId),
           }),
@@ -785,9 +927,20 @@ async function handleToggleWishlistItem(
     }
 
     updated.viewerHasWishlisted = false;
+
+    // Engagement: wishlist off
+    await putEngagementEvent({
+      action: "WISHLIST_TOGGLED",
+      closetItemId,
+      ownerSub: ownerId,
+      actorSub: viewerSub,
+      delta: -1,
+    });
+
     return updated;
   }
 
+  // Turning ON (or default toggle-on)
   const wishlistItem = {
     pk: wishlistPk,
     sk: wishlistSk,
@@ -802,7 +955,7 @@ async function handleToggleWishlistItem(
     await ddb.send(
       new PutItemCommand({
         TableName: TABLE_NAME,
-        Item: marshall(wishlistItem),
+        Item: ddbMarshal(wishlistItem),
         // de-dupe per viewer+item
         ConditionExpression: "attribute_not_exists(sk)",
       }),
@@ -816,13 +969,13 @@ async function handleToggleWishlistItem(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(ownerId),
         sk: skForClosetItem(closetItemId),
       }),
       UpdateExpression:
         "SET wishlistCount = if_not_exists(wishlistCount, :zero) + :one, updatedAt = :now",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":zero": 0,
         ":one": 1,
         ":now": now,
@@ -837,6 +990,16 @@ async function handleToggleWishlistItem(
 
   const item = mapClosetItem(res.Attributes);
   item.viewerHasWishlisted = true;
+
+  // Engagement: wishlist on
+  await putEngagementEvent({
+    action: "WISHLIST_TOGGLED",
+    closetItemId,
+    ownerSub: ownerId,
+    actorSub: viewerSub,
+    delta: 1,
+  });
+
   return item;
 }
 
@@ -851,7 +1014,7 @@ async function handleMyWishlist(identity: any): Promise<ClosetItem[]> {
     new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pk": pkForUser(viewerSub),
         ":sk": "WISHLIST#",
       }),
@@ -873,7 +1036,7 @@ async function handleMyWishlist(identity: any): Promise<ClosetItem[]> {
     new BatchGetItemCommand({
       RequestItems: {
         [TABLE_NAME]: {
-          Keys: keys.map((k) => marshall(k)),
+          Keys: keys.map((k) => ddbMarshal(k)),
         },
       },
     }),
@@ -915,7 +1078,7 @@ async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
         "#pinned": "pinned",
         "#status": "status",
       },
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":pk": pkForUser(userId),
         ":sk": "CLOSET#",
         ":true": true,
@@ -947,7 +1110,7 @@ async function handleClosetFeed(event: any): Promise<ClosetItem[]> {
         TableName: TABLE_NAME,
         IndexName: STATUS_GSI,
         KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: marshall({
+        ExpressionAttributeValues: ddbMarshal({
           ":pk": gsi1ForStatus(status),
         }),
         ScanIndexForward: false, // newest first
@@ -1021,7 +1184,7 @@ async function handleToggleFavoriteClosetItem(
     await ddb.send(
       new DeleteItemCommand({
         TableName: TABLE_NAME,
-        Key: marshall({
+        Key: ddbMarshal({
           pk: pkRoot,
           sk: skFavorite,
         }),
@@ -1034,14 +1197,14 @@ async function handleToggleFavoriteClosetItem(
       const res = await ddb.send(
         new UpdateItemCommand({
           TableName: TABLE_NAME,
-          Key: marshall({
+          Key: ddbMarshal({
             pk: pkForUser(ownerId),
             sk: skForClosetItem(closetItemId),
           }),
           UpdateExpression:
             "SET favoriteCount = if_not_exists(favoriteCount, :zero) - :one, updatedAt = :now",
           ConditionExpression: "favoriteCount >= :one",
-          ExpressionAttributeValues: marshall({
+          ExpressionAttributeValues: ddbMarshal({
             ":zero": 0,
             ":one": 1,
             ":now": now,
@@ -1060,7 +1223,7 @@ async function handleToggleFavoriteClosetItem(
         new QueryCommand({
           TableName: TABLE_NAME,
           KeyConditionExpression: "pk = :pk AND sk = :sk",
-          ExpressionAttributeValues: marshall({
+          ExpressionAttributeValues: ddbMarshal({
             ":pk": pkForUser(ownerId),
             ":sk": skForClosetItem(closetItemId),
           }),
@@ -1095,7 +1258,7 @@ async function handleToggleFavoriteClosetItem(
     await ddb.send(
       new PutItemCommand({
         TableName: TABLE_NAME,
-        Item: marshall(favoriteItem),
+        Item: ddbMarshal(favoriteItem),
         // de-dupe per viewer
         ConditionExpression: "attribute_not_exists(sk)",
       }),
@@ -1109,13 +1272,13 @@ async function handleToggleFavoriteClosetItem(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: marshall({
+      Key: ddbMarshal({
         pk: pkForUser(ownerId),
         sk: skForClosetItem(closetItemId),
       }),
       UpdateExpression:
         "SET favoriteCount = if_not_exists(favoriteCount, :zero) + :one, updatedAt = :now",
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: ddbMarshal({
         ":zero": 0,
         ":one": 1,
         ":now": now,
@@ -1134,6 +1297,314 @@ async function handleToggleFavoriteClosetItem(
 }
 
 // ────────────────────────────────────────────────────────────
+// 17) requestClosetBackgroundChange – Besties-only, kicks BG SM
+// ────────────────────────────────────────────────────────────
+
+async function handleRequestClosetBackgroundChange(
+  args: {
+    closetItemId: string;
+    requestedBackgroundKey?: string | null;
+    mode?: string | null;
+  },
+  identity: any,
+): Promise<ClosetItem> {
+  requireBestieTier(identity);
+  const callerSub = requireUserSub(identity);
+  const { closetItemId, requestedBackgroundKey, mode } = args;
+  const now = nowIso();
+
+  const { base } = await loadClosetItemById(closetItemId);
+
+  if (base.userId !== callerSub && !isAdminIdentity(identity)) {
+    throw new Error("Not authorized to change background for this item");
+  }
+
+  // Persist pending background metadata on the closet item
+  const res = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: ddbMarshal({
+        pk: pkForUser(base.userId),
+        sk: skForClosetItem(base.id),
+      }),
+      UpdateExpression:
+        "SET pendingBackgroundKey = :bg, updatedAt = :now",
+      ExpressionAttributeValues: ddbMarshal({
+        ":bg": requestedBackgroundKey ?? null,
+        ":now": now,
+      }),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!res.Attributes) {
+    throw new Error("Closet item not found while setting background");
+  }
+
+  const updated = mapClosetItem(res.Attributes);
+
+  await sfn.send(
+    new StartExecutionCommand({
+      stateMachineArn: BG_CHANGE_SM_ARN,
+      input: JSON.stringify({
+        closetItemId: updated.id,
+        userId: updated.userId,
+        ownerSub: updated.ownerSub,
+        requestedBackgroundKey: requestedBackgroundKey ?? null,
+        mode: mode ?? "REPLACE",
+      }),
+    }),
+  );
+
+  return updated;
+}
+
+// ────────────────────────────────────────────────────────────
+// 18) createStory – Besties story creation (DRAFT)
+// ────────────────────────────────────────────────────────────
+
+async function handleCreateStory(
+  args: {
+    input: {
+      title?: string | null;
+      closetItemIds?: string[] | null;
+      scheduledAt?: string | null;
+    };
+  },
+  identity: any,
+): Promise<Story> {
+  requireBestieTier(identity);
+  const sub = requireUserSub(identity);
+  const now = nowIso();
+  const storyId = randomUUID();
+
+  const input = args.input || {};
+  const story: Story = {
+    id: storyId,
+    userId: sub,
+    ownerSub: sub,
+    title: input.title ?? undefined,
+    createdAt: now,
+    updatedAt: now,
+    status: "DRAFT",
+    closetItemIds: input.closetItemIds ?? [],
+    scheduledAt: input.scheduledAt ?? null,
+  };
+
+  await ddb.send(
+    new PutItemCommand({
+      TableName: TABLE_NAME,
+      Item: ddbMarshal({
+        pk: pkForUser(sub),
+        sk: skForStory(storyId),
+        entityType: "STORY",
+        ...story,
+      }),
+    }),
+  );
+
+  return story;
+}
+
+// ────────────────────────────────────────────────────────────
+// 19) publishStory – Besties story publish (kicks Story SM)
+// ────────────────────────────────────────────────────────────
+
+async function handlePublishStory(
+  args: {
+    storyId: string;
+    scheduledAt?: string | null;
+  },
+  identity: any,
+): Promise<Story> {
+  requireBestieTier(identity);
+  const sub = requireUserSub(identity);
+  const { storyId, scheduledAt } = args;
+  const now = nowIso();
+
+  const res = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: ddbMarshal({
+        pk: pkForUser(sub),
+        sk: skForStory(storyId),
+      }),
+      UpdateExpression:
+        "SET #status = :pending, updatedAt = :now, scheduledAt = :scheduledAt",
+      ExpressionAttributeNames: {
+        "#status": "status",
+      },
+      ExpressionAttributeValues: ddbMarshal({
+        ":pending": "PENDING_PUBLISH",
+        ":now": now,
+        ":scheduledAt": scheduledAt ?? null,
+      }),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!res.Attributes) {
+    throw new Error("Story not found");
+  }
+
+  const story = unmarshall(res.Attributes) as Story;
+
+  await sfn.send(
+    new StartExecutionCommand({
+      stateMachineArn: STORY_PUBLISH_SM_ARN,
+      input: JSON.stringify({
+        storyId: story.id,
+        userId: story.userId,
+        ownerSub: story.ownerSub,
+        scheduledAt: story.scheduledAt ?? null,
+      }),
+    }),
+  );
+
+  return story;
+}
+
+// ────────────────────────────────────────────────────────────
+// 20) addClosetItemToCommunityFeed – Besties-only
+// ────────────────────────────────────────────────────────────
+
+async function handleAddClosetItemToCommunityFeed(
+  args: { closetItemId: string },
+  identity: any,
+): Promise<ClosetItem> {
+  requireBestieTier(identity);
+  const callerSub = requireUserSub(identity);
+  const { closetItemId } = args;
+  const now = nowIso();
+
+  const { base } = await loadClosetItemById(closetItemId);
+
+  if (base.userId !== callerSub && !isAdminIdentity(identity)) {
+    throw new Error("Not authorized to feature this item");
+  }
+
+  const res = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: ddbMarshal({
+        pk: pkForUser(base.userId),
+        sk: skForClosetItem(base.id),
+      }),
+      UpdateExpression:
+        "SET inCommunityFeed = :true, updatedAt = :now",
+      ExpressionAttributeValues: ddbMarshal({
+        ":true": true,
+        ":now": now,
+      }),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!res.Attributes) {
+    throw new Error("Closet item not found");
+  }
+
+  const updated = mapClosetItem(res.Attributes);
+
+  // Engagement: create COMMUNITY_FEED record via Engagement Lambda
+  await putEngagementEvent({
+    action: "COMMUNITY_FEATURED",
+    closetItemId,
+    ownerSub: base.userId,
+    actorSub: callerSub,
+  });
+
+  return updated;
+}
+
+// ────────────────────────────────────────────────────────────
+// 21) removeClosetItemFromCommunityFeed – Besties-only
+// ────────────────────────────────────────────────────────────
+
+async function handleRemoveClosetItemFromCommunityFeed(
+  args: { closetItemId: string },
+  identity: any,
+): Promise<ClosetItem> {
+  requireBestieTier(identity);
+  const callerSub = requireUserSub(identity);
+  const { closetItemId } = args;
+  const now = nowIso();
+
+  const { base } = await loadClosetItemById(closetItemId);
+
+  if (base.userId !== callerSub && !isAdminIdentity(identity)) {
+    throw new Error("Not authorized to unfeature this item");
+  }
+
+  const res = await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: ddbMarshal({
+        pk: pkForUser(base.userId),
+        sk: skForClosetItem(base.id),
+      }),
+      UpdateExpression:
+        "SET inCommunityFeed = :false, updatedAt = :now",
+      ExpressionAttributeValues: ddbMarshal({
+        ":false": false,
+        ":now": now,
+      }),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  if (!res.Attributes) {
+    throw new Error("Closet item not found");
+  }
+
+  return mapClosetItem(res.Attributes);
+}
+
+// ────────────────────────────────────────────────────────────
+// 22) shareClosetItemToPinterest – fire-and-forget event record
+// ────────────────────────────────────────────────────────────
+
+async function handleShareClosetItemToPinterest(
+  args: { closetItemId: string },
+  identity: any,
+): Promise<boolean> {
+  requireBestieTier(identity);
+  const sharerSub = requireUserSub(identity);
+  const { closetItemId } = args;
+  const now = nowIso();
+
+  const { ownerId } = await loadClosetItemById(closetItemId);
+
+  const shareItem = {
+    pk: pkForClosetRoot(closetItemId),
+    sk: `PINTEREST_SHARE#${randomUUID()}`,
+    entityType: "PINTEREST_SHARE",
+    closetItemId,
+    itemOwnerSub: ownerId,
+    sharerSub,
+    createdAt: now,
+  };
+
+  await ddb.send(
+    new PutItemCommand({
+      TableName: TABLE_NAME,
+      Item: ddbMarshal(shareItem),
+    }),
+  );
+
+  // Engagement: let EngagementFn track Pinterest share analytics
+  await putEngagementEvent({
+    action: "PINTEREST_SHARE_REQUESTED",
+    closetItemId,
+    ownerSub: ownerId,
+    actorSub: sharerSub,
+  });
+
+  // Downstream worker (EventBridge/Streams) can do the actual API call
+  return true;
+}
+
+// ────────────────────────────────────────────────────────────
 // AppSync Lambda resolver entrypoint
 // ────────────────────────────────────────────────────────────
 
@@ -1146,6 +1617,12 @@ export const handler = async (event: any) => {
     switch (fieldName) {
       case "myCloset":
         return await handleMyCloset(event.identity);
+
+      case "bestieClosetItems":
+        return await handleBestieClosetItems(
+          event.arguments || {},
+          event.identity,
+        );
 
       case "myWishlist":
         return await handleMyWishlist(event.identity);
@@ -1210,6 +1687,37 @@ export const handler = async (event: any) => {
           event.identity,
         );
 
+      // NEW Besties workflows
+      case "requestClosetBackgroundChange":
+        return await handleRequestClosetBackgroundChange(
+          event.arguments,
+          event.identity,
+        );
+
+      case "createStory":
+        return await handleCreateStory(event.arguments, event.identity);
+
+      case "publishStory":
+        return await handlePublishStory(event.arguments, event.identity);
+
+      case "addClosetItemToCommunityFeed":
+        return await handleAddClosetItemToCommunityFeed(
+          event.arguments,
+          event.identity,
+        );
+
+      case "removeClosetItemFromCommunityFeed":
+        return await handleRemoveClosetItemFromCommunityFeed(
+          event.arguments,
+          event.identity,
+        );
+
+      case "shareClosetItemToPinterest":
+        return await handleShareClosetItemToPinterest(
+          event.arguments,
+          event.identity,
+        );
+
       default:
         throw new Error(`Unsupported field: ${fieldName}`);
     }
@@ -1218,4 +1726,5 @@ export const handler = async (event: any) => {
     throw err;
   }
 };
+
 

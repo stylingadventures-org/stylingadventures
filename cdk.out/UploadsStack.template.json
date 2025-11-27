@@ -1116,7 +1116,7 @@
     ],
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "465e3aa04961dd22e4ff92aa3d0684e7196dfaa24bb4a6ef79c8fa280b293de8.zip"
+     "S3Key": "c045e221b4cf00d3c0f69723c8ad73046d681f7e983863813aefdfa4e28aaac6.zip"
     },
     "Environment": {
      "Variables": {
@@ -1161,7 +1161,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "UploadsStack/ThumbgenFn/Resource",
-    "aws:asset:path": "asset.465e3aa04961dd22e4ff92aa3d0684e7196dfaa24bb4a6ef79c8fa280b293de8",
+    "aws:asset:path": "asset.c045e221b4cf00d3c0f69723c8ad73046d681f7e983863813aefdfa4e28aaac6",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

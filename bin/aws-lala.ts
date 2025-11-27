@@ -11,6 +11,11 @@ import { ApiStack } from "../lib/api-stack";
 import { UploadsStack } from "../lib/uploads-stack";
 import { WebStack } from "../lib/web-stack";
 
+// 👇 Besties stacks
+import { BestiesClosetStack } from "../lib/besties-closet-stack";
+import { BestiesStoriesStack } from "../lib/besties-stories-stack";
+import { BestiesEngagementStack } from "../lib/besties-engagement-stack";
+
 // ---- tiny config loader (optional) ----
 type Cfg = { webOrigin?: string };
 function loadConfig(): Cfg {
@@ -105,30 +110,21 @@ const data = new DataStack(app, "DataStack", {
   description: `Primary application table - ${envName}`,
 });
 
-// 4) Workflows (Step Functions)
-const wf = new WorkflowsStack(app, "WorkflowsStack", {
+// 4) Core Workflows (Fan/Fleet closet approvals)
+const workflows = new WorkflowsStack(app, "WorkflowsStack", {
   env,
   table: data.table,
   description: `Closet approval workflow - ${envName}`,
 });
 
-// 5) AppSync API
-const api = new ApiStack(app, "ApiStack", {
-  env,
-  userPool: identity.userPool,
-  table: data.table,
-  closetApprovalSm: wf.closetApprovalSm,
-  description: `AppSync GraphQL API - ${envName}`,
-});
-
-// 6) Uploads API + thumbs CDN
+// 5) Uploads API + thumbs CDN
 // NOTE: these two values are from your deployed WebStack / infra;
 // if you later output them from WebStack directly, you can replace them.
 const webBucketName = "webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1";
 const uploadsCdnDomain = "d1so4qr6zsby5r.cloudfront.net";
 const uploadsOrigin = `https://${uploadsCdnDomain}`;
 
-new UploadsStack(app, "UploadsStack", {
+const uploads = new UploadsStack(app, "UploadsStack", {
   env,
   userPool: identity.userPool,
   // Origin that the browser JS runs on (your SPA)
@@ -138,6 +134,49 @@ new UploadsStack(app, "UploadsStack", {
   webBucketName,
   table: data.table, // let bg-worker update closet items
   description: `Uploads API, S3, and thumbs CDN - ${envName}`,
+});
+const uploadsBucket = uploads.bucket;
+
+// 6) Besties – closet + background change approvals
+const bestiesCloset = new BestiesClosetStack(app, "BestiesClosetStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  description: `Besties closet + background change workflows - ${envName}`,
+});
+
+// 7) Besties – stories compose/publish/schedule
+const bestiesStories = new BestiesStoriesStack(app, "BestiesStoriesStack", {
+  env,
+  table: data.table,
+  description: `Besties stories compose/publish/schedule workflows - ${envName}`,
+});
+
+// 8) Besties – engagement (likes/wishlist/comments/metrics fan-out)
+const bestiesEngagement = new BestiesEngagementStack(
+  app,
+  "BestiesEngagementStack",
+  {
+    env,
+    table: data.table,
+    description: `Besties engagement fan-out workflows - ${envName}`,
+  },
+);
+
+// 9) AppSync API – wire all workflows
+const api = new ApiStack(app, "ApiStack", {
+  env,
+  userPool: identity.userPool,
+  table: data.table,
+
+  // Existing closet approval SM (fan + bestie)
+  closetApprovalSm: workflows.closetApprovalSm,
+
+  // 👇 NEW Besties workflows
+  backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
+  storyPublishSm: bestiesStories.storyPublishStateMachine,
+
+  description: `AppSync GraphQL API - ${envName}`,
 });
 
 // ---- Tags ----

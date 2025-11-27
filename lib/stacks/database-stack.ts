@@ -1,53 +1,131 @@
-// lib/stacks/database-stack.ts
-import { Stack, StackProps, RemovalPolicy } from "aws-cdk-lib";
+// lib/stacks/data-stack.ts
+import {
+  Stack,
+  StackProps,
+  RemovalPolicy,
+  Duration,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as ddb from "aws-cdk-lib/aws-dynamodb";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 
-export class DatabaseStack extends Stack {
-  public readonly table: ddb.Table;
+/**
+ * Keep this in sync with how you're using `stage`
+ * elsewhere (dev | prod).
+ */
+export type Stage = "dev" | "prod";
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+export interface DataStackProps extends StackProps {
+  stage: Stage;
+  /**
+   * Optional override – if not provided we’ll use
+   * `sa-<stage>-app`.
+   */
+  tableName?: string;
+}
+
+export class DataStack extends Stack {
+  /** Main single-table DynamoDB table */
+  public readonly table: dynamodb.Table;
+
+  /** Name of the status GSI (used by lambdas as STATUS_GSI) */
+  public readonly statusGsiName: string = "gsi1";
+
+  constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
 
-    // Core application table (single-table design)
-    this.table = new ddb.Table(this, "CoreTable", {
-      tableName: "sa-dev-app", // keep aligned with your Lambdas
-      partitionKey: { name: "pk", type: ddb.AttributeType.STRING },
-      sortKey: { name: "sk", type: ddb.AttributeType.STRING },
-      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+    const { stage } = props;
+    const tableName = props.tableName ?? `sa-${stage}-app`;
+
+    this.table = new dynamodb.Table(this, "AppTable", {
+      tableName,
+
+      // Core single-table design
+      partitionKey: {
+        name: "pk",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "sk",
+        type: dynamodb.AttributeType.STRING,
+      },
+
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+
+      // Good for recovery; you can relax this if needed
       pointInTimeRecovery: true,
-      removalPolicy: RemovalPolicy.RETAIN,
+
+      // In dev you might prefer DESTROY;
+      // in prod we keep data by default.
+      removalPolicy:
+        stage === "prod"
+          ? RemovalPolicy.RETAIN
+          : RemovalPolicy.DESTROY,
+
+      // Streams are handy for analytics / workers
+      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+
+      timeToLiveAttribute: "ttl", // safe even if unused
     });
 
-    // ✅ GSI1 — used by:
-    //   • Leaderboard (e.g., LEADERBOARD#GLOBAL / XP#... sort)
-    //   • Closet "myCloset" (e.g., OWNER#{sub} / ISO ts)
+    // ─────────────────────────────────────────────
+    // GSI #1 – STATUS index
+    //
+    // Matches lambda/closet/resolver.ts:
+    //   const STATUS_GSI = process.env.STATUS_GSI ?? "gsi1";
+    //   gsi1pk = "CLOSET#STATUS#<status>"
+    //   gsi1sk = ISO timestamp
+    // and then queries with IndexName = STATUS_GSI.
+    // ─────────────────────────────────────────────
     this.table.addGlobalSecondaryIndex({
-      indexName: "gsi1",
-      partitionKey: { name: "gsi1pk", type: ddb.AttributeType.STRING },
-      sortKey: { name: "gsi1sk", type: ddb.AttributeType.STRING },
-      projectionType: ddb.ProjectionType.ALL,
+      indexName: this.statusGsiName,
+      partitionKey: {
+        name: "gsi1pk",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "gsi1sk",
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // ✅ GSI2 — used by:
-    //   • Closet moderation queues (STATUS#PENDING, etc.)
-    //   • Poll votes/listing (POLL#<id> / VOTE#... for counts)
+    // ─────────────────────────────────────────────
+    // GSI #2 – rawMediaKey index
+    //
+    // Used by background workers to find items
+    // by original upload key.
+    // ─────────────────────────────────────────────
     this.table.addGlobalSecondaryIndex({
-      indexName: "gsi2",
-      partitionKey: { name: "gsi2pk", type: ddb.AttributeType.STRING },
-      sortKey: { name: "gsi2sk", type: ddb.AttributeType.STRING },
-      projectionType: ddb.ProjectionType.ALL,
+      indexName: "rawMediaKeyIndex",
+      partitionKey: {
+        name: "rawMediaKey",
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // Optional future scheduling or other workloads
+    // ─────────────────────────────────────────────
+    // GSI #3 – generic secondary index
+    //
+    // Keeping this from your original closet-table
+    // so anything still depending on gsi3 continues
+    // to work (e.g. future workflows).
+    // ─────────────────────────────────────────────
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi3",
-      partitionKey: { name: "gsi3pk", type: ddb.AttributeType.STRING },
-      sortKey: { name: "gsi3sk", type: ddb.AttributeType.STRING },
-      projectionType: ddb.ProjectionType.ALL,
+      partitionKey: {
+        name: "gsi3pk",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "gsi3sk",
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
   }
 }
+
 
 
 

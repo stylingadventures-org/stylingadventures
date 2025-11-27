@@ -1,5 +1,5 @@
 // site/src/routes/bestie/BestieCloset.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { signedUpload } from "../../lib/sa";
 import { getThumbUrlForMediaKey } from "../../lib/thumbs";
@@ -17,6 +17,7 @@ const GQL = {
           mediaKey
           rawMediaKey
           category
+          subcategory
           colorTags
           season
           notes
@@ -36,6 +37,7 @@ const GQL = {
         mediaKey
         rawMediaKey
         category
+        subcategory
         colorTags
         season
         notes
@@ -53,6 +55,7 @@ const GQL = {
         mediaKey
         rawMediaKey
         category
+        subcategory
         colorTags
         season
         notes
@@ -89,6 +92,36 @@ const CATEGORY_OPTIONS = [
   "Jewelry",
   "Accessories",
   "Beauty",
+];
+
+const SUBCATEGORY_OPTIONS = [
+  "Basics",
+  "Blazer",
+  "Button-up",
+  "T-shirt",
+  "Tank",
+  "Sweater",
+  "Cardigan",
+  "Jeans",
+  "Trousers",
+  "Shorts",
+  "Skirt",
+  "Mini skirt",
+  "Midi skirt",
+  "Maxi skirt",
+  "Mini dress",
+  "Midi dress",
+  "Maxi dress",
+  "Heels",
+  "Flats",
+  "Sneakers",
+  "Boots",
+  "Crossbody bag",
+  "Shoulder bag",
+  "Tote bag",
+  "Backpack",
+  "Jewelry",
+  "Accessory",
 ];
 
 const SEASON_OPTIONS = ["All seasons", "Spring", "Summer", "Fall", "Winter"];
@@ -153,13 +186,16 @@ export default function BestieCloset() {
   // upload form state
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("");
+  const [uploadSubcategory, setUploadSubcategory] = useState("");
   const [uploadColors, setUploadColors] = useState("");
   const [uploadSeason, setUploadSeason] = useState("");
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploadVisibility, setUploadVisibility] = useState("PRIVATE");
   const [uploadBusy, setUploadBusy] = useState(false);
+  const uploadFileInputRef = useRef(null);
 
   // editor state for an existing item
   const [editing, setEditing] = useState(null);
@@ -229,6 +265,7 @@ export default function BestieCloset() {
           setEditDraft({
             title: fresh.title || "",
             category: fresh.category || "",
+            subcategory: fresh.subcategory || "",
             colorTags: (fresh.colorTags || []).join(", "),
             season: fresh.season || "",
             notes: fresh.notes || "",
@@ -275,6 +312,7 @@ export default function BestieCloset() {
         const hay = [
           it.title || "",
           it.category || "",
+          it.subcategory || "",
           (it.notes || "").toString(),
           ...(it.colorTags || []),
         ]
@@ -333,9 +371,17 @@ export default function BestieCloset() {
   // ---- upload flow ------------------------------------------------
 
   function resetUploadForm() {
+    if (uploadPreviewUrl) {
+      URL.revokeObjectURL(uploadPreviewUrl);
+    }
     setUploadFile(null);
+    setUploadPreviewUrl(null);
+    if (uploadFileInputRef.current) {
+      uploadFileInputRef.current.value = "";
+    }
     setUploadTitle("");
     setUploadCategory("");
+    setUploadSubcategory("");
     setUploadColors("");
     setUploadSeason("");
     setUploadNotes("");
@@ -343,10 +389,39 @@ export default function BestieCloset() {
     setUploadBusy(false);
   }
 
+  function handleUploadFileChange(e) {
+    const file = e.target.files?.[0] || null;
+    if (uploadPreviewUrl) {
+      URL.revokeObjectURL(uploadPreviewUrl);
+    }
+    setUploadFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setUploadPreviewUrl(url);
+    } else {
+      setUploadPreviewUrl(null);
+    }
+  }
+
+  function handleRemoveUploadPhoto() {
+    if (uploadPreviewUrl) {
+      URL.revokeObjectURL(uploadPreviewUrl);
+    }
+    setUploadPreviewUrl(null);
+    setUploadFile(null);
+    if (uploadFileInputRef.current) {
+      uploadFileInputRef.current.value = "";
+    }
+  }
+
   async function handleUploadSubmit(e) {
     e.preventDefault();
     if (!uploadFile) {
       alert("Pick a photo of your piece first.");
+      return;
+    }
+    if (!uploadCategory) {
+      alert("Choose a category so we can help you find this piece later.");
       return;
     }
 
@@ -369,6 +444,7 @@ export default function BestieCloset() {
         title: uploadTitle || uploadFile.name,
         rawMediaKey: up.key,
         category: uploadCategory || null,
+        subcategory: uploadSubcategory || null,
         colorTags: uploadColors
           ? uploadColors
               .split(",")
@@ -405,6 +481,7 @@ export default function BestieCloset() {
       trackClosetEvent("BESTIE_CLOSET_UPLOAD", {
         itemId: created.id,
         category: created.category,
+        subcategory: created.subcategory,
         season: created.season,
         visibility: normaliseVisibility(created.visibility),
       });
@@ -423,6 +500,7 @@ export default function BestieCloset() {
     setEditDraft({
       title: item.title || "",
       category: item.category || "",
+      subcategory: item.subcategory || "",
       colorTags: (item.colorTags || []).join(", "),
       season: item.season || "",
       notes: item.notes || "",
@@ -441,6 +519,7 @@ export default function BestieCloset() {
     const input = {
       title: editDraft.title || null,
       category: editDraft.category || null,
+      subcategory: editDraft.subcategory || null,
       colorTags: editDraft.colorTags
         ? editDraft.colorTags
             .split(",")
@@ -471,6 +550,7 @@ export default function BestieCloset() {
       trackClosetEvent("BESTIE_CLOSET_EDIT", {
         itemId: updated.id,
         category: updated.category,
+        subcategory: updated.subcategory,
         season: updated.season,
         visibility: normaliseVisibility(updated.visibility),
       });
@@ -496,6 +576,7 @@ export default function BestieCloset() {
       trackClosetEvent("BESTIE_CLOSET_DELETE", {
         itemId: item.id,
         category: item.category,
+        subcategory: item.subcategory,
       });
     } catch (e) {
       console.error("[BestieCloset] delete error", e);
@@ -534,6 +615,7 @@ export default function BestieCloset() {
     trackClosetEvent("BESTIE_CLOSET_USE_IN_CONTENT", {
       itemId: item.id,
       category: item.category,
+      subcategory: item.subcategory,
     });
     window.location.assign(
       `/bestie/content?closetId=${encodeURIComponent(item.id)}`,
@@ -644,6 +726,7 @@ export default function BestieCloset() {
                     </div>
                     <div className="bc-mood-card-tags">
                       {it.category && <span>{it.category}</span>}
+                      {it.subcategory && <span>{it.subcategory}</span>}
                       {it.season && <span>{it.season}</span>}
                     </div>
                   </div>
@@ -868,6 +951,11 @@ export default function BestieCloset() {
                         {it.category && (
                           <span className="bc-tag">{it.category}</span>
                         )}
+                        {it.subcategory && (
+                          <span className="bc-tag bc-tag--soft">
+                            {it.subcategory}
+                          </span>
+                        )}
                         {it.season && (
                           <span className="bc-tag bc-tag--soft">
                             {it.season}
@@ -968,11 +1056,69 @@ export default function BestieCloset() {
               <div className="bc-field">
                 <label className="bc-label">Photo</label>
                 <input
+                  ref={uploadFileInputRef}
                   type="file"
                   accept="image/*"
                   disabled={uploadBusy}
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  onChange={handleUploadFileChange}
                 />
+                {uploadPreviewUrl && (
+                  <div className="bc-upload-preview">
+                    <div className="bc-upload-preview-thumbWrap">
+                      <img
+                        src={uploadPreviewUrl}
+                        alt={uploadTitle || "Closet piece preview"}
+                      />
+                    </div>
+                    <div className="bc-upload-preview-meta">
+                      <div className="bc-upload-preview-title">
+                        {uploadTitle || uploadFile?.name || "Untitled piece"}
+                      </div>
+                      <div className="bc-upload-preview-tags">
+                        {uploadCategory && (
+                          <span className="bc-tag">{uploadCategory}</span>
+                        )}
+                        {uploadSubcategory && (
+                          <span className="bc-tag bc-tag--soft">
+                            {uploadSubcategory}
+                          </span>
+                        )}
+                        {uploadVisibility && (
+                          <span className="bc-tag bc-tag--soft">
+                            {normaliseVisibility(uploadVisibility) === "PUBLIC"
+                              ? "Public"
+                              : normaliseVisibility(uploadVisibility) ===
+                                "BESTIE"
+                              ? "Bestie-only"
+                              : "Private"}
+                          </span>
+                        )}
+                        {uploadColors &&
+                          uploadColors
+                            .split(",")
+                            .map((x) => x.trim())
+                            .filter(Boolean)
+                            .slice(0, 3)
+                            .map((c) => (
+                              <span
+                                key={c}
+                                className="bc-tag bc-tag--color bc-tag--soft"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="bc-btn bc-btn-ghost bc-btn-sm bc-upload-preview-clear"
+                        onClick={handleRemoveUploadPhoto}
+                        disabled={uploadBusy}
+                      >
+                        Remove photo
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bc-field">
@@ -988,14 +1134,14 @@ export default function BestieCloset() {
 
               <div className="bc-field-row">
                 <div className="bc-field">
-                  <label className="bc-label">Category</label>
+                  <label className="bc-label">Category *</label>
                   <select
                     className="bc-input"
                     value={uploadCategory}
                     disabled={uploadBusy}
                     onChange={(e) => setUploadCategory(e.target.value)}
                   >
-                    <option value="">Uncategorized</option>
+                    <option value="">Select a category…</option>
                     {CATEGORY_OPTIONS.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -1005,7 +1151,26 @@ export default function BestieCloset() {
                 </div>
 
                 <div className="bc-field">
-                  <label className="bc-label">Season</label>
+                  <label className="bc-label">Sub-category</label>
+                  <select
+                    className="bc-input"
+                    value={uploadSubcategory}
+                    disabled={uploadBusy}
+                    onChange={(e) => setUploadSubcategory(e.target.value)}
+                  >
+                    <option value="">Select a sub-category…</option>
+                    {SUBCATEGORY_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="bc-field-row">
+                <div className="bc-field">
+                  <label className="bc-label">Season (optional)</label>
                   <select
                     className="bc-input"
                     value={uploadSeason}
@@ -1141,7 +1306,34 @@ export default function BestieCloset() {
                 </select>
               </div>
               <div className="bc-field">
-                <label className="bc-label">Season</label>
+                <label className="bc-label">Sub-category</label>
+                <select
+                  className="bc-input"
+                  value={editDraft.subcategory}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      subcategory: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">
+                    {editDraft.subcategory
+                      ? `Keep as "${editDraft.subcategory}"`
+                      : "Select a sub-category…"}
+                  </option>
+                  {SUBCATEGORY_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="bc-field-row">
+              <div className="bc-field">
+                <label className="bc-label">Season (optional)</label>
                 <select
                   className="bc-input"
                   value={editDraft.season}
@@ -1909,6 +2101,56 @@ const styles = `
   display:flex;
   flex-wrap:wrap;
   gap:8px;
+}
+
+/* Upload preview inside drawer */
+
+.bc-upload-preview {
+  margin-top:8px;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  border-radius:16px;
+  border:1px dashed #fecaca;
+  background:#fff7fb;
+  padding:8px 9px;
+}
+
+.bc-upload-preview-thumbWrap {
+  flex:0 0 82px;
+  border-radius:14px;
+  overflow:hidden;
+  background:#f3f4f6;
+}
+
+.bc-upload-preview-thumbWrap img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.bc-upload-preview-meta {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.bc-upload-preview-title {
+  font-size:0.9rem;
+  font-weight:600;
+  color:#111827;
+}
+
+.bc-upload-preview-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+}
+
+.bc-upload-preview-clear {
+  align-self:flex-start;
 }
 
 /* Notices */

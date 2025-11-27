@@ -1,5 +1,5 @@
 {
- "Description": "Closet approval workflow - dev",
+ "Description": "Closet + Besties workflows - dev",
  "Resources": {
   "VirusScanFnServiceRole105BB56B": {
    "Type": "AWS::IAM::Role",
@@ -989,10 +989,198 @@
     "aws:cdk:path": "WorkflowsStack/ClosetUploadApproval/Resource"
    }
   },
+  "BackgroundChangeApprovalRole4E27E01B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/BackgroundChangeApproval/Role/Resource"
+   }
+  },
+  "BackgroundChangeApprovalRoleDefaultPolicy3EC2C3AC": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "BackgroundChangeApprovalRoleDefaultPolicy3EC2C3AC",
+    "Roles": [
+     {
+      "Ref": "BackgroundChangeApprovalRole4E27E01B"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/BackgroundChangeApproval/Role/DefaultPolicy/Resource"
+   }
+  },
+  "BackgroundChangeApprovalE28AFC8B": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": "{\"StartAt\":\"BgChange_Start\",\"States\":{\"BgChange_Start\":{\"Type\":\"Pass\",\"Next\":\"BgChange_Moderation\"},\"BgChange_Moderation\":{\"Type\":\"Pass\",\"Next\":\"BgChange_Complete\"},\"BgChange_Complete\":{\"Type\":\"Pass\",\"End\":true}},\"TimeoutSeconds\":1800}",
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "BackgroundChangeApprovalRole4E27E01B",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "BackgroundChangeApprovalRoleDefaultPolicy3EC2C3AC",
+    "BackgroundChangeApprovalRole4E27E01B"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/BackgroundChangeApproval/Resource"
+   }
+  },
+  "StoryPublishWorkflowRoleC2FEB4D6": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/StoryPublishWorkflow/Role/Resource"
+   }
+  },
+  "StoryPublishWorkflowRoleDefaultPolicyD2AB6951": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StoryPublishWorkflowRoleDefaultPolicyD2AB6951",
+    "Roles": [
+     {
+      "Ref": "StoryPublishWorkflowRoleC2FEB4D6"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/StoryPublishWorkflow/Role/DefaultPolicy/Resource"
+   }
+  },
+  "StoryPublishWorkflowCD58F9E9": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": "{\"StartAt\":\"StoryPublish_Compose\",\"States\":{\"StoryPublish_Compose\":{\"Type\":\"Pass\",\"Next\":\"StoryPublish_ScheduleOrPublish\"},\"StoryPublish_ScheduleOrPublish\":{\"Type\":\"Pass\",\"End\":true}},\"TimeoutSeconds\":3600}",
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "StoryPublishWorkflowRoleC2FEB4D6",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "StoryPublishWorkflowRoleDefaultPolicyD2AB6951",
+    "StoryPublishWorkflowRoleC2FEB4D6"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsStack/StoryPublishWorkflow/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy26DQAz8ltw3bgq99NhEqhSprRD0jsziBPPYRXhJVK323yuWtqKnmbFH43ECSZLCYYd32eu62/dcgS8c6k7hXUrf41DVCP51NtqxNep0MVue0TSwCFsTFOMAPrc9LYuIme1Zf0VfZEGJEfCfdmS9TFdSzJXoicffzK0Oam1QGltTK/AR4a+BpCWKkBN4WUBJCsdZd+SOKKTE0Xj5sUrpUDoBXxjJ5qpnadRbjD6bm+0o/HeDPzWWNanCoaN31A2b+NdWh6ByEjtPmlS8Xzi8srkGtbSFVh5uyQEen+Fp1wrzfpqN44EgX/EbzqyS/HwBAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WPQWvCQBCFf4v3dWpjLz1WoVBoSzC9h8k66phkV/I2Sln2v5esbdHT92bm8XhTUFEsaTHjC+Z22847bShWgW1r+II6dtw3W6b4Ojob1Duz3rlbXcrQK6DeJaPcU9z4TqZDZuk7td/Zl1UycKD45U9qp+1VVGMDO+jpL/N2TubaoHZ+K0fQZ8Z/AyxrBiSAXiYYLGk12lbCiiEGQU67XyvqwGhBsXIox6ZTHMx7jn5zZ99KundTXB+8WjFV4CAfbA/q8l93c8lASmYj8ONgxeQSVeC9un0yU2U64uFcLOjxmZ5mR6jOh9EF7YU2V/4AfzDbioEBAAA="
    },
    "Metadata": {
     "aws:cdk:path": "WorkflowsStack/CDKMetadata/Default"
@@ -1006,6 +1194,22 @@
    },
    "Export": {
     "Name": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
+   }
+  },
+  "ExportsOutputRefBackgroundChangeApprovalE28AFC8B01294A97": {
+   "Value": {
+    "Ref": "BackgroundChangeApprovalE28AFC8B"
+   },
+   "Export": {
+    "Name": "WorkflowsStack:ExportsOutputRefBackgroundChangeApprovalE28AFC8B01294A97"
+   }
+  },
+  "ExportsOutputRefStoryPublishWorkflowCD58F9E99CC790C1": {
+   "Value": {
+    "Ref": "StoryPublishWorkflowCD58F9E9"
+   },
+   "Export": {
+    "Name": "WorkflowsStack:ExportsOutputRefStoryPublishWorkflowCD58F9E99CC790C1"
    }
   }
  },

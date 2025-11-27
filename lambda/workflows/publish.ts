@@ -3,7 +3,7 @@ import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 const ddb = new DynamoDBClient({});
 const TABLE_NAME = process.env.TABLE_NAME;
 
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
   const { itemId } = event;
 
   const now = new Date().toISOString();

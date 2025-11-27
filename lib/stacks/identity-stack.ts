@@ -1,151 +1,152 @@
-import * as cdk from "aws-cdk-lib";
+import {
+  Stack,
+  StackProps,
+  CfnOutput,
+  Duration,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as cognito from "aws-cdk-lib/aws-cognito";
-import * as ssm from "aws-cdk-lib/aws-ssm";
+import {
+  OAuthScope,
+  UserPool,
+  UserPoolClient,
+  UserPoolDomain,
+  ProviderAttribute,
+  AccountRecovery,
+} from "aws-cdk-lib/aws-cognito";
+import {
+  IdentityPool,
+  IdentityPoolAuthenticationProviders,
+  UserPoolAuthenticationProvider,
+} from "@aws-cdk/aws-cognito-identitypool-alpha";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 
-export interface IdentityStackProps extends cdk.StackProps {
-  /** e.g. https://d1so4q6zsby5r.cloudfront.net (no trailing slash) */
-  webOrigin: string;
+interface IdentityStackProps extends StackProps {
+  envName: "dev" | "prod";
+  hostedZoneDomain: string; // stylingadventures.com
+  cognitoDomainPrefix: string; // sa-dev-637423256673
 }
 
-/** Resolve a stable, valid Hosted UI domainPrefix */
-function resolveCognitoDomainPrefix(scope: Construct): string {
-  const fromCtx =
-    scope.node.tryGetContext("/sa/dev/cognito/domainprefix") ??
-    scope.node.tryGetContext("sa:cognito:domainprefix");
-  const fromEnv = process.env.SA_COGNITO_PREFIX;
-  const fallback = `sa-dev-${cdk.Stack.of(scope).account}`;
-
-  const raw = String(fromCtx ?? fromEnv ?? fallback).trim().toLowerCase();
-  if (!/^[a-z0-9-]+$/.test(raw)) {
-    throw new Error(
-      `Invalid Cognito domainPrefix "${raw}". Use lowercase letters, numbers, and hyphens only.`
-    );
-  }
-  console.log(`Using Cognito domainPrefix: ${raw}`);
-  return raw;
-}
-
-export class IdentityStack extends cdk.Stack {
-  public readonly userPool: cognito.UserPool;
-  public readonly userPoolClient: cognito.UserPoolClient;
+export class IdentityStack extends Stack {
+  public readonly userPool: UserPool;
+  public readonly userPoolClient: UserPoolClient;
+  public readonly identityPool: IdentityPool;
 
   constructor(scope: Construct, id: string, props: IdentityStackProps) {
     super(scope, id, props);
 
-    const envName = this.node.tryGetContext("env") ?? "dev";
-    const webOrigin = props.webOrigin.replace(/\/+$/, ""); // normalize
+    const { envName, hostedZoneDomain, cognitoDomainPrefix } = props;
 
-    // We still allow SSM override for logout root if you ever set it,
-    // but we stop using SSM for callback to keep things simple.
-    const ssmLogoutRoot = ssm.StringParameter.valueFromLookup(
-      this,
-      `/sa/${envName}/web/logoutRoot`
-    );
+    const isProd = envName === "prod";
 
-    const callbackUrl = `${webOrigin}/callback`;
-
-    const logoutRoot =
-      ssmLogoutRoot && typeof ssmLogoutRoot === "string" && !ssmLogoutRoot.startsWith("smp:")
-        ? ssmLogoutRoot
-        : webOrigin;
-
-    // --- User Pool ---
-    this.userPool = new cognito.UserPool(this, "UserPool", {
+    // ───────────────────────────────────────────────
+    // 1. User Pool
+    // ───────────────────────────────────────────────
+    this.userPool = new UserPool(this, "SA-UserPool", {
+      userPoolName: `SA-${envName}-UserPool`,
       selfSignUpEnabled: true,
       signInAliases: { email: true },
-      standardAttributes: { email: { required: true, mutable: false } },
-      passwordPolicy: {
-        minLength: 12,
-        requireLowercase: true,
-        requireUppercase: true,
-        requireDigits: true,
-        requireSymbols: true,
+      autoVerify: { email: true },
+      accountRecovery: AccountRecovery.EMAIL_ONLY,
+      standardAttributes: {
+        email: { required: true, mutable: true },
       },
-      removalPolicy:
-        envName === "prd" ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      customAttributes: {
+        tier: { stringValue: "FREE" },
+      },
     });
 
-    // --- Web Client (PKCE) ---
-    this.userPoolClient = new cognito.UserPoolClient(this, "WebClient", {
-      userPool: this.userPool,
-      generateSecret: false,
-      preventUserExistenceErrors: true,
+    // ───────────────────────────────────────────────
+    // 2. User Pool Client
+    // ───────────────────────────────────────────────
+
+    const callbackUrls = isProd
+      ? [`https://${hostedZoneDomain}/callback`]
+      : ["http://localhost:5173/callback"];
+
+    const logoutUrls = isProd
+      ? [`https://${hostedZoneDomain}/`]
+      : ["http://localhost:5173/"];
+
+    this.userPoolClient = this.userPool.addClient("SA-WebClient", {
+      userPoolClientName: `SA-${envName}-WebClient`,
       oAuth: {
-        flows: { authorizationCodeGrant: true },
-        scopes: [
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.PROFILE,
-        ],
-        callbackUrls: [
-          // Prod / CloudFront callback
-          callbackUrl,
-
-          // 🔹 Local dev callbacks — MUST include the one used in sa.js
-          "http://localhost:5173/callback",
-          "http://localhost:5173/callback/",
-          "http://localhost:5173/callback/index.html",
-        ],
-        logoutUrls: [
-          `${logoutRoot}/logout/index.html`,
-          `${logoutRoot}/logout/`,
-          `${logoutRoot}/`,
-          "http://localhost:5173/logout/index.html",
-          "http://localhost:5173/logout/",
-          "http://localhost:5173/",
-        ],
+        callbackUrls,
+        logoutUrls,
+        flows: { implicitCodeGrant: true },
+        scopes: [OAuthScope.OPENID, OAuthScope.EMAIL],
       },
-      accessTokenValidity: cdk.Duration.hours(1),
-      idTokenValidity: cdk.Duration.hours(1),
-      refreshTokenValidity: cdk.Duration.days(30),
-      authFlows: { userSrp: false, userPassword: false },
+      supportedIdentityProviders: ["COGNITO"],
+      refreshTokenValidity: Duration.days(30),
+      idTokenValidity: Duration.hours(12),
     });
 
-    // --- Hosted UI Domain ---
-    const domainPrefix = resolveCognitoDomainPrefix(this);
-    new cognito.UserPoolDomain(this, "HostedUiDomain", {
-      userPool: this.userPool,
-      cognitoDomain: { domainPrefix },
-    });
+    // ───────────────────────────────────────────────
+    // 3. Cognito Domain
+    // ───────────────────────────────────────────────
 
-    // --- Groups ---
-    (["FAN", "BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"] as const).forEach(
-      (g, i) => {
-        new cognito.CfnUserPoolGroup(this, `${g}Group`, {
-          groupName: g,
-          userPoolId: this.userPool.userPoolId,
-          description: `${g} group`,
-          precedence: g === "ADMIN" ? 1 : 10 + i,
-        });
-      }
-    );
-
-    // --- Identity Pool ---
-    const identityPool = new cognito.CfnIdentityPool(this, "IdentityPool", {
-      allowUnauthenticatedIdentities: false,
-      cognitoIdentityProviders: [
-        {
-          clientId: this.userPoolClient.userPoolClientId,
-          providerName: this.userPool.userPoolProviderName,
+    if (!isProd) {
+      // DEV — Cognito-hosted domain
+      new UserPoolDomain(this, "SA-DevCognitoDomain", {
+        userPool: this.userPool,
+        cognitoDomain: {
+          domainPrefix: cognitoDomainPrefix, // sa-dev-637423256673
         },
-      ],
+      });
+    } else {
+      // PROD — Custom domain w/ ACM cert
+      const certArn = StringParameter.valueForStringParameter(
+        this,
+        `/sa/prod/cognito/customDomainCertArn`
+      );
+
+      new UserPoolDomain(this, "SA-ProdCustomCognitoDomain", {
+        userPool: this.userPool,
+        customDomain: {
+          domainName: `auth.${hostedZoneDomain}`,
+          certificate: Certificate.fromCertificateArn(this, "ProdCognitoCert", certArn),
+        },
+      });
+    }
+
+    // ───────────────────────────────────────────────
+    // 4. Identity Pool (federated identities)
+    // ───────────────────────────────────────────────
+    this.identityPool = new IdentityPool(this, "SA-IdentityPool", {
+      identityPoolName: `SA-${envName}-IdentityPool`,
+      allowUnauthenticatedIdentities: false,
+      authenticationProviders: IdentityPoolAuthenticationProviders.fromUserPoolClient(
+        new UserPoolAuthenticationProvider({
+          userPool: this.userPool,
+          userPoolClient: this.userPoolClient,
+        })
+      ),
     });
 
-    // --- Outputs ---
-    new cdk.CfnOutput(this, "CognitoUserPoolId", {
+    // ───────────────────────────────────────────────
+    // 5. Outputs
+    // ───────────────────────────────────────────────
+
+    new CfnOutput(this, "UserPoolId", {
       value: this.userPool.userPoolId,
     });
-    new cdk.CfnOutput(this, "CognitoWebClientId", {
+
+    new CfnOutput(this, "UserPoolClientId", {
       value: this.userPoolClient.userPoolClientId,
     });
-    new cdk.CfnOutput(this, "IdentityPoolId", { value: identityPool.ref });
-    new cdk.CfnOutput(this, "HostedUiLoginUrl", {
-      value:
-        `https://${domainPrefix}.auth.${this.region}.amazoncognito.com/login?` +
-        `client_id=${this.userPoolClient.userPoolClientId}` +
-        `&response_type=code&scope=openid+profile+email` +
-        `&redirect_uri=${encodeURIComponent(callbackUrl)}`,
+
+    new CfnOutput(this, "IdentityPoolId", {
+      value: this.identityPool.identityPoolId,
+    });
+
+    new CfnOutput(this, "CognitoDomain", {
+      value: isProd
+        ? `https://auth.${hostedZoneDomain}`
+        : `https://${cognitoDomainPrefix}.auth.${this.region}.amazoncognito.com`,
+    });
+
+    new CfnOutput(this, "CallbackUrl", {
+      value: callbackUrls.join(","),
     });
   }
 }
