@@ -1,0 +1,304 @@
+{
+ "Resources": {
+  "ApprovalStateMachineRoleE1EEC7A5": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/ApprovalStateMachine/Role/Resource"
+   }
+  },
+  "ApprovalStateMachine767589AA": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": "{\"StartAt\":\"ApprovalNoop\",\"States\":{\"ApprovalNoop\":{\"Type\":\"Pass\",\"Comment\":\"Closet approval workflow placeholder – expand to multi-step moderation later\",\"End\":true}}}",
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "ApprovalStateMachineRoleE1EEC7A5",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA-ClosetApproval-dev",
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ApprovalStateMachineRoleE1EEC7A5"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/ApprovalStateMachine/Resource"
+   }
+  },
+  "BackgroundChangeStateMachineRole7FBE53CC": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/BackgroundChangeStateMachine/Role/Resource"
+   }
+  },
+  "BackgroundChangeStateMachine2ACB4023": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": "{\"StartAt\":\"BgChangeNoop\",\"States\":{\"BgChangeNoop\":{\"Type\":\"Pass\",\"Comment\":\"Background change workflow placeholder – expand to moderation + processing later\",\"End\":true}}}",
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "BackgroundChangeStateMachineRole7FBE53CC",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA-BackgroundChange-dev",
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "DependsOn": [
+    "BackgroundChangeStateMachineRole7FBE53CC"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/BackgroundChangeStateMachine/Resource"
+   }
+  },
+  "StoryPublishStateMachineRole46B5253B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/StoryPublishStateMachine/Role/Resource"
+   }
+  },
+  "StoryPublishStateMachine3539E2DC": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": "{\"StartAt\":\"StoryPublishNoop\",\"States\":{\"StoryPublishNoop\":{\"Type\":\"Pass\",\"Comment\":\"Story publish workflow placeholder – expand to scheduling / publishing / syndication later\",\"End\":true}}}",
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "StoryPublishStateMachineRole46B5253B",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA-StoryPublish-dev",
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "workflows"
+     }
+    ]
+   },
+   "DependsOn": [
+    "StoryPublishStateMachineRole46B5253B"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/StoryPublishStateMachine/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02Juw7CMAwAv6V7YkpgYWZGoPQDKpOmwn0kVe3QIcq/I8rCdLo7A8acoK5wY+26UU/0hNwIulHhxm1m8UufghOKgSE/kFk1guJv6F4UvLr24d+LIpwh2zjt68tSlPUc0+r2dE+yJCkqxM7DwIe3qeF4gXM1MJFeUxCaPdgfP8p2tIefAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Workflows-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ApprovalStateMachineArn": {
+   "Value": {
+    "Ref": "ApprovalStateMachine767589AA"
+   },
+   "Export": {
+    "Name": "SA-ApprovalSMArn-dev"
+   }
+  },
+  "BgChangeStateMachineArn": {
+   "Value": {
+    "Ref": "BackgroundChangeStateMachine2ACB4023"
+   },
+   "Export": {
+    "Name": "SA-BgChangeSMArn-dev"
+   }
+  },
+  "StoryPublishStateMachineArn": {
+   "Value": {
+    "Ref": "StoryPublishStateMachine3539E2DC"
+   },
+   "Export": {
+    "Name": "SA-StoryPublishSMArn-dev"
+   }
+  },
+  "ExportsOutputRefApprovalStateMachine767589AACD522D74": {
+   "Value": {
+    "Ref": "ApprovalStateMachine767589AA"
+   },
+   "Export": {
+    "Name": "SA-Workflows-dev:ExportsOutputRefApprovalStateMachine767589AACD522D74"
+   }
+  },
+  "ExportsOutputRefBackgroundChangeStateMachine2ACB402343526F52": {
+   "Value": {
+    "Ref": "BackgroundChangeStateMachine2ACB4023"
+   },
+   "Export": {
+    "Name": "SA-Workflows-dev:ExportsOutputRefBackgroundChangeStateMachine2ACB402343526F52"
+   }
+  },
+  "ExportsOutputRefStoryPublishStateMachine3539E2DC8144BBA8": {
+   "Value": {
+    "Ref": "StoryPublishStateMachine3539E2DC"
+   },
+   "Export": {
+    "Name": "SA-Workflows-dev:ExportsOutputRefStoryPublishStateMachine3539E2DC8144BBA8"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

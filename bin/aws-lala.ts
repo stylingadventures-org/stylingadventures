@@ -86,6 +86,7 @@ class DataStack extends cdk.Stack {
 // 1) Web hosting FIRST so we know the final CloudFront origin
 const web = new WebStack(app, "WebStack", {
   env,
+  envName, // 👈 IMPORTANT: fixes the envName compile error
   description: `Static web hosting (S3 + CloudFront) - ${envName}`,
 });
 const cloudFrontOrigin = `https://${web.distribution.domainName}`;
@@ -100,7 +101,10 @@ const webOrigin = (
 // 2) Identity (Cognito) — receives webOrigin for callback/logout URLs
 const identity = new IdentityStack(app, "IdentityStack", {
   env,
+  envName,
   webOrigin,
+  // simple, unique-enough domain prefix; matches your previous pattern
+  cognitoDomainPrefix: `sa-${envName}-${env.account ?? "local"}`,
   description: `Cognito (user pool, app client, hosted UI, identity pool) - ${envName}`,
 });
 
@@ -135,7 +139,12 @@ const uploads = new UploadsStack(app, "UploadsStack", {
   table: data.table, // let bg-worker update closet items
   description: `Uploads API, S3, and thumbs CDN - ${envName}`,
 });
-const uploadsBucket = uploads.bucket;
+
+// Make sure UploadsStack exposes a public uploads bucket, e.g.:
+// public readonly uploadsBucket: s3.Bucket;
+// and set it in the constructor.
+// Then this line is correct:
+const uploadsBucket = uploads.uploadsBucket;
 
 // 6) Besties – closet + background change approvals
 const bestiesCloset = new BestiesClosetStack(app, "BestiesClosetStack", {

@@ -1,0 +1,140 @@
+{
+ "Resources": {
+  "ClosetTableCB17EED6": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "sk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi1pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi1sk",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "gsi1",
+      "KeySchema": [
+       {
+        "AttributeName": "gsi1pk",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "gsi1sk",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "pk",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "sk",
+      "KeyType": "RANGE"
+     }
+    ],
+    "TableName": "stylingadventures-closet-dev",
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "database"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SA-Database-dev/ClosetTable/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/yXGSw5AMBAA0LPYt4OysXYD7GXajqQtbWJ8IuLuElbvKVCqgiLDk6WxQc5Ow91vaILAk0d7RVyS1XAPqGcS7RS/PKIjTvtq6BExWQLP+aEKKBuoM8/OyXWPm1sIut8XPMhXFGgAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Database-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputFnGetAttClosetTableCB17EED6ArnF6FB3107": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ClosetTableCB17EED6",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SA-Database-dev:ExportsOutputFnGetAttClosetTableCB17EED6ArnF6FB3107"
+   }
+  },
+  "ExportsOutputRefClosetTableCB17EED668D72B6A": {
+   "Value": {
+    "Ref": "ClosetTableCB17EED6"
+   },
+   "Export": {
+    "Name": "SA-Database-dev:ExportsOutputRefClosetTableCB17EED668D72B6A"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,218 @@
+{
+ "Resources": {
+  "WebBucket12880F5B": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketName": "stylingadventures-web-dev-637423256673",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "web"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SA-Web-dev/WebBucket/Resource"
+   }
+  },
+  "WebBucketPolicy95D08FAA": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "WebBucket12880F5B"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:GetObject",
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "WebDistributionOrigin1S3Origin242B188A",
+          "S3CanonicalUserId"
+         ]
+        }
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "WebBucket12880F5B",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Web-dev/WebBucket/Policy/Resource"
+   }
+  },
+  "WebDistributionOrigin1S3Origin242B188A": {
+   "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+   "Properties": {
+    "CloudFrontOriginAccessIdentityConfig": {
+     "Comment": "Identity for SAWebdevWebDistributionOrigin18E073A3D"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Web-dev/WebDistribution/Origin1/S3Origin/Resource"
+   }
+  },
+  "WebDistribution59C46482": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "DefaultCacheBehavior": {
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "Compress": true,
+      "TargetOriginId": "SAWebdevWebDistributionOrigin18E073A3D",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "HttpVersion": "http2",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "WebBucket12880F5B",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "SAWebdevWebDistributionOrigin18E073A3D",
+       "S3OriginConfig": {
+        "OriginAccessIdentity": {
+         "Fn::Join": [
+          "",
+          [
+           "origin-access-identity/cloudfront/",
+           {
+            "Ref": "WebDistributionOrigin1S3Origin242B188A"
+           }
+          ]
+         ]
+        }
+       }
+      }
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "project",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "stack",
+      "Value": "web"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Web-dev/WebDistribution/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WMTQ6CMBCFz8K+jFjcuFSMiSuMHsBAKWYAW9OZSkzTuxvERDeu3k/e9yRImUOWVCOlqunTAWsIZ65UL6qRLoFyCFuves2iaM3HzXK0A6rnt55zFGqwvmmdNQxhh8QOa89ojSgdXtFslNJEh0YbRn7jxQTsJ+Df4vcmxqkpPd89R2Fso6GjxUNmsFzDKukIMXXeMN40nGZ9ARPt1dvlAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SA-Web-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "WebBucketName": {
+   "Value": {
+    "Ref": "WebBucket12880F5B"
+   },
+   "Export": {
+    "Name": "SA-WebBucketName-dev"
+   }
+  },
+  "CloudFrontDistributionId": {
+   "Value": {
+    "Ref": "WebDistribution59C46482"
+   },
+   "Export": {
+    "Name": "SA-WebDistributionId-dev"
+   }
+  },
+  "CloudFrontDomainName": {
+   "Value": {
+    "Fn::GetAtt": [
+     "WebDistribution59C46482",
+     "DomainName"
+    ]
+   },
+   "Export": {
+    "Name": "SA-WebDomainName-dev"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

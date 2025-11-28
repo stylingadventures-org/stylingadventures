@@ -5,16 +5,15 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as appsync from "aws-cdk-lib/aws-appsync";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
   table: dynamodb.ITable;
-  closetApprovalSm: sfn.IStateMachine;
 
-  // 👇 NEW Besties workflows
+  closetApprovalSm: sfn.IStateMachine;
   backgroundChangeSm: sfn.IStateMachine;
   storyPublishSm: sfn.IStateMachine;
 }
@@ -42,12 +41,12 @@ export class ApiStack extends Stack {
     };
 
     // ────────────────────────────────────────────────────────────
-    // GRAPHQL API  (uses lib/stacks/schema.graphql)
+    // GRAPHQL API
     // ────────────────────────────────────────────────────────────
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
       definition: appsync.Definition.fromFile(
-        path.join(process.cwd(), "lib", "stacks", "schema.graphql"),
+        path.join(process.cwd(), "appsync", "schema.graphql"),
       ),
       authorizationConfig: {
         defaultAuthorization: {
@@ -59,7 +58,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // SIMPLE HELLO TEST ENDPOINT (optional, can be deleted)
+    // SIMPLE HELLO TEST ENDPOINT (optional)
     // ────────────────────────────────────────────────────────────
     const helloFn = new lambda.Function(this, "HelloFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -85,17 +84,31 @@ export class ApiStack extends Stack {
     noneDs.createResolver("QueryMeResolver", {
       typeName: "Query",
       fieldName: "me",
-      requestMappingTemplate: appsync.MappingTemplate.fromString(`{
-        "version": "2017-02-28"
-      }`),
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+  {
+    "version": "2017-02-28",
+    "payload": {}
+  }
+  `),
       responseMappingTemplate: appsync.MappingTemplate.fromString(`
-        $util.toJson({
-          "id": $util.defaultIfNull($ctx.identity.sub, "anonymous"),
-          "email": $util.defaultIfNull($ctx.identity.claims.email, ""),
-          "role": "FAN",
-          "tier": "FREE"
-        })
-      `),
+    #set($sub = "anonymous")
+    #set($email = "")
+
+    #if($ctx.identity && $ctx.identity.sub)
+      #set($sub = $ctx.identity.sub)
+    #end
+
+    #if($ctx.identity && $ctx.identity.claims && $ctx.identity.claims.get("email"))
+      #set($email = $ctx.identity.claims.get("email"))
+    #end
+
+    $util.toJson({
+      "id": $sub,
+      "email": $email,
+      "role": "FAN",
+      "tier": "FREE"
+    })
+  `),
     });
 
     // ────────────────────────────────────────────────────────────
@@ -118,7 +131,7 @@ export class ApiStack extends Stack {
     backgroundChangeSm.grantStartExecution(closetFn);
     storyPublishSm.grantStartExecution(closetFn);
 
-    // 👇 allow GraphQL Lambda to emit engagement events to EventBridge
+    // allow GraphQL Lambda to emit engagement events to EventBridge
     closetFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["events:PutEvents"],
@@ -138,7 +151,7 @@ export class ApiStack extends Stack {
       fieldName: "myWishlist",
     });
 
-    // NEW: Bestie closet alias (same Lambda, different field)
+    // Bestie closet alias (same Lambda, different field)
     closetDs.createResolver("QueryBestieClosetItemsResolver", {
       typeName: "Query",
       fieldName: "bestieClosetItems",
@@ -199,20 +212,18 @@ export class ApiStack extends Stack {
       fieldName: "adminClosetItemComments",
     });
 
-    // 👇 field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
+    // field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
     closetDs.createResolver("PinnedClosetItemsResolver", {
       typeName: "GameProfile",
       fieldName: "pinnedClosetItems",
     });
 
-    // 👇 Besties mutations / hooks (tier-aware logic lives inside lambda/graphql)
-    // Background change request (Besties-only mutation)
+    // Besties mutations / hooks (tier-aware logic lives inside lambda/graphql)
     closetDs.createResolver("RequestBgChangeResolver", {
       typeName: "Mutation",
       fieldName: "requestClosetBackgroundChange",
     });
 
-    // Story creation + publish (Besties-only)
     closetDs.createResolver("CreateStoryResolver", {
       typeName: "Mutation",
       fieldName: "createStory",
@@ -223,7 +234,6 @@ export class ApiStack extends Stack {
       fieldName: "publishStory",
     });
 
-    // Community feed selection (Besties can push/remove their own items)
     closetDs.createResolver("AddClosetItemToFeedResolver", {
       typeName: "Mutation",
       fieldName: "addClosetItemToCommunityFeed",
@@ -234,7 +244,6 @@ export class ApiStack extends Stack {
       fieldName: "removeClosetItemFromCommunityFeed",
     });
 
-    // Pinterest share hook (writes an event; external call runs elsewhere)
     closetDs.createResolver("ShareClosetItemToPinterestResolver", {
       typeName: "Mutation",
       fieldName: "shareClosetItemToPinterest",
@@ -318,7 +327,6 @@ export class ApiStack extends Stack {
       fieldName: "adminSetClosetAudience",
     });
 
-    // NEW: adminUpdateClosetItem mapping
     closetAdminSource.createResolver("AdminUpdateClosetItemResolver", {
       typeName: "Mutation",
       fieldName: "adminUpdateClosetItem",
@@ -443,7 +451,7 @@ export class ApiStack extends Stack {
     });
 
     const profileFn = new NodejsFunction(this, "ProfileFn", {
-      entry: "lambda/game/profile.ts", // 👈 important: NOT "lambda/profile"
+      entry: "lambda/game/profile.ts", // keep this path as-is
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: gameEnv,
@@ -454,7 +462,7 @@ export class ApiStack extends Stack {
     table.grantReadWriteData(pollsFn);
     table.grantReadWriteData(profileFn);
 
-    const gameplayDS = this.api.addLambdaDataSource("GameplayDS", gameplayFn);
+    const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
     const leaderboardDs = this.api.addLambdaDataSource(
       "LeaderboardDs",
       leaderboardFn,
@@ -462,12 +470,12 @@ export class ApiStack extends Stack {
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
 
-    gameplayDS.createResolver("LogGameEventResolver", {
+    gameplayDs.createResolver("LogGameEventResolver", {
       typeName: "Mutation",
       fieldName: "logGameEvent",
     });
 
-    gameplayDS.createResolver("AwardCoinsResolver", {
+    gameplayDs.createResolver("AwardCoinsResolver", {
       typeName: "Mutation",
       fieldName: "awardCoins",
     });
@@ -524,4 +532,3 @@ export class ApiStack extends Stack {
     new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
   }
 }
-

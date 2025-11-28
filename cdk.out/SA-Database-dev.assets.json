@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "3bbfdbe78d62039e76b65e74713088a9eb9ad4aa6bcf4f89abab1c3723423502": {
+      "displayName": "SA-Database-dev Template",
+      "source": {
+        "path": "SA-Database-dev.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "637423256673-us-east-1-355391d5": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "3bbfdbe78d62039e76b65e74713088a9eb9ad4aa6bcf4f89abab1c3723423502.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

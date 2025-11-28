@@ -2,25 +2,24 @@
   "env": "dev",
   "region": "us-east-1",
 
-  "appsyncUrl": "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  "appsyncUrl": "https://zepcxqvvjzeidmcc2ukpevvllm.appsync-api.us-east-1.amazonaws.com/graphql",
   "redirectUri": "http://localhost:5173/callback",
   "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
 
-  "userPoolId": "us-east-1_aXLKIxbqK",
-  "userPoolWebClientId": "51uc25i7ob3otirvgi66mpht79",
+  "userPoolId": "us-east-1_IX7IhO1uv",
+  "userPoolWebClientId": "74bdeerhqpqdhr4vn10t4vdt4h",
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
 
-  "cognitoDomainPrefix": "sa-dev-637423256673",
-  "cognitoDomain": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+  "cognitoDomainPrefix": "sa-dev-style2",
+  "cognitoDomain": "https://sa-dev-style2.auth.us-east-1.amazoncognito.com",
 
-  "hostedUiDomain": "sa-dev-637423256673",
+  "hostedUiDomain": "sa-dev-style2",
   "logoutUri": "http://localhost:5173/",
 
-  "scopes": ["openid", "email"],
-  "clientId": "51uc25i7ob3otirvgi66mpht79",
+  "scopes": ["openid", "email", "profile"],
+  "clientId": "74bdeerhqpqdhr4vn10t4vdt4h",
 
   "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
 }
-
 
 
