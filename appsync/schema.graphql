@@ -1,0 +1,382 @@
+# Root query type
+type Query {
+  # Simple healthcheck
+  hello: String
+
+  # Current user basic info
+  me: Me!
+
+  # Closet queries (fan / bestie)
+  myCloset(limit: Int, nextToken: String): ClosetConnection!
+  myWishlist(limit: Int, nextToken: String): ClosetConnection!
+  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
+
+  # Comments & likes
+  closetItemComments(
+    itemId: ID!
+    limit: Int
+    nextToken: String
+  ): CommentConnection!
+
+  adminClosetItemLikes(
+    itemId: ID!
+    limit: Int
+    nextToken: String
+  ): LikeConnection!
+
+  adminClosetItemComments(
+    itemId: ID!
+    limit: Int
+    nextToken: String
+  ): CommentConnection!
+
+  # Admin / feed views
+  adminListPending(limit: Int, nextToken: String): ClosetConnection!
+  adminListClosetItems(limit: Int, nextToken: String): ClosetConnection!
+  closetFeed(limit: Int, nextToken: String): ClosetConnection!
+
+  # Episodes / early access
+  isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!
+
+  # Game / leaderboard
+  topXP(limit: Int = 50): [GameProfile!]!
+  topCoins(limit: Int = 50): [GameProfile!]!
+
+  # Polls
+  getPoll(id: ID!): Poll
+
+  # Game profile
+  getMyProfile: GameProfile
+
+  # Bestie status
+  meBestieStatus: BestieStatus!
+}
+
+# Root mutation type
+type Mutation {
+  # Roles
+  setUserRole(userId: ID!, role: String!): RoleResult!
+
+  # Closet (fan/bestie core)
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
+  requestClosetApproval(itemId: ID!): ClosetItem!
+  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+
+  likeClosetItem(itemId: ID!): ClosetItem!
+  commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
+  pinHighlight(itemId: ID!): GameProfile!
+  toggleWishlistItem(itemId: ID!): ClosetItem!
+
+  # Bestie closet aliases (used by BestieCloset UI)
+  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
+  bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
+  bestieDeleteClosetItem(id: ID!): Boolean!
+
+  # Closet admin
+  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+  adminApproveItem(itemId: ID!): ClosetItem!
+  adminRejectItem(itemId: ID!, reason: String): ClosetItem!
+  adminSetClosetAudience(itemId: ID!, visibility: ClosetVisibility!): ClosetItem!
+  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
+
+  # Bestie membership / billing
+  startBestieCheckout: BestieCheckoutSession!
+  claimBestieTrial: BestieStatus!
+  adminSetBestie(userId: ID!): BestieStatus!
+  adminRevokeBestie(userId: ID!): BestieStatus!
+  adminSetBestieByEmail(email: String!): BestieStatus!
+  adminRevokeBestieByEmail(email: String!): BestieStatus!
+
+  # Game engine
+  logGameEvent(input: LogGameEventInput!): GameEventResult!
+  awardCoins(userId: ID!, amount: Int!): GameProfile!
+
+  # Polls
+  createPoll(input: CreatePollInput!): Poll!
+  votePoll(pollId: ID!, optionId: ID!): Poll!
+
+  # Game profile updates
+  grantBadge(userId: ID!, badgeId: ID!): GameProfile!
+  setDisplayName(name: String!): GameProfile!
+  updateProfile(input: UpdateProfileInput!): GameProfile!
+
+  # Bestie workflow: background changes / stories / feed
+  requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!
+  createStory(input: CreateStoryInput!): Story!
+  publishStory(storyId: ID!): Story!
+  addClosetItemToCommunityFeed(itemId: ID!): ClosetItem!
+  removeClosetItemFromCommunityFeed(itemId: ID!): ClosetItem!
+  shareClosetItemToPinterest(itemId: ID!): ShareResult!
+}
+
+# ─────────────────────────────────────────
+# Basic user / roles
+# ─────────────────────────────────────────
+
+type Me {
+  id: ID!
+  email: String!
+  role: String!
+  tier: String!
+}
+
+type RoleResult {
+  userId: ID!
+  role: String!
+}
+
+# ─────────────────────────────────────────
+# Closet core types
+# ─────────────────────────────────────────
+
+enum ClosetVisibility {
+  PRIVATE
+  BESTIE
+  PUBLIC
+}
+
+type ClosetItem {
+  id: ID!
+  ownerId: ID
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility!
+  affiliateUrl: String
+  backgroundStatus: String
+  createdAt: String
+  updatedAt: String
+}
+
+type ClosetConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+input CreateClosetItemInput {
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+}
+
+# Inputs used by BestieCloset UI
+input BestieCreateClosetItemInput {
+  title: String
+  rawMediaKey: String!
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility
+}
+
+input BestieUpdateClosetItemInput {
+  title: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility
+}
+
+input AdminCreateClosetItemInput {
+  ownerId: ID
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+}
+
+input AdminUpdateClosetItemInput {
+  id: ID!
+  title: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+}
+
+input UpdateClosetItemStoryInput {
+  itemId: ID!
+  storyText: String
+  stickers: [String!]
+  pollId: ID
+}
+
+# ─────────────────────────────────────────
+# Comments & likes
+# ─────────────────────────────────────────
+
+type Comment {
+  id: ID!
+  itemId: ID!
+  userId: ID!
+  text: String!
+  createdAt: String!
+}
+
+type CommentConnection {
+  items: [Comment!]!
+  nextToken: String
+}
+
+type Like {
+  itemId: ID!
+  userId: ID!
+  createdAt: String!
+}
+
+type LikeConnection {
+  items: [Like!]!
+  nextToken: String
+}
+
+input CommentOnClosetItemInput {
+  itemId: ID!
+  text: String!
+}
+
+# ─────────────────────────────────────────
+# Bestie membership
+# ─────────────────────────────────────────
+
+type BestieStatus {
+  isBestie: Boolean!
+  tier: String
+  since: String
+}
+
+type BestieCheckoutSession {
+  sessionId: ID!
+  url: String!
+}
+
+# ─────────────────────────────────────────
+# Background change / stories
+# ─────────────────────────────────────────
+
+input BgChangeRequestInput {
+  itemId: ID!
+  requestedBackground: String!
+  notes: String
+}
+
+type BgChangeRequestResult {
+  success: Boolean!
+  requestId: ID
+}
+
+type Story {
+  id: ID!
+  ownerId: ID!
+  title: String
+  body: String
+  coverMediaKey: String
+  closetItemIds: [ID!]
+  status: String
+  createdAt: String
+  publishedAt: String
+}
+
+input CreateStoryInput {
+  title: String!
+  body: String
+  coverMediaKey: String
+  closetItemIds: [ID!]
+}
+
+type ShareResult {
+  success: Boolean!
+  message: String
+}
+
+# ─────────────────────────────────────────
+# Game / XP / profile
+# ─────────────────────────────────────────
+
+type GameProfile {
+  id: ID!
+  displayName: String
+  xp: Int!
+  coins: Int!
+  badges: [Badge!]
+  pinnedClosetItems: [ClosetItem!]!
+}
+
+type Badge {
+  id: ID!
+  name: String!
+  icon: String
+}
+
+input LogGameEventInput {
+  type: String!
+  metadata: String
+}
+
+type GameEventResult {
+  success: Boolean!
+}
+
+input UpdateProfileInput {
+  bio: String
+  avatarUrl: String
+}
+
+# ─────────────────────────────────────────
+# Polls
+# ─────────────────────────────────────────
+
+type Poll {
+  id: ID!
+  question: String!
+  options: [PollOption!]!
+  totalVotes: Int!
+  createdAt: String
+}
+
+type PollOption {
+  id: ID!
+  label: String!
+  votes: Int!
+}
+
+input CreatePollInput {
+  question: String!
+  options: [String!]!
+}
+
+# ─────────────────────────────────────────
+# Episodes / early access
+# ─────────────────────────────────────────
+
+type EpisodeAccess {
+  episodeId: ID!
+  isEarlyAccess: Boolean!
+  canView: Boolean!
+}
+

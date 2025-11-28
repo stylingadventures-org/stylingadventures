@@ -2,12 +2,12 @@
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 
-import { DatabaseStack } from "../lib/stacks/DatabaseStack";
-import { IdentityStack } from "../lib/stacks/IdentityStack";
-import { UploadsStack } from "../lib/stacks/UploadsStack";
-import { ApiStack } from "../lib/stacks/ApiStack";
-import { WorkflowsStack } from "../lib/stacks/WorkflowsStack";
-import { WebStack } from "../lib/stacks/WebStack";
+import { DatabaseStack } from "../lib/database-stack";
+import { IdentityStack } from "../lib/identity-stack";
+import { UploadsStack } from "../lib/uploads-stack";
+import { ApiStack } from "../lib/api-stack";
+import { WorkflowsStack } from "../lib/workflows-stack";
+import { WebStack } from "../lib/web-stack";
 
 const app = new cdk.App();
 
@@ -19,83 +19,73 @@ const envName =
 
 const isProd = envName === "prod";
 
-// Your AWS account
+// Your AWS account & region
 const account = "637423256673";
-
-// Region
 const region = "us-east-1";
 
-// Tags
-const baseTags = {
+const env = { account, region };
+
+// Common tags
+const baseTags: Record<string, string> = {
   project: "stylingadventures",
   environment: envName,
 };
 
-// ─────────────────────────────────────────
+function tag(stack: cdk.Stack, stackName: string) {
+  cdk.Tags.of(stack).add("stack", stackName);
+  Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(stack).add(k, v));
+}
+
 // 1. Database
-// ─────────────────────────────────────────
 const db = new DatabaseStack(app, `SA-Database-${envName}`, {
-  env: { account, region },
+  env,
 });
-cdk.Tags.of(db).add("stack", "database");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(db).add(k, v));
+tag(db, "database");
 
-// ─────────────────────────────────────────
-// 2. Identity / Cognito
-// ─────────────────────────────────────────
-const identity = new IdentityStack(app, `SA-Identity-${envName}`, {
-  env: { account, region },
-  envName,
-  cognitoDomainPrefix: `sa-${envName}-637423256673`,
-});
-cdk.Tags.of(identity).add("stack", "identity");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(identity).add(k, v));
-
-// ─────────────────────────────────────────
-// 3. Uploads + signed upload API
-// ─────────────────────────────────────────
-const uploads = new UploadsStack(app, `SA-Uploads-${envName}`, {
-  env: { account, region },
-  userPool: identity.userPool,
-});
-cdk.Tags.of(uploads).add("stack", "uploads");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(uploads).add(k, v));
-
-// ─────────────────────────────────────────
-// 4. Workflows (Step Functions + EventBridge)
-// ─────────────────────────────────────────
-const workflows = new WorkflowsStack(app, `SA-Workflows-${envName}`, {
-  env: { account, region },
-  table: db.table,
-});
-cdk.Tags.of(workflows).add("stack", "workflows");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(workflows).add(k, v));
-
-// ─────────────────────────────────────────
-// 5. API (AppSync)
-// ─────────────────────────────────────────
-const api = new ApiStack(app, `SA-API-${envName}`, {
-  env: { account, region },
-  table: db.table,
-  userPool: identity.userPool,
-  identityPool: identity.identityPool,
-  workflows,
-});
-cdk.Tags.of(api).add("stack", "api");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(api).add(k, v));
-
-// ─────────────────────────────────────────
-// 6. Frontend Hosting (CloudFront + S3)
-// ─────────────────────────────────────────
-// Option C behavior:
-// dev → default CloudFront domain
-// prod → custom domain stylingadventures.com
+// 2. Web (CloudFront / static site)
+// Exposes webOrigin, cloudFrontOrigin, webBucketName for other stacks.
 const web = new WebStack(app, `SA-Web-${envName}`, {
-  env: { account, region },
+  env,
   envName,
   domainName: isProd ? "stylingadventures.com" : undefined,
   hostedZoneDomain: isProd ? "stylingadventures.com" : undefined,
 });
-cdk.Tags.of(web).add("stack", "web");
-Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(web).add(k, v));
+tag(web, "web");
 
+// 3. Identity (Cognito), wired to webOrigin for OAuth callback/logout URLs
+const identity = new IdentityStack(app, `SA-Identity-${envName}`, {
+  env,
+  envName,
+  cognitoDomainPrefix: `sa-${envName}-style2`,
+  webOrigin: web.webOrigin,
+});
+tag(identity, "identity");
+
+// 4. Uploads – S3 uploads bucket + any presign/related config
+const uploads = new UploadsStack(app, `SA-Uploads-${envName}`, {
+  env,
+  userPool: identity.userPool,
+  webOrigin: web.webOrigin,
+  cloudFrontOrigin: web.cloudFrontOrigin,
+  webBucketName: web.webBucketName,
+  table: db.table,
+});
+tag(uploads, "uploads");
+
+// 5. Workflows – Step Functions state machines
+const workflows = new WorkflowsStack(app, `SA-Workflows-${envName}`, {
+  env,
+  table: db.table,
+});
+tag(workflows, "workflows");
+
+// 6. API – AppSync + Lambdas, wired to specific state machines
+const api = new ApiStack(app, `SA-API-${envName}`, {
+  env,
+  table: db.table,
+  userPool: identity.userPool,
+  closetApprovalSm: workflows.closetApprovalSm,
+  backgroundChangeSm: workflows.backgroundChangeSm,
+  storyPublishSm: workflows.storyPublishSm,
+});
+tag(api, "api");

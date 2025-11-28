@@ -45,6 +45,9 @@ import LandingRedirect from "./routes/util/LandingRedirect.jsx";
 // Auth callback
 import Callback from "./routes/auth/Callback.jsx";
 
+// 🔐 Logout route
+import Logout from "./routes/Logout.jsx";
+
 import "./styles.css";
 
 const router = createBrowserRouter([
@@ -117,6 +120,9 @@ const router = createBrowserRouter([
 
   // Cognito callback route (no Layout chrome)
   { path: "/callback", element: <Callback /> },
+
+  // Hosted UI logout route – clears tokens + redirects to Cognito logout
+  { path: "/logout", element: <Logout /> },
 ]);
 
 function AppBoot() {

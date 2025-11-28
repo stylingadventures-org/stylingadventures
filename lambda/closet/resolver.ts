@@ -178,7 +178,7 @@ async function putEngagementEvent(detail: any) {
             Detail: JSON.stringify(detail),
           },
         ],
-      })
+      }),
     );
   } catch (err) {
     console.error("Failed to put engagement event", err);
@@ -268,13 +268,40 @@ function isAdminIdentity(identity: any): boolean {
   return groups.includes("ADMIN") || groups.includes("COLLAB");
 }
 
-type UserTier =
-  | "FREE"
-  | "BESTIE"
-  | "CREATOR"
-  | "COLLAB"
-  | "ADMIN"
-  | "PRIME";
+// Load a closet item by its ID, regardless of owner, by scanning for CLOSET# prefix
+async function loadClosetItemById(
+  id: string,
+): Promise<{ base: ClosetItem; ownerId: string }> {
+  // Simple but effective: scan for the item with this id whose sk starts with CLOSET#
+  const res = await ddb.send(
+    new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: "#id = :id AND begins_with(#sk, :sk)",
+      ExpressionAttributeNames: {
+        "#id": "id",
+        "#sk": "sk",
+      },
+      ExpressionAttributeValues: ddbMarshal({
+        ":id": id,
+        ":sk": "CLOSET#",
+      }),
+      Limit: 1,
+    }),
+  );
+
+  const raw = res.Items?.[0];
+  if (!raw) {
+    throw new Error("Closet item not found");
+  }
+
+  const base = mapClosetItem(raw);
+  const ownerId = base.ownerSub || base.userId;
+  if (!ownerId) {
+    throw new Error("Closet item owner could not be determined");
+  }
+
+  return { base, ownerId };
+}
 
 function getUserTier(identity: any): UserTier {
   const claims = identity?.claims || {};
@@ -287,7 +314,7 @@ function getUserTier(identity: any): UserTier {
   if (
     tierClaim &&
     ["FREE", "BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"].includes(
-      tierClaim
+      tierClaim,
     )
   ) {
     tier = tierClaim as UserTier;
@@ -334,7 +361,7 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
         ":pk": pkForUser(sub),
         ":sk": "CLOSET#",
       }),
-    })
+    }),
   );
 
   return (res.Items ?? [])
@@ -345,7 +372,7 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
 // Paginated bestie connection – for now just wraps myCloset
 async function handleBestieClosetItems(
   args: { limit?: number | null; nextToken?: string | null },
-  identity: any
+  identity: any,
 ): Promise<{ items: ClosetItem[]; nextToken: string | null }> {
   const allItems = await handleMyCloset(identity);
 
@@ -378,7 +405,7 @@ async function handleBestieCreateClosetItem(
       visibility?: ClosetAudience | null;
     };
   },
-  identity: any
+  identity: any,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const sub = requireUserSub(identity);
@@ -386,8 +413,7 @@ async function handleBestieCreateClosetItem(
   const now = nowIso();
 
   const input = args.input;
-  const visibility: ClosetAudience =
-    input.visibility ?? "PRIVATE";
+  const visibility: ClosetAudience = input.visibility ?? "PRIVATE";
 
   const item: ClosetItem = {
     id,
@@ -417,7 +443,7 @@ async function handleBestieCreateClosetItem(
         rawMediaKey: item.rawMediaKey,
         ...item,
       }),
-    })
+    }),
   );
 
   return item;
@@ -435,7 +461,7 @@ async function handleBestieUpdateClosetItem(
       visibility?: ClosetAudience | null;
     };
   },
-  identity: any
+  identity: any,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const callerSub = requireUserSub(identity);
@@ -463,8 +489,7 @@ async function handleBestieUpdateClosetItem(
 
   if ("title" in input) setField("title", input.title ?? null);
   if ("category" in input) setField("category", input.category ?? null);
-  if ("colorTags" in input)
-    setField("colorTags", input.colorTags ?? []);
+  if ("colorTags" in input) setField("colorTags", input.colorTags ?? []);
   if ("season" in input) setField("season", input.season ?? null);
   if ("notes" in input) setField("notes", input.notes ?? null);
   if ("visibility" in input) {
@@ -484,7 +509,7 @@ async function handleBestieUpdateClosetItem(
       ExpressionAttributeNames: Object.keys(names).length ? names : undefined,
       ExpressionAttributeValues: ddbMarshal(values),
       ReturnValues: "ALL_NEW",
-    })
+    }),
   );
 
   if (!res.Attributes) {
@@ -496,7 +521,7 @@ async function handleBestieUpdateClosetItem(
 
 async function handleBestieDeleteClosetItem(
   args: { id: string },
-  identity: any
+  identity: any,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const callerSub = requireUserSub(identity);
@@ -516,7 +541,7 @@ async function handleBestieDeleteClosetItem(
         pk: pkForUser(ownerId),
         sk: skForClosetItem(id),
       }),
-    })
+    }),
   );
 
   // TODO: optionally delete likes/comments/etc under pkForClosetRoot(id)
@@ -529,8 +554,8 @@ async function handleBestieDeleteClosetItem(
 // ────────────────────────────────────────────────────────────
 
 // keep all your existing handlers: createClosetItem, updateClosetMediaKey,
-// requestClosetApproval, updateClosetItemStory, loadClosetItemById,
-// likeClosetItem, commentOnClosetItem, pinHighlight, closetItemComments,
+// requestClosetApproval, updateClosetItemStory, likeClosetItem,
+// commentOnClosetItem, pinHighlight, closetItemComments,
 // adminClosetItemLikes, adminClosetItemComments, toggleWishlistItem,
 // handleMyWishlist, handlePinnedClosetItems, handleClosetFeed,
 // handleToggleFavoriteClosetItem, handleRequestClosetBackgroundChange,
@@ -555,24 +580,24 @@ export const handler = async (event: any) => {
       case "bestieClosetItems":
         return await handleBestieClosetItems(
           event.arguments || {},
-          event.identity
+          event.identity,
         );
 
       // NEW Bestie CRUD
       case "bestieCreateClosetItem":
         return await handleBestieCreateClosetItem(
           event.arguments,
-          event.identity
+          event.identity,
         );
       case "bestieUpdateClosetItem":
         return await handleBestieUpdateClosetItem(
           event.arguments,
-          event.identity
+          event.identity,
         );
       case "bestieDeleteClosetItem":
         return await handleBestieDeleteClosetItem(
           event.arguments,
-          event.identity
+          event.identity,
         );
 
       // ...all your existing cases stay as they were:

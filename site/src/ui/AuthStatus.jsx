@@ -117,7 +117,7 @@ export default function AuthStatus() {
     background: "#fff",
   };
 
-  // 🔐 NEW: build the same Hosted UI URL the landing button uses
+  // 🔐 Login via Cognito Hosted UI
   const onSignIn = async () => {
     const cfg = await loadCfg();
     if (cfg) {
@@ -128,9 +128,10 @@ export default function AuthStatus() {
       const clientId = cfg.clientId || cfg.userPoolWebClientId;
       const redirect =
         cfg.redirectUri || `${window.location.origin}/callback`;
-      const scopes = Array.isArray(cfg.scopes) && cfg.scopes.length
-        ? cfg.scopes.join(" ")
-        : "openid email";
+      const scopes =
+        Array.isArray(cfg.scopes) && cfg.scopes.length
+          ? cfg.scopes.join(" ")
+          : "openid email";
 
       const url =
         `${domain}/login?` +
@@ -152,21 +153,44 @@ export default function AuthStatus() {
     }
   };
 
+  // 📴 Logout via Cognito Hosted UI
   const onSignOut = async () => {
-    // 1) Clear local tokens immediately so UI flips to Guest
+    // 1) Clear local tokens so UI flips to Guest immediately
     clearLocalTokens();
     setTok({ id: "", access: "", refresh: "" });
     setRole("FAN");
     setEmail("");
 
-    // 2) Best-effort hosted UI logout (to clear Cognito cookies)
+    // 2) Try to hit the Hosted UI /logout endpoint to clear Cognito cookies
+    try {
+      const cfg = await loadCfg();
+      if (cfg) {
+        const domain =
+          (cfg.cognitoDomain && cfg.cognitoDomain.replace(/\/+$/, "")) ||
+          `https://${cfg.cognitoDomainPrefix}.auth.${cfg.region}.amazoncognito.com`;
+
+        const clientId = cfg.clientId || cfg.userPoolWebClientId;
+        const logoutUri = cfg.logoutUri || `${window.location.origin}/`;
+
+        const url =
+          `${domain}/logout?` +
+          `client_id=${encodeURIComponent(clientId)}` +
+          `&logout_uri=${encodeURIComponent(logoutUri)}`;
+
+        window.location.assign(url);
+        return;
+      }
+    } catch (e) {
+      console.error("AuthStatus: hosted UI logout failed, falling back", e);
+    }
+
+    // 3) Fallback: old SA helper + reload
     try {
       const sa = await getSA();
       await sa?.logoutEverywhere?.();
     } catch {
-      // ignore; local sign-out already done
+      // ignore
     } finally {
-      // 3) Hard reload so Layout, routes, etc. re-mount in a signed-out state
       window.location.assign("/");
     }
   };
