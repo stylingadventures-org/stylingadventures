@@ -179,6 +179,25 @@
    "Export": {
     "Name": "SA-WebDomainName-dev"
    }
+  },
+  "ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36": {
+   "Value": {
+    "Fn::GetAtt": [
+     "WebDistribution59C46482",
+     "DomainName"
+    ]
+   },
+   "Export": {
+    "Name": "SA-Web-dev:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+   }
+  },
+  "ExportsOutputRefWebBucket12880F5B704A1ACB": {
+   "Value": {
+    "Ref": "WebBucket12880F5B"
+   },
+   "Export": {
+    "Name": "SA-Web-dev:ExportsOutputRefWebBucket12880F5B704A1ACB"
+   }
   }
  },
  "Parameters": {

@@ -13,10 +13,23 @@ export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
   table: dynamodb.ITable;
 
+  // All three should come from WorkflowsStack
   closetApprovalSm: sfn.IStateMachine;
   backgroundChangeSm: sfn.IStateMachine;
   storyPublishSm: sfn.IStateMachine;
+
+  /** Optional: Creator / Pro features */
+  livestreamFn?: lambda.IFunction; // from LivestreamStack
+  creatorAiFn?: lambda.IFunction; // from CreatorToolsStack
+  commerceFn?: lambda.IFunction; // from CommerceStack
+
+  /** Optional: centralized admin moderation lambda (from AdminStack) */
+  adminModerationFn?: lambda.IFunction;
 }
+
+// Static names used in Cognito groups
+const ADMIN_GROUP_NAME = "admin";
+const CREATOR_GROUP_NAME = "creator";
 
 export class ApiStack extends Stack {
   public readonly api!: appsync.GraphqlApi;
@@ -30,6 +43,10 @@ export class ApiStack extends Stack {
       closetApprovalSm,
       backgroundChangeSm,
       storyPublishSm,
+      livestreamFn,
+      creatorAiFn,
+      commerceFn,
+      adminModerationFn, // ✅ now available if you want to wire resolvers later
     } = props;
 
     // Shared DynamoDB env for all Lambdas using the single-table design.
@@ -123,6 +140,9 @@ export class ApiStack extends Stack {
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
         BG_CHANGE_SM_ARN: backgroundChangeSm.stateMachineArn,
         STORY_PUBLISH_SM_ARN: storyPublishSm.stateMachineArn,
+        ADMIN_GROUP_NAME,
+        CREATOR_GROUP_NAME,
+        NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
@@ -259,12 +279,15 @@ export class ApiStack extends Stack {
       environment: {
         ...DDB_ENV,
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+        ADMIN_GROUP_NAME,
+        NODE_OPTIONS: "--enable-source-maps",
       },
       timeout: Duration.seconds(10),
       memorySize: 512,
     });
 
     table.grantReadWriteData(closetAdminFn);
+    closetApprovalSm.grantStartExecution(closetAdminFn);
 
     closetAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
@@ -346,6 +369,8 @@ export class ApiStack extends Stack {
         STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID ?? "",
         BASE_SUCCESS_URL:
           process.env.BASE_SUCCESS_URL ?? "http://localhost:5173",
+        ADMIN_GROUP_NAME,
+        NODE_OPTIONS: "--enable-source-maps",
       },
       timeout: Duration.seconds(30),
       memorySize: 512,
@@ -405,6 +430,7 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
         ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
@@ -427,13 +453,17 @@ export class ApiStack extends Stack {
     // ────────────────────────────────────────────────────────────
     const gameEnv = {
       ...DDB_ENV,
+      NODE_OPTIONS: "--enable-source-maps",
     };
 
     const gameplayFn = new NodejsFunction(this, "GameplayFn", {
       entry: "lambda/game/gameplay.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
-      environment: gameEnv,
+      environment: {
+        ...gameEnv,
+        ADMIN_GROUP_NAME, // e.g. awardCoins can be admin-only
+      },
     });
 
     const leaderboardFn = new NodejsFunction(this, "LeaderboardFn", {
@@ -447,14 +477,20 @@ export class ApiStack extends Stack {
       entry: "lambda/game/polls.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
-      environment: gameEnv,
+      environment: {
+        ...gameEnv,
+        ADMIN_GROUP_NAME, // createPoll can be restricted to admins
+      },
     });
 
     const profileFn = new NodejsFunction(this, "ProfileFn", {
       entry: "lambda/game/profile.ts", // keep this path as-is
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
-      environment: gameEnv,
+      environment: {
+        ...gameEnv,
+        ADMIN_GROUP_NAME, // grantBadge etc can be admin-only
+      },
     });
 
     table.grantReadWriteData(gameplayFn);
@@ -524,6 +560,59 @@ export class ApiStack extends Stack {
       typeName: "Query",
       fieldName: "getMyProfile",
     });
+
+    // ────────────────────────────────────────────────────────────
+    // CREATOR / LIVESTREAM / AI / COMMERCE
+    // (these Lambdas should also check CREATOR/ADMIN in code)
+    // ────────────────────────────────────────────────────────────
+    if (livestreamFn) {
+      const creatorLiveDs = this.api.addLambdaDataSource(
+        "CreatorLivestreamDs",
+        livestreamFn,
+      );
+
+      creatorLiveDs.createResolver("GetCreatorLivestreamInfoResolver", {
+        typeName: "Query",
+        fieldName: "getCreatorLivestreamInfo",
+      });
+
+      creatorLiveDs.createResolver("PinLivestreamHighlightResolver", {
+        typeName: "Mutation",
+        fieldName: "pinLivestreamHighlight",
+      });
+    }
+
+    if (creatorAiFn) {
+      const creatorAiDs = this.api.addLambdaDataSource(
+        "CreatorAiDs",
+        creatorAiFn,
+      );
+
+      creatorAiDs.createResolver("CreatorAiSuggestResolver", {
+        typeName: "Query",
+        fieldName: "creatorAiSuggest",
+      });
+    }
+
+    if (commerceFn) {
+      const commerceDs = this.api.addLambdaDataSource(
+        "CommerceDs",
+        commerceFn,
+      );
+
+      commerceDs.createResolver("CreatorRevenueSummaryResolver", {
+        typeName: "Query",
+        fieldName: "creatorRevenueSummary",
+      });
+
+      commerceDs.createResolver("RecordAffiliateClickResolver", {
+        typeName: "Mutation",
+        fieldName: "recordAffiliateClick",
+      });
+    }
+
+    // (Future: you can also route some admin GraphQL fields
+    // straight to `adminModerationFn` here.)
 
     // ────────────────────────────────────────────────────────────
     // OUTPUTS

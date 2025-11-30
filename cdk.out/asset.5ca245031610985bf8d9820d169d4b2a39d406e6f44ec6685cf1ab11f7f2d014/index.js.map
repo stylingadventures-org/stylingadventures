@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../lambda/closet/moderate-background.ts"],
+  "sourcesContent": ["export const handler = async (event: any) => {\r\n  console.log(\"Moderate background request:\", JSON.stringify(event));\r\n\r\n  return {\r\n    ...event,\r\n    moderated: true,\r\n  };\r\n};\r\n"],
+  "mappings": "yaAAA,IAAAA,EAAA,GAAAC,EAAAD,EAAA,aAAAE,IAAA,eAAAC,EAAAH,GAAO,IAAME,EAAU,MAAOE,IAC5B,QAAQ,IAAI,+BAAgC,KAAK,UAAUA,CAAK,CAAC,EAE1D,CACL,GAAGA,EACH,UAAW,EACb",
+  "names": ["moderate_background_exports", "__export", "handler", "__toCommonJS", "event"]
+}

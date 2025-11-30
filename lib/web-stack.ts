@@ -1,27 +1,18 @@
-import {
-  Stack,
-  StackProps,
-  CfnOutput,
-} from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, RemovalPolicy } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
-import * as route53 from "aws-cdk-lib/aws-route53";
-import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
-import * as acm from "aws-cdk-lib/aws-certificatemanager";
 
 export interface WebStackProps extends StackProps {
   envName: string;
-  domainName?: string;        // stylingadventures.com for prod
-  hostedZoneDomain?: string;  // stylingadventures.com for prod
 }
 
 export class WebStack extends Stack {
   readonly bucket: s3.Bucket;
   readonly distribution: cloudfront.Distribution;
 
-  // 👇 new helper properties used by stylingadventures.ts
+  // helper properties used by other stacks / code
   readonly webOrigin: string;
   readonly cloudFrontOrigin: string;
   readonly webBucketName: string;
@@ -29,33 +20,22 @@ export class WebStack extends Stack {
   constructor(scope: Construct, id: string, props: WebStackProps) {
     super(scope, id, props);
 
-    const { envName, domainName, hostedZoneDomain } = props;
+    const { envName } = props;
 
+    // S3 bucket for static site assets
     this.bucket = new s3.Bucket(this, "WebBucket", {
-      bucketName: `stylingadventures-web-${envName}-${this.account}`,
+      // no explicit bucketName – CDK picks a unique one
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: false,
+      // keep prod data, auto-clean non-prod
+      removalPolicy:
+        envName === "prd" ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      autoDeleteObjects: envName === "prd" ? false : true,
     });
 
-    let certificate: acm.ICertificate | undefined;
-    let zone: route53.IHostedZone | undefined;
-    let cfDomainNames: string[] | undefined;
-
-    if (domainName && hostedZoneDomain) {
-      // Hosted zone must already exist in this account
-      zone = route53.HostedZone.fromLookup(this, "HostedZone", {
-        domainName: hostedZoneDomain,
-      });
-
-      // CloudFront requires cert in us-east-1
-      certificate = new acm.DnsValidatedCertificate(this, "SiteCert", {
-        domainName,
-        hostedZone: zone,
-        region: "us-east-1",
-      });
-
-      cfDomainNames = [domainName];
-    }
-
+    // CloudFront in front of the bucket
     this.distribution = new cloudfront.Distribution(this, "WebDistribution", {
       defaultBehavior: {
         origin: new cloudfrontOrigins.S3Origin(this.bucket),
@@ -63,42 +43,24 @@ export class WebStack extends Stack {
           cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       defaultRootObject: "index.html",
-      domainNames: cfDomainNames,
-      certificate,
     });
 
-    // Route53 alias for prod custom domain
-    if (zone && domainName) {
-      new route53.ARecord(this, "AliasRecord", {
-        zone,
-        recordName: domainName,
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(this.distribution),
-        ),
-      });
-    }
-
-    // 👇 populate helper fields
+    // helper values for the rest of the app
     this.webBucketName = this.bucket.bucketName;
     this.cloudFrontOrigin = `https://${this.distribution.domainName}`;
-    // If you’ve configured a custom domain, use that as the origin; otherwise CF domain
-    this.webOrigin = domainName
-      ? `https://${domainName}`
-      : this.cloudFrontOrigin;
+    this.webOrigin = this.cloudFrontOrigin;
 
+    // Outputs (for human visibility only; no named exports)
     new CfnOutput(this, "WebBucketName", {
       value: this.bucket.bucketName,
-      exportName: `SA-WebBucketName-${envName}`,
     });
 
     new CfnOutput(this, "CloudFrontDistributionId", {
       value: this.distribution.distributionId,
-      exportName: `SA-WebDistributionId-${envName}`,
     });
 
     new CfnOutput(this, "CloudFrontDomainName", {
       value: this.distribution.domainName,
-      exportName: `SA-WebDomainName-${envName}`,
     });
   }
 }

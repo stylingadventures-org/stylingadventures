@@ -1,0 +1,671 @@
+{
+ "Description": "Promo kit generation + wall of slay - dev",
+ "Resources": {
+  "PromoKitGeneratorFnServiceRole21D00353": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/PromoKitGeneratorFn/ServiceRole/Resource"
+   }
+  },
+  "PromoKitGeneratorFnServiceRoleDefaultPolicy6AEBFE60": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "events:PutEvents",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "CollaboratorStack:ExportsOutputFnGetAttCollaboratorBus521A8115Arn168BD36A"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PromoKitGeneratorFnServiceRoleDefaultPolicy6AEBFE60",
+    "Roles": [
+     {
+      "Ref": "PromoKitGeneratorFnServiceRole21D00353"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/PromoKitGeneratorFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PromoKitGeneratorFn15AB3B69": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "c71856070e78f779768a05a1bb15c7cce6e5a986641c5930fbf1e8e0fc3e3697.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "PROMO_KIT_ALLOWED_GROUPS": "creator,admin",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "PromoKitGeneratorFnServiceRole21D00353",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "PromoKitGeneratorFnServiceRoleDefaultPolicy6AEBFE60",
+    "PromoKitGeneratorFnServiceRole21D00353"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/PromoKitGeneratorFn/Resource",
+    "aws:asset:path": "asset.c71856070e78f779768a05a1bb15c7cce6e5a986641c5930fbf1e8e0fc3e3697",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PromoKitOnCollabApprovedRuleF104FA1A": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "EventBusName": {
+     "Fn::ImportValue": "CollaboratorStack:ExportsOutputRefCollaboratorBus521A8115667FDE9E"
+    },
+    "EventPattern": {
+     "source": [
+      "stylingadventures.collab"
+     ],
+     "detail-type": [
+      "CollabUploadApproved"
+     ]
+    },
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "PromoKitGeneratorFn15AB3B69",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/PromoKitOnCollabApprovedRule/Resource"
+   }
+  },
+  "PromoKitOnCollabApprovedRuleAllowEventRulePromoKitStackPromoKitGeneratorFn117AD613188CB3C5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PromoKitGeneratorFn15AB3B69",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "PromoKitOnCollabApprovedRuleF104FA1A",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/PromoKitOnCollabApprovedRule/AllowEventRulePromoKitStackPromoKitGeneratorFn117AD613"
+   }
+  },
+  "EpisodePreviewFnServiceRole0F27822C": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/EpisodePreviewFn/ServiceRole/Resource"
+   }
+  },
+  "EpisodePreviewFnServiceRoleDefaultPolicy73339732": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "EpisodePreviewFnServiceRoleDefaultPolicy73339732",
+    "Roles": [
+     {
+      "Ref": "EpisodePreviewFnServiceRole0F27822C"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/EpisodePreviewFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "EpisodePreviewFn89B38203": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "44020a7f675d3e8a8f48dda4ce98e685a75b5c5d49442795e9e1610501d4d334.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "PREVIEW_ALLOWED_GROUPS": "creator,admin",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "EpisodePreviewFnServiceRole0F27822C",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "EpisodePreviewFnServiceRoleDefaultPolicy73339732",
+    "EpisodePreviewFnServiceRole0F27822C"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/EpisodePreviewFn/Resource",
+    "aws:asset:path": "asset.44020a7f675d3e8a8f48dda4ce98e685a75b5c5d49442795e9e1610501d4d334",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "HallOfSlayFnServiceRoleA08ABBD7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/HallOfSlayFn/ServiceRole/Resource"
+   }
+  },
+  "HallOfSlayFnServiceRoleDefaultPolicy18447A4B": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "HallOfSlayFnServiceRoleDefaultPolicy18447A4B",
+    "Roles": [
+     {
+      "Ref": "HallOfSlayFnServiceRoleA08ABBD7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/HallOfSlayFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "HallOfSlayFnB587B151": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "884c415e855cf78ccb3bad8dd8ae83359ab13fa47fec288802c57c59066069b9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "HallOfSlayFnServiceRoleA08ABBD7",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "HallOfSlayFnServiceRoleDefaultPolicy18447A4B",
+    "HallOfSlayFnServiceRoleA08ABBD7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/HallOfSlayFn/Resource",
+    "aws:asset:path": "asset.884c415e855cf78ccb3bad8dd8ae83359ab13fa47fec288802c57c59066069b9",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2OwW7CMAyGn4W760HLheNA4rhN5QGqkBrkNk2m2gGhKO+O0k47fb9l+ftdY103uN2Yp1S2HyvHV0wXNXYE85QuOTNde9P50NMg+LXgHL1VDh7YTJja4AhON7/wJzi2rzKuKYM0nREhFfwsAGnwGO1IejRCsOoxnW7+31qOaZ5YhIPPQA/yKpja+NcTHeUMLUmIsyVYtBc1d/b3sv+O+hs1Q3kZB/l41FvcHXC/GYS5mqNXngjblW8ytseI/wAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "PromoKitFunctionName": {
+   "Value": {
+    "Ref": "PromoKitGeneratorFn15AB3B69"
+   }
+  },
+  "EpisodePreviewFunctionName": {
+   "Value": {
+    "Ref": "EpisodePreviewFn89B38203"
+   }
+  },
+  "HallOfSlayFunctionName": {
+   "Value": {
+    "Ref": "HallOfSlayFnB587B151"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

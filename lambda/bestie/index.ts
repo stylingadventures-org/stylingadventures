@@ -1,4 +1,3 @@
-// lambda/bestie/index.ts
 import {
   CognitoIdentityProviderClient,
   ListUsersCommand,
@@ -12,17 +11,23 @@ import {
 import type { AppSyncIdentityCognito } from "aws-lambda";
 import Stripe from "stripe";
 
-const { USER_POOL_ID = "", TABLE_NAME = "" } = process.env;
+const {
+  USER_POOL_ID = "",
+  TABLE_NAME = "",
+  ADMIN_GROUP_NAME: ADMIN_GROUP_NAME_RAW = "admin",
+} = process.env;
+
 if (!TABLE_NAME) throw new Error("Missing env TABLE_NAME");
 if (!USER_POOL_ID) throw new Error("Missing env USER_POOL_ID");
+
+const ADMIN_GROUP_NAME = ADMIN_GROUP_NAME_RAW.toLowerCase();
 
 // Stripe (checked lazily per-request so non-Stripe paths still work)
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
-const BASE_SUCCESS_URL = (process.env.BASE_SUCCESS_URL || "http://localhost:5173").replace(
-  /\/$/,
-  "",
-);
+const BASE_SUCCESS_URL = (process.env.BASE_SUCCESS_URL ||
+  "http://localhost:5173"
+).replace(/\/$/, "");
 
 const cognito = new CognitoIdentityProviderClient({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -66,7 +71,12 @@ async function loadBestie(sub: string): Promise<BestieStatus> {
 /** Upsert Bestie status and return the resulting BestieStatus object. */
 async function saveBestie(
   sub: string,
-  patch: { active: boolean; since?: string | null; until?: string | null; source?: string | null },
+  patch: {
+    active: boolean;
+    since?: string | null;
+    until?: string | null;
+    source?: string | null;
+  },
 ): Promise<BestieStatus> {
   const now = new Date().toISOString();
 
@@ -75,7 +85,8 @@ async function saveBestie(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { pk: PK(sub), sk: SK_BESTIE },
-      UpdateExpression: "SET #doc = if_not_exists(#doc, :empty), #updatedAt = :now",
+      UpdateExpression:
+        "SET #doc = if_not_exists(#doc, :empty), #updatedAt = :now",
       ExpressionAttributeNames: { "#doc": "doc", "#updatedAt": "updatedAt" },
       ExpressionAttributeValues: { ":empty": {}, ":now": now },
     }),
@@ -124,6 +135,8 @@ async function lookupSubByEmail(email: string) {
 }
 
 function isAdmin(id: SAId) {
+  if (!id) return false;
+
   // Prefer groups from JWT claims if present
   const claimsGroups =
     (id as any)?.claims?.["cognito:groups"] ||
@@ -131,12 +144,13 @@ function isAdmin(id: SAId) {
     (id as any)?.groups;
 
   const g = Array.isArray(claimsGroups)
-    ? claimsGroups
+    ? claimsGroups.map((x) => String(x))
     : typeof claimsGroups === "string"
-    ? claimsGroups.split(",")
+    ? claimsGroups.split(",").map((x) => x.trim())
     : [];
 
-  return g.includes("ADMIN");
+  const gLc = g.map((x) => x.toLowerCase());
+  return gLc.includes(ADMIN_GROUP_NAME);
 }
 
 export const handler = async (event: any) => {
@@ -194,6 +208,8 @@ export const handler = async (event: any) => {
   // ───────────────────────────────────────────
   // Query: isEpisodeEarlyAccess(id): EarlyAccessGate!
   // Rule: Bestie is active && until > now
+  // (Kept here for backward-compat; currently your API
+  // uses a dedicated EpisodesGateFn, so this might not be wired.)
   // ───────────────────────────────────────────
   if (fn === "isEpisodeEarlyAccess") {
     const now = Date.now();
@@ -238,7 +254,10 @@ export const handler = async (event: any) => {
   // ───────────────────────────────────────────
   if (fn === "adminSetBestie") {
     if (!isAdmin(id)) throw new Error("Forbidden");
-    const { userSub, active } = event.arguments as { userSub: string; active: boolean };
+    const { userSub, active } = event.arguments as {
+      userSub: string;
+      active: boolean;
+    };
     const until = active
       ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       : null;
@@ -248,18 +267,29 @@ export const handler = async (event: any) => {
   if (fn === "adminRevokeBestie") {
     if (!isAdmin(id)) throw new Error("Forbidden");
     const { userSub } = event.arguments as { userSub: string };
-    return saveBestie(userSub, { active: false, until: null, source: "ADMIN" });
+    return saveBestie(userSub, {
+      active: false,
+      until: null,
+      source: "ADMIN",
+    });
   }
 
   if (fn === "adminSetBestieByEmail") {
     if (!isAdmin(id)) throw new Error("Forbidden");
-    const { email, active } = event.arguments as { email: string; active: boolean };
+    const { email, active } = event.arguments as {
+      email: string;
+      active: boolean;
+    };
     const sub = await lookupSubByEmail(email);
     if (!sub) throw new Error("User not found");
     const until = active
       ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       : null;
-    return saveBestie(sub, { active: !!active, until, source: "ADMIN_EMAIL" });
+    return saveBestie(sub, {
+      active: !!active,
+      until,
+      source: "ADMIN_EMAIL",
+    });
   }
 
   if (fn === "adminRevokeBestieByEmail") {
@@ -267,7 +297,11 @@ export const handler = async (event: any) => {
     const { email } = event.arguments as { email: string };
     const sub = await lookupSubByEmail(email);
     if (!sub) throw new Error("User not found");
-    return saveBestie(sub, { active: false, until: null, source: "ADMIN_EMAIL" });
+    return saveBestie(sub, {
+      active: false,
+      until: null,
+      source: "ADMIN_EMAIL",
+    });
   }
 
   throw new Error(`Unknown field ${fn}`);

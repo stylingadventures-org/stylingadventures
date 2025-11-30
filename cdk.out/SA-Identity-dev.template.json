@@ -56,19 +56,28 @@
    "Properties": {
     "AccessTokenValidity": 60,
     "AllowedOAuthFlows": [
-     "implicit",
      "code"
     ],
     "AllowedOAuthFlowsUserPoolClient": true,
     "AllowedOAuthScopes": [
-     "profile",
-     "phone",
-     "email",
      "openid",
+     "email",
+     "profile",
      "aws.cognito.signin.user.admin"
     ],
     "CallbackURLs": [
-     "https://example.com"
+     {
+      "Fn::Join": [
+       "",
+       [
+        "https://",
+        {
+         "Fn::ImportValue": "SA-Web-dev:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+        },
+        "/callback"
+       ]
+      ]
+     }
     ],
     "ClientName": "stylingadventures-web-dev",
     "ExplicitAuthFlows": [
@@ -77,6 +86,32 @@
      "ALLOW_REFRESH_TOKEN_AUTH"
     ],
     "IdTokenValidity": 60,
+    "LogoutURLs": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "https://",
+        {
+         "Fn::ImportValue": "SA-Web-dev:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+        },
+        "/"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "https://",
+        {
+         "Fn::ImportValue": "SA-Web-dev:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+        },
+        "/logout"
+       ]
+      ]
+     }
+    ],
     "PreventUserExistenceErrors": "ENABLED",
     "RefreshTokenValidity": 43200,
     "SupportedIdentityProviders": [

@@ -33,7 +33,7 @@ export class BestiesClosetStack extends cdk.Stack {
     };
 
     // =====================================================
-    // 1) CLOSET UPLOAD APPROVAL (existing)
+    // 1) CLOSET UPLOAD APPROVAL
     // =====================================================
 
     const moderationFn = new lambdaNode.NodejsFunction(this, "ModerationFn", {
@@ -68,13 +68,26 @@ export class BestiesClosetStack extends cdk.Stack {
       entry: "lambda/closet/notify-admin.ts",
     });
 
-    // IAM – least privilege
+    // IAM – least privilege for DDB/S3
     table.grantReadWriteData(moderationFn);
     table.grantReadWriteData(piiCheckFn);
     table.grantReadWriteData(publishClosetItemFn);
 
     uploadsBucket.grantReadWrite(moderationFn);
     uploadsBucket.grantReadWrite(publishClosetItemFn);
+
+    // Allow NotifyAdminFn to send task responses back to ANY Step Functions
+    // (avoids a direct dependency on ClosetUploadApprovalSM's ARN)
+    notifyAdminFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "states:SendTaskSuccess",
+          "states:SendTaskFailure",
+          "states:SendTaskHeartbeat",
+        ],
+        resources: ["*"],
+      }),
+    );
 
     // ---- ClosetUploadApproval state machine ----
 
@@ -126,36 +139,22 @@ export class BestiesClosetStack extends cdk.Stack {
       this,
       "ClosetUploadApprovalSM",
       {
-        definition,
+        // use modern API to avoid deprecation warnings
+        definitionBody: sfn.DefinitionBody.fromChainable(definition),
         stateMachineType: sfn.StateMachineType.STANDARD,
         tracingEnabled: true,
       },
     );
 
-    // Allow admin tools to resume the workflow via SendTaskSuccess/Failure
-    this.closetUploadStateMachine.grantTaskResponse(notifyAdminFn);
+    // IMPORTANT: we intentionally DO NOT call:
+    // this.closetUploadStateMachine.grantTaskResponse(notifyAdminFn);
+    // because that creates a circular dependency (Lambda role <-> SM ARN).
 
-    // Example EventBridge rule: notify an admin channel when executions start
-    const closetApprovalEventsRule = new events.Rule(
-      this,
-      "ClosetApprovalEventsRule",
-      {
-        eventPattern: {
-          source: ["aws.states"],
-          detailType: ["Step Functions Execution Status Change"],
-          detail: {
-            stateMachineArn: [this.closetUploadStateMachine.stateMachineArn],
-          },
-        },
-      },
-    );
-
-    closetApprovalEventsRule.addTarget(
-      new targets.LambdaFunction(notifyAdminFn),
-    );
+    // (If you still want CloudWatch / EventBridge events wired to a Lambda,
+    // you can add a rule here that targets some other function or SNS/etc.)
 
     // =====================================================
-    // 2) BACKGROUND CHANGE APPROVAL (new, SNS + WAIT_FOR_TASK_TOKEN)
+    // 2) BACKGROUND CHANGE APPROVAL (SNS + WAIT_FOR_TASK_TOKEN)
     // =====================================================
 
     const validateBgFn = new lambdaNode.NodejsFunction(

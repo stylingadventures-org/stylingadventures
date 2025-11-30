@@ -38,8 +38,11 @@
 
     // Build the Hosted UI BASE (full https://{prefix}.auth.{region}.amazoncognito.com)
     const region = (cfg.region || "").trim();
-    const fromCognitoDomain =
-      (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
+
+    // cognitoDomain can be either bare host or full https://host
+    const fromCognitoDomain = (cfg.cognitoDomain || "")
+      .trim()
+      .replace(/\/+$/, "");
     const fromPrefix = (
       cfg.cognitoDomainPrefix ||
       cfg.hostedUiDomain ||
@@ -65,7 +68,8 @@
       : ["openid", "email"];
 
     const origin = location.origin;
-    // Implicit flow callback (handled by /callback/index.html)
+
+    // Auth code callback handled by /callback route in the SPA
     cfg.redirectUri = cfg.redirectUri || `${origin}/callback`;
     cfg.logoutUri = cfg.logoutUri || `${origin}/`;
 
@@ -136,7 +140,7 @@
     );
   }
 
-  // Implicit flow: no refresh token. Just ensure token is not obviously expired.
+  // Simple “fresh enough” check for the id_token
   async function ensureFreshToken() {
     const tok = getStoredIdToken();
     if (!tok) {
@@ -193,7 +197,7 @@
         );
       },
 
-      // Start Hosted UI login using IMPLICIT (token) flow.
+      // Start Hosted UI login using AUTHORIZATION CODE flow.
       startLogin: (returnTo) => {
         const cfg = window.__cfg || {};
         if (!cfg._hostBase || !cfg.clientId) {
@@ -214,7 +218,7 @@
 
         const qp = new URLSearchParams({
           client_id: String(cfg.clientId),
-          response_type: "token", // <<< implicit flow
+          response_type: "code", // 👈 authorization code flow
           scope,
           redirect_uri: cfg.redirectUri,
         });
@@ -235,7 +239,7 @@
         syncSaSession({ idToken: "", accessToken: "", email: "" });
       },
 
-      // ALWAYS clear local tokens first, then bounce to Hosted UI logout so you can choose a different user next time.
+      // Clear local tokens, then bounce to Hosted UI logout.
       logoutEverywhere: () => {
         const cfg = window.__cfg || {};
 
@@ -454,3 +458,4 @@
     );
   });
 })();
+

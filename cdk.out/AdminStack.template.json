@@ -1,0 +1,838 @@
+{
+ "Description": "Platform admin tools (moderation, events, shoutouts, analytics) - dev",
+ "Resources": {
+  "AdminModerationFnServiceRole53812CC4": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminModerationFn/ServiceRole/Resource"
+   }
+  },
+  "AdminModerationFnServiceRoleDefaultPolicy3532FE68": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AdminModerationFnServiceRoleDefaultPolicy3532FE68",
+    "Roles": [
+     {
+      "Ref": "AdminModerationFnServiceRole53812CC4"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminModerationFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AdminModerationFn15B3A19B": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "1bcc27d0bbac6a45b828beadbaa16f2958b39de1d88f2ff69405e97197cdf66e.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "ANALYTICS_BUCKET": {
+       "Fn::ImportValue": "AnalyticsStack:ExportsOutputRefAnalyticsBucket39EAAEEA4B56ABBC"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AdminModerationFnServiceRole53812CC4",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminModerationFnServiceRoleDefaultPolicy3532FE68",
+    "AdminModerationFnServiceRole53812CC4"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminModerationFn/Resource",
+    "aws:asset:path": "asset.1bcc27d0bbac6a45b828beadbaa16f2958b39de1d88f2ff69405e97197cdf66e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AdminCommunityFnServiceRole75F0FF62": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminCommunityFn/ServiceRole/Resource"
+   }
+  },
+  "AdminCommunityFnServiceRoleDefaultPolicyC36F8ADD": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "events:PutEvents",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AdminEventsBus6482B417",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AdminCommunityFnServiceRoleDefaultPolicyC36F8ADD",
+    "Roles": [
+     {
+      "Ref": "AdminCommunityFnServiceRole75F0FF62"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminCommunityFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AdminCommunityFn1FA99D89": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "ae55446d23282f8060d19f35165c17bd544314683a41fdb8a2f8d8b96e2347ee.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "ANALYTICS_BUCKET": {
+       "Fn::ImportValue": "AnalyticsStack:ExportsOutputRefAnalyticsBucket39EAAEEA4B56ABBC"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ADMIN_EVENT_SOURCE": "stylingadventures.admin",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AdminCommunityFnServiceRole75F0FF62",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminCommunityFnServiceRoleDefaultPolicyC36F8ADD",
+    "AdminCommunityFnServiceRole75F0FF62"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminCommunityFn/Resource",
+    "aws:asset:path": "asset.ae55446d23282f8060d19f35165c17bd544314683a41fdb8a2f8d8b96e2347ee",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AdminEventsBus6482B417": {
+   "Type": "AWS::Events::EventBus",
+   "Properties": {
+    "Name": "sa-dev-admin",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminEventsBus/Resource"
+   }
+  },
+  "AdminShoutoutsTopicCEB148D5": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "StylingAdventures Admin Shoutouts",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminShoutoutsTopic/Resource"
+   }
+  },
+  "AdminShoutoutsFnServiceRole12429FF8": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminShoutoutsFn/ServiceRole/Resource"
+   }
+  },
+  "AdminShoutoutsFnServiceRoleDefaultPolicy1C00FFCC": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "AdminShoutoutsTopicCEB148D5"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AdminShoutoutsFnServiceRoleDefaultPolicy1C00FFCC",
+    "Roles": [
+     {
+      "Ref": "AdminShoutoutsFnServiceRole12429FF8"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminShoutoutsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AdminShoutoutsFnFDCC1ECE": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "5a594f587f750bfd7b8695100dd21d29239acacd29d9a1742fba1187d1878714.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "ANALYTICS_BUCKET": {
+       "Fn::ImportValue": "AnalyticsStack:ExportsOutputRefAnalyticsBucket39EAAEEA4B56ABBC"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "SHOUTOUTS_TOPIC_ARN": {
+       "Ref": "AdminShoutoutsTopicCEB148D5"
+      },
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AdminShoutoutsFnServiceRole12429FF8",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminShoutoutsFnServiceRoleDefaultPolicy1C00FFCC",
+    "AdminShoutoutsFnServiceRole12429FF8"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminShoutoutsFn/Resource",
+    "aws:asset:path": "asset.5a594f587f750bfd7b8695100dd21d29239acacd29d9a1742fba1187d1878714",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AdminAnalyticsFnServiceRole589BF811": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminAnalyticsFn/ServiceRole/Resource"
+   }
+  },
+  "AdminAnalyticsFnServiceRoleDefaultPolicy92A756BE": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "AnalyticsStack:ExportsOutputFnGetAttAnalyticsBucket39EAAEEAArn99FBDA6B"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "AnalyticsStack:ExportsOutputFnGetAttAnalyticsBucket39EAAEEAArn99FBDA6B"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AdminAnalyticsFnServiceRoleDefaultPolicy92A756BE",
+    "Roles": [
+     {
+      "Ref": "AdminAnalyticsFnServiceRole589BF811"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminAnalyticsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AdminAnalyticsFn4CF8A7C3": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "6abc6aba3a17aacf0d26bfd74d7a2491168c90e12753b34070571ce47b884017.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "ANALYTICS_BUCKET": {
+       "Fn::ImportValue": "AnalyticsStack:ExportsOutputRefAnalyticsBucket39EAAEEA4B56ABBC"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "ENV_NAME": "dev",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AdminAnalyticsFnServiceRole589BF811",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "Access",
+      "Value": "Admin"
+     },
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     },
+     {
+      "Key": "Scope",
+      "Value": "Admin"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminAnalyticsFnServiceRoleDefaultPolicy92A756BE",
+    "AdminAnalyticsFnServiceRole589BF811"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/AdminAnalyticsFn/Resource",
+    "aws:asset:path": "asset.6abc6aba3a17aacf0d26bfd74d7a2491168c90e12753b34070571ce47b884017",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2OTU/DMAxAf8vurhktF450YkeEOu6Vl3qT++GgOdmEovx3lFZwes8+PLvGum5wv6OHVW6YqlnOmE6B3AT0sD7NtJwH6tUPPBp+rDhGdUG8gtCCqfMzw+GiKz/9LO6njJtlsKYnMw6GbwVgDbbRTRxaMoYtj4eL/kf5zhoM03thG63E/jyDqWH68t/iyn6VnKFj8/HmGNYbp0BX0WuG8jWO9nSv9/j8ii+70USqW9QgC2O38RflrtmiAgEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "AdminStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

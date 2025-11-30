@@ -1,91 +1,294 @@
-#!/usr/bin/env node
+// bin/stylingadventures.ts
+import "dotenv/config";
 import "source-map-support/register";
+import * as fs from "fs";
+import * as path from "path";
 import * as cdk from "aws-cdk-lib";
+import * as ddb from "aws-cdk-lib/aws-dynamodb";
 
-import { DatabaseStack } from "../lib/database-stack";
-import { IdentityStack } from "../lib/identity-stack";
-import { UploadsStack } from "../lib/uploads-stack";
+// ⬇️ IMPORTANT: use IdentityV2Stack, NOT IdentityStack
+import { IdentityV2Stack } from "../lib/identity-v2-stack";
+import { WorkflowsV2Stack } from "../lib/workflows-v2-stack";
 import { ApiStack } from "../lib/api-stack";
-import { WorkflowsStack } from "../lib/workflows-stack";
+import { UploadsStack } from "../lib/uploads-stack";
 import { WebStack } from "../lib/web-stack";
 
-const app = new cdk.App();
+// Besties stacks
+import { BestiesClosetStack } from "../lib/besties-closet-stack";
+import { BestiesStoriesStack } from "../lib/besties-stories-stack";
+import { BestiesEngagementStack } from "../lib/besties-engagement-stack";
 
-// Read environment (dev or prod)
-const envName =
-  process.env.ENVIRONMENT ||
-  app.node.tryGetContext("env") ||
-  "dev";
+// Creator / Pro stacks
+import { LivestreamStack } from "../lib/livestream-stack";
+import { CreatorToolsStack } from "../lib/creator-tools-stack";
+import { CommerceStack } from "../lib/commerce-stack";
+import { AnalyticsStack } from "../lib/analytics-stack";
 
-const isProd = envName === "prod";
+// Collaborator / Promo stacks
+import { CollaboratorStack } from "../lib/collaborator-stack";
+import { PromoKitStack } from "../lib/promo-kit-stack";
 
-// Your AWS account & region
-const account = "637423256673";
-const region = "us-east-1";
+// Admin stack
+import { AdminStack } from "../lib/admin-stack";
 
-const env = { account, region };
+// 🆕 Prime Studios / Layout / Publishing stacks
+import { LayoutEngineStack } from "../lib/layout-engine-stack";
+import { PrimeStudiosStack } from "../lib/prime-studios-stack";
+import { PublishingStack } from "../lib/publishing-stack";
 
-// Common tags
-const baseTags: Record<string, string> = {
-  project: "stylingadventures",
-  environment: envName,
-};
-
-function tag(stack: cdk.Stack, stackName: string) {
-  cdk.Tags.of(stack).add("stack", stackName);
-  Object.entries(baseTags).forEach(([k, v]) => cdk.Tags.of(stack).add(k, v));
+// ---- tiny config loader ----
+type Cfg = { webOrigin?: string };
+function loadConfig(): Cfg {
+  try {
+    const p = path.resolve(process.cwd(), "config.json");
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, "utf8")) as Cfg;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
 }
 
-// 1. Database
-const db = new DatabaseStack(app, `SA-Database-${envName}`, {
-  env,
-});
-tag(db, "database");
+const app = new cdk.App();
+const envName = app.node.tryGetContext("env") ?? "dev";
+const env = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
+};
+const cfg = loadConfig();
 
-// 2. Web (CloudFront / static site)
-// Exposes webOrigin, cloudFrontOrigin, webBucketName for other stacks.
-const web = new WebStack(app, `SA-Web-${envName}`, {
+// ---- Data stack (holds the app table) ----
+class DataStack extends cdk.Stack {
+  public readonly table: ddb.Table;
+
+  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    this.table = new ddb.Table(this, "AppTable", {
+      tableName: `sa-${envName}-app`,
+      partitionKey: { name: "pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "sk", type: ddb.AttributeType.STRING },
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy:
+        envName === "prd"
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.table.addGlobalSecondaryIndex({
+      indexName: "gsi1",
+      partitionKey: { name: "gsi1pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "gsi1sk", type: ddb.AttributeType.STRING },
+      projectionType: ddb.ProjectionType.ALL,
+    });
+
+    this.table.addGlobalSecondaryIndex({
+      indexName: "gsi2",
+      partitionKey: { name: "gsi2pk", type: ddb.AttributeType.STRING },
+      sortKey: { name: "gsi2sk", type: ddb.AttributeType.STRING },
+      projectionType: ddb.ProjectionType.ALL,
+    });
+
+    this.table.addGlobalSecondaryIndex({
+      indexName: "rawMediaKeyIndex",
+      partitionKey: {
+        name: "rawMediaKey",
+        type: ddb.AttributeType.STRING,
+      },
+      projectionType: ddb.ProjectionType.ALL,
+    });
+  }
+}
+
+// 1) Web hosting FIRST so we know the final CloudFront origin / bucket
+const web = new WebStack(app, "WebStack", {
   env,
   envName,
-  domainName: isProd ? "stylingadventures.com" : undefined,
-  hostedZoneDomain: isProd ? "stylingadventures.com" : undefined,
+  description: `Static web hosting (S3 + CloudFront) - ${envName}`,
 });
-tag(web, "web");
 
-// 3. Identity (Cognito), wired to webOrigin for OAuth callback/logout URLs
-const identity = new IdentityStack(app, `SA-Identity-${envName}`, {
+const webOrigin = (
+  cfg.webOrigin ||
+  process.env.WEB_ORIGIN ||
+  web.webOrigin
+).replace(/\/+$/, "");
+
+const webBucketName = web.webBucketName;
+const webCloudFrontOrigin = web.cloudFrontOrigin;
+
+// 2) ✅ Identity v2 (Cognito) — REPLACES old IdentityStack
+const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
   env,
   envName,
-  cognitoDomainPrefix: `sa-${envName}-style2`,
-  webOrigin: web.webOrigin,
+  webOrigin,
+  cognitoDomainPrefix: `sa2-${envName}-${env.account ?? "local"}`,
+  description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
 });
-tag(identity, "identity");
 
-// 4. Uploads – S3 uploads bucket + any presign/related config
-const uploads = new UploadsStack(app, `SA-Uploads-${envName}`, {
+// 3) Data (DynamoDB)
+const data = new DataStack(app, "DataStack", {
+  env,
+  description: `Primary application table - ${envName}`,
+});
+
+// 4) Core Workflows (approval / background / story publish)
+const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
+  env,
+  table: data.table,
+  description: `Closet & story workflow state machines - ${envName}`,
+});
+
+// 5) Uploads API
+const uploads = new UploadsStack(app, "UploadsStack", {
   env,
   userPool: identity.userPool,
-  webOrigin: web.webOrigin,
-  cloudFrontOrigin: web.cloudFrontOrigin,
-  webBucketName: web.webBucketName,
-  table: db.table,
+  webOrigin,
+  cloudFrontOrigin: webCloudFrontOrigin,
+  webBucketName,
+  table: data.table,
+  description: `Uploads API, S3, and thumbs CDN - ${envName}`,
 });
-tag(uploads, "uploads");
 
-// 5. Workflows – Step Functions state machines
-const workflows = new WorkflowsStack(app, `SA-Workflows-${envName}`, {
+const uploadsBucket = uploads.uploadsBucket;
+
+// 6) Besties – closet + background change approvals
+const bestiesCloset = new BestiesClosetStack(app, "BestiesClosetStack", {
   env,
-  table: db.table,
+  table: data.table,
+  uploadsBucket,
+  description: `Besties closet + background change workflows - ${envName}`,
 });
-tag(workflows, "workflows");
 
-// 6. API – AppSync + Lambdas, wired to specific state machines
-const api = new ApiStack(app, `SA-API-${envName}`, {
+// 7) Besties – stories
+const bestiesStories = new BestiesStoriesStack(app, "BestiesStoriesStack", {
   env,
-  table: db.table,
+  table: data.table,
+  description: `Besties stories compose/publish/schedule workflows - ${envName}`,
+});
+
+// 8) Besties – engagement
+const bestiesEngagement = new BestiesEngagementStack(
+  app,
+  "BestiesEngagementStack",
+  {
+    env,
+    table: data.table,
+    description: `Besties engagement fan-out workflows - ${envName}`,
+  },
+);
+
+// 9) Pro Creators — livestream infra
+const livestream = new LivestreamStack(app, "LivestreamStack", {
+  env,
+  envName,
+  table: data.table,
+  description: `Creator livestream infra - ${envName}`,
+});
+
+// 10) Pro Creators — scheduling + AI helpers
+const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
+  env,
+  envName,
+  table: data.table,
+  // still using BestiesStories for now; Prime Studios can hook in later if desired
+  storyPublishStateMachine: bestiesStories.storyPublishStateMachine,
+  description: `Creator scheduling + AI helpers - ${envName}`,
+});
+
+// 11) Commerce
+const commerce = new CommerceStack(app, "CommerceStack", {
+  env,
+  envName,
+  table: data.table,
   userPool: identity.userPool,
+  description: `Commerce + monetisation - ${envName}`,
+});
+
+// 12) Analytics
+const analytics = new AnalyticsStack(app, "AnalyticsStack", {
+  env,
+  envName,
+  table: data.table,
+  description: `Analytics + metrics export - ${envName}`,
+});
+
+// 13) Layout Engine — positioning + accessibility validation
+const layoutEngine = new LayoutEngineStack(app, "LayoutEngineStack", {
+  env,
+  envName,
+  description: `Layout templates + accessibility validation - ${envName}`,
+});
+
+// 14) Prime Studios — episode production + support systems
+const primeStudios = new PrimeStudiosStack(app, "PrimeStudiosStack", {
+  env,
+  envName,
+  table: data.table,
+  userPool: identity.userPool,
+  layoutValidatorFn: layoutEngine.layoutValidatorFn,
+  description: `Prime Studios episode production + support systems - ${envName}`,
+});
+
+// 15) Publishing — episode publishing pipeline
+const publishing = new PublishingStack(app, "PublishingStack", {
+  env,
+  envName,
+  table: data.table,
+  layoutValidatorFn: layoutEngine.layoutValidatorFn,
+  description: `Prime Studios episode publishing pipeline - ${envName}`,
+});
+
+// 16) Collaborators
+const collaborators = new CollaboratorStack(app, "CollaboratorStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  webOrigin,
+  description: `Collaborator portal (invites, uploads, reminders) - ${envName}`,
+});
+
+// 17) Promo kits
+const promoKit = new PromoKitStack(app, "PromoKitStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  collabEventBus: collaborators.collabEventBus,
+  webOrigin,
+  description: `Promo kit generation + wall of slay - ${envName}`,
+});
+
+// 18) Admin
+const admin = new AdminStack(app, "AdminStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  webOrigin,
+  analyticsBucket: analytics.analyticsBucket,
+  description: `Platform admin tools (moderation, events, shoutouts, analytics) - ${envName}`,
+});
+
+// 19) AppSync API
+const api = new ApiStack(app, "ApiStack", {
+  env,
+  userPool: identity.userPool,
+  table: data.table,
+
   closetApprovalSm: workflows.closetApprovalSm,
-  backgroundChangeSm: workflows.backgroundChangeSm,
-  storyPublishSm: workflows.storyPublishSm,
+  backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
+  storyPublishSm: bestiesStories.storyPublishStateMachine,
+
+  livestreamFn: livestream.livestreamFn,
+  creatorAiFn: creatorTools.aiFn,
+  commerceFn: commerce.commerceFn,
+
+  adminModerationFn: admin.moderationFn,
 });
-tag(api, "api");
+
+// ---- Tags ----
+cdk.Tags.of(app).add("App", "stylingadventures");
+cdk.Tags.of(app).add("Env", envName);

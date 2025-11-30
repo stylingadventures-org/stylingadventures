@@ -3,21 +3,24 @@
   "region": "us-east-1",
 
   "appsyncUrl": "https://zepcxqvvjzeidmcc2ukpevvllm.appsync-api.us-east-1.amazonaws.com/graphql",
+
   "redirectUri": "http://localhost:5173/callback",
+  "logoutUri": "http://localhost:5173/",
+
   "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
 
   "userPoolId": "us-east-1_IX7IhO1uv",
-  "userPoolWebClientId": "74bdeerhqpqdhr4vn10t4vdt4h",
+
+  "userPoolWebClientId": "51uc25i7ob3otirvgi66mpht79",
+  "clientId": "51uc25i7ob3otirvgi66mpht79",
+
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
 
-  "cognitoDomainPrefix": "sa-dev-style2",
-  "cognitoDomain": "https://sa-dev-style2.auth.us-east-1.amazoncognito.com",
-
-  "hostedUiDomain": "sa-dev-style2",
-  "logoutUri": "http://localhost:5173/",
+  "cognitoDomainPrefix": "sa-dev-637423256673",
+  "cognitoDomain": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+  "hostedUiDomain": "sa-dev-637423256673",
 
   "scopes": ["openid", "email", "profile"],
-  "clientId": "74bdeerhqpqdhr4vn10t4vdt4h",
 
   "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
 }
