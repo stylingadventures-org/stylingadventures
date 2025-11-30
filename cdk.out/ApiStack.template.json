@@ -1,5 +1,4 @@
 {
- "Description": "AppSync GraphQL API - dev",
  "Resources": {
   "StylingApiC401F041": {
    "Type": "AWS::AppSync::GraphQLApi",
@@ -20,7 +19,7 @@
      "AwsRegion": "us-east-1",
      "DefaultAction": "ALLOW",
      "UserPoolId": {
-      "Fn::ImportValue": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
      }
     },
     "XrayEnabled": true
@@ -38,7 +37,7 @@
       "ApiId"
      ]
     },
-    "Definition": "# ─────────────────────────────────────────────\r\n# SCALARS\r\n# ─────────────────────────────────────────────\r\nscalar AWSDateTime\r\nscalar AWSJSON\r\n\r\n# ─────────────────────────────────────────────\r\n# ROOT TYPES\r\n# ─────────────────────────────────────────────\r\n\r\ntype Query {\r\n  # Simple test\r\n  hello: String!\r\n\r\n  # Basic identity derived from Cognito JWT\r\n  me: Me!\r\n\r\n  # Closet (fan/bestie)\r\n  myCloset: [ClosetItem!]!\r\n  myWishlist: [ClosetItem!]!\r\n\r\n  # NEW alias used by the Bestie closet UI – now paginated\r\n  bestieClosetItems(\r\n    limit: Int\r\n    nextToken: String\r\n  ): BestieClosetItemsConnection!\r\n\r\n  closetItemComments(closetItemId: ID!): [ClosetComment!]!\r\n\r\n  # Admin closet views\r\n  adminClosetItemLikes(closetItemId: ID!): [ClosetLike!]!\r\n  adminClosetItemComments(closetItemId: ID!): [ClosetComment!]!\r\n  adminListPending: [ClosetItem!]!\r\n\r\n  # Paginated admin list used by Closet Library UI\r\n  adminListClosetItems(\r\n    status: ClosetStatus\r\n    limit: Int\r\n    nextToken: String\r\n  ): ClosetItemConnection!\r\n\r\n  # Bestie closet library (uses same shape, different resolver/filter)\r\n  adminListBestieClosetItems(\r\n    limit: Int\r\n    nextToken: String\r\n    search: String\r\n    ownerSub: ID\r\n  ): BestieClosetItemConnection!\r\n\r\n  # Fan-facing closet feed\r\n  closetFeed(\r\n    sort: ClosetFeedSort\r\n    status: ClosetStatus\r\n    ownerSub: String\r\n  ): [ClosetItem!]!\r\n\r\n  # Bestie / tiers\r\n  meBestieStatus: BestieStatus!\r\n\r\n  # Episodes early-access gate\r\n  isEpisodeEarlyAccess(episodeId: ID!): Boolean!\r\n\r\n  # Game: leaderboard & polls & profile\r\n  topXP(limit: Int): [LeaderboardEntry!]!\r\n  topCoins(limit: Int): [LeaderboardEntry!]!\r\n  getPoll(id: ID!): Poll\r\n  getMyProfile: GameProfile!\r\n}\r\n\r\ntype Mutation {\r\n  # Roles\r\n  setUserRole(userId: ID!, role: UserRole!): UserRoleAssignment!\r\n\r\n  # Closet (fan/bestie)\r\n  createClosetItem(input: CreateClosetItemInput!): ClosetItem!\r\n  requestClosetApproval(closetItemId: ID!): ClosetItem!\r\n  updateClosetMediaKey(closetItemId: ID!, mediaKey: String!): ClosetItem!\r\n\r\n  # 👇 match Bestie closet + Lambda: use input object\r\n  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!\r\n\r\n  likeClosetItem(closetItemId: ID!): ClosetItem!\r\n  commentOnClosetItem(closetItemId: ID!, text: String!): ClosetComment!\r\n  pinHighlight(closetItemId: ID!, pinned: Boolean!): ClosetItem!\r\n  toggleWishlistItem(closetItemId: ID!): ClosetItem!\r\n\r\n  # Closet admin\r\n  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!\r\n  adminApproveItem(closetItemId: ID!): ClosetItem!\r\n  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!\r\n  adminSetClosetAudience(\r\n    closetItemId: ID!\r\n    audience: ClosetAudience!\r\n  ): ClosetItem!\r\n  adminUpdateClosetItem(\r\n    closetItemId: ID!\r\n    input: AdminUpdateClosetItemInput!\r\n  ): ClosetItem!\r\n\r\n  # Hearts for fan closet feed\r\n  # NOTE: return type nullable to avoid \"Cannot return null for non-nullable\" errors\r\n  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem\r\n\r\n  # Bestie / tiers\r\n  startBestieCheckout: BestieCheckoutSession!\r\n  claimBestieTrial: BestieStatus!\r\n\r\n  adminSetBestie(userId: ID!): BestieStatus!\r\n  adminRevokeBestie(userId: ID!): BestieStatus!\r\n  adminSetBestieByEmail(email: String!): BestieStatus!\r\n  adminRevokeBestieByEmail(email: String!): BestieStatus!\r\n\r\n  # Game\r\n  logGameEvent(input: LogGameEventInput!): GameEventResult!\r\n  awardCoins(userId: ID!, amount: Int!): GameProfile!\r\n\r\n  createPoll(input: CreatePollInput!): Poll!\r\n  votePoll(pollId: ID!, optionId: ID!): Poll!\r\n\r\n  grantBadge(userId: ID!, badgeId: ID!): GameProfile!\r\n  setDisplayName(name: String!): GameProfile!\r\n  updateProfile(input: UpdateProfileInput!): GameProfile!\r\n\r\n  # ──────────────\r\n  # BESTIES – CLOSET & BACKGROUNDS\r\n  # ──────────────\r\n  requestClosetBackgroundChange(\r\n    input: RequestBackgroundChangeInput!\r\n  ): ClosetItem!\r\n\r\n  attachAffiliateLink(input: AttachAffiliateLinkInput!): ClosetItem!\r\n  approveAffiliateLink(closetItemId: ID!): ClosetItem!\r\n  rejectAffiliateLink(closetItemId: ID!, reason: String): ClosetItem!\r\n\r\n  # ──────────────\r\n  # BESTIES – STORIES\r\n  # ──────────────\r\n  createStory(input: CreateStoryInput!): Story!\r\n  publishStory(storyId: ID!): Story!\r\n\r\n  # ──────────────\r\n  # COMMUNITY / PINTEREST FEED\r\n  # ──────────────\r\n  addClosetItemToCommunityFeed(closetItemId: ID!): ClosetItem!\r\n  removeClosetItemFromCommunityFeed(closetItemId: ID!): ClosetItem!\r\n  shareClosetItemToPinterest(closetItemId: ID!): Boolean!\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# IDENTITY / USER\r\n# ─────────────────────────────────────────────\r\n\r\ntype Me {\r\n  id: ID!\r\n  email: String\r\n  role: String\r\n  tier: String\r\n}\r\n\r\nenum UserRole {\r\n  FAN\r\n  BESTIE\r\n  ADMIN\r\n}\r\n\r\ntype UserRoleAssignment {\r\n  userId: ID!\r\n  role: UserRole!\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# CLOSET DOMAIN\r\n# ─────────────────────────────────────────────\r\n\r\n# Audience enum – include all values the UI might use\r\nenum ClosetAudience {\r\n  PRIVATE\r\n  FOLLOWERS\r\n  PUBLIC\r\n  BESTIE\r\n  EXCLUSIVE\r\n  ADMIN_ONLY\r\n  HIDDEN\r\n}\r\n\r\n# Status enum – for item.status + filters\r\nenum ClosetStatus {\r\n  DRAFT\r\n  PENDING\r\n  APPROVED\r\n  REJECTED\r\n  PUBLISHED\r\n  ARCHIVED\r\n}\r\n\r\n# Sorting enum for fan closet feed\r\nenum ClosetFeedSort {\r\n  NEWEST\r\n  MOST_LOVED\r\n}\r\n\r\n# Connection wrapper for adminListClosetItems\r\ntype ClosetItemConnection {\r\n  items: [ClosetItem!]!\r\n  nextToken: String\r\n}\r\n\r\n# Bestie-specific connection wrapper (same item shape, different resolver/filter)\r\ntype BestieClosetItemConnection {\r\n  items: [ClosetItem!]!\r\n  nextToken: String\r\n}\r\n\r\n# Connection wrapper used by the Bestie closet UI\r\ntype BestieClosetItemsConnection {\r\n  items: [ClosetItem!]!\r\n  nextToken: String\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerSub: ID\r\n  userId: ID\r\n  title: String\r\n  description: String\r\n  story: String\r\n  status: ClosetStatus\r\n  audience: ClosetAudience\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n\r\n  # Categorization\r\n  category: String\r\n  subcategory: String\r\n\r\n  # Story-style metadata (Bestie / fan-facing)\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n\r\n  # Extra admin-upload metadata\r\n  season: String\r\n  vibes: String\r\n\r\n  # NEW – fields used by Bestie closet UI\r\n  colorTags: [String!]\r\n  notes: String\r\n  visibility: StoryVisibility\r\n\r\n  # Admin metadata (e.g. rejection reason)\r\n  reason: String\r\n\r\n  # Lala's pick flag\r\n  pinned: Boolean\r\n\r\n  # Computed flags/metrics\r\n  isInWishlist: Boolean!\r\n  isPinnedHighlight: Boolean!\r\n  likesCount: Int!\r\n  commentsCount: Int!\r\n\r\n  # Fan “heart” data\r\n  favoriteCount: Int\r\n  viewerHasFaved: Boolean\r\n\r\n  createdAt: AWSDateTime\r\n  updatedAt: AWSDateTime\r\n}\r\n\r\ninput CreateClosetItemInput {\r\n  # existing fan-side fields\r\n  title: String\r\n  description: String\r\n  story: String\r\n  audience: ClosetAudience\r\n\r\n  # media keys\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n\r\n  # categorization\r\n  category: String\r\n  subcategory: String\r\n}\r\n\r\ninput AdminCreateClosetItemInput {\r\n  # optional: allow admins to create on behalf of another user if needed\r\n  ownerId: ID\r\n\r\n  title: String\r\n  description: String\r\n  story: String\r\n\r\n  # if a cutout already exists we could pass mediaKey,\r\n  # but for the new upload flow we send rawMediaKey\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n\r\n  audience: ClosetAudience\r\n\r\n  # upload-studio metadata\r\n  season: String\r\n  vibes: String\r\n\r\n  # categorization\r\n  category: String\r\n  subcategory: String\r\n}\r\n\r\ninput AdminUpdateClosetItemInput {\r\n  title: String\r\n  category: String\r\n  subcategory: String\r\n  audience: ClosetAudience\r\n  pinned: Boolean\r\n}\r\n\r\n# 👇 new input used by updateClosetItemStory mutation\r\ninput UpdateClosetItemStoryInput {\r\n  id: ID!\r\n  storyTitle: String\r\n  storySeason: String\r\n  storyVibes: [String!]\r\n}\r\n\r\ntype ClosetComment {\r\n  id: ID!\r\n  closetItemId: ID!\r\n  authorId: ID!\r\n  text: String!\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\ntype ClosetLike {\r\n  closetItemId: ID!\r\n  userId: ID!\r\n  createdAt: AWSDateTime!\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# BESTIE / TIERS\r\n# ─────────────────────────────────────────────\r\n\r\nenum BestieTier {\r\n  FREE\r\n  PAID\r\n}\r\n\r\ntype BestieStatus {\r\n  userId: ID!\r\n  isBestie: Boolean!\r\n  tier: BestieTier!\r\n  expiresAt: AWSDateTime\r\n  activeSubscription: Boolean!\r\n}\r\n\r\ntype BestieCheckoutSession {\r\n  url: String!\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# BESTIES – STORIES, BACKGROUNDS, AFFILIATE, FEED\r\n# ─────────────────────────────────────────────\r\n\r\nenum StoryVisibility {\r\n  PRIVATE\r\n  BESTIES\r\n  PUBLIC\r\n}\r\n\r\ntype Story {\r\n  id: ID!\r\n  ownerSub: ID!\r\n  title: String!\r\n  body: String\r\n  closetItemIds: [ID!]!         # tags closet items\r\n  stickers: AWSJSON\r\n  polls: AWSJSON\r\n  status: ClosetStatus!\r\n  visibility: StoryVisibility!\r\n  scheduledAt: AWSDateTime\r\n  publishedAt: AWSDateTime\r\n  shareToCommunityFeed: Boolean!\r\n  shareToPinterest: Boolean!\r\n}\r\n\r\ninput CreateStoryInput {\r\n  title: String!\r\n  body: String\r\n  closetItemIds: [ID!]!\r\n  stickers: AWSJSON\r\n  polls: AWSJSON\r\n  visibility: StoryVisibility = BESTIES\r\n  scheduledAt: AWSDateTime\r\n  shareToCommunityFeed: Boolean = false\r\n  shareToPinterest: Boolean = false\r\n}\r\n\r\ninput RequestBackgroundChangeInput {\r\n  closetItemId: ID!\r\n  requestedBackgroundStyle: String!   # e.g. \"cutout\", \"scene:beach\"\r\n  notes: String\r\n}\r\n\r\ninput AttachAffiliateLinkInput {\r\n  closetItemId: ID!\r\n  url: String!\r\n  provider: String\r\n  campaignTag: String\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# EPISODES / EARLY ACCESS\r\n# ─────────────────────────────────────────────\r\n\r\ntype EpisodeAccess {\r\n  episodeId: ID!\r\n  isEarlyAccess: Boolean!\r\n}\r\n\r\n# ─────────────────────────────────────────────\r\n# GAME / PROFILE / LEADERBOARD / POLLS\r\n# ─────────────────────────────────────────────\r\n\r\ntype LeaderboardEntry {\r\n  userId: ID!\r\n  displayName: String\r\n  xp: Int!\r\n  coins: Int!\r\n  rank: Int!\r\n}\r\n\r\ntype GameProfile {\r\n  userId: ID!\r\n  displayName: String\r\n  xp: Int!\r\n  coins: Int!\r\n  badges: [Badge!]!\r\n  createdAt: AWSDateTime!\r\n  updatedAt: AWSDateTime\r\n\r\n  # Top Picks / pinned looks backing your \"Top Picks\" UI\r\n  pinnedClosetItems: [ClosetItem!]!\r\n}\r\n\r\ntype Badge {\r\n  id: ID!\r\n  name: String!\r\n  description: String\r\n  earnedAt: AWSDateTime!\r\n}\r\n\r\ninput UpdateProfileInput {\r\n  displayName: String\r\n}\r\n\r\ninput LogGameEventInput {\r\n  type: String!\r\n  episodeId: ID\r\n  metadata: AWSJSON\r\n}\r\n\r\ntype GameEventResult {\r\n  success: Boolean!\r\n\r\n  # Legacy fields (kept for backwards compatibility)\r\n  newXP: Int\r\n  newCoins: Int\r\n\r\n  # Fields used by the current client\r\n  xp: Int\r\n  coins: Int\r\n  lastEventAt: AWSDateTime\r\n}\r\n\r\ntype Poll {\r\n  id: ID!\r\n  question: String!\r\n  options: [PollOption!]!\r\n  createdAt: AWSDateTime!\r\n  closesAt: AWSDateTime\r\n  totalVotes: Int!\r\n}\r\n\r\ntype PollOption {\r\n  id: ID!\r\n  text: String!\r\n  votes: Int!\r\n}\r\n\r\ninput CreatePollInput {\r\n  question: String!\r\n  options: [String!]!\r\n  closesAt: AWSDateTime\r\n}\r\n"
+    "Definition": "# Root query type\r\ntype Query {\r\n  # Simple healthcheck\r\n  hello: String\r\n\r\n  # Current user basic info\r\n  me: Me!\r\n\r\n  # Closet queries (fan / bestie)\r\n  myCloset(limit: Int, nextToken: String): ClosetConnection!\r\n  myWishlist(limit: Int, nextToken: String): ClosetConnection!\r\n  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!\r\n\r\n  # Comments & likes\r\n  closetItemComments(\r\n    itemId: ID!\r\n    limit: Int\r\n    nextToken: String\r\n  ): CommentConnection!\r\n\r\n  adminClosetItemLikes(\r\n    itemId: ID!\r\n    limit: Int\r\n    nextToken: String\r\n  ): LikeConnection!\r\n\r\n  adminClosetItemComments(\r\n    itemId: ID!\r\n    limit: Int\r\n    nextToken: String\r\n  ): CommentConnection!\r\n\r\n  # Admin / feed views\r\n  adminListPending(limit: Int, nextToken: String): ClosetConnection!\r\n  adminListClosetItems(limit: Int, nextToken: String): ClosetConnection!\r\n  closetFeed(limit: Int, nextToken: String): ClosetConnection!\r\n\r\n  # Episodes / early access\r\n  isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!\r\n\r\n  # Game / leaderboard\r\n  topXP(limit: Int = 50): [GameProfile!]!\r\n  topCoins(limit: Int = 50): [GameProfile!]!\r\n\r\n  # Polls\r\n  getPoll(id: ID!): Poll\r\n\r\n  # Game profile\r\n  getMyProfile: GameProfile\r\n\r\n  # Bestie status\r\n  meBestieStatus: BestieStatus!\r\n\r\n  # Creator / livestream & monetisation\r\n  getCreatorLivestreamInfo: CreatorLivestreamInfo!\r\n  creatorRevenueSummary: CreatorRevenueSummary!\r\n  creatorAiSuggest(\r\n    text: String!\r\n    kind: CreatorAiKind!\r\n  ): CreatorAiSuggestionResult!\r\n}\r\n\r\n# Root mutation type\r\ntype Mutation {\r\n  # Roles\r\n  setUserRole(userId: ID!, role: String!): RoleResult!\r\n\r\n  # Closet (fan/bestie core)\r\n  createClosetItem(input: CreateClosetItemInput!): ClosetItem!\r\n  requestClosetApproval(itemId: ID!): ClosetItem!\r\n  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!\r\n  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!\r\n\r\n  likeClosetItem(itemId: ID!): ClosetItem!\r\n  commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!\r\n  pinHighlight(itemId: ID!): GameProfile!\r\n  toggleWishlistItem(itemId: ID!): ClosetItem!\r\n\r\n  # Bestie closet aliases (used by BestieCloset UI)\r\n  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!\r\n  bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!\r\n  bestieDeleteClosetItem(id: ID!): Boolean!\r\n\r\n  # Closet admin\r\n  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!\r\n  adminApproveItem(itemId: ID!): ClosetItem!\r\n  adminRejectItem(itemId: ID!, reason: String): ClosetItem!\r\n  adminSetClosetAudience(itemId: ID!, visibility: ClosetVisibility!): ClosetItem!\r\n  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!\r\n\r\n  # Bestie membership / billing\r\n  startBestieCheckout: BestieCheckoutSession!\r\n  claimBestieTrial: BestieStatus!\r\n  adminSetBestie(userId: ID!): BestieStatus!\r\n  adminRevokeBestie(userId: ID!): BestieStatus!\r\n  adminSetBestieByEmail(email: String!): BestieStatus!\r\n  adminRevokeBestieByEmail(email: String!): BestieStatus!\r\n\r\n  # Game engine\r\n  logGameEvent(input: LogGameEventInput!): GameEventResult!\r\n  awardCoins(userId: ID!, amount: Int!): GameProfile!\r\n\r\n  # Polls\r\n  createPoll(input: CreatePollInput!): Poll!\r\n  votePoll(pollId: ID!, optionId: ID!): Poll!\r\n\r\n  # Game profile updates\r\n  grantBadge(userId: ID!, badgeId: ID!): GameProfile!\r\n  setDisplayName(name: String!): GameProfile!\r\n  updateProfile(input: UpdateProfileInput!): GameProfile!\r\n\r\n  # Bestie workflow: background changes / stories / feed\r\n  requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!\r\n  createStory(input: CreateStoryInput!): Story!\r\n  publishStory(storyId: ID!): Story!\r\n  addClosetItemToCommunityFeed(itemId: ID!): ClosetItem!\r\n  removeClosetItemFromCommunityFeed(itemId: ID!): ClosetItem!\r\n  shareClosetItemToPinterest(itemId: ID!): ShareResult!\r\n\r\n  # Creator livestream + commerce\r\n  pinLivestreamHighlight(highlightId: ID, title: String): PinResult!\r\n  recordAffiliateClick(itemId: ID!, source: String): AffiliateClickResult!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Basic user / roles\r\n# ─────────────────────────────────────────\r\n\r\ntype Me {\r\n  id: ID!\r\n  email: String!\r\n  role: String!\r\n  tier: String!\r\n}\r\n\r\ntype RoleResult {\r\n  userId: ID!\r\n  role: String!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Closet core types\r\n# ─────────────────────────────────────────\r\n\r\nenum ClosetVisibility {\r\n  PRIVATE\r\n  BESTIE\r\n  PUBLIC\r\n}\r\n\r\ntype ClosetItem {\r\n  id: ID!\r\n  ownerId: ID\r\n  title: String\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility!\r\n  affiliateUrl: String\r\n  backgroundStatus: String\r\n  createdAt: String\r\n  updatedAt: String\r\n}\r\n\r\ntype ClosetConnection {\r\n  items: [ClosetItem!]!\r\n  nextToken: String\r\n}\r\n\r\ninput CreateClosetItemInput {\r\n  title: String\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility\r\n  affiliateUrl: String\r\n}\r\n\r\n# Inputs used by BestieCloset UI\r\ninput BestieCreateClosetItemInput {\r\n  title: String\r\n  rawMediaKey: String!\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility\r\n}\r\n\r\ninput BestieUpdateClosetItemInput {\r\n  title: String\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility\r\n}\r\n\r\ninput AdminCreateClosetItemInput {\r\n  ownerId: ID\r\n  title: String\r\n  mediaKey: String\r\n  rawMediaKey: String\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility\r\n  affiliateUrl: String\r\n}\r\n\r\ninput AdminUpdateClosetItemInput {\r\n  id: ID!\r\n  title: String\r\n  category: String\r\n  subcategory: String\r\n  colorTags: [String!]\r\n  season: String\r\n  notes: String\r\n  visibility: ClosetVisibility\r\n  affiliateUrl: String\r\n}\r\n\r\ninput UpdateClosetItemStoryInput {\r\n  itemId: ID!\r\n  storyText: String\r\n  stickers: [String!]\r\n  pollId: ID\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Comments & likes\r\n# ─────────────────────────────────────────\r\n\r\ntype Comment {\r\n  id: ID!\r\n  itemId: ID!\r\n  userId: ID!\r\n  text: String!\r\n  createdAt: String!\r\n}\r\n\r\ntype CommentConnection {\r\n  items: [Comment!]!\r\n  nextToken: String\r\n}\r\n\r\ntype Like {\r\n  itemId: ID!\r\n  userId: ID!\r\n  createdAt: String!\r\n}\r\n\r\ntype LikeConnection {\r\n  items: [Like!]!\r\n  nextToken: String\r\n}\r\n\r\ninput CommentOnClosetItemInput {\r\n  itemId: ID!\r\n  text: String!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Bestie membership\r\n# ─────────────────────────────────────────\r\n\r\ntype BestieStatus {\r\n  isBestie: Boolean!\r\n  tier: String\r\n  since: String\r\n}\r\n\r\ntype BestieCheckoutSession {\r\n  sessionId: ID!\r\n  url: String!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Background change / stories\r\n# ─────────────────────────────────────────\r\n\r\ninput BgChangeRequestInput {\r\n  itemId: ID!\r\n  requestedBackground: String!\r\n  notes: String\r\n}\r\n\r\ntype BgChangeRequestResult {\r\n  success: Boolean!\r\n  requestId: ID\r\n}\r\n\r\ntype Story {\r\n  id: ID!\r\n  ownerId: ID!\r\n  title: String\r\n  body: String\r\n  coverMediaKey: String\r\n  closetItemIds: [ID!]\r\n  status: String\r\n  createdAt: String\r\n  publishedAt: String\r\n}\r\n\r\ninput CreateStoryInput {\r\n  title: String!\r\n  body: String\r\n  coverMediaKey: String\r\n  closetItemIds: [ID!]\r\n}\r\n\r\ntype ShareResult {\r\n  success: Boolean!\r\n  message: String\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Game / XP / profile\r\n# ─────────────────────────────────────────\r\n\r\ntype GameProfile {\r\n  id: ID!\r\n  displayName: String\r\n  xp: Int!\r\n  coins: Int!\r\n  badges: [Badge!]\r\n  pinnedClosetItems: [ClosetItem!]!\r\n}\r\n\r\ntype Badge {\r\n  id: ID!\r\n  name: String!\r\n  icon: String\r\n}\r\n\r\ninput LogGameEventInput {\r\n  type: String!\r\n  metadata: String\r\n}\r\n\r\ntype GameEventResult {\r\n  success: Boolean!\r\n}\r\n\r\ninput UpdateProfileInput {\r\n  bio: String\r\n  avatarUrl: String\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Polls\r\n# ─────────────────────────────────────────\r\n\r\ntype Poll {\r\n  id: ID!\r\n  question: String!\r\n  options: [PollOption!]!\r\n  totalVotes: Int!\r\n  createdAt: String\r\n}\r\n\r\ntype PollOption {\r\n  id: ID!\r\n  label: String!\r\n  votes: Int!\r\n}\r\n\r\ninput CreatePollInput {\r\n  question: String!\r\n  options: [String!]!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Episodes / early access\r\n# ─────────────────────────────────────────\r\n\r\ntype EpisodeAccess {\r\n  episodeId: ID!\r\n  isEarlyAccess: Boolean!\r\n  canView: Boolean!\r\n}\r\n\r\n# ─────────────────────────────────────────\r\n# Creator / livestream / AI / commerce\r\n# ─────────────────────────────────────────\r\n\r\ntype CreatorLivestreamInfo {\r\n  channelArn: String!\r\n  playbackUrl: String!\r\n}\r\n\r\nenum CreatorAiKind {\r\n  CAPTION\r\n  HASHTAGS\r\n  PLAN\r\n}\r\n\r\ntype CreatorAiSuggestionResult {\r\n  suggestions: [String!]!\r\n}\r\n\r\ntype CreatorRevenueSummary {\r\n  creatorId: ID!\r\n  tier: String!\r\n  last30dRevenue: Float!\r\n  totalRevenue: Float!\r\n  affiliateClicks: Int!\r\n}\r\n\r\ntype PinResult {\r\n  ok: Boolean!\r\n}\r\n\r\ntype AffiliateClickResult {\r\n  ok: Boolean!\r\n}\r\n\r\n\r\n"
    },
    "Metadata": {
     "aws:cdk:path": "ApiStack/StylingApi/Schema"
@@ -201,8 +200,8 @@
     "DataSourceName": "NoneDs",
     "FieldName": "me",
     "Kind": "UNIT",
-    "RequestMappingTemplate": "{\n        \"version\": \"2017-02-28\"\n      }",
-    "ResponseMappingTemplate": "\n        $util.toJson({\n          \"id\": $util.defaultIfNull($ctx.identity.sub, \"anonymous\"),\n          \"email\": $util.defaultIfNull($ctx.identity.claims.email, \"\"),\n          \"role\": \"FAN\",\n          \"tier\": \"FREE\"\n        })\n      ",
+    "RequestMappingTemplate": "\n  {\n    \"version\": \"2017-02-28\",\n    \"payload\": {}\n  }\n  ",
+    "ResponseMappingTemplate": "\n    #set($sub = \"anonymous\")\n    #set($email = \"\")\n\n    #if($ctx.identity && $ctx.identity.sub)\n      #set($sub = $ctx.identity.sub)\n    #end\n\n    #if($ctx.identity && $ctx.identity.claims && $ctx.identity.claims.get(\"email\"))\n      #set($email = $ctx.identity.claims.get(\"email\"))\n    #end\n\n    $util.toJson({\n      \"id\": $sub,\n      \"email\": $email,\n      \"role\": \"FAN\",\n      \"tier\": \"FREE\"\n    })\n  ",
     "TypeName": "Query"
    },
    "DependsOn": [
@@ -1449,7 +1448,7 @@
     "aws:cdk:path": "ApiStack/StylingApi/IsEpisodeEarlyAccessResolver/Resource"
    }
   },
-  "StylingApiGameplayDSServiceRole20773680": {
+  "StylingApiGameplayDsServiceRoleA193493E": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -1476,10 +1475,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/ServiceRole/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDs/ServiceRole/Resource"
    }
   },
-  "StylingApiGameplayDSServiceRoleDefaultPolicy78486F14": {
+  "StylingApiGameplayDsServiceRoleDefaultPolicy7A4AC6CB": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -1513,18 +1512,18 @@
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "StylingApiGameplayDSServiceRoleDefaultPolicy78486F14",
+    "PolicyName": "StylingApiGameplayDsServiceRoleDefaultPolicy7A4AC6CB",
     "Roles": [
      {
-      "Ref": "StylingApiGameplayDSServiceRole20773680"
+      "Ref": "StylingApiGameplayDsServiceRoleA193493E"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDs/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "StylingApiGameplayDS54836D27": {
+  "StylingApiGameplayDs2AF740EF": {
    "Type": "AWS::AppSync::DataSource",
    "Properties": {
     "ApiId": {
@@ -1541,17 +1540,17 @@
       ]
      }
     },
-    "Name": "GameplayDS",
+    "Name": "GameplayDs",
     "ServiceRoleArn": {
      "Fn::GetAtt": [
-      "StylingApiGameplayDSServiceRole20773680",
+      "StylingApiGameplayDsServiceRoleA193493E",
       "Arn"
      ]
     },
     "Type": "AWS_LAMBDA"
    },
    "Metadata": {
-    "aws:cdk:path": "ApiStack/StylingApi/GameplayDS/Resource"
+    "aws:cdk:path": "ApiStack/StylingApi/GameplayDs/Resource"
    }
   },
   "StylingApiLeaderboardDsServiceRole00D64A33": {
@@ -1878,13 +1877,13 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "GameplayDS",
+    "DataSourceName": "GameplayDs",
     "FieldName": "logGameEvent",
     "Kind": "UNIT",
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiGameplayDS54836D27",
+    "StylingApiGameplayDs2AF740EF",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -1900,13 +1899,13 @@
       "ApiId"
      ]
     },
-    "DataSourceName": "GameplayDS",
+    "DataSourceName": "GameplayDs",
     "FieldName": "awardCoins",
     "Kind": "UNIT",
     "TypeName": "Mutation"
    },
    "DependsOn": [
-    "StylingApiGameplayDS54836D27",
+    "StylingApiGameplayDs2AF740EF",
     "StylingApiSchemaD8A6FBCC"
    ],
    "Metadata": {
@@ -2111,6 +2110,404 @@
     "aws:cdk:path": "ApiStack/StylingApi/GetMyProfile/Resource"
    }
   },
+  "StylingApiCreatorLivestreamDsServiceRoleBA132ACD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiCreatorLivestreamDsServiceRoleDefaultPolicyBEFB4995": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "LivestreamStack:ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "LivestreamStack:ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D"
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiCreatorLivestreamDsServiceRoleDefaultPolicyBEFB4995",
+    "Roles": [
+     {
+      "Ref": "StylingApiCreatorLivestreamDsServiceRoleBA132ACD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiCreatorLivestreamDsCF43FE9E": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::ImportValue": "LivestreamStack:ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D"
+     }
+    },
+    "Name": "CreatorLivestreamDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiCreatorLivestreamDsServiceRoleBA132ACD",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorLivestreamDs/Resource"
+   }
+  },
+  "StylingApiGetCreatorLivestreamInfoResolver55FA26A8": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "CreatorLivestreamDs",
+    "FieldName": "getCreatorLivestreamInfo",
+    "Kind": "UNIT",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiCreatorLivestreamDsCF43FE9E",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/GetCreatorLivestreamInfoResolver/Resource"
+   }
+  },
+  "StylingApiPinLivestreamHighlightResolverB01D03D5": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "CreatorLivestreamDs",
+    "FieldName": "pinLivestreamHighlight",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiCreatorLivestreamDsCF43FE9E",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/PinLivestreamHighlightResolver/Resource"
+   }
+  },
+  "StylingApiCreatorAiDsServiceRole5E6F914B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorAiDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiCreatorAiDsServiceRoleDefaultPolicy636643F6": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "CreatorToolsStack:ExportsOutputFnGetAttCreatorAiFnF1C41CA2Arn187EFA80"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "CreatorToolsStack:ExportsOutputFnGetAttCreatorAiFnF1C41CA2Arn187EFA80"
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiCreatorAiDsServiceRoleDefaultPolicy636643F6",
+    "Roles": [
+     {
+      "Ref": "StylingApiCreatorAiDsServiceRole5E6F914B"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorAiDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiCreatorAiDs7DA2D891": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::ImportValue": "CreatorToolsStack:ExportsOutputFnGetAttCreatorAiFnF1C41CA2Arn187EFA80"
+     }
+    },
+    "Name": "CreatorAiDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiCreatorAiDsServiceRole5E6F914B",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorAiDs/Resource"
+   }
+  },
+  "StylingApiCreatorAiSuggestResolverE5BE4412": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "CreatorAiDs",
+    "FieldName": "creatorAiSuggest",
+    "Kind": "UNIT",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiCreatorAiDs7DA2D891",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorAiSuggestResolver/Resource"
+   }
+  },
+  "StylingApiCommerceDsServiceRole3C8295DD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "appsync.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CommerceDs/ServiceRole/Resource"
+   }
+  },
+  "StylingApiCommerceDsServiceRoleDefaultPolicy94082CC9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "CommerceStack:ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "CommerceStack:ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "StylingApiCommerceDsServiceRoleDefaultPolicy94082CC9",
+    "Roles": [
+     {
+      "Ref": "StylingApiCommerceDsServiceRole3C8295DD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CommerceDs/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "StylingApiCommerceDs455289CD": {
+   "Type": "AWS::AppSync::DataSource",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "LambdaConfig": {
+     "LambdaFunctionArn": {
+      "Fn::ImportValue": "CommerceStack:ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
+     }
+    },
+    "Name": "CommerceDs",
+    "ServiceRoleArn": {
+     "Fn::GetAtt": [
+      "StylingApiCommerceDsServiceRole3C8295DD",
+      "Arn"
+     ]
+    },
+    "Type": "AWS_LAMBDA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CommerceDs/Resource"
+   }
+  },
+  "StylingApiCreatorRevenueSummaryResolver8033B6DD": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "CommerceDs",
+    "FieldName": "creatorRevenueSummary",
+    "Kind": "UNIT",
+    "TypeName": "Query"
+   },
+   "DependsOn": [
+    "StylingApiCommerceDs455289CD",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/CreatorRevenueSummaryResolver/Resource"
+   }
+  },
+  "StylingApiRecordAffiliateClickResolver4FC6FA42": {
+   "Type": "AWS::AppSync::Resolver",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "StylingApiC401F041",
+      "ApiId"
+     ]
+    },
+    "DataSourceName": "CommerceDs",
+    "FieldName": "recordAffiliateClick",
+    "Kind": "UNIT",
+    "TypeName": "Mutation"
+   },
+   "DependsOn": [
+    "StylingApiCommerceDs455289CD",
+    "StylingApiSchemaD8A6FBCC"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/StylingApi/RecordAffiliateClickResolver/Resource"
+   }
+  },
   "HelloFnServiceRoleDA97FE56": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -2282,21 +2679,21 @@
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
-        "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
+        "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefApprovalStateMachine767589AACD522D74"
        }
       },
       {
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
-        "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefBackgroundChangeApprovalE28AFC8B01294A97"
+        "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D"
        }
       },
       {
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
-        "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefStoryPublishWorkflowCD58F9E99CC790C1"
+        "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
        }
       },
       {
@@ -2334,14 +2731,17 @@
       "SK_NAME": "sk",
       "STATUS_GSI": "gsi1",
       "APPROVAL_SM_ARN": {
-       "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
+       "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefApprovalStateMachine767589AACD522D74"
       },
       "BG_CHANGE_SM_ARN": {
-       "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefBackgroundChangeApprovalE28AFC8B01294A97"
+       "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D"
       },
       "STORY_PUBLISH_SM_ARN": {
-       "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefStoryPublishWorkflowCD58F9E99CC790C1"
-      }
+       "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "CREATOR_GROUP_NAME": "creator",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -2457,6 +2857,13 @@
        ]
       },
       {
+       "Action": "states:StartExecution",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefApprovalStateMachine767589AACD522D74"
+       }
+      },
+      {
        "Action": [
         "dynamodb:Query",
         "dynamodb:Scan",
@@ -2510,7 +2917,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "a5add3c5a6cbfa5246bd51fe6f2d5cc3e1cb73c4767a284ed50c8e56eee61cf7.zip"
+     "S3Key": "9587a51316a1262d5d9ab6f80b89ce30192421e25e9c523ea0d681b6a3b873b6.zip"
     },
     "Environment": {
      "Variables": {
@@ -2521,8 +2928,10 @@
       "SK_NAME": "sk",
       "STATUS_GSI": "gsi1",
       "APPROVAL_SM_ARN": {
-       "Fn::ImportValue": "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA"
-      }
+       "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefApprovalStateMachine767589AACD522D74"
+      },
+      "ADMIN_GROUP_NAME": "admin",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -2552,7 +2961,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetAdminFn/Resource",
-    "aws:asset:path": "asset.a5add3c5a6cbfa5246bd51fe6f2d5cc3e1cb73c4767a284ed50c8e56eee61cf7",
+    "aws:asset:path": "asset.9587a51316a1262d5d9ab6f80b89ce30192421e25e9c523ea0d681b6a3b873b6",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -2643,7 +3052,7 @@
        "Action": "cognito-idp:ListUsers",
        "Effect": "Allow",
        "Resource": {
-        "Fn::ImportValue": "IdentityStack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
+        "Fn::ImportValue": "IdentityV2Stack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
        }
       }
      ],
@@ -2665,7 +3074,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "9942b27de6f166c31d3447fa7dc0d54398e33599317fad9a1af05eb55be61588.zip"
+     "S3Key": "b211d32f723d4d7af080211fb2ae6ad48756144f7dc536d1a3818a0318dd7f55.zip"
     },
     "Environment": {
      "Variables": {
@@ -2676,11 +3085,13 @@
       "SK_NAME": "sk",
       "STATUS_GSI": "gsi1",
       "USER_POOL_ID": {
-       "Fn::ImportValue": "IdentityStack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
       },
       "STRIPE_SECRET_KEY": "",
       "STRIPE_PRICE_ID": "",
-      "BASE_SUCCESS_URL": "http://localhost:5173"
+      "BASE_SUCCESS_URL": "http://localhost:5173",
+      "ADMIN_GROUP_NAME": "admin",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -2710,7 +3121,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/BestieFn/Resource",
-    "aws:asset:path": "asset.9942b27de6f166c31d3447fa7dc0d54398e33599317fad9a1af05eb55be61588",
+    "aws:asset:path": "asset.b211d32f723d4d7af080211fb2ae6ad48756144f7dc536d1a3818a0318dd7f55",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -2821,7 +3232,8 @@
       },
       "PK_NAME": "pk",
       "SK_NAME": "sk",
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -2964,7 +3376,9 @@
       },
       "PK_NAME": "pk",
       "SK_NAME": "sk",
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ADMIN_GROUP_NAME": "admin"
      }
     },
     "Handler": "index.handler",
@@ -3103,7 +3517,8 @@
       },
       "PK_NAME": "pk",
       "SK_NAME": "sk",
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -3237,7 +3652,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "f9307ce88d1f8124bc247c5aba260f8519af294bde8a83406d549d7a1ef30efe.zip"
+     "S3Key": "386a833341c27d595993116d36b29eaec9a23292d68b8ee4316bcaad6fa1c9b8.zip"
     },
     "Environment": {
      "Variables": {
@@ -3246,7 +3661,9 @@
       },
       "PK_NAME": "pk",
       "SK_NAME": "sk",
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ADMIN_GROUP_NAME": "admin"
      }
     },
     "Handler": "index.handler",
@@ -3274,7 +3691,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/PollsFn/Resource",
-    "aws:asset:path": "asset.f9307ce88d1f8124bc247c5aba260f8519af294bde8a83406d549d7a1ef30efe",
+    "aws:asset:path": "asset.386a833341c27d595993116d36b29eaec9a23292d68b8ee4316bcaad6fa1c9b8",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -3389,7 +3806,9 @@
       },
       "PK_NAME": "pk",
       "SK_NAME": "sk",
-      "STATUS_GSI": "gsi1"
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ADMIN_GROUP_NAME": "admin"
      }
     },
     "Handler": "index.handler",

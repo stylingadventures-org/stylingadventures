@@ -50,6 +50,14 @@ type Query {
 
   # Bestie status
   meBestieStatus: BestieStatus!
+
+  # Creator / livestream & monetisation
+  getCreatorLivestreamInfo: CreatorLivestreamInfo!
+  creatorRevenueSummary: CreatorRevenueSummary!
+  creatorAiSuggest(
+    text: String!
+    kind: CreatorAiKind!
+  ): CreatorAiSuggestionResult!
 }
 
 # Root mutation type
@@ -108,6 +116,10 @@ type Mutation {
   addClosetItemToCommunityFeed(itemId: ID!): ClosetItem!
   removeClosetItemFromCommunityFeed(itemId: ID!): ClosetItem!
   shareClosetItemToPinterest(itemId: ID!): ShareResult!
+
+  # Creator livestream + commerce
+  pinLivestreamHighlight(highlightId: ID, title: String): PinResult!
+  recordAffiliateClick(itemId: ID!, source: String): AffiliateClickResult!
 }
 
 # ─────────────────────────────────────────
@@ -379,4 +391,40 @@ type EpisodeAccess {
   isEarlyAccess: Boolean!
   canView: Boolean!
 }
+
+# ─────────────────────────────────────────
+# Creator / livestream / AI / commerce
+# ─────────────────────────────────────────
+
+type CreatorLivestreamInfo {
+  channelArn: String!
+  playbackUrl: String!
+}
+
+enum CreatorAiKind {
+  CAPTION
+  HASHTAGS
+  PLAN
+}
+
+type CreatorAiSuggestionResult {
+  suggestions: [String!]!
+}
+
+type CreatorRevenueSummary {
+  creatorId: ID!
+  tier: String!
+  last30dRevenue: Float!
+  totalRevenue: Float!
+  affiliateClicks: Int!
+}
+
+type PinResult {
+  ok: Boolean!
+}
+
+type AffiliateClickResult {
+  ok: Boolean!
+}
+
 

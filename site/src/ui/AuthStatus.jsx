@@ -1,26 +1,31 @@
-// site/src/ui/AuthStatus.jsx
 import React from "react";
-import { getSA } from "../lib/sa";
+import { getSA, Auth } from "../lib/sa";
 
 /** Tiny helper to decode a JWT */
 function parseJwt(t = "") {
   try {
     const base = t.split(".")[1];
     return JSON.parse(atob(base.replace(/-/g, "+").replace(/_/g, "/")));
-  } catch {
+  } catch (err) {
+    console.error("AuthStatus.parseJwt: failed to decode token", err);
     return {};
   }
 }
 
 /** Read tokens the same way sa.js stores them */
 function getTokens() {
-  const id =
-    sessionStorage.getItem("id_token") ||
-    localStorage.getItem("sa_id_token") ||
-    "";
-  const access = sessionStorage.getItem("access_token") || "";
-  const refresh = sessionStorage.getItem("refresh_token") || "";
-  return { id, access, refresh };
+  try {
+    const id =
+      sessionStorage.getItem("id_token") ||
+      localStorage.getItem("sa_id_token") ||
+      "";
+    const access = sessionStorage.getItem("access_token") || "";
+    const refresh = sessionStorage.getItem("refresh_token") || "";
+    return { id, access, refresh };
+  } catch (err) {
+    console.error("AuthStatus.getTokens: storage error", err);
+    return { id: "", access: "", refresh: "" };
+  }
 }
 
 /** Clear all local copies of auth tokens */
@@ -29,25 +34,21 @@ function clearLocalTokens() {
   for (const key of keys) {
     try {
       sessionStorage.removeItem(key);
-    } catch {}
+    } catch (err) {
+      // Ignore but log once for debugging
+      console.warn(
+        `AuthStatus.clearLocalTokens: failed session key ${key}`,
+        err,
+      );
+    }
     try {
       localStorage.removeItem(key);
-    } catch {}
-  }
-}
-
-// cache config so we only fetch once
-let cachedCfg = null;
-async function loadCfg() {
-  if (cachedCfg) return cachedCfg;
-  try {
-    const res = await fetch("/config.v2.json", { cache: "no-store" });
-    if (!res.ok) throw new Error(`config.v2.json ${res.status}`);
-    cachedCfg = await res.json();
-    return cachedCfg;
-  } catch (e) {
-    console.error("AuthStatus: failed to load config.v2.json", e);
-    return null;
+    } catch (err) {
+      console.warn(
+        `AuthStatus.clearLocalTokens: failed local key ${key}`,
+        err,
+      );
+    }
   }
 }
 
@@ -65,21 +66,27 @@ export default function AuthStatus() {
         const t = getTokens();
         setTok(t);
         setRole(SA?.getRole?.() || "FAN");
+
         const claims = parseJwt(t.id);
         setEmail(claims.email || claims["cognito:username"] || "");
+      } catch (err) {
+        console.error("AuthStatus: error during SA init", err);
       } finally {
         setReady(true);
       }
     };
 
-    if (window.SA) onReady();
-    else window.addEventListener("sa:ready", onReady, { once: true });
+    if (window.SA) {
+      onReady();
+    } else {
+      window.addEventListener("sa:ready", onReady, { once: true });
+    }
 
     // Keep status fresh if another tab logs in/out
     const onStorage = (e) => {
       if (
         ["id_token", "sa_id_token", "access_token", "refresh_token"].includes(
-          e.key
+          e.key,
         )
       ) {
         const t = getTokens();
@@ -91,7 +98,10 @@ export default function AuthStatus() {
     };
     window.addEventListener("storage", onStorage);
 
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("sa:ready", onReady);
+    };
   }, []);
 
   const authed = Boolean(id);
@@ -117,80 +127,28 @@ export default function AuthStatus() {
     background: "#fff",
   };
 
-  // 🔐 Login via Cognito Hosted UI
+  // 🔐 Login via Cognito Hosted UI, using shared Auth helper
   const onSignIn = async () => {
-    const cfg = await loadCfg();
-    if (cfg) {
-      const domain =
-        (cfg.cognitoDomain && cfg.cognitoDomain.replace(/\/+$/, "")) ||
-        `https://${cfg.cognitoDomainPrefix}.auth.${cfg.region}.amazoncognito.com`;
-
-      const clientId = cfg.clientId || cfg.userPoolWebClientId;
-      const redirect =
-        cfg.redirectUri || `${window.location.origin}/callback`;
-      const scopes =
-        Array.isArray(cfg.scopes) && cfg.scopes.length
-          ? cfg.scopes.join(" ")
-          : "openid email";
-
-      const url =
-        `${domain}/login?` +
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&response_type=code` +
-        `&scope=${encodeURIComponent(scopes)}` +
-        `&redirect_uri=${encodeURIComponent(redirect)}`;
-
-      window.location.assign(url);
-      return;
-    }
-
-    // Fallback: use SA helper if config failed for some reason
     try {
-      const SA = await getSA();
-      SA?.startLogin?.();
+      await Auth.login(); // redirects to Hosted UI
     } catch (e) {
-      console.error("AuthStatus: fallback startLogin failed", e);
+      console.error("AuthStatus: login failed", e);
     }
   };
 
-  // 📴 Logout via Cognito Hosted UI
+  // 📴 Logout via Cognito Hosted UI, using shared Auth helper
   const onSignOut = async () => {
-    // 1) Clear local tokens so UI flips to Guest immediately
+    // Clear local tokens immediately so UI flips to Guest asap
     clearLocalTokens();
     setTok({ id: "", access: "", refresh: "" });
     setRole("FAN");
     setEmail("");
 
-    // 2) Try to hit the Hosted UI /logout endpoint to clear Cognito cookies
     try {
-      const cfg = await loadCfg();
-      if (cfg) {
-        const domain =
-          (cfg.cognitoDomain && cfg.cognitoDomain.replace(/\/+$/, "")) ||
-          `https://${cfg.cognitoDomainPrefix}.auth.${cfg.region}.amazoncognito.com`;
-
-        const clientId = cfg.clientId || cfg.userPoolWebClientId;
-        const logoutUri = cfg.logoutUri || `${window.location.origin}/`;
-
-        const url =
-          `${domain}/logout?` +
-          `client_id=${encodeURIComponent(clientId)}` +
-          `&logout_uri=${encodeURIComponent(logoutUri)}`;
-
-        window.location.assign(url);
-        return;
-      }
+      await Auth.logout(); // redirects through Cognito logout
     } catch (e) {
-      console.error("AuthStatus: hosted UI logout failed, falling back", e);
-    }
-
-    // 3) Fallback: old SA helper + reload
-    try {
-      const sa = await getSA();
-      await sa?.logoutEverywhere?.();
-    } catch {
-      // ignore
-    } finally {
+      console.error("AuthStatus: logout failed; falling back", e);
+      // Fallback: just go home
       window.location.assign("/");
     }
   };

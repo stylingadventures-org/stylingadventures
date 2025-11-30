@@ -1,31 +1,16 @@
 {
   "version": "48.0.0",
   "files": {
-    "eca72b2ccb1767fdaa078888425dc8c3308aa200ff6df61f90d1f24224a71719": {
-      "displayName": "SaveApprovalTokenFn/Code",
-      "source": {
-        "path": "asset.eca72b2ccb1767fdaa078888425dc8c3308aa200ff6df61f90d1f24224a71719",
-        "packaging": "zip"
-      },
-      "destinations": {
-        "637423256673-us-east-1-17782893": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "eca72b2ccb1767fdaa078888425dc8c3308aa200ff6df61f90d1f24224a71719.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
-        }
-      }
-    },
-    "48c455abe750722c6b000e0fe6ee761ea73d703f562cd607793a0e4ec9ddd3e7": {
+    "22218ffecf4bd71cd51e0cd85a4887b3d1e6cbd127c09b00c788110d14ccec3a": {
       "displayName": "WorkflowsStack Template",
       "source": {
         "path": "WorkflowsStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-8f22c17e": {
+        "637423256673-us-east-1-9ea67014": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "48c455abe750722c6b000e0fe6ee761ea73d703f562cd607793a0e4ec9ddd3e7.json",
+          "objectKey": "22218ffecf4bd71cd51e0cd85a4887b3d1e6cbd127c09b00c788110d14ccec3a.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

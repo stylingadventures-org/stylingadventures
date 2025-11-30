@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "e0a14ada0bd00565fd6f9c2c83a22d33814bc29ba2f871216f4df3de9a600ea3": {
+      "displayName": "IdentityV2Stack Template",
+      "source": {
+        "path": "IdentityV2Stack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "637423256673-us-east-1-7f652a95": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "e0a14ada0bd00565fd6f9c2c83a22d33814bc29ba2f871216f4df3de9a600ea3.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

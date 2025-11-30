@@ -16,6 +16,12 @@ import { BestiesClosetStack } from "../lib/besties-closet-stack";
 import { BestiesStoriesStack } from "../lib/besties-stories-stack";
 import { BestiesEngagementStack } from "../lib/besties-engagement-stack";
 
+// 👇 Creator / Pro stacks (Task 3)
+import { LivestreamStack } from "../lib/livestream-stack";
+import { CreatorToolsStack } from "../lib/creator-tools-stack";
+import { CommerceStack } from "../lib/commerce-stack";
+import { AnalyticsStack } from "../lib/analytics-stack";
+
 // ---- tiny config loader (optional) ----
 type Cfg = { webOrigin?: string };
 function loadConfig(): Cfg {
@@ -86,7 +92,7 @@ class DataStack extends cdk.Stack {
 // 1) Web hosting FIRST so we know the final CloudFront origin
 const web = new WebStack(app, "WebStack", {
   env,
-  envName, // 👈 IMPORTANT: fixes the envName compile error
+  envName,
   description: `Static web hosting (S3 + CloudFront) - ${envName}`,
 });
 const cloudFrontOrigin = `https://${web.distribution.domainName}`;
@@ -172,7 +178,42 @@ const bestiesEngagement = new BestiesEngagementStack(
   },
 );
 
-// 9) AppSync API – wire all workflows
+// 9) Pro Creators — livestream infra (IVS)
+const livestream = new LivestreamStack(app, "LivestreamStack", {
+  env,
+  envName,
+  table: data.table,
+  description: `Creator livestream infra - ${envName}`,
+});
+
+// 10) Pro Creators — scheduling + AI helpers
+const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
+  env,
+  envName,
+  table: data.table,
+  // tie into existing story publish workflow (Besties stories)
+  storyPublishStateMachine: bestiesStories.storyPublishStateMachine,
+  description: `Creator scheduling + AI helpers - ${envName}`,
+});
+
+// 11) Commerce — orders / revenue tracking
+const commerce = new CommerceStack(app, "CommerceStack", {
+  env,
+  envName,
+  table: data.table,
+  userPool: identity.userPool,
+  description: `Commerce + monetisation - ${envName}`,
+});
+
+// 12) Analytics — engagement / revenue metrics export
+const analytics = new AnalyticsStack(app, "AnalyticsStack", {
+  env,
+  envName,
+  table: data.table,
+  description: `Analytics + metrics export - ${envName}`,
+});
+
+// 13) AppSync API – wire all workflows
 const api = new ApiStack(app, "ApiStack", {
   env,
   userPool: identity.userPool,
@@ -181,9 +222,14 @@ const api = new ApiStack(app, "ApiStack", {
   // Existing closet approval SM (fan + bestie)
   closetApprovalSm: workflows.closetApprovalSm,
 
-  // 👇 NEW Besties workflows
+  // 👇 Besties workflows
   backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
   storyPublishSm: bestiesStories.storyPublishStateMachine,
+
+  // 👇 Creator / Pro Lambdas from new stacks
+  livestreamFn: livestream.livestreamFn,
+  creatorAiFn: creatorTools.aiFn,
+  commerceFn: commerce.commerceFn,
 
   description: `AppSync GraphQL API - ${envName}`,
 });

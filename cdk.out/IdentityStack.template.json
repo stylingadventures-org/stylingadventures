@@ -7,12 +7,8 @@
     "AccountRecoverySetting": {
      "RecoveryMechanisms": [
       {
-       "Name": "verified_phone_number",
-       "Priority": 1
-      },
-      {
        "Name": "verified_email",
-       "Priority": 2
+       "Priority": 1
       }
      ]
     },
@@ -26,10 +22,10 @@
     "EmailVerificationSubject": "Verify your new account",
     "Policies": {
      "PasswordPolicy": {
-      "MinimumLength": 12,
+      "MinimumLength": 8,
       "RequireLowercase": true,
       "RequireNumbers": true,
-      "RequireSymbols": true,
+      "RequireSymbols": false,
       "RequireUppercase": true
      }
     },
@@ -41,6 +37,7 @@
      }
     ],
     "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolName": "sa-dev-users",
     "UserPoolTags": {
      "App": "stylingadventures",
      "Env": "dev"
@@ -55,194 +52,98 @@
      "SmsMessage": "The verification code to your new account is {####}"
     }
    },
-   "UpdateReplacePolicy": "Delete",
-   "DeletionPolicy": "Delete",
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
    "Metadata": {
     "aws:cdk:path": "IdentityStack/UserPool/Resource"
    }
   },
-  "WebClient697086FD": {
+  "AdminGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Platform admins",
+    "GroupName": "admin",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/AdminGroup"
+   }
+  },
+  "CreatorGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Pro creators with access to creator tools",
+    "GroupName": "creator",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "DependsOn": [
+    "AdminGroup"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityStack/CreatorGroup"
+   }
+  },
+  "UserPoolClient2F5918F7": {
    "Type": "AWS::Cognito::UserPoolClient",
    "Properties": {
-    "AccessTokenValidity": 60,
     "AllowedOAuthFlows": [
-     "code"
+     "implicit"
     ],
     "AllowedOAuthFlowsUserPoolClient": true,
     "AllowedOAuthScopes": [
-     "openid",
+     "profile",
+     "phone",
      "email",
-     "profile"
+     "openid",
+     "aws.cognito.signin.user.admin"
     ],
     "CallbackURLs": [
-     "https://d1682i07dc1r3k.cloudfront.net/callback",
-     "http://localhost:5173/callback",
-     "http://localhost:5173/callback/",
-     "http://localhost:5173/callback/index.html"
+     {
+      "Fn::Join": [
+       "",
+       [
+        "https://",
+        {
+         "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+        }
+       ]
+      ]
+     }
     ],
-    "ExplicitAuthFlows": [
-     "ALLOW_REFRESH_TOKEN_AUTH"
-    ],
+    "ClientName": "sa-dev-web-client",
     "GenerateSecret": false,
-    "IdTokenValidity": 60,
     "LogoutURLs": [
-     "https://d1682i07dc1r3k.cloudfront.net/logout/index.html",
-     "https://d1682i07dc1r3k.cloudfront.net/logout/",
-     "https://d1682i07dc1r3k.cloudfront.net/",
-     "http://localhost:5173/logout/index.html",
-     "http://localhost:5173/logout/",
-     "http://localhost:5173/"
+     {
+      "Fn::Join": [
+       "",
+       [
+        "https://",
+        {
+         "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+        }
+       ]
+      ]
+     }
     ],
-    "PreventUserExistenceErrors": "ENABLED",
-    "RefreshTokenValidity": 43200,
     "SupportedIdentityProviders": [
      "COGNITO"
     ],
-    "TokenValidityUnits": {
-     "AccessToken": "minutes",
-     "IdToken": "minutes",
-     "RefreshToken": "minutes"
-    },
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "IdentityStack/WebClient/Resource"
-   }
-  },
-  "HostedUiDomainA5D361B0": {
-   "Type": "AWS::Cognito::UserPoolDomain",
-   "Properties": {
-    "Domain": "sa-dev-637423256673",
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/HostedUiDomain/Resource"
-   }
-  },
-  "FANGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "FAN group",
-    "GroupName": "FAN",
-    "Precedence": 10,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/FANGroup"
-   }
-  },
-  "BESTIEGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "BESTIE group",
-    "GroupName": "BESTIE",
-    "Precedence": 11,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/BESTIEGroup"
-   }
-  },
-  "CREATORGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "CREATOR group",
-    "GroupName": "CREATOR",
-    "Precedence": 12,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/CREATORGroup"
-   }
-  },
-  "COLLABGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "COLLAB group",
-    "GroupName": "COLLAB",
-    "Precedence": 13,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/COLLABGroup"
-   }
-  },
-  "ADMINGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "ADMIN group",
-    "GroupName": "ADMIN",
-    "Precedence": 1,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/ADMINGroup"
-   }
-  },
-  "PRIMEGroup": {
-   "Type": "AWS::Cognito::UserPoolGroup",
-   "Properties": {
-    "Description": "PRIME group",
-    "GroupName": "PRIME",
-    "Precedence": 15,
-    "UserPoolId": {
-     "Ref": "UserPool6BA7E5F2"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/PRIMEGroup"
-   }
-  },
-  "IdentityPool": {
-   "Type": "AWS::Cognito::IdentityPool",
-   "Properties": {
-    "AllowUnauthenticatedIdentities": false,
-    "CognitoIdentityProviders": [
-     {
-      "ClientId": {
-       "Ref": "WebClient697086FD"
-      },
-      "ProviderName": {
-       "Fn::GetAtt": [
-        "UserPool6BA7E5F2",
-        "ProviderName"
-       ]
-      }
-     }
-    ],
-    "IdentityPoolTags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "IdentityStack/IdentityPool"
+    "aws:cdk:path": "IdentityStack/UserPoolClient/Resource"
    }
   },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2XKQQuCQBAF4N/iXSfbunQ2iE5F0Tk2d4vRdUZ2Z5MQ/3tIGUKnee97o0CpFeSJ7kJWmjpzeIP+LLqsU92Fa8kPQmHoL8H6I7NLizv98hQKh5ZkPn1lqltuNNL84V92nmM7wt5YEpTXiMMIhyhtlCElNhaqsHiqHJYbWCdVQMx8JMHGwulz32aK2W3RAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzIy1jNQTCwv1k1OydbNyUzSqw4uSUzO1kksL45Pzk/PyyzJ16sOLU4tCsjPz9FxTsvDxnYvyi8t0IHxnHMyU/NKkOUhIrUgIf/SkoLSklqdvPyUVL2sYv0yIwM9Q0s9E8Ws4sxM3aLSvJLM3FS9IAgNAAkQ15igAAAA"
    },
    "Metadata": {
     "aws:cdk:path": "IdentityStack/CDKMetadata/Default"
@@ -250,31 +151,25 @@
   }
  },
  "Outputs": {
-  "CognitoUserPoolId": {
+  "UserPoolId": {
    "Value": {
     "Ref": "UserPool6BA7E5F2"
    }
   },
-  "CognitoWebClientId": {
+  "UserPoolClientId": {
    "Value": {
-    "Ref": "WebClient697086FD"
+    "Ref": "UserPoolClient2F5918F7"
    }
   },
-  "IdentityPoolId": {
-   "Value": {
-    "Ref": "IdentityPool"
-   }
-  },
-  "HostedUiLoginUrl": {
+  "WebOrigin": {
    "Value": {
     "Fn::Join": [
      "",
      [
-      "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com/login?client_id=",
+      "https://",
       {
-       "Ref": "WebClient697086FD"
-      },
-      "&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fd1682i07dc1r3k.cloudfront.net%2Fcallback"
+       "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+      }
      ]
     ]
    }

@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "9bdd3f7c35e624507f365dad2ab6cb7f948677f4e6ff7729ab9d7e616b1cf2c5": {
+      "displayName": "WorkflowsV2Stack Template",
+      "source": {
+        "path": "WorkflowsV2Stack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "637423256673-us-east-1-58f50174": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "9bdd3f7c35e624507f365dad2ab6cb7f948677f4e6ff7729ab9d7e616b1cf2c5.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

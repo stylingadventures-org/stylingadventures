@@ -17,8 +17,16 @@ import {
 const ddb = new DynamoDBClient({});
 const sfn = new SFNClient({});
 
-const { TABLE_NAME = "" } = process.env;
+const {
+  TABLE_NAME = "",
+  ADMIN_GROUP_NAME: ADMIN_GROUP_NAME_RAW = "admin",
+  CREATOR_GROUP_NAME: CREATOR_GROUP_NAME_RAW = "creator",
+} = process.env;
+
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
+
+const ADMIN_GROUP_NAME = ADMIN_GROUP_NAME_RAW.toLowerCase();
+const CREATOR_GROUP_NAME = CREATOR_GROUP_NAME_RAW.toLowerCase();
 
 const nowIso = () => new Date().toISOString();
 const S = (v: string): AttributeValue => ({ S: v });
@@ -100,22 +108,39 @@ type AdminClosetItemsPage = {
   nextToken?: string | null;
 };
 
-function getIdentity(event: AppSyncEvent) {
-  const claims = (event.identity as any)?.claims || {};
-  const sub = (event.identity as any)?.sub || claims.sub;
-  const groupsRaw = claims["cognito:groups"];
-  const groups = Array.isArray(groupsRaw)
-    ? groupsRaw
-    : String(groupsRaw || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
+function parseGroups(identity: any): string[] {
+  const claims = identity?.claims || {};
+  const raw =
+    claims["cognito:groups"] ||
+    claims["custom:groups"] ||
+    identity?.groups ||
+    [];
+  if (Array.isArray(raw)) {
+    return raw.map((g) => String(g));
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
 
-  const isAdmin = groups.includes("ADMIN") || groups.includes("COLLAB");
+function getIdentity(event: AppSyncEvent) {
+  const identity = event.identity as any;
+  const claims = identity?.claims || {};
+  const sub = identity?.sub || claims.sub;
 
   if (!sub) throw new Error("Unauthorized");
 
-  return { sub, isAdmin };
+  const groups = parseGroups(identity);
+  const groupsLc = groups.map((g) => g.toLowerCase());
+
+  const isAdmin = groupsLc.includes(ADMIN_GROUP_NAME);
+  const isCreator = groupsLc.includes(CREATOR_GROUP_NAME);
+
+  return { sub, isAdmin, isCreator, groups };
 }
 
 function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
@@ -289,7 +314,6 @@ export const adminListClosetItems = async (
 export const adminListBestieClosetItems = async (
   event: AppSyncEvent,
 ): Promise<AdminClosetItemsPage> => {
-  // Reuse core admin list + filter for Bestie audiences.
   const page = await adminListClosetItems(event);
 
   const bestieAudiences = new Set<string>(["BESTIE", "EXCLUSIVE"]);
@@ -598,15 +622,17 @@ export const adminUpdateClosetItem = async (
 
   // Merge top-level args into input if they exist (for maximum schema compatibility)
   const input: AdminUpdateClosetItemInput = { ...rawInput };
-  ([
-    "title",
-    "category",
-    "subcategory",
-    "audience",
-    "pinned",
-    "season",
-    "vibes",
-  ] as const).forEach((field) => {
+  (
+    [
+      "title",
+      "category",
+      "subcategory",
+      "audience",
+      "pinned",
+      "season",
+      "vibes",
+    ] as const
+  ).forEach((field) => {
     if ((args as any)[field] !== undefined && (input as any)[field] === undefined) {
       (input as any)[field] = (args as any)[field];
     }

@@ -1,0 +1,713 @@
+{
+ "Description": "Prime Studios episode publishing pipeline - dev",
+ "Resources": {
+  "ValidateEpisodeFnServiceRole84737477": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/ValidateEpisodeFn/ServiceRole/Resource"
+   }
+  },
+  "ValidateEpisodeFnServiceRoleDefaultPolicyAF5E26F3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ValidateEpisodeFnServiceRoleDefaultPolicyAF5E26F3",
+    "Roles": [
+     {
+      "Ref": "ValidateEpisodeFnServiceRole84737477"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/ValidateEpisodeFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ValidateEpisodeFnE8E9DE49": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "96c28755c24b39d5930df9e37cd644c218b49751a242c45f7216a94cd8d61de9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ValidateEpisodeFnServiceRole84737477",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "ValidateEpisodeFnServiceRoleDefaultPolicyAF5E26F3",
+    "ValidateEpisodeFnServiceRole84737477"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/ValidateEpisodeFn/Resource",
+    "aws:asset:path": "asset.96c28755c24b39d5930df9e37cd644c218b49751a242c45f7216a94cd8d61de9",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PublishEpisodeFnServiceRole58B94D4B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/PublishEpisodeFn/ServiceRole/Resource"
+   }
+  },
+  "PublishEpisodeFnServiceRoleDefaultPolicyF0E6D0AA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PublishEpisodeFnServiceRoleDefaultPolicyF0E6D0AA",
+    "Roles": [
+     {
+      "Ref": "PublishEpisodeFnServiceRole58B94D4B"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/PublishEpisodeFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PublishEpisodeFn42749809": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "5a17ce46c02826bde2b21b3f3ec783014f7213f1f761e7cc7018158aac95d076.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "PublishEpisodeFnServiceRole58B94D4B",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "PublishEpisodeFnServiceRoleDefaultPolicyF0E6D0AA",
+    "PublishEpisodeFnServiceRole58B94D4B"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/PublishEpisodeFn/Resource",
+    "aws:asset:path": "asset.5a17ce46c02826bde2b21b3f3ec783014f7213f1f761e7cc7018158aac95d076",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "FailEpisodeFnServiceRoleF843741D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/FailEpisodeFn/ServiceRole/Resource"
+   }
+  },
+  "FailEpisodeFnServiceRoleDefaultPolicy3F676F6E": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "FailEpisodeFnServiceRoleDefaultPolicy3F676F6E",
+    "Roles": [
+     {
+      "Ref": "FailEpisodeFnServiceRoleF843741D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/FailEpisodeFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "FailEpisodeFnEAD37F30": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "99777fc4557b1b7e0bff17298cc23841bea7754261499413850e1cbfaf396394.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "STATUS_GSI": "gsi1",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "FailEpisodeFnServiceRoleF843741D",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 5
+   },
+   "DependsOn": [
+    "FailEpisodeFnServiceRoleDefaultPolicy3F676F6E",
+    "FailEpisodeFnServiceRoleF843741D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/FailEpisodeFn/Resource",
+    "aws:asset:path": "asset.99777fc4557b1b7e0bff17298cc23841bea7754261499413850e1cbfaf396394",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "EpisodePublishingStateMachineRole2C63FFF7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/EpisodePublishingStateMachine/Role/Resource"
+   }
+  },
+  "EpisodePublishingStateMachineRoleDefaultPolicy0227225F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ValidateEpisodeFnE8E9DE49",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ValidateEpisodeFnE8E9DE49",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "FailEpisodeFnEAD37F30",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "FailEpisodeFnEAD37F30",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "LayoutEngineStack:ExportsOutputFnGetAttLayoutValidatorFn6B19766DArnDDBB8380"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "LayoutEngineStack:ExportsOutputFnGetAttLayoutValidatorFn6B19766DArnDDBB8380"
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PublishEpisodeFn42749809",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PublishEpisodeFn42749809",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "EpisodePublishingStateMachineRoleDefaultPolicy0227225F",
+    "Roles": [
+     {
+      "Ref": "EpisodePublishingStateMachineRole2C63FFF7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/EpisodePublishingStateMachine/Role/DefaultPolicy/Resource"
+   }
+  },
+  "EpisodePublishingStateMachine65DD801A": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"ValidateEpisode\",\"States\":{\"ValidateEpisode\":{\"Next\":\"LayoutOk?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ValidateEpisodeFnE8E9DE49",
+         "Arn"
+        ]
+       },
+       "\"},\"LayoutOk?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.layoutValid\",\"BooleanEquals\":true,\"Next\":\"LayoutChecklist\"}],\"Default\":\"MarkEpisodeFailed\"},\"MarkEpisodeFailed\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "FailEpisodeFnEAD37F30",
+         "Arn"
+        ]
+       },
+       "\"},\"LayoutChecklist\":{\"Next\":\"PublishEpisode\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::ImportValue": "LayoutEngineStack:ExportsOutputFnGetAttLayoutValidatorFn6B19766DArnDDBB8380"
+       },
+       "\"},\"PublishEpisode\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "PublishEpisodeFn42749809",
+         "Arn"
+        ]
+       },
+       "\"}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "EpisodePublishingStateMachineRole2C63FFF7",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA2-PrimeStudios-Publish-dev",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "EpisodePublishingStateMachineRoleDefaultPolicy0227225F",
+    "EpisodePublishingStateMachineRole2C63FFF7"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/EpisodePublishingStateMachine/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WP0WqDQBBFvyXv6zTVvvSxEQqFtgn6ATJZx2Rc3Q2Z2YQi/ntxLaV9OnPhcLmTQ54XsN3gXTLbumzgI0y1onUG79JMA47HFhsfWuoFPhNeo7fKwRvGEaYqDGTKzicewsD2a4nrNRspGhQhFXhZYKSAXbSOdIdCZq2HsvO/paJ06X6CNIriBN6T9uZvwdF/AabyHNiSqRWVPtCe2ac5f/M8m4okxKslk1bUiif2p8XbR71Enc3yIfTycMu38PgMT5temLNr9MojQbXyGwcAfr8uAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "PublishingStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "EpisodePublishingSmArn": {
+   "Value": {
+    "Ref": "EpisodePublishingStateMachine65DD801A"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

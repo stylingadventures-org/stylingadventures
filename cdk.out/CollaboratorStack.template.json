@@ -1,0 +1,1242 @@
+{
+ "Description": "Collaborator portal (invites, uploads, reminders) - dev",
+ "Resources": {
+  "CollaboratorBus521A8115": {
+   "Type": "AWS::Events::EventBus",
+   "Properties": {
+    "Name": "sa-CollaboratorStack-collab",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorBus/Resource"
+   }
+  },
+  "CollaboratorDeadlineTopic2DF72641": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "StylingAdventures Collaborator Deadlines",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TopicName": "sa-dev-collab-deadlines"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineTopic/Resource"
+   }
+  },
+  "CollaboratorDeadlineTopicPolicy766A119B": {
+   "Type": "AWS::SNS::TopicPolicy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "events.amazonaws.com"
+       },
+       "Resource": {
+        "Ref": "CollaboratorDeadlineTopic2DF72641"
+       },
+       "Sid": "0"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Topics": [
+     {
+      "Ref": "CollaboratorDeadlineTopic2DF72641"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineTopic/Policy/Resource"
+   }
+  },
+  "CreateCollaboratorInviteFnServiceRole2F228E1F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CreateCollaboratorInviteFn/ServiceRole/Resource"
+   }
+  },
+  "CreateCollaboratorInviteFnServiceRoleDefaultPolicy737904CA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CreateCollaboratorInviteFnServiceRoleDefaultPolicy737904CA",
+    "Roles": [
+     {
+      "Ref": "CreateCollaboratorInviteFnServiceRole2F228E1F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CreateCollaboratorInviteFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CreateCollaboratorInviteFnC3A6B2A8": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "a9d0cb104c09565a2ae84458a98a23de6bc2b4c8804ab34d77c9b373e1584d29.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "CREATE_INVITE_ALLOWED_GROUPS": "creator,admin",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CreateCollaboratorInviteFnServiceRole2F228E1F",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "CreateCollaboratorInviteFnServiceRoleDefaultPolicy737904CA",
+    "CreateCollaboratorInviteFnServiceRole2F228E1F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CreateCollaboratorInviteFn/Resource",
+    "aws:asset:path": "asset.a9d0cb104c09565a2ae84458a98a23de6bc2b4c8804ab34d77c9b373e1584d29",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AcceptCollaboratorInviteFnServiceRole28BAC2DD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorInviteFn/ServiceRole/Resource"
+   }
+  },
+  "AcceptCollaboratorInviteFnServiceRoleDefaultPolicyE2A2F1AE": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AcceptCollaboratorInviteFnServiceRoleDefaultPolicyE2A2F1AE",
+    "Roles": [
+     {
+      "Ref": "AcceptCollaboratorInviteFnServiceRole28BAC2DD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorInviteFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AcceptCollaboratorInviteFn12836CD5": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "b65c0b1b4caa80811522084acca18ba63c5ec1b7d49658d902c93909e879ffb6.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AcceptCollaboratorInviteFnServiceRole28BAC2DD",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AcceptCollaboratorInviteFnServiceRoleDefaultPolicyE2A2F1AE",
+    "AcceptCollaboratorInviteFnServiceRole28BAC2DD"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorInviteFn/Resource",
+    "aws:asset:path": "asset.b65c0b1b4caa80811522084acca18ba63c5ec1b7d49658d902c93909e879ffb6",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AcceptCollaboratorTermsFnServiceRoleD987CC24": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorTermsFn/ServiceRole/Resource"
+   }
+  },
+  "AcceptCollaboratorTermsFnServiceRoleDefaultPolicyB181B8F7": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AcceptCollaboratorTermsFnServiceRoleDefaultPolicyB181B8F7",
+    "Roles": [
+     {
+      "Ref": "AcceptCollaboratorTermsFnServiceRoleD987CC24"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorTermsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AcceptCollaboratorTermsFn8B52992E": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "3ff8d4dc39bfdcf89a79a673eebcc7bf8364c785f50e143a0ec9ce359704e67c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AcceptCollaboratorTermsFnServiceRoleD987CC24",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AcceptCollaboratorTermsFnServiceRoleDefaultPolicyB181B8F7",
+    "AcceptCollaboratorTermsFnServiceRoleD987CC24"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/AcceptCollaboratorTermsFn/Resource",
+    "aws:asset:path": "asset.3ff8d4dc39bfdcf89a79a673eebcc7bf8364c785f50e143a0ec9ce359704e67c",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CollaboratorUploadFnServiceRoleB23376CF": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorUploadFn/ServiceRole/Resource"
+   }
+  },
+  "CollaboratorUploadFnServiceRoleDefaultPolicy86261802": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CollaboratorUploadFnServiceRoleDefaultPolicy86261802",
+    "Roles": [
+     {
+      "Ref": "CollaboratorUploadFnServiceRoleB23376CF"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorUploadFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CollaboratorUploadFn13538B69": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "9f1672b0bfeec35f39429400d6b7b5afd2b5723b8d01f59c60c3c93e2c1cde9e.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CollaboratorUploadFnServiceRoleB23376CF",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "CollaboratorUploadFnServiceRoleDefaultPolicy86261802",
+    "CollaboratorUploadFnServiceRoleB23376CF"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorUploadFn/Resource",
+    "aws:asset:path": "asset.9f1672b0bfeec35f39429400d6b7b5afd2b5723b8d01f59c60c3c93e2c1cde9e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CollaboratorAdminReviewFnServiceRole6E03FB8F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorAdminReviewFn/ServiceRole/Resource"
+   }
+  },
+  "CollaboratorAdminReviewFnServiceRoleDefaultPolicyFC66485D": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "events:PutEvents",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "CollaboratorBus521A8115",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CollaboratorAdminReviewFnServiceRoleDefaultPolicyFC66485D",
+    "Roles": [
+     {
+      "Ref": "CollaboratorAdminReviewFnServiceRole6E03FB8F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorAdminReviewFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CollaboratorAdminReviewFnC69E7C26": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "9f11f16e49f949f30d24d45b43278fe1566a120de0eefc4fa5c47d4ff67e03c1.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "COLLAB_REVIEW_ALLOWED_GROUPS": "creator,admin",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CollaboratorAdminReviewFnServiceRole6E03FB8F",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "CollaboratorAdminReviewFnServiceRoleDefaultPolicyFC66485D",
+    "CollaboratorAdminReviewFnServiceRole6E03FB8F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorAdminReviewFn/Resource",
+    "aws:asset:path": "asset.9f11f16e49f949f30d24d45b43278fe1566a120de0eefc4fa5c47d4ff67e03c1",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CollaboratorDeadlineReminderFnServiceRole927F8F16": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineReminderFn/ServiceRole/Resource"
+   }
+  },
+  "CollaboratorDeadlineReminderFnServiceRoleDefaultPolicyEB34AC60": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "CollaboratorDeadlineTopic2DF72641"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CollaboratorDeadlineReminderFnServiceRoleDefaultPolicyEB34AC60",
+    "Roles": [
+     {
+      "Ref": "CollaboratorDeadlineReminderFnServiceRole927F8F16"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineReminderFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CollaboratorDeadlineReminderFn08EEF9C6": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "3e51ae1ec001a745af8491b2e4290c30e95f321cdb7e7827490241d0e3bea1b6.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "UPLOADS_BUCKET": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "USER_POOL_ID": {
+       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
+      },
+      "WEB_ORIGIN": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+         }
+        ]
+       ]
+      },
+      "COLLAB_EVENT_BUS_NAME": {
+       "Ref": "CollaboratorBus521A8115"
+      },
+      "DEADLINE_TOPIC_ARN": {
+       "Ref": "CollaboratorDeadlineTopic2DF72641"
+      },
+      "NODE_OPTIONS": "--enable-source-maps",
+      "ENV_NAME": "dev",
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CollaboratorDeadlineReminderFnServiceRole927F8F16",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs16.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "CollaboratorDeadlineReminderFnServiceRoleDefaultPolicyEB34AC60",
+    "CollaboratorDeadlineReminderFnServiceRole927F8F16"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineReminderFn/Resource",
+    "aws:asset:path": "asset.3e51ae1ec001a745af8491b2e4290c30e95f321cdb7e7827490241d0e3bea1b6",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CollaboratorDeadlineScheduleRuleEB7CE806": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(15 minutes)",
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "CollaboratorDeadlineReminderFn08EEF9C6",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineScheduleRule/Resource"
+   }
+  },
+  "CollaboratorDeadlineScheduleRuleAllowEventRuleCollaboratorStackCollaboratorDeadlineReminderFnF8B19ED713C93FC4": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CollaboratorDeadlineReminderFn08EEF9C6",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "CollaboratorDeadlineScheduleRuleEB7CE806",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CollaboratorDeadlineScheduleRule/AllowEventRuleCollaboratorStackCollaboratorDeadlineReminderFnF8B19ED7"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/0WOTW/CMAyGfwv31GMtlx0pGkdAZfcqpAa5Hw6qE9AU5b+jtKy7+LFf2Y+cQ54XsF7pp2Sm6bKeLhDOTptO6afUAR/ITiB8J5Ze1O7KS1/5HlOQGJWwQPixdzIpm5upnmxP5ncJ5zGqXg+XRtdsG2wFDhP2no0jy4r0AKGyb3/iv+VPIEWtRdAJbBOUFFB606ErteBbD2F35cWajnEcSIQsx6gqFOtHg2oSnJ2+Ed/S1tG7u3dRpeeglY9HvobPL9isWiHKRs+OBoRq5gtz9qUIRAEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "CollaboratorStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "CollaboratorBusName": {
+   "Value": {
+    "Ref": "CollaboratorBus521A8115"
+   }
+  },
+  "CollaboratorDeadlineTopicArn": {
+   "Value": {
+    "Ref": "CollaboratorDeadlineTopic2DF72641"
+   }
+  },
+  "ExportsOutputFnGetAttCollaboratorBus521A8115Arn168BD36A": {
+   "Value": {
+    "Fn::GetAtt": [
+     "CollaboratorBus521A8115",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "CollaboratorStack:ExportsOutputFnGetAttCollaboratorBus521A8115Arn168BD36A"
+   }
+  },
+  "ExportsOutputRefCollaboratorBus521A8115667FDE9E": {
+   "Value": {
+    "Ref": "CollaboratorBus521A8115"
+   },
+   "Export": {
+    "Name": "CollaboratorStack:ExportsOutputRefCollaboratorBus521A8115667FDE9E"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

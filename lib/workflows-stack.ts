@@ -19,12 +19,12 @@ export interface WorkflowsStackProps extends StackProps {
  * expand into proper workflows later.
  */
 export class WorkflowsStack extends Stack {
-  // original names
+  // original names (class properties)
   public readonly approvalStateMachine: sfn.StateMachine;
   public readonly bgChangeStateMachine: sfn.StateMachine;
   public readonly storyPublishStateMachine: sfn.StateMachine;
 
-  // convenient aliases used elsewhere (e.g. aws-lala.ts)
+  // convenient aliases used elsewhere
   public readonly closetApprovalSm: sfn.StateMachine;
   public readonly backgroundChangeSm: sfn.StateMachine;
   public readonly storyPublishSm: sfn.StateMachine;
@@ -44,9 +44,12 @@ export class WorkflowsStack extends Stack {
       this,
       "ApprovalStateMachine",
       {
-        stateMachineName: `SA-ClosetApproval-${envName}`,
-        definition: approvalNoop, // deprecated but still fine
-        // future-proof: definitionBody: sfn.DefinitionBody.fromChainable(approvalNoop),
+        // ✅ use a v2-ish name to avoid clashing with any existing SFN
+        stateMachineName: `SA2-ClosetApproval-${envName}`,
+        // using deprecated prop for compatibility with your CDK version
+        definition: approvalNoop,
+        // future-proof alternative:
+        // definitionBody: sfn.DefinitionBody.fromChainable(approvalNoop),
       },
     );
 
@@ -60,7 +63,7 @@ export class WorkflowsStack extends Stack {
       this,
       "BackgroundChangeStateMachine",
       {
-        stateMachineName: `SA-BackgroundChange-${envName}`,
+        stateMachineName: `SA2-BackgroundChange-${envName}`,
         definition: bgChangeNoop,
       },
     );
@@ -75,7 +78,7 @@ export class WorkflowsStack extends Stack {
       this,
       "StoryPublishStateMachine",
       {
-        stateMachineName: `SA-StoryPublish-${envName}`,
+        stateMachineName: `SA2-StoryPublish-${envName}`,
         definition: storyPublishNoop,
       },
     );
@@ -85,20 +88,49 @@ export class WorkflowsStack extends Stack {
     this.backgroundChangeSm = this.bgChangeStateMachine;
     this.storyPublishSm = this.storyPublishStateMachine;
 
-    // Outputs for debugging / cross-stack use
+    //
+    // ✅ New, clean exports you can use going forward
+    //    (unique export names so they don't clash with the old SA-Workflows-dev stack)
+    //
     new CfnOutput(this, "ApprovalStateMachineArn", {
       value: this.approvalStateMachine.stateMachineArn,
-      exportName: `SA-ApprovalSMArn-${envName}`,
+      exportName: `SA2-ApprovalSMArn-${envName}`,
     });
 
     new CfnOutput(this, "BgChangeStateMachineArn", {
       value: this.bgChangeStateMachine.stateMachineArn,
-      exportName: `SA-BgChangeSMArn-${envName}`,
+      exportName: `SA2-BgChangeSMArn-${envName}`,
     });
 
     new CfnOutput(this, "StoryPublishStateMachineArn", {
       value: this.storyPublishStateMachine.stateMachineArn,
-      exportName: `SA-StoryPublishSMArn-${envName}`,
+      exportName: `SA2-StoryPublishSMArn-${envName}`,
+    });
+
+    //
+    // 🔁 LEGACY EXPORTS – required because ApiStack still imports these
+    // DO NOT remove until ApiStack is fully migrated and deployed.
+    //
+
+    // Old background-change export
+    new CfnOutput(this, "BackgroundChangeApprovalLegacyExport", {
+      value: this.bgChangeStateMachine.stateMachineArn,
+      exportName:
+        "WorkflowsStack:ExportsOutputRefBackgroundChangeApprovalE28AFC8B01294A97",
+    });
+
+    // Old "ClosetUploadApproval" export
+    new CfnOutput(this, "ClosetUploadApprovalLegacyExport", {
+      value: this.approvalStateMachine.stateMachineArn,
+      exportName:
+        "WorkflowsStack:ExportsOutputRefClosetUploadApprovalDA1D2210CE637AAA",
+    });
+
+    // Old "StoryPublishWorkflow" export
+    new CfnOutput(this, "StoryPublishWorkflowLegacyExport", {
+      value: this.storyPublishStateMachine.stateMachineArn,
+      exportName:
+        "WorkflowsStack:ExportsOutputRefStoryPublishWorkflowCD58F9E99CC790C1",
     });
   }
 }

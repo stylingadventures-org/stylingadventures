@@ -1,0 +1,389 @@
+{
+ "Description": "Layout templates + accessibility validation - dev",
+ "Resources": {
+  "LayoutTemplatesBucket49D24765": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketName": "sa-dev-layout-templates-637423256673",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutTemplatesBucket/Resource"
+   }
+  },
+  "LayoutTemplatesBucketPolicy2B29CE91": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "LayoutTemplatesBucket49D24765"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:PutBucketPolicy",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "LayoutTemplatesBucket49D24765",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "LayoutTemplatesBucket49D24765",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutTemplatesBucket/Policy/Resource"
+   }
+  },
+  "LayoutTemplatesBucketAutoDeleteObjectsCustomResource78D04951": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "LayoutTemplatesBucket49D24765"
+    }
+   },
+   "DependsOn": [
+    "LayoutTemplatesBucketPolicy2B29CE91"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutTemplatesBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "LayoutTemplatesBucket49D24765"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "LayoutValidatorFnServiceRole0B4ED411": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutValidatorFn/ServiceRole/Resource"
+   }
+  },
+  "LayoutValidatorFnServiceRoleDefaultPolicy37DC2575": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "LayoutTemplatesBucket49D24765",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "LayoutTemplatesBucket49D24765",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LayoutValidatorFnServiceRoleDefaultPolicy37DC2575",
+    "Roles": [
+     {
+      "Ref": "LayoutValidatorFnServiceRole0B4ED411"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutValidatorFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LayoutValidatorFn6B19766D": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "d5dbb7678f5274bfe50614f8ec325581c8430e7dcf461cde45f9196b1289e778.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "LAYOUT_TEMPLATES_BUCKET": {
+       "Ref": "LayoutTemplatesBucket49D24765"
+      },
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "LayoutValidatorFnServiceRole0B4ED411",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "LayoutValidatorFnServiceRoleDefaultPolicy37DC2575",
+    "LayoutValidatorFnServiceRole0B4ED411"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/LayoutValidatorFn/Resource",
+    "aws:asset:path": "asset.d5dbb7678f5274bfe50614f8ec325581c8430e7dcf461cde45f9196b1289e778",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOy27CQAxFv4W940LChmWJxJKi8AGRmQzIecxUsQeEovw7SiYt7epc2/LRTTFNM1yv6CGJqZqk5QsOZyXTAD2kHCTDYR9MYxXyq1tSxMm3bJ7v9TLHYU9iR2ipu1RUOl/ZWvA44xCcUfYOmDocCt/aSTHzbYxpBMlKErEq+DlhEWJ+dT+aEfIg6rvCig+9ibLf/O906v2dK9tP3WD2nZVu7G7w9/kr6HfQEabSWMvHPV3jZofbVS3MSR+ccmexiHwB5Y87CD8BAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "LayoutEngineStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "LayoutTemplatesBucketName": {
+   "Value": {
+    "Ref": "LayoutTemplatesBucket49D24765"
+   }
+  },
+  "LayoutValidatorFnArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "LayoutValidatorFn6B19766D",
+     "Arn"
+    ]
+   }
+  },
+  "ExportsOutputFnGetAttLayoutValidatorFn6B19766DArnDDBB8380": {
+   "Value": {
+    "Fn::GetAtt": [
+     "LayoutValidatorFn6B19766D",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "LayoutEngineStack:ExportsOutputFnGetAttLayoutValidatorFn6B19766DArnDDBB8380"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

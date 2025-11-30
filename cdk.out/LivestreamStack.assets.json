@@ -1,0 +1,36 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da": {
+      "displayName": "CreatorLivestreamFn/Code",
+      "source": {
+        "path": "asset.dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-66b21cce": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "36f0074baebb82e46f56722abb2118d82277b12bd8bd5fd44bcd69d61931b97e": {
+      "displayName": "LivestreamStack Template",
+      "source": {
+        "path": "LivestreamStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "637423256673-us-east-1-afe349ae": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "36f0074baebb82e46f56722abb2118d82277b12bd8bd5fd44bcd69d61931b97e.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
