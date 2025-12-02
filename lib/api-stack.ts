@@ -28,7 +28,8 @@ export interface ApiStackProps extends StackProps {
 }
 
 // Static names used in Cognito groups
-const ADMIN_GROUP_NAME = "admin";
+// NOTE: your Cognito group is literally named "ADMIN"
+const ADMIN_GROUP_NAME = "ADMIN";
 const CREATOR_GROUP_NAME = "creator";
 
 export class ApiStack extends Stack {
@@ -46,7 +47,7 @@ export class ApiStack extends Stack {
       livestreamFn,
       creatorAiFn,
       commerceFn,
-      adminModerationFn, // ✅ now available if you want to wire resolvers later
+      adminModerationFn, // currently unused but available for future wiring
     } = props;
 
     // Shared DynamoDB env for all Lambdas using the single-table design.
@@ -151,7 +152,6 @@ export class ApiStack extends Stack {
     backgroundChangeSm.grantStartExecution(closetFn);
     storyPublishSm.grantStartExecution(closetFn);
 
-    // allow GraphQL Lambda to emit engagement events to EventBridge
     closetFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["events:PutEvents"],
@@ -171,7 +171,6 @@ export class ApiStack extends Stack {
       fieldName: "myWishlist",
     });
 
-    // Bestie closet alias (same Lambda, different field)
     closetDs.createResolver("QueryBestieClosetItemsResolver", {
       typeName: "Query",
       fieldName: "bestieClosetItems",
@@ -232,13 +231,11 @@ export class ApiStack extends Stack {
       fieldName: "adminClosetItemComments",
     });
 
-    // field resolver for GameProfile.pinnedClosetItems (“Top Picks”)
     closetDs.createResolver("PinnedClosetItemsResolver", {
       typeName: "GameProfile",
       fieldName: "pinnedClosetItems",
     });
 
-    // Besties mutations / hooks (tier-aware logic lives inside lambda/graphql)
     closetDs.createResolver("RequestBgChangeResolver", {
       typeName: "Mutation",
       fieldName: "requestClosetBackgroundChange",
@@ -356,6 +353,43 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
+    // ADMIN SETTINGS (NEW)
+    // ────────────────────────────────────────────────────────────
+    const adminSettingsFn = new NodejsFunction(this, "AdminSettingsFn", {
+      entry: "lambda/admin/settings.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        ADMIN_GROUP_NAME,
+        // dev safety: always treat your email as super-admin
+        SUPERADMIN_EMAILS: "evonifoster@yahoo.com",
+        // flip to "false" in prod if you want strict group-only checks
+        SKIP_ADMIN_CHECK: process.env.SKIP_ADMIN_CHECK ?? "false",
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(adminSettingsFn);
+
+    const adminSettingsDs = this.api.addLambdaDataSource(
+      "AdminSettingsDs",
+      adminSettingsFn,
+    );
+
+    adminSettingsDs.createResolver("GetAdminSettingsResolver", {
+      typeName: "Query",
+      fieldName: "getAdminSettings",
+    });
+
+    adminSettingsDs.createResolver("UpdateAdminSettingsResolver", {
+      typeName: "Mutation",
+      fieldName: "updateAdminSettings",
+    });
+
+    // ────────────────────────────────────────────────────────────
     // BESTIE / TIER RESOLVERS
     // ────────────────────────────────────────────────────────────
     const bestieFn = new NodejsFunction(this, "BestieFn", {
@@ -422,7 +456,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // EPISODE GATE (EARLY ACCESS)
+    // EPISODE GATE (EARLY ACCESS + UNLOCKS)
     // ────────────────────────────────────────────────────────────
     const episodesGateFn = new NodejsFunction(this, "EpisodesGateFn", {
       entry: "lambda/episodes/gate.ts",
@@ -434,7 +468,8 @@ export class ApiStack extends Stack {
       },
     });
 
-    table.grantReadData(episodesGateFn);
+    // now read/write, since it updates profiles and unlock rows
+    table.grantReadWriteData(episodesGateFn);
 
     const episodesGateDs = this.api.addLambdaDataSource(
       "EpisodesGateDs",
@@ -446,6 +481,56 @@ export class ApiStack extends Stack {
       fieldName: "isEpisodeEarlyAccess",
       requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
       responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    episodesGateDs.createResolver("UnlockEpisodeResolver", {
+      typeName: "Mutation",
+      fieldName: "unlockEpisode",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    episodesGateDs.createResolver("MyUnlockedEpisodesResolver", {
+      typeName: "Query",
+      fieldName: "myUnlockedEpisodes",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // EPISODE ADMIN (STUDIO)
+    // ────────────────────────────────────────────────────────────
+    const episodesAdminFn = new NodejsFunction(this, "EpisodesAdminFn", {
+      entry: "lambda/episodes/admin.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: {
+        ...DDB_ENV,
+        ADMIN_GROUP_NAME,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+    });
+
+    table.grantReadWriteData(episodesAdminFn);
+
+    const episodesAdminDs = this.api.addLambdaDataSource(
+      "EpisodesAdminDs",
+      episodesAdminFn,
+    );
+
+    episodesAdminDs.createResolver("AdminCreateEpisodeResolver", {
+      typeName: "Mutation",
+      fieldName: "adminCreateEpisode",
+    });
+
+    episodesAdminDs.createResolver("AdminUpdateEpisodeResolver", {
+      typeName: "Mutation",
+      fieldName: "adminUpdateEpisode",
+    });
+
+    episodesAdminDs.createResolver("AdminListEpisodesResolver", {
+      typeName: "Query",
+      fieldName: "adminListEpisodes",
     });
 
     // ────────────────────────────────────────────────────────────
@@ -484,7 +569,7 @@ export class ApiStack extends Stack {
     });
 
     const profileFn = new NodejsFunction(this, "ProfileFn", {
-      entry: "lambda/game/profile.ts", // keep this path as-is
+      entry: "lambda/game/profile.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: {
@@ -493,10 +578,21 @@ export class ApiStack extends Stack {
       },
     });
 
+    const economyFn = new NodejsFunction(this, "GameEconomyFn", {
+      entry: "lambda/game/economy.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true },
+      environment: {
+        ...gameEnv,
+        ADMIN_GROUP_NAME,
+      },
+    });
+
     table.grantReadWriteData(gameplayFn);
     table.grantReadData(leaderboardFn);
     table.grantReadWriteData(pollsFn);
     table.grantReadWriteData(profileFn);
+    table.grantReadWriteData(economyFn);
 
     const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
     const leaderboardDs = this.api.addLambdaDataSource(
@@ -505,6 +601,7 @@ export class ApiStack extends Stack {
     );
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
+    const economyDs = this.api.addLambdaDataSource("GameEconomyDs", economyFn);
 
     gameplayDs.createResolver("LogGameEventResolver", {
       typeName: "Mutation",
@@ -561,9 +658,18 @@ export class ApiStack extends Stack {
       fieldName: "getMyProfile",
     });
 
+    economyDs.createResolver("GetGameEconomyConfigResolver", {
+      typeName: "Query",
+      fieldName: "getGameEconomyConfig",
+    });
+
+    economyDs.createResolver("UpdateGameEconomyConfigResolver", {
+      typeName: "Mutation",
+      fieldName: "updateGameEconomyConfig",
+    });
+
     // ────────────────────────────────────────────────────────────
     // CREATOR / LIVESTREAM / AI / COMMERCE
-    // (these Lambdas should also check CREATOR/ADMIN in code)
     // ────────────────────────────────────────────────────────────
     if (livestreamFn) {
       const creatorLiveDs = this.api.addLambdaDataSource(
@@ -610,9 +716,6 @@ export class ApiStack extends Stack {
         fieldName: "recordAffiliateClick",
       });
     }
-
-    // (Future: you can also route some admin GraphQL fields
-    // straight to `adminModerationFn` here.)
 
     // ────────────────────────────────────────────────────────────
     // OUTPUTS

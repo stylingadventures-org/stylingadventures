@@ -21,6 +21,30 @@ const LS = {
   BOARD: "sa.style.board", // [{ id, user, top, bottom, shoes, score, ts }],
 };
 
+// Fan closet GraphQL
+const GQL = {
+  myCloset: /* GraphQL */ `
+    query MyCloset($limit: Int, $nextToken: String) {
+      myCloset(limit: $limit, nextToken: $nextToken) {
+        items {
+          id
+          title
+          status
+          audience
+          mediaKey
+          rawMediaKey
+          category
+          subcategory
+          coinValue
+          createdAt
+          updatedAt
+        }
+        nextToken
+      }
+    }
+  `,
+};
+
 // ---------- helpers ----------
 const now = () => Date.now();
 
@@ -95,6 +119,11 @@ export default function Closet() {
   const [isNewHigh, setIsNewHigh] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // fan closet state
+  const [closetItems, setClosetItems] = useState([]);
+  const [closetLoading, setClosetLoading] = useState(false);
+  const [closetError, setClosetError] = useState("");
+
   // load from LS once
   useEffect(() => {
     const p = readLS(LS.PLAYER, "ADMIN");
@@ -110,6 +139,37 @@ export default function Closet() {
   useEffect(() => writeLS(LS.PROGRESS, progress), [progress]);
   useEffect(() => writeLS(LS.BOARD, board), [board]);
 
+  // load fan closet once
+  useEffect(() => {
+    async function loadCloset() {
+      setClosetLoading(true);
+      setClosetError("");
+      try {
+        const data = await window.sa.graphql(GQL.myCloset, {
+          limit: 50,
+          nextToken: null,
+        });
+
+        const conn = data?.myCloset;
+        const items = Array.isArray(conn?.items) ? conn.items : [];
+        const nextToken = conn?.nextToken || null; // reserved for future pagination
+
+        setClosetItems(items);
+        // If you later want "Load more", keep nextToken in state.
+        // e.g. setClosetNextToken(nextToken);
+      } catch (e) {
+        console.error(e);
+        setClosetError(
+          e?.message ||
+            "Failed to load your closet items. Please try again.",
+        );
+      } finally {
+        setClosetLoading(false);
+      }
+    }
+    loadCloset();
+  }, []);
+
   const levelMeta = useMemo(() => levelForXP(progress.xp), [progress.xp]);
 
   const levelProgressPct = useMemo(() => {
@@ -117,13 +177,13 @@ export default function Closet() {
     const intoLevel = total - levelMeta.toNext;
     return Math.max(
       0,
-      Math.min(100, Math.round((intoLevel / total) * 100))
+      Math.min(100, Math.round((intoLevel / total) * 100)),
     );
   }, [levelMeta]);
 
   const highScore = useMemo(
     () => (board.length ? Math.max(...board.map((e) => e.score)) : null),
-    [board]
+    [board],
   );
 
   function randomizeLook() {
@@ -185,13 +245,13 @@ export default function Closet() {
 
   function handleSaveLook() {
     alert(
-      "Saving looks to your Closet is coming soon! For now, keep experimenting and note your favorite combos, bestie 💖"
+      "Saving looks to your Closet is coming soon! For now, keep experimenting and note your favorite combos, bestie 💖",
     );
   }
 
   function handleShareLook() {
     alert(
-      "Sharing to Bestie uploads will connect this lab to the full community soon. Stay tuned!"
+      "Sharing to Bestie uploads will connect this lab to the full community soon. Stay tuned!",
     );
   }
 
@@ -328,7 +388,9 @@ export default function Closet() {
               <div className="lab-preview-inner">
                 <div className="lab-preview-avatar" />
                 <div className="lab-preview-body">
-                  <div className="lab-preview-label">Today&apos;s lab fit</div>
+                  <div className="lab-preview-label">
+                    Today&apos;s lab fit
+                  </div>
                   <div className="lab-preview-line">
                     <span className="lab-preview-tag">Top</span>
                     <span className="lab-preview-value">{top}</span>
@@ -531,6 +593,89 @@ export default function Closet() {
         </section>
       </section>
 
+      {/* FAN CLOSET: show value for each of their items */}
+      <section className="fan-closet-section">
+        <header className="rails-header">
+          <h2 className="rails-header__title">Your saved closet</h2>
+          <p className="rails-header__subtitle">
+            Items you&apos;ve unlocked in Lala&apos;s Closet, with how many
+            Lala Coins each is worth in games & rewards.
+          </p>
+        </header>
+
+        {closetError && <div className="cl-error">{closetError}</div>}
+
+        {closetLoading && !closetError && (
+          <div className="cl-empty">Loading your closet…</div>
+        )}
+
+        {!closetLoading && !closetError && closetItems.length === 0 && (
+          <div className="cl-empty">
+            You don&apos;t have any closet items yet. Keep exploring episodes
+            and events to unlock looks!
+          </div>
+        )}
+
+        {closetItems.length > 0 && (
+          <>
+            <div className="cl-grid">
+              {closetItems.map((item) => (
+                <article key={item.id} className="cl-item">
+                  <div className="cl-item-media">
+                    {/* fan feed uses mediaKey → signed URL elsewhere; here we assume CDN mapping */}
+                    {item.mediaKey ? (
+                      <img
+                        src={item.mediaKey}
+                        alt={item.title || "Closet item"}
+                      />
+                    ) : (
+                      <div className="cl-item-placeholder">No image</div>
+                    )}
+                  </div>
+                  <div className="cl-item-body">
+                    <div className="cl-item-title-row">
+                      <div className="cl-item-title">
+                        {item.title || "Untitled look"}
+                      </div>
+                      <span className="cl-item-status">
+                        {item.status?.toLowerCase() || "unknown"}
+                      </span>
+                    </div>
+                    <div className="cl-item-meta">
+                      <span className="cl-item-date">
+                        {item.createdAt
+                          ? new Date(item.createdAt).toLocaleDateString()
+                          : "—"}
+                      </span>
+                    </div>
+
+                    <div className="cl-item-footer">
+                      <button
+                        type="button"
+                        className="lab-btn lab-btn-ghost lab-btn-small"
+                      >
+                        Style more
+                      </button>
+                    </div>
+
+                    {item.coinValue != null && item.coinValue !== 0 && (
+                      <div className="fan-coin-pill">
+                        🪙 Worth {item.coinValue} coin
+                        {item.coinValue === 1 ? "" : "s"}
+                      </div>
+                    )}
+
+                    <small className="cl-item-coins-help">
+                      <a href="/fan/rules">How Lala Coins work →</a>
+                    </small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
       {/* RAIL: tie back to episodes / closet / community */}
       <section className="style-lab-rails">
         <header className="rails-header">
@@ -584,8 +729,13 @@ export default function Closet() {
 
       {/* PAGE-SPECIFIC STYLES */}
       <style>{`
+        :root {
+          --lab-control-height: 36px;
+          --lab-max-width: 1120px;
+        }
+
         .style-lab {
-          max-width: 1120px;
+          max-width: var(--lab-max-width);
           margin: 0 auto 32px;
           padding: 12px 16px 32px;
           display: flex;
@@ -599,9 +749,9 @@ export default function Closet() {
           border-radius: 26px;
           padding: 18px 20px;
           background:
-            radial-gradient(circle at top left, #f9a8d4, #fef3ff 40%, transparent 70%),
-            radial-gradient(circle at bottom right, #bfdbfe, #e0f2fe 45%, transparent 75%),
-            linear-gradient(135deg, #6366f1, #ec4899);
+            radial-gradient(circle at top left, #ffe4f3, #fdf2ff 40%, transparent 70%),
+            radial-gradient(circle at bottom right, #f9a8d4, #fee2f2 45%, transparent 75%),
+            linear-gradient(135deg, #a855f7, #ec4899);
           border: 1px solid rgba(255,255,255,0.9);
           box-shadow: 0 22px 60px rgba(15,23,42,0.25);
           display: flex;
@@ -616,8 +766,8 @@ export default function Closet() {
           position: absolute;
           inset: -40%;
           background:
-            radial-gradient(circle at 0 0, rgba(255,255,255,0.75), transparent 60%),
-            radial-gradient(circle at 100% 0, rgba(255,255,255,0.45), transparent 60%);
+            radial-gradient(circle at 0 0, rgba(255,255,255,0.8), transparent 60%),
+            radial-gradient(circle at 100% 0, rgba(255,255,255,0.55), transparent 60%);
           pointer-events: none;
           opacity: 0.9;
         }
@@ -640,8 +790,8 @@ export default function Closet() {
           text-transform: uppercase;
           letter-spacing: .14em;
           background: rgba(255,255,255,0.92);
-          border: 1px solid rgba(196,181,253,0.85);
-          color: #6b21a8;
+          border: 1px solid rgba(244,114,182,0.6);
+          color: #9d174d;
           margin-bottom: 6px;
         }
         .style-lab-hero__title {
@@ -670,14 +820,14 @@ export default function Closet() {
           align-items: flex-start;
           padding: 6px 10px;
           border-radius: 999px;
-          background: rgba(255,255,255,0.95);
-          border: 1px solid rgba(226,232,240,0.9);
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(252,231,243,0.9);
         }
         .style-step__bubble {
           width: 20px;
           height: 20px;
           border-radius: 999px;
-          background: linear-gradient(135deg,#6366f1,#ec4899);
+          background: linear-gradient(135deg,#a855f7,#ec4899);
           color:#fff;
           font-size: 0.75rem;
           display:flex;
@@ -707,7 +857,7 @@ export default function Closet() {
           color: #111827;
         }
         .hero-helper__link {
-          color: #4c1d95;
+          color: #7c3aed;
           text-decoration: underline;
         }
 
@@ -715,10 +865,10 @@ export default function Closet() {
           flex: 1;
           min-width: 260px;
           max-width: 340px;
-          background: rgba(255,255,255,0.94);
+          background: rgba(255,255,255,0.96);
           border-radius: 20px;
-          border: 1px solid rgba(226,232,240,0.95);
-          box-shadow: 0 18px 44px rgba(15,23,42,0.45);
+          border: 1px solid rgba(248,209,255,0.95);
+          box-shadow: 0 18px 44px rgba(109,40,217,0.35);
           padding: 14px 14px 12px;
           display: flex;
           flex-direction: column;
@@ -733,13 +883,17 @@ export default function Closet() {
         .hero-player-row {
           display: flex;
           gap: 8px;
+          align-items: stretch;
         }
         .hero-input {
           flex: 1;
           border-radius: 999px;
           border: 1px solid #e5e7eb;
-          padding: 7px 12px;
+          padding: 0 12px;
+          height: var(--lab-control-height);
           font-size: 0.9rem;
+          line-height: 1.2;
+          box-sizing: border-box;
         }
         .hero-save-btn {
           padding-inline: 12px;
@@ -765,7 +919,7 @@ export default function Closet() {
           align-items: center;
           padding: 4px 10px;
           border-radius: 999px;
-          background: #020617;
+          background: #111827;
           color: #f9fafb;
           font-size: 0.78rem;
           font-weight: 600;
@@ -788,13 +942,13 @@ export default function Closet() {
           width: 100%;
           height: 8px;
           border-radius: 999px;
-          background: #e0e7ff;
+          background: #f5f3ff;
           overflow: hidden;
-          border: 1px solid #c7d2fe;
+          border: 1px solid #e0e7ff;
         }
         .hero-progress-bar {
           height: 100%;
-          background: linear-gradient(90deg,#a855f7,#ec4899);
+          background: linear-gradient(90deg,#a855f7,#ec4899,#fb7185);
           width: 0%;
           transition: width 200ms ease-out;
         }
@@ -817,21 +971,32 @@ export default function Closet() {
         /* MAIN GRID */
         .style-lab-grid {
           display: grid;
-          grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-          gap: 16px;
-          align-items: flex-start;
+          grid-template-columns: minmax(0, 1.9fr) minmax(0, 1.2fr);
+          margin-top: 20px;
+          gap: 24px;
+          align-items: stretch;
+        }
+
+        .style-lab-grid > .lab-card {
+          align-self: stretch;
         }
 
         .lab-card {
           background: #ffffff;
           border-radius: 22px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid #f1f5f9;
           padding: 16px 18px 18px;
-          box-shadow: 0 18px 40px rgba(15,23,42,0.06);
+          box-shadow: 0 18px 40px rgba(148,163,184,0.18);
           display: flex;
           flex-direction: column;
           gap: 12px;
+          height: 100%;
+          box-sizing: border-box;
         }
+        .lab-card--game {
+          align-items: stretch;
+        }
+
         .lab-header-row {
           display:flex;
           justify-content:space-between;
@@ -841,8 +1006,8 @@ export default function Closet() {
         .lab-tag {
           padding:4px 10px;
           border-radius:999px;
-          background:#eef2ff;
-          color:#4338ca;
+          background:#fee2f2;
+          color:#be185d;
           font-size:0.75rem;
           font-weight:600;
           white-space:nowrap;
@@ -859,22 +1024,26 @@ export default function Closet() {
           color: #6b7280;
         }
 
+        /* inner layout: preview | controls */
         .lab-main-layout {
           margin-top: 8px;
-          display:grid;
-          grid-template-columns: minmax(0,1.15fr) minmax(0,1.4fr);
-          gap:16px;
-          align-items:stretch;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          align-items: stretch;
         }
 
         /* preview */
         .lab-preview {
-          background: radial-gradient(circle at top,#eef2ff,#fdf2ff);
+          flex: 1 1 250px;
+          max-width: 300px;
+          background: radial-gradient(circle at top,#fef3ff,#e9d5ff);
           border-radius:18px;
           padding:10px;
-          border:1px solid #e5e7eb;
+          border:1px solid #f5d0fe;
           display:flex;
           align-items:stretch;
+          box-sizing: border-box;
         }
         .lab-preview-inner {
           display:flex;
@@ -885,8 +1054,8 @@ export default function Closet() {
           width:70px;
           height:100px;
           border-radius:18px;
-          background:linear-gradient(135deg,#6366f1,#ec4899);
-          box-shadow:0 14px 30px rgba(129,140,248,0.55);
+          background:linear-gradient(135deg,#a855f7,#ec4899);
+          box-shadow:0 14px 30px rgba(147,51,234,0.55);
           position:relative;
         }
         .lab-preview-avatar::before {
@@ -908,7 +1077,7 @@ export default function Closet() {
           font-size:0.78rem;
           text-transform:uppercase;
           letter-spacing:.12em;
-          color:#6b21a8;
+          color:#7c3aed;
         }
         .lab-preview-line {
           display:flex;
@@ -933,6 +1102,8 @@ export default function Closet() {
 
         /* controls */
         .lab-controls {
+          flex: 2;
+          min-width: 240px;
           display:flex;
           flex-direction:column;
           gap:10px;
@@ -940,16 +1111,17 @@ export default function Closet() {
         .lab-form-row {
           margin-top: 4px;
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
           gap: 10px;
         }
         .lab-field {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          min-width: 0;
         }
         .lab-label {
-          font-size: 0.78rem;
+          font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: .12em;
           color: #9ca3af;
@@ -961,33 +1133,42 @@ export default function Closet() {
           border-radius: 999px;
           border: 1px solid #e5e7eb;
           background: #f9fafb;
-          padding-inline: 10px;
+          padding-inline: 12px;
+          height: var(--lab-control-height);
+          width: 100%;
+          box-sizing: border-box;
         }
         .lab-select-icon {
           font-size: 0.9rem;
-          margin-right: 4px;
+          margin-right: 6px;
         }
         .lab-select {
           flex: 1;
+          width: 100%;
+          min-width: 0;
           border: none;
           background: transparent;
-          padding: 8px 0;
-          font-size: 0.9rem;
+          padding: 0;
+          font-size: 0.85rem;
           outline: none;
+          appearance: none;
+        }
+        .lab-select::-ms-expand {
+          display: none;
         }
 
         .lab-actions-row {
-          margin-top: 8px;
+          margin-top: 12px;
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 10px;
           align-items: center;
         }
 
         .lab-btn {
           border-radius: 999px;
-          padding: 8px 16px;
-          font-size: 0.9rem;
+          padding: 7px 18px;
+          font-size: 0.85rem;
           font-weight: 600;
           border: 1px solid #e5e7eb;
           background: #f9fafb;
@@ -998,30 +1179,45 @@ export default function Closet() {
           justify-content: center;
           gap: 4px;
           text-decoration: none;
+          min-height: 38px;
           transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.04s ease, border-color 0.15s ease;
         }
         .lab-btn:hover {
-          background: #f3f4ff;
-          box-shadow: 0 6px 18px rgba(148,163,184,0.3);
+          background: #fdf2ff;
+          box-shadow: 0 6px 18px rgba(244,114,182,0.3);
         }
         .lab-btn:active {
           transform: translateY(1px);
         }
 
+        /* ensure Save pill matches input height */
+        .hero-player-row .hero-save-btn {
+          height: var(--lab-control-height);
+          min-height: var(--lab-control-height);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .lab-btn-primary,
+        .lab-btn-secondary {
+          min-width: 132px;
+        }
+
         .lab-btn-primary {
-          background: linear-gradient(90deg,#4f46e5,#ec4899);
+          background: linear-gradient(90deg,#a855f7,#ec4899);
           border-color: transparent;
           color: #ffffff;
-          box-shadow: 0 9px 26px rgba(79,70,229,0.55);
+          box-shadow: 0 6px 18px rgba(147,51,234,0.45);
         }
         .lab-btn-primary:hover {
-          background: linear-gradient(90deg,#4338ca,#db2777);
+          background: linear-gradient(90deg,#7c3aed,#db2777);
         }
 
         .lab-btn-secondary {
-          background: #eef2ff;
-          border-color: #c7d2fe;
-          color: #4338ca;
+          background: #fee2f2;
+          border-color: #fb7185;
+          color: #9d174d;
         }
 
         .lab-btn-ghost {
@@ -1038,16 +1234,17 @@ export default function Closet() {
         }
 
         .lab-btn-small {
-          padding-block: 6px;
+          padding-block: 5px;
           font-size: 0.8rem;
+          min-height: 32px;
         }
 
         .lab-result {
           margin-top: 8px;
           padding: 10px 12px;
           border-radius: 14px;
-          background: #f5f3ff;
-          border: 1px solid #e0e7ff;
+          background: #fdf2ff;
+          border: 1px solid #f5d0fe;
           display: grid;
           gap: 4px;
         }
@@ -1116,15 +1313,15 @@ export default function Closet() {
           grid-template-columns: 52px minmax(0, 1fr) auto;
           gap: 8px;
           align-items: center;
-          padding: 8px 10px;
-          border-radius: 12px;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
+          padding: 10px 12px;
+          border-radius: 16px;
+          border: 1px solid #f3e8ff;
+          background: radial-gradient(circle at top left,#fdf4ff,#f9fafb);
         }
         .lab-rank {
           font-weight: 700;
           text-align: center;
-          color: #4b5563;
+          color: #6b21a8;
         }
         .lab-board-main {
           min-width: 0;
@@ -1163,9 +1360,142 @@ export default function Closet() {
           opacity: 0.9;
         }
 
+        /* FAN CLOSET SECTION */
+        .fan-closet-section {
+          margin-top: 32px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .cl-grid {
+          margin-top: 8px;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+          gap: 10px;
+        }
+
+        .cl-item {
+          border-radius: 16px;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+          box-shadow: 0 10px 26px rgba(148,163,184,0.18);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .cl-item-media {
+          background: #fdf2ff;
+          height: 180px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .cl-item-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .cl-item-placeholder {
+          font-size: 0.78rem;
+          color: #6b7280;
+        }
+
+        .cl-item-body {
+          padding: 8px 10px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .cl-item-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .cl-item-title {
+          font-size: 0.9rem;
+          font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .cl-item-status {
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          background: #f5f3ff;
+          color: #6d28d9;
+          padding: 2px 6px;
+          border-radius: 999px;
+        }
+
+        .cl-item-meta {
+          font-size: 0.78rem;
+          color: #9ca3af;
+        }
+
+        .cl-item-date {
+          font-size: 0.78rem;
+        }
+
+        .cl-item-footer {
+          margin-top: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .fan-coin-pill {
+          margin-top: 4px;
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 8px;
+          border-radius: 999px;
+          font-size: 11px;
+          background: #fef3c7;
+          border: 1px solid #facc15;
+          color: #92400e;
+          gap: 4px;
+        }
+
+        .cl-item-coins-help {
+          font-size: 0.7rem;
+          color: #6b7280;
+          margin-top: 2px;
+        }
+
+        .cl-item-coins-help a {
+          color: #4b5563;
+          text-decoration: underline;
+        }
+
+        .cl-error {
+          margin-top: 4px;
+          padding: 6px 10px;
+          border-radius: 10px;
+          font-size: 0.8rem;
+          background: #fef2f2;
+          color: #b91c1c;
+        }
+
+        .cl-empty {
+          margin-top: 4px;
+          font-size: 0.85rem;
+          color: #6b7280;
+        }
+
         /* RAILS */
         .style-lab-rails {
-          max-width: 1100px;
+          max-width: var(--lab-max-width);
           margin: 4px auto 0;
           display:flex;
           flex-direction:column;
@@ -1189,21 +1519,21 @@ export default function Closet() {
         .rail {
           border-radius:18px;
           padding:12px 12px 14px;
-          border:1px solid #e5e7eb;
+          border:1px solid #ffe4f3;
           background:#fff;
-          box-shadow:0 12px 36px rgba(148,163,184,0.3);
+          box-shadow:0 12px 36px rgba(248,113,181,0.25);
           display:flex;
           flex-direction:column;
           gap:6px;
         }
         .rail--episodes {
-          background:radial-gradient(circle at top left,#e0e7ff,#fdf2ff);
+          background:radial-gradient(circle at top left,#ffe4f3,#fdf2ff);
         }
         .rail--closet {
-          background:radial-gradient(circle at top,#fdf2ff,#e0f2fe);
+          background:radial-gradient(circle at top,#fdf2ff,#e9d5ff);
         }
         .rail--community {
-          background:radial-gradient(circle at top,#eef2ff,#ffe4f3);
+          background:radial-gradient(circle at top,#fee2f2,#e0f2fe);
         }
         .rail__head {
           display:flex;
@@ -1215,11 +1545,11 @@ export default function Closet() {
           font-size:0.8rem;
           text-transform:uppercase;
           letter-spacing:0.14em;
-          color:#6b21a8;
+          color:#7c3aed;
         }
         .rail__link {
           font-size:0.8rem;
-          color:#4338ca;
+          color:#a855f7;
           text-decoration:none;
           white-space:nowrap;
         }
@@ -1232,6 +1562,7 @@ export default function Closet() {
           color:#374151;
         }
 
+        /* RESPONSIVE TWEAKS */
         @media (max-width: 900px) {
           .style-lab {
             padding-inline: 12px;
@@ -1239,11 +1570,19 @@ export default function Closet() {
           .style-lab-hero {
             padding: 14px 14px 16px;
           }
+          .style-lab-hero__copy,
+          .style-lab-hero__panel {
+            width: 100%;
+          }
           .style-lab-grid {
             grid-template-columns: minmax(0, 1fr);
           }
           .lab-main-layout {
-            grid-template-columns:minmax(0,1fr);
+            flex-direction: column;
+          }
+          .lab-preview {
+            flex: 0 0 auto;
+            max-width: 100%;
           }
           .lab-form-row {
             grid-template-columns: minmax(0, 1fr);
@@ -1263,11 +1602,12 @@ export default function Closet() {
           .hero-player-row {
             flex-direction: column;
           }
-          .hero-save-btn {
-            align-self: flex-start;
+          .hero-player-row .hero-save-btn {
+            width: auto;
           }
         }
       `}</style>
     </div>
   );
 }
+

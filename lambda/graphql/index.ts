@@ -118,6 +118,11 @@ type ClosetFeedArgs = {
   sort?: ClosetFeedSort | null;
 };
 
+type ClosetConnection = {
+  items: ClosetItem[];
+  nextToken: string | null;
+};
+
 interface Story {
   id: string;
   userId: string;
@@ -278,6 +283,7 @@ function getUserTier(identity: any): UserTier {
   const claims = identity?.claims || {};
 
   // Prefer explicit tier claim if present.
+  the
   const tierClaim =
     (claims["custom:tier"] as string | undefined) ||
     (claims["tier"] as string | undefined);
@@ -321,9 +327,10 @@ function requireBestieTier(identity: any): UserTier {
 
 // ────────────────────────────────────────────────────────────
 // 1) myCloset – return all items owned by the current user.
+//    Now returns a ClosetConnection.
 // ────────────────────────────────────────────────────────────
 
-async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
+async function handleMyCloset(identity: any): Promise<ClosetConnection> {
   const sub = requireUserSub(identity);
 
   const res = await ddb.send(
@@ -337,18 +344,25 @@ async function handleMyCloset(identity: any): Promise<ClosetItem[]> {
     }),
   );
 
-  return (res.Items ?? [])
+  const items = (res.Items ?? [])
     .map(mapClosetItem)
     .filter((ci) => ci.id && ci.id !== "undefined");
+
+  return {
+    items,
+    nextToken: null,
+  };
 }
 
 // Bestie closet paginated connection – for now, just wraps myCloset
+// Explicitly returns ClosetConnection.
 async function handleBestieClosetItems(
   args: { limit?: number | null; nextToken?: string | null },
   identity: any,
-): Promise<{ items: ClosetItem[]; nextToken: string | null }> {
+): Promise<ClosetConnection> {
   // reuse existing logic for user's closet
-  const allItems = await handleMyCloset(identity);
+  const myClosetConnection = await handleMyCloset(identity);
+  const allItems = myClosetConnection.items;
 
   const limit =
     args.limit && args.limit > 0
@@ -363,6 +377,7 @@ async function handleBestieClosetItems(
     nextToken: null,
   };
 }
+
 // ────────────────────────────────────────────────────────────
 // 2) createClosetItem – create a new item in DRAFT.
 // ────────────────────────────────────────────────────────────
@@ -1005,9 +1020,10 @@ async function handleToggleWishlistItem(
 
 // ────────────────────────────────────────────────────────────
 // 13) myWishlist – viewer's wishlist expanded to ClosetItem
+//     Now returns a ClosetConnection.
 // ────────────────────────────────────────────────────────────
 
-async function handleMyWishlist(identity: any): Promise<ClosetItem[]> {
+async function handleMyWishlist(identity: any): Promise<ClosetConnection> {
   const viewerSub = requireUserSub(identity);
 
   const res = await ddb.send(
@@ -1024,7 +1040,10 @@ async function handleMyWishlist(identity: any): Promise<ClosetItem[]> {
   const entries = (res.Items ?? []).map((raw) => unmarshall(raw) as any);
 
   if (!entries.length) {
-    return [];
+    return {
+      items: [],
+      nextToken: null,
+    };
   }
 
   const keys = entries.map((e) => ({
@@ -1049,7 +1068,10 @@ async function handleMyWishlist(identity: any): Promise<ClosetItem[]> {
     ci.viewerHasWishlisted = true;
   }
 
-  return closetItems;
+  return {
+    items: closetItems,
+    nextToken: null,
+  };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1092,9 +1114,10 @@ async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
 
 // ────────────────────────────────────────────────────────────
 // 15) closetFeed – public community feed for Lala’s Closet
+//     (Already returning ClosetConnection.)
 // ────────────────────────────────────────────────────────────
 
-async function handleClosetFeed(event: any): Promise<ClosetItem[]> {
+async function handleClosetFeed(event: any): Promise<ClosetConnection> {
   const args: ClosetFeedArgs = event?.arguments || {};
   const sort: ClosetFeedSort = args.sort || "NEWEST";
 
@@ -1159,7 +1182,13 @@ async function handleClosetFeed(event: any): Promise<ClosetItem[]> {
     return bCreated.localeCompare(aCreated);
   });
 
-  return unique.slice(0, limit);
+  const pageItems = unique.slice(0, limit);
+
+  // For now we don't paginate beyond this, so nextToken is always null.
+  return {
+    items: pageItems,
+    nextToken: null,
+  };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1726,5 +1755,6 @@ export const handler = async (event: any) => {
     throw err;
   }
 };
+
 
 

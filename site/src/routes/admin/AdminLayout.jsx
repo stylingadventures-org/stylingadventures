@@ -1,6 +1,6 @@
 // site/src/routes/admin/AdminLayout.jsx
 import React, { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 function useIsAdmin() {
   const [ready, setReady] = useState(false);
@@ -37,10 +37,8 @@ function useIsAdmin() {
 
 export default function AdminLayout() {
   const nav = useNavigate();
-  const loc = useLocation();
   const { ready, isAdmin } = useIsAdmin();
 
-  // Soft-redirect non-admins
   useEffect(() => {
     if (ready && !isAdmin) {
       nav("/fan", { replace: true });
@@ -130,13 +128,12 @@ export default function AdminLayout() {
               <span>Closet upload</span>
             </NavLink>
 
-            {/* Closet library + Bestie sub-page */}
             <NavLink to="/admin/closet-library" className={navClass}>
               <span className="section-nav-pill-icon">📚</span>
               <span>Closet library</span>
             </NavLink>
 
-            {/* Subpage under closet library: Bestie closet */}
+            {/* existing Bestie closet admin route */}
             <NavLink
               to="/admin/closet-library/bestie"
               className={navClass}
@@ -145,9 +142,38 @@ export default function AdminLayout() {
               <span>Bestie closet</span>
             </NavLink>
 
+            {/* Episodes & game section with Game overview link */}
+            <div className="section-sidebar-label" style={{ marginTop: 16 }}>
+              Episodes & game
+            </div>
+
+            <NavLink to="/admin/game-overview" className={navClass}>
+              <span className="section-nav-pill-icon">🏦</span>
+              <span>Game overview</span>
+            </NavLink>
+
+            <NavLink to="/admin/episodes" className={navClass}>
+              <span className="section-nav-pill-icon">🎬</span>
+              <span>Episode studio</span>
+            </NavLink>
+
+            <NavLink to="/admin/game-rules" className={navClass}>
+              <span className="section-nav-pill-icon">📜</span>
+              <span>Game rules</span>
+            </NavLink>
+
+            <div className="section-sidebar-label" style={{ marginTop: 16 }}>
+              People & settings
+            </div>
+
             <NavLink to="/admin/users" className={navClass}>
               <span className="section-nav-pill-icon">👥</span>
               <span>Users</span>
+            </NavLink>
+
+            <NavLink to="/admin/settings" className={navClass}>
+              <span className="section-nav-pill-icon">⚙️</span>
+              <span>Settings</span>
             </NavLink>
           </nav>
         </aside>
@@ -160,5 +186,4 @@ export default function AdminLayout() {
     </div>
   );
 }
-
 

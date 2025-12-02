@@ -150,7 +150,7 @@
       "USER_POOL_ID": {
        "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
       },
-      "ADMIN_GROUP_NAME": "admin",
+      "ADMIN_GROUP_NAME": "ADMIN",
       "WEB_ORIGIN": {
        "Fn::Join": [
         "",
@@ -340,7 +340,7 @@
       "USER_POOL_ID": {
        "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
       },
-      "ADMIN_GROUP_NAME": "admin",
+      "ADMIN_GROUP_NAME": "ADMIN",
       "WEB_ORIGIN": {
        "Fn::Join": [
         "",
@@ -533,7 +533,7 @@
       "USER_POOL_ID": {
        "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
       },
-      "ADMIN_GROUP_NAME": "admin",
+      "ADMIN_GROUP_NAME": "ADMIN",
       "WEB_ORIGIN": {
        "Fn::Join": [
         "",
@@ -736,7 +736,7 @@
       "USER_POOL_ID": {
        "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
       },
-      "ADMIN_GROUP_NAME": "admin",
+      "ADMIN_GROUP_NAME": "ADMIN",
       "WEB_ORIGIN": {
        "Fn::Join": [
         "",

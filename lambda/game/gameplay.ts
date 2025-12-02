@@ -5,7 +5,6 @@ import {
   UpdateCommand,
   PutCommand,
   GetCommand,
-  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { AppSyncIdentityCognito } from "aws-lambda";
 import { TABLE_NAME } from "../_shared/env";
@@ -52,7 +51,7 @@ function coerceMeta(m: unknown): Record<string, any> | null {
 function levelFromXp(xp: number): number {
   let lvl = 1,
     need = 100,
-    left = xp;
+    left = xp | 0;
   while (left >= need) {
     left -= need;
     lvl++;
@@ -105,7 +104,7 @@ export const handler = async (event: AppSyncEvent) => {
     const evType: string = input.type || "UNKNOWN";
     const metadata = coerceMeta(input.metadata);
 
-    // Shape we must return for GameEventResult:
+    // Returned GameEventResult:
     // {
     //   success: Boolean!
     //   xp: Int
@@ -198,7 +197,6 @@ export const handler = async (event: AppSyncEvent) => {
         }),
       );
 
-      // Return GameEventResult
       return {
         success: true,
         xp: xpNow,
@@ -260,6 +258,7 @@ export const handler = async (event: AppSyncEvent) => {
       }),
     );
 
+    // best-effort log of the event; ignore conflicts
     await ddb
       .send(
         new PutCommand({
@@ -277,7 +276,6 @@ export const handler = async (event: AppSyncEvent) => {
       )
       .catch(() => {});
 
-    // Return GameEventResult
     return {
       success: true,
       xp: xpNow,
@@ -288,6 +286,7 @@ export const handler = async (event: AppSyncEvent) => {
     };
   }
 
+  // awardCoins(input: { userId, coins, xp? })
   if (fieldName === "awardCoins") {
     const { userId, coins, xp } = event.arguments
       .input as { userId: string; coins: number; xp?: number };
@@ -311,7 +310,11 @@ export const handler = async (event: AppSyncEvent) => {
       }),
     );
     const xpNow = Number(upd.Attributes?.xp ?? 0);
+    const coinsNow = Number(upd.Attributes?.coins ?? 0);
+    const lastEventAt =
+      (upd.Attributes?.lastEventAt as string | undefined) ?? null;
 
+    // keep leaderboard row in sync
     await ddb.send(
       new PutCommand({
         TableName: TABLE_NAME,
@@ -321,72 +324,27 @@ export const handler = async (event: AppSyncEvent) => {
           gsi1pk: "LEADERBOARD#GLOBAL",
           gsi1sk: `XP#${pad(xpNow)}#${userId}`,
           xp: xpNow,
-          coins: Number(upd.Attributes?.coins ?? 0),
+          coins: coinsNow,
           updatedAt: new Date().toISOString(),
           type: "LEADER",
         },
       }),
     );
 
-    // awardCoins still returns GameProfile (per schema)
+    // awardCoins returns GameProfile
     return {
       userId,
       displayName: (upd.Attributes?.displayName as string) || null,
       level: levelFromXp(xpNow),
       xp: xpNow,
-      coins: Number(upd.Attributes?.coins ?? 0),
+      coins: coinsNow,
       badges: Array.isArray(upd.Attributes?.badges)
         ? (upd.Attributes!.badges as string[])
         : [],
-      lastEventAt:
-        (upd.Attributes?.lastEventAt as string | undefined) ?? null,
+      lastEventAt,
     };
-  }
-
-  // ─────────────────────────────────────────────
-  // LEADERBOARD: simple global XP
-  // ─────────────────────────────────────────────
-  if (fieldName === "topXP") {
-    const limit = Math.max(
-      1,
-      Math.min(100, Number(event.arguments?.limit ?? 10)),
-    );
-    const out = await ddb.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: "gsi1",
-        KeyConditionExpression: "gsi1pk = :p",
-        ExpressionAttributeValues: { ":p": "LEADERBOARD#GLOBAL" },
-        ScanIndexForward: false, // highest XP first
-        Limit: limit,
-      }),
-    );
-    const items = out.Items ?? [];
-    const results = await Promise.all(
-      items.map(async (it, i) => {
-        const userId = (it.pk as string).replace("USER#", "");
-        let displayName: string | undefined;
-        try {
-          const got = await ddb.send(
-            new GetCommand({
-              TableName: TABLE_NAME,
-              Key: { pk: `USER#${userId}`, sk: "PROFILE" },
-              ProjectionExpression: "displayName",
-            }),
-          );
-          displayName = got.Item?.displayName as string | undefined;
-        } catch {}
-        return {
-          userId,
-          displayName,
-          xp: Number(it.xp ?? 0),
-          coins: Number(it.coins ?? 0),
-          rank: i + 1,
-        };
-      }),
-    );
-    return results;
   }
 
   throw new Error(`Unknown field ${fieldName}`);
 };
+

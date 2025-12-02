@@ -23,6 +23,7 @@ const GQL = {
           category
           subcategory
           pinned
+          coinValue
           createdAt
           updatedAt
           ownerSub
@@ -63,7 +64,7 @@ const GQL = {
       }
     }
   `,
-  // update title / category / subcategory
+  // update title / category / subcategory / coinValue
   updateMeta: /* GraphQL */ `
     mutation AdminUpdateClosetItem(
       $id: ID!
@@ -74,6 +75,7 @@ const GQL = {
         title
         category
         subcategory
+        coinValue
         updatedAt
       }
     }
@@ -257,6 +259,10 @@ export default function ClosetLibrary() {
             title: updated.title || "",
             category: updated.category || "",
             subcategory: updated.subcategory || "",
+            coinValue:
+              updated.coinValue === null || updated.coinValue === undefined
+                ? null
+                : updated.coinValue,
           });
         }
       }
@@ -419,6 +425,21 @@ export default function ClosetLibrary() {
       input.subcategory = drawerDraft.subcategory || null;
     }
 
+    // coinValue: allow null (no coin value) or non-negative integer
+    const selectedCoin =
+      selected.coinValue === null || selected.coinValue === undefined
+        ? null
+        : selected.coinValue;
+
+    const draftCoin =
+      drawerDraft.coinValue === "" || drawerDraft.coinValue === null
+        ? null
+        : Number(drawerDraft.coinValue) || 0;
+
+    if (draftCoin !== selectedCoin) {
+      input.coinValue = draftCoin;
+    }
+
     if (!Object.keys(input).length) {
       return;
     }
@@ -462,7 +483,9 @@ export default function ClosetLibrary() {
 
       // Update drawer + grid immediately
       setSelected((prev) =>
-        prev && prev.id === selected.id ? { ...prev, pinned: pinnedValue } : prev,
+        prev && prev.id === selected.id
+          ? { ...prev, pinned: pinnedValue }
+          : prev,
       );
       setItems((prev) =>
         prev.map((it) =>
@@ -486,6 +509,10 @@ export default function ClosetLibrary() {
       title: item.title || "",
       category: item.category || "",
       subcategory: item.subcategory || "",
+      coinValue:
+        item.coinValue === null || item.coinValue === undefined
+          ? null
+          : item.coinValue,
     });
   }
 
@@ -749,6 +776,16 @@ export default function ClosetLibrary() {
                       </div>
                     )}
 
+                    {/* Coin value pill */}
+                    <div className="closet-grid-coinRow">
+                      <span className="closet-coin-pill">
+                        🪙{" "}
+                        {item.coinValue != null
+                          ? `${item.coinValue} coins`
+                          : "No coin value"}
+                      </span>
+                    </div>
+
                     {/* Audience controls */}
                     <div className="closet-review-audience-row">
                       <label className="closet-review-label">Audience</label>
@@ -888,6 +925,31 @@ export default function ClosetLibrary() {
                     >
                       {selected.pinned ? "Unmark pick" : "Mark as pick"}
                     </button>
+                  </div>
+
+                  {/* Coin value editor */}
+                  <div className="closet-drawer-field">
+                    <label className="closet-drawer-label">Coin value</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      className="sa-input closet-drawer-titleInput"
+                      value={drawerDraft?.coinValue ?? ""}
+                      disabled={busyId === selected.id}
+                      onChange={(e) =>
+                        setDrawerDraft((prev) => ({
+                          ...prev,
+                          coinValue:
+                            e.target.value === ""
+                              ? null
+                              : Number(e.target.value) || 0,
+                        }))
+                      }
+                    />
+                    <div className="closet-drawer-metaText">
+                      How many coins this item is worth in Lala&apos;s world.
+                    </div>
                   </div>
 
                   {/* Category / subcategory selection */}
@@ -1387,6 +1449,21 @@ const styles = /* css */ `
 .closet-grid-tag--lala {
   background: #fef3c7;
   color: #92400e;
+}
+
+/* Coin pill */
+
+.closet-grid-coinRow {
+  margin-top: 2px;
+}
+
+.closet-coin-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid #facc15;
+  background: #fef9c3;
+  color: #854d0e;
 }
 
 /* Status pills */

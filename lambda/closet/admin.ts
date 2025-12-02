@@ -207,11 +207,18 @@ function decodeToken(
 
 /* ============== Queries ============== */
 
+/**
+ * NOTE: GraphQL type is ClosetConnection!
+ * so we must return { items, nextToken }.
+ */
 export const adminListPending = async (
   event: AppSyncEvent,
-): Promise<ClosetItem[]> => {
+): Promise<AdminClosetItemsPage> => {
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
+
+  const { limit = 100, nextToken } = event.arguments || {};
+  const exclusiveKey = decodeToken(nextToken);
 
   const out = await ddb.send(
     new QueryCommand({
@@ -223,15 +230,22 @@ export const adminListPending = async (
       ProjectionExpression:
         "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
       ExpressionAttributeNames: { "#s": "status" },
+      Limit: limit,
+      ExclusiveStartKey: exclusiveKey,
     }),
   );
 
-  return (out.Items || []).map((it) =>
+  const items = (out.Items || []).map((it) =>
     mapItem({
       ...it,
       status: it["status"],
     }),
   );
+
+  return {
+    items,
+    nextToken: encodeToken(out.LastEvaluatedKey),
+  };
 };
 
 export const adminListClosetItems = async (
@@ -329,9 +343,13 @@ export const adminListBestieClosetItems = async (
   };
 };
 
+/**
+ * closetFeed now also returns a ClosetConnection-style object
+ * { items, nextToken } to match the schema.
+ */
 export const closetFeed = async (
   event: AppSyncEvent,
-): Promise<ClosetItem[]> => {
+): Promise<AdminClosetItemsPage> => {
   const { sub } = getIdentity(event); // ensure authed, capture viewer
   const sortArg = (event.arguments?.sort as string | undefined) ?? "NEWEST";
   const sort: "NEWEST" | "MOST_LOVED" =
@@ -410,14 +428,21 @@ export const closetFeed = async (
     return bTime - aTime;
   });
 
-  return collected;
+  return {
+    items: collected,
+    nextToken: null, // no pagination yet
+  };
 };
 
 export const topClosetLooks = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem[]> => {
-  // just reuse closetFeed, but always NEWEST
-  return closetFeed({ ...event, arguments: { sort: "NEWEST" } });
+  // reuse closetFeed, but always NEWEST; unwrap connection
+  const conn = await closetFeed({
+    ...event,
+    arguments: { ...(event.arguments || {}), sort: "NEWEST" },
+  });
+  return conn.items;
 };
 
 /* ============== Mutations ============== */
@@ -633,7 +658,10 @@ export const adminUpdateClosetItem = async (
       "vibes",
     ] as const
   ).forEach((field) => {
-    if ((args as any)[field] !== undefined && (input as any)[field] === undefined) {
+    if (
+      (args as any)[field] !== undefined &&
+      (input as any)[field] === undefined
+    ) {
       (input as any)[field] = (args as any)[field];
     }
   });
@@ -863,9 +891,13 @@ export const handler = async (event: AppSyncEvent) => {
   if (field === "adminUpdateClosetItem")
     return adminUpdateClosetItem(event);
   if (field === "closetFeed") return closetFeed(event);
-  if (field === "topClosetLooks") return topClosetLooks(event);
-  if (field === "toggleFavoriteClosetItem")
+    if (field === "topClosetLooks") return topClosetLooks(event);
+
+  // Support both old + new schema names for the hearts mutation
+  if (field === "toggleFavoriteClosetItem" || field === "likeClosetItem") {
     return toggleFavoriteClosetItem(event);
+  }
 
   throw new Error(`No resolver implemented for field ${field}`);
 };
+

@@ -23,19 +23,32 @@ type GameProfile = {
   displayName?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
-  lastEventAt?: string | null;   // AWSDateTime string
+  lastEventAt?: string | null; // AWSDateTime
   streakCount?: number | null;
-  lastLoginAt?: string | null;   // AWSDateTime string
+  lastLoginAt?: string | null; // AWSDateTime
 };
+
+// Same level curve as gameplay (XP-based)
+function levelFromXp(xp: number): number {
+  let lvl = 1;
+  let need = 100;
+  let left = xp | 0;
+  while (left >= need) {
+    left -= need;
+    lvl++;
+    need += 50;
+  }
+  return lvl;
+}
 
 async function getMyProfile(sub: string): Promise<GameProfile> {
   const pk = PK(sub);
 
   const { Item } = await ddb.send(
-    new GetCommand({ TableName: TABLE_NAME, Key: { pk, sk: SK } })
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk, sk: SK } }),
   );
 
-  // If no item yet, seed it.
+  // If no item yet, seed a minimal profile.
   if (!Item) {
     const nowIso = new Date().toISOString();
 
@@ -44,10 +57,9 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
         TableName: TABLE_NAME,
         Key: { pk, sk: SK },
         UpdateExpression:
-          "SET #uid=:uid, #lvl=:lvl, #xp=:xp, #coins=:coins, #badges=:badges, #ts=:ts",
+          "SET #uid=:uid, #xp=:xp, #coins=:coins, #badges=:badges, #ts=:ts",
         ExpressionAttributeNames: {
           "#uid": "userId",
-          "#lvl": "level",
           "#xp": "xp",
           "#coins": "coins",
           "#badges": "badges",
@@ -55,24 +67,27 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
         },
         ExpressionAttributeValues: {
           ":uid": sub,
-          ":lvl": 1,
           ":xp": 0,
           ":coins": 0,
           ":badges": [],
           ":ts": nowIso,
         },
-      })
+      }),
     );
 
+    const xp = 0;
     return {
       userId: sub,
-      level: 1,
-      xp: 0,
+      level: levelFromXp(xp),
+      xp,
       coins: 0,
       badges: [],
       lastEventAt: nowIso,
       streakCount: null,
       lastLoginAt: null,
+      displayName: null,
+      avatarUrl: null,
+      bio: null,
     };
   }
 
@@ -85,11 +100,11 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
         UpdateExpression: "SET #uid = if_not_exists(#uid, :uid)",
         ExpressionAttributeNames: { "#uid": "userId" },
         ExpressionAttributeValues: { ":uid": sub },
-      })
+      }),
     );
   }
 
-  // Self-heal: convert numeric timestamps → ISO strings
+  // Self-heal: convert numeric timestamps → ISO strings for lastEventAt
   let lastEventIso: string | null = null;
   const rawLastEvent = (Item as any).lastEventAt;
   if (typeof rawLastEvent === "number") {
@@ -101,7 +116,7 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
         UpdateExpression: "SET #ts = :ts",
         ExpressionAttributeNames: { "#ts": "lastEventAt" },
         ExpressionAttributeValues: { ":ts": lastEventIso },
-      })
+      }),
     );
   } else if (typeof rawLastEvent === "string") {
     lastEventIso = rawLastEvent;
@@ -109,6 +124,7 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
     lastEventIso = null;
   }
 
+  // Self-heal: convert numeric timestamps → ISO strings for lastLoginAt
   let lastLoginIso: string | null = null;
   const rawLastLogin = (Item as any).lastLoginAt;
   if (typeof rawLastLogin === "number") {
@@ -120,7 +136,7 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
         UpdateExpression: "SET #ll = :ll",
         ExpressionAttributeNames: { "#ll": "lastLoginAt" },
         ExpressionAttributeValues: { ":ll": lastLoginIso },
-      })
+      }),
     );
   } else if (typeof rawLastLogin === "string") {
     lastLoginIso = rawLastLogin;
@@ -128,25 +144,30 @@ async function getMyProfile(sub: string): Promise<GameProfile> {
     lastLoginIso = null;
   }
 
+  const xp = (Item.xp as number) ?? 0;
+  const coins = (Item.coins as number) ?? 0;
+
   return {
     userId: (Item.userId as string) ?? sub,
-    level: (Item.level as number) ?? 1,
-    xp: (Item.xp as number) ?? 0,
-    coins: (Item.coins as number) ?? 0,
+    level: levelFromXp(xp), // 🔥 always derived from XP
+    xp,
+    coins,
     badges: Array.isArray(Item.badges) ? (Item.badges as string[]) : [],
     displayName: (Item.displayName as string) ?? null,
     avatarUrl: (Item.avatarUrl as string) ?? null,
     bio: (Item.bio as string) ?? null,
     lastEventAt: lastEventIso,
     streakCount:
-      typeof Item.streakCount === "number" ? (Item.streakCount as number) : null,
+      typeof Item.streakCount === "number"
+        ? (Item.streakCount as number)
+        : null,
     lastLoginAt: lastLoginIso,
   };
 }
 
 async function setDisplayName(
   sub: string,
-  displayName: string
+  displayName: string,
 ): Promise<GameProfile> {
   const pk = PK(sub);
   const name = (displayName ?? "").trim().slice(0, 40);
@@ -157,11 +178,10 @@ async function setDisplayName(
       TableName: TABLE_NAME,
       Key: { pk, sk: SK },
       UpdateExpression:
-        "SET #dn=:dn, #ts=:ts ADD #lvl :zero, #xp :zero, #coins :zero",
+        "SET #dn=:dn, #ts=:ts ADD #xp :zero, #coins :zero",
       ExpressionAttributeNames: {
         "#dn": "displayName",
         "#ts": "lastEventAt",
-        "#lvl": "level",
         "#xp": "xp",
         "#coins": "coins",
       },
@@ -170,7 +190,7 @@ async function setDisplayName(
         ":ts": nowIso,
         ":zero": 0,
       },
-    })
+    }),
   );
 
   return getMyProfile(sub);
@@ -191,9 +211,9 @@ export const handler = async (event: AppSyncEvent) => {
       return getMyProfile(sub);
 
     case "setDisplayName":
+      // 🔁 matches schema: setDisplayName(displayName: String!)
       return setDisplayName(sub, event.arguments.displayName);
 
-    // Minimal profile patch
     case "updateProfile": {
       const { displayName, avatarUrl, bio } = event.arguments.input || {};
       const pk = PK(sub);
@@ -218,7 +238,7 @@ export const handler = async (event: AppSyncEvent) => {
         sets.push("#bio = :bio");
       }
 
-      // always bump lastEventAt
+      // Always bump lastEventAt
       names["#ts"] = "lastEventAt";
       vals[":ts"] = new Date().toISOString();
       sets.push("#ts = :ts");
@@ -232,7 +252,7 @@ export const handler = async (event: AppSyncEvent) => {
           UpdateExpression: `SET ${sets.join(", ")}`,
           ExpressionAttributeNames: names,
           ExpressionAttributeValues: vals,
-        })
+        }),
       );
 
       return getMyProfile(sub);

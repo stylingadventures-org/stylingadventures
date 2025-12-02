@@ -990,7 +990,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "30593e7e17f1dba413f8452a1dbad81e3758834c8673ee1abaf4ef70576a9e7a.zip"
+     "S3Key": "41877a33cb3b78c6ca6ad84b2c8ea209275cccdb90801732231a55956b21844d.zip"
     },
     "Environment": {
      "Variables": {
@@ -1032,7 +1032,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "PrimeStudiosStack/MockSocialFeedFn/Resource",
-    "aws:asset:path": "asset.30593e7e17f1dba413f8452a1dbad81e3758834c8673ee1abaf4ef70576a9e7a",
+    "aws:asset:path": "asset.41877a33cb3b78c6ca6ad84b2c8ea209275cccdb90801732231a55956b21844d",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

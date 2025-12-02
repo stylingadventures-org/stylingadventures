@@ -35,6 +35,29 @@ function isBestieActive(status) {
   return false;
 }
 
+/* ------------------------------------------------------------------
+   SHARED LOCALSTORAGE HELPERS
+------------------------------------------------------------------- */
+
+function readJsonArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeJsonArray(key, arr) {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(new Set(arr))));
+  } catch {
+    // ignore
+  }
+}
+
 export default function Episodes() {
   const nav = useNavigate();
   const [now, setNow] = useState(Date.now());
@@ -42,10 +65,60 @@ export default function Episodes() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  const [unlockedIds, setUnlockedIds] = useState([]);
+  const [watchedIds, setWatchedIds] = useState([]);
+
   // live countdown tick
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // watched + unlocked sync (local + server)
+  useEffect(() => {
+    let alive = true;
+
+    // seed watched from local
+    setWatchedIds(readJsonArray("sa:watchedEpisodes"));
+
+    const syncWatched = () => {
+      if (!alive) return;
+      setWatchedIds(readJsonArray("sa:watchedEpisodes"));
+    };
+
+    window.addEventListener("storage", syncWatched);
+    window.addEventListener("sa:watchedUpdated", syncWatched);
+
+    (async () => {
+      try {
+        const localUnlocked = readJsonArray("sa:unlockedEpisodes");
+
+        if (window.sa?.ready) await window.sa.ready();
+        const data = await window.sa?.graphql?.(
+          `query MyUnlockedEpisodes {
+             myUnlockedEpisodes { episodeId }
+           }`
+        );
+
+        if (!alive) return;
+
+        const serverIds =
+          data?.myUnlockedEpisodes?.map((u) => String(u.episodeId)) || [];
+        const merged = Array.from(new Set([...localUnlocked, ...serverIds]));
+        setUnlockedIds(merged);
+        writeJsonArray("sa:unlockedEpisodes", merged);
+      } catch {
+        if (!alive) return;
+        // just use local cache
+        setUnlockedIds(readJsonArray("sa:unlockedEpisodes"));
+      }
+    })();
+
+    return () => {
+      alive = false;
+      window.removeEventListener("storage", syncWatched);
+      window.removeEventListener("sa:watchedUpdated", syncWatched);
+    };
   }, []);
 
   // membership check
@@ -141,29 +214,93 @@ export default function Episodes() {
     }
   }
 
+  async function unlockWithCoins(ep) {
+    if (!ep) return;
+    setErr("");
+
+    try {
+      if (window.sa?.ready) await window.sa.ready();
+
+      const idTok =
+        window.sa?.session?.idToken ||
+        localStorage.getItem("sa:idToken") ||
+        localStorage.getItem("sa_id_token") ||
+        sessionStorage.getItem("id_token");
+      if (!idTok) {
+        if (window.SA?.startLogin) {
+          window.SA.startLogin();
+          return;
+        }
+        window.location.assign("/");
+        return;
+      }
+
+      const data = await window.sa.graphql(
+        `mutation UnlockEpisode($episodeId: ID!) {
+           unlockEpisode(episodeId: $episodeId) {
+             success
+             costCoins
+             unlockedAt
+             episode { id }
+           }
+         }`,
+        { episodeId: ep.id }
+      );
+
+      if (!data?.unlockEpisode?.success) {
+        throw new Error("Unable to unlock this episode.");
+      }
+
+      setUnlockedIds((prev) => {
+        const next = Array.from(new Set([...prev, ep.id]));
+        writeJsonArray("sa:unlockedEpisodes", next);
+        return next;
+      });
+
+      // take them straight into the episode
+      nav(`/watch/${ep.id}`);
+    } catch (e) {
+      setErr(e?.message || String(e));
+    }
+  }
+
   const renderCta = (ep) => {
     const early = now < ep.publicAt;
     const countdown = fmtCountdown(ep.publicAt, now);
+    const isUnlocked = unlockedIds.includes(ep.id);
+    const isWatched = watchedIds.includes(ep.id);
+    const coinCost = ep.unlockCoinCost ?? ep.coinCost ?? null;
 
-    if (!early || isBestie) {
+    if (!early || isBestie || isUnlocked) {
       return (
         <button
           className="ep-btn ep-btn-primary"
           onClick={() => nav(`/watch/${ep.id}`)}
         >
-          Watch now
+          {isWatched ? "Watch again" : "Watch now"}
         </button>
       );
     }
 
     return (
       <>
-        <button
-          className="ep-btn ep-btn-primary"
-          onClick={() => unlockBestieForEpisode(ep.id)}
-        >
-          Unlock with Bestie
-        </button>
+        {coinCost != null && (
+          <button
+            className="ep-btn ep-btn-primary"
+            onClick={() => unlockWithCoins(ep)}
+          >
+            Unlock for {coinCost} coins
+          </button>
+        )}
+        {/* Optional: keep Bestie upsell if you want both paths */}
+        {/* {!coinCost && (
+          <button
+            className="ep-btn ep-btn-primary"
+            onClick={() => unlockBestieForEpisode(ep.id)}
+          >
+            Unlock with Bestie
+          </button>
+        )} */}
         <div className="ep-card-countdown">
           Public in <strong>{countdown}</strong>
         </div>
@@ -174,9 +311,20 @@ export default function Episodes() {
   function smallStatusLine(ep) {
     const early = now < ep.publicAt;
     const countdown = fmtCountdown(ep.publicAt, now);
-    if (!early || isBestie) {
-      return `Public now · ${new Date(ep.publicAt).toLocaleDateString()}`;
+    const isWatched = watchedIds.includes(ep.id);
+    const isUnlocked = unlockedIds.includes(ep.id);
+    const pubDate = new Date(ep.publicAt).toLocaleDateString();
+
+    if (!early || isBestie || isUnlocked) {
+      if (isWatched) {
+        return `Watched · Public ${pubDate}`;
+      }
+      if (isUnlocked && !isBestie && early) {
+        return `Unlocked early · Public ${pubDate}`;
+      }
+      return `Public now · ${pubDate}`;
     }
+
     return `Early for Besties · Public in ${countdown}`;
   }
 
@@ -196,9 +344,7 @@ export default function Episodes() {
               >
                 {isBestie ? "Active Bestie 💖" : "Bestie locked"}
               </span>
-              {loading && (
-                <span className="ep-bestie-meta">Checking…</span>
-              )}
+              {loading && <span className="ep-bestie-meta">Checking…</span>}
               {!loading && !isBestie && (
                 <span className="ep-bestie-meta">
                   Unlock early access and bonus drops.
@@ -222,7 +368,7 @@ export default function Episodes() {
                   ← Back to fan home
                 </Link>
                 <Link to="/fan/closet" className="ep-hero-link">
-                  Open Style Lab games →
+                  Open Style Lab games →{" "}
                 </Link>
               </div>
             </div>
@@ -233,8 +379,7 @@ export default function Episodes() {
                 <div className="ep-featured-thumb">
                   <div className="ep-featured-episodeTag">
                     EP{" "}
-                    {ordered.findIndex((x) => x.id === featured.id) + 1 ||
-                      1}
+                    {ordered.findIndex((x) => x.id === featured.id) + 1 || 1}
                   </div>
                   <div className="ep-featured-thumbOverlay" />
                 </div>
@@ -248,6 +393,11 @@ export default function Episodes() {
                     <span className="ep-pill ep-pill--status">
                       {smallStatusLine(featured)}
                     </span>
+                    {watchedIds.includes(featured.id) && (
+                      <span className="ep-pill ep-pill--watched">
+                        Watched ✔
+                      </span>
+                    )}
                   </div>
                   <div className="ep-featured-cta">
                     {renderCta(featured)}
@@ -273,13 +423,42 @@ export default function Episodes() {
               <h2 className="ep-row-title">Latest episodes</h2>
               <p className="ep-row-sub">
                 Start from the top or skip to the vibe you&apos;re in the mood
-                for. Locked thumbnails are early access for Besties.
+                for. Locked thumbnails are early access for Besties or can be
+                unlocked with coins.
               </p>
             </div>
             <button
               className="ep-btn ep-btn-ghost ep-row-refresh"
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                // refresh watched + bestie check without full page reload
+                setWatchedIds(readJsonArray("sa:watchedEpisodes"));
+                setUnlockedIds(readJsonArray("sa:unlockedEpisodes"));
+                setLoading(true);
+                setErr("");
+                if (window.sa?.ready) {
+                  window.sa
+                    .ready()
+                    .then(() =>
+                      window.sa.graphql(
+                        `query MeBestieStatus {
+                           meBestieStatus {
+                             isBestie
+                             activeSubscription
+                             expiresAt
+                           }
+                         }`
+                      )
+                    )
+                    .then((d) =>
+                      setIsBestie(isBestieActive(d?.meBestieStatus))
+                    )
+                    .catch(() => setIsBestie(false))
+                    .finally(() => setLoading(false));
+                } else {
+                  setLoading(false);
+                }
+              }}
             >
               Refresh
             </button>
@@ -289,7 +468,9 @@ export default function Episodes() {
             {ordered.map((ep, idx) => {
               const early = now < ep.publicAt;
               const countdown = fmtCountdown(ep.publicAt, now);
-              const locked = early && !isBestie;
+              const isUnlocked = unlockedIds.includes(ep.id);
+              const isWatched = watchedIds.includes(ep.id);
+              const locked = early && !isBestie && !isUnlocked;
 
               return (
                 <article key={ep.id} className="ep-tile">
@@ -306,6 +487,18 @@ export default function Episodes() {
                           </span>
                         </div>
                       )}
+                      {isUnlocked && !isBestie && (
+                        <div
+                          className="ep-tile-lockOverlay"
+                          style={{ background: "transparent" }}
+                        >
+                          <span className="ep-tile-lockIcon">✨</span>
+                          <span className="ep-tile-lockText">Unlocked</span>
+                        </div>
+                      )}
+                      {!locked && isWatched && (
+                        <div className="ep-tile-watchedTag">Watched ✔</div>
+                      )}
                     </div>
                   </div>
 
@@ -315,26 +508,32 @@ export default function Episodes() {
                       <span
                         className={
                           "ep-pill ep-pill--small " +
-                          (locked ? "" : "ep-pill--public")
+                          (locked
+                            ? ""
+                            : isWatched
+                            ? "ep-pill--watched"
+                            : "ep-pill--public")
                         }
                       >
                         {locked
                           ? `Public in ${countdown}`
+                          : isUnlocked
+                          ? "Unlocked early"
+                          : isWatched
+                          ? "Watched"
                           : "Public now"}
                       </span>
                       <span className="ep-pill ep-pill--small ep-pill--date">
                         {new Date(ep.publicAt).toLocaleDateString()}
                       </span>
-                      {early && (
+                      {early && !isUnlocked && (
                         <span className="ep-pill ep-pill--small ep-pill--bestie">
                           Bestie early access
                         </span>
                       )}
                     </div>
 
-                    <div className="ep-tile-actions">
-                      {renderCta(ep)}
-                    </div>
+                    <div className="ep-tile-actions">{renderCta(ep)}</div>
                   </div>
                 </article>
               );
@@ -353,16 +552,16 @@ const styles = `
   padding: 16px 0 32px;
 }
 
-/* HERO / SERIES HEADER – pink/purple/blue gradient --------------------- */
+/* HERO / SERIES HEADER – soft pink/purple gradient --------------------- */
 
 .ep-hero {
   background:
-    radial-gradient(circle at top left, #f9a8d4 0, #fdf2ff 35%, transparent 70%),
-    radial-gradient(circle at bottom right, #bfdbfe 0, #eff6ff 35%, transparent 75%),
-    linear-gradient(135deg, #6366f1, #ec4899);
+    radial-gradient(circle at top left, var(--sa-pink-light, #ffe7f6) 0, #fff5fb 35%, transparent 70%),
+    radial-gradient(circle at bottom right, #f3e8ff 0, #eef2ff 35%, transparent 75%),
+    linear-gradient(135deg, var(--sa-pink-warm, #ffb3dd), var(--sa-pink-hot, #ff4fa3));
   border-radius: 24px;
-  border: 1px solid rgba(216, 180, 254, 0.9);
-  box-shadow: 0 18px 40px rgba(129,140,248,0.55);
+  border: 1px solid rgba(244, 184, 255, 0.9);
+  box-shadow: 0 18px 40px rgba(236, 72, 153, 0.35);
   color: #0f172a;
 }
 
@@ -386,12 +585,12 @@ const styles = `
 .ep-hero-pill {
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.9);
-  border: 1px solid rgba(196,181,253,0.9);
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(244, 184, 255, 0.9);
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #6b21a8;
+  color: #a21caf;
 }
 
 .ep-hero-bestie {
@@ -404,16 +603,20 @@ const styles = `
 .ep-bestie-pill {
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(196,181,253,0.9);
-  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(244,184,255,0.9);
+  background: rgba(255,255,255,0.96);
   font-size: 11px;
   font-weight: 600;
   color: #4b5563;
 }
 .ep-bestie-pill--active {
-  background: linear-gradient(135deg,#6366f1,#ec4899);
-  border-color: #a855f7;
-  color: #f9fafb;
+  background: linear-gradient(
+    135deg,
+    var(--sa-pink-hot, #ff4fa3),
+    var(--sa-purple, #a855f7)
+  );
+  border-color: var(--sa-purple, #a855f7);
+  color: #fdf2ff;
 }
 .ep-bestie-meta {
   font-size: 11px;
@@ -443,7 +646,13 @@ const styles = `
   margin: 0;
   font-size: 1.8rem;
   letter-spacing: -0.02em;
-  color: #111827;
+  background: linear-gradient(
+    90deg,
+    var(--sa-purple, #a855f7),
+    var(--sa-pink-hot, #ff4fa3)
+  );
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 .ep-hero-sub {
@@ -461,25 +670,25 @@ const styles = `
 
 .ep-hero-link {
   font-size: 0.85rem;
-  color: #312e81;
+  color: #7c3aed;
   text-decoration: none;
 }
 .ep-hero-link:hover {
   text-decoration: underline;
 }
 
-/* Featured episode card */
+/* Featured episode card – light pastel panel */
 
 .ep-featured-card {
-  background: rgba(15,23,42,0.85);
+  background: linear-gradient(135deg, #fff7fb, #f3e8ff);
   border-radius: 18px;
-  border: 1px solid rgba(165,180,252,0.9);
+  border: 1px solid rgba(244,184,255,0.9);
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr);
   gap: 10px;
   padding: 10px 12px;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.6);
-  color: #e5e7eb;
+  box-shadow: 0 18px 40px rgba(248, 113, 170, 0.35);
+  color: #111827;
 }
 @media (max-width: 600px) {
   .ep-featured-card {
@@ -492,8 +701,8 @@ const styles = `
   border-radius: 14px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left,#f9a8d4,#ec4899),
-    radial-gradient(circle at bottom,#6366f1,#312e81);
+    radial-gradient(circle at top left,#ffe7f6,#ffb3dd),
+    radial-gradient(circle at bottom,#f3e8ff,#c7d2fe);
   min-height: 130px;
   display: flex;
   align-items: stretch;
@@ -504,8 +713,8 @@ const styles = `
   flex: 1;
   background-image: linear-gradient(
     to bottom,
-    rgba(15,23,42,0.1),
-    rgba(15,23,42,0.55)
+    rgba(255,255,255,0.1),
+    rgba(255,255,255,0.65)
   );
 }
 
@@ -515,8 +724,8 @@ const styles = `
   bottom: 10px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  color: #f9fafb;
+  background: rgba(255,255,255,0.96);
+  color: #a21caf;
   font-size: 11px;
   font-weight: 600;
 }
@@ -532,12 +741,12 @@ const styles = `
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #c7d2fe;
+  color: #a855f7;
 }
 
 .ep-featured-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .ep-featured-meta {
@@ -632,8 +841,8 @@ const styles = `
   scroll-snap-align: start;
   background: #ffffff;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 24px rgba(148,163,184,0.32);
+  border: 1px solid #f3e8ff;
+  box-shadow: 0 10px 24px rgba(248, 113, 170, 0.22);
   width: 220px;
   flex: 0 0 auto;
   display: flex;
@@ -648,8 +857,8 @@ const styles = `
 .ep-tile-thumb {
   position: relative;
   background:
-    radial-gradient(circle at top left,#e0e7ff,#c4b5fd),
-    radial-gradient(circle at bottom right,#fecaca,#f9a8d4);
+    radial-gradient(circle at top left,#ffe7f6,#ffb3dd),
+    radial-gradient(circle at bottom right,#e0f2fe,#c7d2fe);
   aspect-ratio: 16 / 9;
   border-radius: 16px 16px 0 0;
   overflow: hidden;
@@ -661,26 +870,40 @@ const styles = `
   bottom: 8px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  color: #f9fafb;
+  background: rgba(255,255,255,0.96);
+  color: #a21caf;
   font-size: 11px;
   font-weight: 600;
 }
+
+.ep-tile-watchedTag {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16,185,129,0.96);
+  color: #ecfdf5;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Lock overlay – light, not dark */
 
 .ep-tile-lockOverlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(88,28,135,0.4),
-    rgba(30,64,175,0.9)
+    rgba(255,247,250,0.96),
+    rgba(250,232,255,0.96)
   );
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: #f9fafb;
+  color: #a21caf;
   font-size: 0.8rem;
 }
 
@@ -727,7 +950,7 @@ const styles = `
   border-radius: 999px;
   padding: 3px 9px;
   font-size: 0.78rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f3e8ff;
   background: #f9fafb;
   color: #111827;
 }
@@ -738,21 +961,27 @@ const styles = `
 }
 
 .ep-pill--series {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #3730a3;
+  background: #f5f3ff;
+  border-color: #e9d5ff;
+  color: #6d28d9;
 }
 
 .ep-pill--status {
-  background: #f5f3ff;
-  border-color: #ddd6fe;
-  color: #4b5563;
+  background: #fff7fb;
+  border-color: #fecdd3;
+  color: #be185d;
 }
 
 .ep-pill--public {
   background: #f5f3ff;
-  border-color: #ddd6fe;
-  color: #3730a3;
+  border-color: #e5e7eb;
+  color: #6d28d9;
+}
+
+.ep-pill--watched {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #166534;
 }
 
 .ep-pill--date {
@@ -764,7 +993,7 @@ const styles = `
 .ep-pill--bestie {
   background: #fdf2ff;
   border-color: #f9a8d4;
-  color: #be185d;
+  color: #a21caf;
 }
 
 /* generic episode buttons */
@@ -773,9 +1002,9 @@ const styles = `
   appearance: none;
   border-radius: 999px;
   padding: 7px 13px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  color: #111827;
+  border: 1px solid #f3e8ff;
+  background: #fdf2ff;
+  color: #4b5563;
   cursor: pointer;
   font-size: 0.86rem;
   font-weight: 500;
@@ -790,23 +1019,26 @@ const styles = `
     box-shadow 140ms ease;
 }
 .ep-btn:hover {
-  background: #f5f3ff;
-  border-color: #ddd6fe;
-  box-shadow: 0 6px 16px rgba(129,140,248,0.35);
+  background: #ffffff;
+  border-color: #e5d5ff;
+  box-shadow: 0 6px 16px rgba(248,113,170,0.35);
 }
 .ep-btn:active {
   transform: translateY(1px);
 }
 
 .ep-btn-primary {
-  background: linear-gradient(135deg,#6366f1,#ec4899);
-  border-color: #6366f1;
+  background: linear-gradient(
+    135deg,
+    var(--sa-pink-hot, #ff4fa3),
+    var(--sa-purple, #a855f7)
+  );
+  border-color: var(--sa-pink-hot, #ff4fa3);
   color: #ffffff;
   box-shadow: 0 8px 18px rgba(236,72,153,0.45);
 }
 .ep-btn-primary:hover {
-  background: linear-gradient(135deg,#4f46e5,#db2777);
-  border-color: #4f46e5;
+  filter: brightness(1.05);
 }
 
 .ep-btn-ghost {

@@ -1989,7 +1989,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5bb47a33188aaaa595653b6d5caef4be895ee45f5bf3655573a8176fe3b6503d.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/90e3bf37ff7796b5018b42058f4cfe25a0872f7b1b6173290b3247203409e456.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2830,7 +2830,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/12b6193de65a5e3f6593ea266ecf90e94d25e471edc80178246512652327517e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/87868733ef23ccb4e1aa7515901a31d5bcbd0beee3c947171d03caa9be1103e3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3022,7 +3022,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/101c365f31609e83e8de37fcc055242a7498868f5a350148072e8e7f4adb68f3.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/47156d88d6413be75c03065bff53abfeb9447953c2454535d913c1b8096082d1.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3319,6 +3319,36 @@
             "data": "StylingApiAdminUpdateClosetItemResolver5BCA141E"
           }
         ],
+        "/ApiStack/StylingApi/AdminSettingsDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminSettingsDsServiceRoleE770C776"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminSettingsDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminSettingsDsServiceRoleDefaultPolicy823E1137"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminSettingsDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminSettingsDsC710BA61"
+          }
+        ],
+        "/ApiStack/StylingApi/GetAdminSettingsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGetAdminSettingsResolver85DF2C73"
+          }
+        ],
+        "/ApiStack/StylingApi/UpdateAdminSettingsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUpdateAdminSettingsResolverF15DD644"
+          }
+        ],
         "/ApiStack/StylingApi/BestieDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -3403,6 +3433,54 @@
             "data": "StylingApiIsEpisodeEarlyAccessResolverB49E31ED"
           }
         ],
+        "/ApiStack/StylingApi/UnlockEpisodeResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUnlockEpisodeResolverB91CE673"
+          }
+        ],
+        "/ApiStack/StylingApi/MyUnlockedEpisodesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMyUnlockedEpisodesResolver3FC6AA85"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesAdminDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesAdminDsServiceRoleF920ABF5"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesAdminDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesAdminDsServiceRoleDefaultPolicy6523A222"
+          }
+        ],
+        "/ApiStack/StylingApi/EpisodesAdminDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiEpisodesAdminDs136E3A2E"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminCreateEpisodeResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminCreateEpisodeResolverACF80E84"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminUpdateEpisodeResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminUpdateEpisodeResolverF836327A"
+          }
+        ],
+        "/ApiStack/StylingApi/AdminListEpisodesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminListEpisodesResolver3AAA48B1"
+          }
+        ],
         "/ApiStack/StylingApi/GameplayDs/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -3475,6 +3553,24 @@
             "data": "StylingApiProfileDs16C655BC"
           }
         ],
+        "/ApiStack/StylingApi/GameEconomyDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGameEconomyDsServiceRole795A4F63"
+          }
+        ],
+        "/ApiStack/StylingApi/GameEconomyDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGameEconomyDsServiceRoleDefaultPolicy2CAF6966"
+          }
+        ],
+        "/ApiStack/StylingApi/GameEconomyDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGameEconomyDsA6D32565"
+          }
+        ],
         "/ApiStack/StylingApi/LogGameEventResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -3539,6 +3635,18 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiGetMyProfile7E9BB4B2"
+          }
+        ],
+        "/ApiStack/StylingApi/GetGameEconomyConfigResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGetGameEconomyConfigResolver7F6E2190"
+          }
+        ],
+        "/ApiStack/StylingApi/UpdateGameEconomyConfigResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiUpdateGameEconomyConfigResolver1450DE68"
           }
         ],
         "/ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/Resource": [
@@ -3673,6 +3781,24 @@
             "data": "ClosetAdminFnB4D542CC"
           }
         ],
+        "/ApiStack/AdminSettingsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminSettingsFnServiceRole5CD7AB31"
+          }
+        ],
+        "/ApiStack/AdminSettingsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminSettingsFnServiceRoleDefaultPolicyD4F7DF2F"
+          }
+        ],
+        "/ApiStack/AdminSettingsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminSettingsFnE3CD1AE7"
+          }
+        ],
         "/ApiStack/BestieFn/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -3707,6 +3833,24 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "EpisodesGateFn123EBDAC"
+          }
+        ],
+        "/ApiStack/EpisodesAdminFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesAdminFnServiceRole49DE0358"
+          }
+        ],
+        "/ApiStack/EpisodesAdminFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesAdminFnServiceRoleDefaultPolicy1F11AD33"
+          }
+        ],
+        "/ApiStack/EpisodesAdminFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EpisodesAdminFnE94A9FB5"
           }
         ],
         "/ApiStack/GameplayFn/ServiceRole/Resource": [
@@ -3779,6 +3923,24 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ProfileFn28F379CF"
+          }
+        ],
+        "/ApiStack/GameEconomyFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameEconomyFnServiceRoleE0BCA8EF"
+          }
+        ],
+        "/ApiStack/GameEconomyFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameEconomyFnServiceRoleDefaultPolicy20EA2DC0"
+          }
+        ],
+        "/ApiStack/GameEconomyFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GameEconomyFn1BCE638D"
           }
         ],
         "/ApiStack/GraphQlApiUrl": [
