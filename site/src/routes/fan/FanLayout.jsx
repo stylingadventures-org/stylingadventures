@@ -9,6 +9,8 @@ const navItems = [
   { to: "/fan/closet", label: "Style Games", icon: "🧪" },
   { to: "/fan/closet-feed", label: "Lala's Closet", icon: "✨" },
   { to: "/fan/community", label: "Community", icon: "💬" },
+  { to: "/fan/bank", label: "Bank", icon: "🏦" },
+  { to: "/fan/rules", label: "Coin rules", icon: "📜" },
   { to: "/fan/profile", label: "Profile", icon: "👤" },
 ];
 
@@ -21,11 +23,31 @@ export default function FanLayout() {
   return (
     <div className="fan-layout-page">
       <style>{`
+        :root {
+          /* Lala Closet brand */
+          --sa-pink-light: #ffe7f6;   /* light pink */
+          --sa-pink-warm:  #ffb3dd;   /* warm pink */
+          --sa-pink-hot:   #ff4fa3;   /* hot pink */
+          --sa-purple:     #a855f7;   /* purple */
+
+          --sa-primary: var(--sa-pink-hot);
+          --sa-primary-soft: var(--sa-pink-light);
+          --sa-secondary: var(--sa-purple);
+          --sa-accent: var(--sa-pink-warm);
+          --sa-accent-blue: #7f9bff;
+          --sa-bg: #f8ecff;
+        }
+
         .fan-layout-page {
-          max-width: 1120px;
-          margin: 0 auto;
-          padding: 16px 16px 32px;
+          min-height: calc(100vh - 64px);
+          /* soft pink -> lilac background */
+          background:
+            radial-gradient(circle at top left, var(--sa-primary-soft), var(--sa-bg)),
+            linear-gradient(120deg, #ffe7f6 0%, #f0dcff 40%, #e2e7ff 100%);
+          display: flex;
+          flex-direction: column;
           box-sizing: border-box;
+          padding: 24px 16px 32px;
         }
 
         /* Top row – only visible on mobile to open drawer */
@@ -33,6 +55,7 @@ export default function FanLayout() {
           display: flex;
           justify-content: flex-start;
           margin: 0 auto 12px;
+          width: 100%;
           max-width: 1100px;
         }
 
@@ -81,8 +104,9 @@ export default function FanLayout() {
           box-shadow: 0 0 0 2px #ffffff;
         }
 
-        /* DESKTOP SHELL – always-on sidebar + main */
+        /* DESKTOP SHELL – sidebar + main */
         .fan-layout-shell {
+          width: 100%;
           max-width: 1100px;
           margin: 0 auto;
           display: grid;
@@ -114,8 +138,9 @@ export default function FanLayout() {
           height: 36px;
           border-radius: 999px;
           object-fit: cover;
-          box-shadow: 0 0 0 2px rgba(255,255,255,0.95),
-                      0 12px 30px rgba(79,70,229,0.35);
+          box-shadow:
+            0 0 0 2px rgba(255,255,255,0.95),
+            0 12px 30px rgba(79,70,229,0.35);
         }
 
         .fan-sidebar-brand-title {
@@ -142,8 +167,8 @@ export default function FanLayout() {
           justify-content: space-between;
           padding: 9px 11px;
           border-radius: 999px;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
+          border: 1px solid #f3e3ff;
+          background: #fdf7ff;
           color: #111827;
           font-size: 14px;
           font-weight: 500;
@@ -165,7 +190,7 @@ export default function FanLayout() {
 
         .fan-sidebar-link:hover {
           background: #ffffff;
-          border-color: #d1d5db;
+          border-color: #e5d5ff;
           box-shadow: 0 10px 28px rgba(148,163,184,0.3);
         }
         .fan-sidebar-link:active {
@@ -173,10 +198,10 @@ export default function FanLayout() {
         }
 
         .fan-sidebar-link--active {
-          background: #020617;
+          background: linear-gradient(135deg, var(--sa-primary), var(--sa-secondary));
           color: #f9fafb;
-          border-color: #020617;
-          box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+          border-color: transparent;
+          box-shadow: 0 18px 40px rgba(148,0,128,0.65);
         }
 
         .fan-sidebar-early-dot {
@@ -191,9 +216,36 @@ export default function FanLayout() {
         .fan-main-panel {
           background: rgba(255,255,255,0.98);
           border-radius: 28px;
-          padding: 18px 18px 24px;
+          padding: 28px 28px 30px;
           box-shadow: 0 22px 55px rgba(15,23,42,0.11);
           box-sizing: border-box;
+        }
+
+        /* Basic typography inside fan main so FanHome looks more like a page */
+        .fan-main-panel h1 {
+          font-size: 28px;
+          line-height: 1.2;
+          margin: 4px 0 12px;
+          color: var(--sa-secondary);
+        }
+        .fan-main-panel h2 {
+          font-size: 20px;
+          margin: 20px 0 8px;
+          color: #0f172a;
+        }
+        .fan-main-panel h3 {
+          font-size: 16px;
+          margin: 16px 0 6px;
+          color: #0f172a;
+        }
+        .fan-main-panel p {
+          margin: 0 0 10px;
+          color: #4b5563;
+          line-height: 1.6;
+        }
+        .fan-main-panel ul {
+          padding-left: 1.2rem;
+          margin: 0 0 12px;
         }
 
         /* ===== Drawer (mobile) ===== */
@@ -218,7 +270,7 @@ export default function FanLayout() {
           width: 320px;
           max-width: calc(100% - 40px);
           background:
-            radial-gradient(circle at top left, #fdf2ff, #eef2ff 55%),
+            radial-gradient(circle at top left, var(--sa-primary-soft), #eef2ff 55%),
             radial-gradient(circle at bottom right, #e0f2fe, #ffffff 60%);
           border-radius: 0 24px 24px 0;
           box-shadow: 0 24px 70px rgba(15,23,42,0.55);
@@ -249,8 +301,9 @@ export default function FanLayout() {
           height: 32px;
           border-radius: 999px;
           object-fit: cover;
-          box-shadow: 0 0 0 2px rgba(255,255,255,0.95),
-                      0 10px 26px rgba(79,70,229,0.35);
+          box-shadow:
+            0 0 0 2px rgba(255,255,255,0.95),
+            0 10px 26px rgba(79,70,229,0.35);
         }
 
         .fan-drawer__title {
@@ -297,7 +350,7 @@ export default function FanLayout() {
           justify-content: space-between;
           padding: 9px 11px;
           border-radius: 999px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid #f3e3ff;
           background: rgba(248,250,252,0.95);
           color: #111827;
           font-size: 14px;
@@ -319,17 +372,17 @@ export default function FanLayout() {
         }
         .fan-drawer-link:hover {
           background: #ffffff;
-          border-color: #d1d5db;
+          border-color: #e5d5ff;
           box-shadow: 0 10px 28px rgba(148,163,184,0.4);
         }
         .fan-drawer-link:active {
           transform: translateY(1px);
         }
         .fan-drawer-link--active {
-          background: #020617;
+          background: linear-gradient(135deg, var(--sa-primary), var(--sa-secondary));
           color: #f9fafb;
-          border-color: #020617;
-          box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+          border-color: transparent;
+          box-shadow: 0 18px 40px rgba(148,0,128,0.65);
         }
 
         .fan-drawer-early-dot {
@@ -359,7 +412,7 @@ export default function FanLayout() {
           }
           .fan-main-panel {
             border-radius: 24px;
-            padding: 16px 14px 22px;
+            padding: 20px 16px 22px;
           }
         }
 
@@ -398,7 +451,6 @@ export default function FanLayout() {
       <div className="fan-layout-shell">
         <aside className="fan-sidebar" aria-label="Fan navigation">
           <div className="fan-sidebar-head">
-            {/* Your real logo from /public */}
             <img
               src="/lala-logo.png"
               alt="Lala logo"

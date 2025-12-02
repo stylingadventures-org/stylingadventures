@@ -1,17 +1,23 @@
 /* ==== DESIGN TOKENS ======================================================= */
 
 :root {
+  /* Lala Closet brand */
+  --pink-light: #ffe7f6;
+  --pink-warm:  #ffb3dd;
+  --pink-hot:   #ff4fa3;
+  --purple:     #a855f7;
+
   --bg: #f7f7fb;
   --ink: #0f172a;
   --muted: #6b7280;
   --card: #ffffff;
   --ring: #e5e7eb;
 
-  --brand: #4f46e5;
-  --brand-soft: #eef2ff;
+  --brand: var(--pink-hot);
+  --brand-soft: #ffe7f6;
   --brand-ink: #ffffff;
 
-  --accent-pink: #ec4899;
+  --accent-pink: var(--pink-hot);
   --accent-soft: #fdf2ff;
 }
 
@@ -28,14 +34,16 @@
   top: 0;
   z-index: 40;
   backdrop-filter: saturate(180%) blur(10px);
-  background: rgba(255, 255, 255, 0.78);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  background:
+    linear-gradient(90deg, rgba(255,231,246,0.96), rgba(244,219,255,0.96));
+  border-bottom: 1px solid rgba(244, 219, 255, 0.9);
 }
 
 .site-header-inner {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 10px 20px;
+  padding: 0 20px;
+  height: 72px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -50,6 +58,8 @@
   font-size: 22px;
   white-space: nowrap;
 }
+
+/* top nav pills ----------------------------------------------------------- */
 
 .site-nav {
   display: flex;
@@ -102,8 +112,8 @@
   height: 36px;
   padding: 0 14px;
   border-radius: 999px;
-  background: var(--card);
-  border: 1px solid var(--ring);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(244, 184, 255, 0.9);
   color: var(--ink);
   text-decoration: none;
   font-weight: 600;
@@ -119,8 +129,9 @@
 }
 
 .pill-nav:hover {
-  background: #fbfbfe;
-  border-color: #dcdfe5;
+  background: #fff5fb;
+  border-color: rgba(249,168,212,0.9);
+  box-shadow: 0 6px 18px rgba(248,113,170,0.25);
 }
 
 .pill-nav:active,
@@ -129,18 +140,18 @@
 }
 
 .pill-nav-active {
-  background: linear-gradient(90deg, #4f46e5, #ec4899);
+  background: linear-gradient(135deg, var(--pink-hot), var(--purple));
   border-color: transparent;
   color: #ffffff;
-  box-shadow: 0 9px 26px rgba(79, 70, 229, 0.5);
+  box-shadow: 0 10px 26px rgba(236,72,153,0.55);
 }
 
 /* data attribute so site-nav.js can apply this outside React as well */
 [data-pill-active="true"] {
-  background: linear-gradient(90deg, #4f46e5, #ec4899);
+  background: linear-gradient(135deg, var(--pink-hot), var(--purple));
   border-color: transparent;
   color: #ffffff;
-  box-shadow: 0 9px 26px rgba(79, 70, 229, 0.5);
+  box-shadow: 0 10px 26px rgba(236,72,153,0.55);
 }
 
 /* ==== SECTION LAYOUT – B + C ACROSS APP ================================== */
@@ -195,8 +206,8 @@
   gap: 8px;
   padding: 9px 12px;
   border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid #f3d4ff;
+  background: #fdf7ff;
   color: #111827;
   font-size: 14px;
   font-weight: 500;
@@ -214,16 +225,17 @@
 
 .section-nav-pill--active,
 .fan-nav-pill--active {
-  background: #020617;
-  color: #f9fafb;
-  border-color: #020617;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+  background: linear-gradient(135deg, var(--pink-hot), var(--purple));
+  color: #fdf2ff;
+  border-color: transparent;
+  box-shadow: 0 14px 34px rgba(236,72,153,0.55);
 }
 
 .section-nav-pill:hover,
 .fan-nav-pill:hover {
-  background: #ffffff;
-  border-color: #d1d5db;
+  background: #fff5fb;
+  border-color: rgba(249,168,212,0.9);
+  box-shadow: 0 8px 24px rgba(248,113,170,0.3);
 }
 .section-nav-pill:active,
 .fan-nav-pill:active {
@@ -278,13 +290,4 @@
   .site-footer-inner {
     padding-inline: 12px;
   }
-}
-.site-header-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 20px;
-  height: 72px;              /* 👈 set a fixed height */
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }

@@ -46,7 +46,7 @@ export class AdminStack extends cdk.Stack {
       UPLOADS_BUCKET: uploadsBucket.bucketName,
       ANALYTICS_BUCKET: analyticsBucket?.bucketName ?? "",
       USER_POOL_ID: userPool.userPoolId,
-      ADMIN_GROUP_NAME: "admin", // AppSync resolvers / lambdas should enforce this
+      ADMIN_GROUP_NAME: "ADMIN", // match Cognito group name
       WEB_ORIGIN: webOrigin,
       ENV_NAME: envName,
       NODE_OPTIONS: "--enable-source-maps",

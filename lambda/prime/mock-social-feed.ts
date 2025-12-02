@@ -126,7 +126,7 @@ function buildMockPost(
   const title = `${episodeTag}: Scene ${idx + 1}`;
   const caption = `POV: You just unlocked a new outfit ${charTag} ✨`;
 
-  const ctaType: MockSocialPost["cta"]["type"] =
+  const ctaType: NonNullable<MockSocialPost["cta"]>["type"] =
     idx % 3 === 0
       ? "WATCH_EPISODE"
       : idx % 3 === 1

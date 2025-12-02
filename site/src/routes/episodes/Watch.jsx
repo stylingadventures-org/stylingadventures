@@ -35,6 +35,25 @@ function isBestieActive(status) {
   return false;
 }
 
+function readJsonArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeJsonArray(key, arr) {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(new Set(arr))));
+  } catch {
+    // ignore
+  }
+}
+
 export default function Watch() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -42,8 +61,19 @@ export default function Watch() {
 
   const videoRef = useRef(null);
   const [now, setNow] = useState(Date.now());
+
   const [isBestie, setIsBestie] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loadingMembership, setLoadingMembership] = useState(true);
+
+  // unlock state (coins)
+  const [unlocked, setUnlocked] = useState(false);
+  const [unlockLoading, setUnlockLoading] = useState(true);
+  const [unlockError, setUnlockError] = useState("");
+
+  // watch tracking
+  const [watched, setWatched] = useState(false);
+  const [rewardSent, setRewardSent] = useState(false);
+
   const [showNext, setShowNext] = useState(false);
   const [err, setErr] = useState("");
 
@@ -93,13 +123,66 @@ export default function Watch() {
         if (!alive) return;
         setIsBestie(false);
       } finally {
-        if (alive) setLoading(false);
+        if (alive) setLoadingMembership(false);
       }
     })();
     return () => {
       alive = false;
     };
   }, []);
+
+  // seed watched + unlocked from localStorage + server
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+
+    const localWatched = readJsonArray("sa:watchedEpisodes");
+    if (localWatched.includes(id)) {
+      setWatched(true);
+    } else {
+      setWatched(false);
+    }
+
+    (async () => {
+      setUnlockLoading(true);
+      setUnlockError("");
+      try {
+        const localUnlocked = readJsonArray("sa:unlockedEpisodes");
+        if (localUnlocked.includes(id)) {
+          setUnlocked(true);
+        }
+
+        if (window.sa?.ready) {
+          await window.sa.ready();
+        }
+        const data = await window.sa?.graphql?.(
+          `query MyUnlockedEpisodes {
+             myUnlockedEpisodes {
+               episodeId
+             }
+           }`,
+        );
+        if (!alive) return;
+
+        const serverIds =
+          data?.myUnlockedEpisodes?.map((u) => String(u.episodeId)) || [];
+        if (serverIds.includes(id)) {
+          setUnlocked(true);
+        }
+
+        const merged = Array.from(new Set([...localUnlocked, ...serverIds]));
+        writeJsonArray("sa:unlockedEpisodes", merged);
+      } catch {
+        // ignore – we still have local cache
+      } finally {
+        if (alive) setUnlockLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   // Recompute with `now` so countdown live-updates.
   const early = useMemo(() => {
@@ -112,7 +195,6 @@ export default function Watch() {
     [ep, now],
   );
 
-  // Build related + next using helpers
   const all = useMemo(() => getEpisodesOrdered(), []);
   const nextEp = useMemo(
     () => (ep ? getNextEpisode(ep.id, all) : null),
@@ -123,7 +205,17 @@ export default function Watch() {
     [ep, all],
   );
 
-  const onEnded = () => setShowNext(true);
+  // coin cost (if defined in EPISODES or coming from backend later)
+  const coinCost =
+    (ep && (ep.unlockCoinCost ?? ep.coinCost ?? null)) ?? null;
+
+  const lockedEarly = early && !isBestie && !unlocked;
+  const checkingAccess = loadingMembership || unlockLoading;
+
+  const onEnded = () => {
+    setShowNext(true);
+    markWatchedAndReward();
+  };
 
   // Fallback for YouTube iframes: show Next up after a short delay
   useEffect(() => {
@@ -132,7 +224,10 @@ export default function Watch() {
       ep.video &&
       (ep.video.includes("youtube.com") || ep.video.includes("youtu.be"))
     ) {
-      const t = setTimeout(() => setShowNext(true), 10_000);
+      const t = setTimeout(() => {
+        setShowNext(true);
+        markWatchedAndReward();
+      }, 10_000);
       return () => clearTimeout(t);
     }
   }, [ep?.id, ep?.video]);
@@ -184,8 +279,7 @@ export default function Watch() {
         // ignore — try trial next
       }
 
-      // Fallback: trial – only ask for __typename so we don't
-      // touch any non-null fields that may be null in resolvers.
+      // Fallback: trial
       const trial = await window.sa.graphql(
         `mutation ClaimBestieTrial {
            claimBestieTrial {
@@ -198,6 +292,93 @@ export default function Watch() {
       }
     } catch (e) {
       setErr(e?.message || String(e));
+    }
+  }
+
+  async function unlockWithCoins() {
+    if (!ep) return;
+    setUnlockError("");
+    try {
+      if (window.sa?.ready) await window.sa.ready();
+
+      const idTok =
+        window.sa?.session?.idToken ||
+        localStorage.getItem("sa:idToken") ||
+        localStorage.getItem("sa_id_token") ||
+        sessionStorage.getItem("id_token");
+      if (!idTok) {
+        if (window.SA?.startLogin) {
+          window.SA.startLogin();
+          return;
+        }
+        window.location.assign("/");
+        return;
+      }
+
+      const data = await window.sa.graphql(
+        `mutation UnlockEpisode($episodeId: ID!) {
+           unlockEpisode(episodeId: $episodeId) {
+             success
+             costCoins
+             unlockedAt
+             remainingCoins
+             episode { id title }
+           }
+         }`,
+        { episodeId: ep.id },
+      );
+
+      if (!data?.unlockEpisode?.success) {
+        throw new Error("Unable to unlock this episode.");
+      }
+
+      setUnlocked(true);
+      const localUnlocked = readJsonArray("sa:unlockedEpisodes");
+      writeJsonArray("sa:unlockedEpisodes", [...localUnlocked, ep.id]);
+    } catch (e) {
+      setUnlockError(e?.message || String(e));
+    }
+  }
+
+  function markWatchedAndReward() {
+    if (!ep) return;
+    if (!watched) {
+      const local = readJsonArray("sa:watchedEpisodes");
+      if (!local.includes(ep.id)) {
+        writeJsonArray("sa:watchedEpisodes", [...local, ep.id]);
+      }
+      setWatched(true);
+    }
+    if (!rewardSent) {
+      setRewardSent(true);
+      sendWatchReward(ep.id);
+    }
+  }
+
+  async function sendWatchReward(episodeId) {
+    try {
+      if (!window.sa?.graphql) return;
+      if (window.sa?.ready) await window.sa.ready();
+      await window.sa.graphql(
+        `mutation LogWatchEvent($input: LogGameEventInput!) {
+           logGameEvent(input: $input) {
+             success
+             xp
+             coins
+             newXP
+             newCoins
+             lastEventAt
+           }
+         }`,
+        {
+          input: {
+            type: "WATCH_EPISODE",
+            metadata: { episodeId },
+          },
+        },
+      );
+    } catch {
+      // ignore reward errors
     }
   }
 
@@ -233,7 +414,7 @@ export default function Watch() {
   }
 
   // Gate early access
-  if (loading) {
+  if (checkingAccess) {
     return (
       <div className="watch-wrap">
         <div className="muted">Checking access…</div>
@@ -242,7 +423,9 @@ export default function Watch() {
     );
   }
 
-  if (early && !isBestie) {
+  if (lockedEarly) {
+    const combinedError = err || unlockError;
+
     return (
       <div className="watch-wrap">
         <header className="watch-hero">
@@ -256,6 +439,7 @@ export default function Watch() {
             <h1 className="title">{ep.title}</h1>
             <p className="muted">
               Public in <strong>{countdown}</strong> · Early access for Besties
+              or unlock with coins.
             </p>
           </div>
         </header>
@@ -269,14 +453,32 @@ export default function Watch() {
               <h2 className="lock-title">This episode isn’t public yet</h2>
             </div>
             <p className="muted">
-              Public release in <b>{countdown}</b>. Unlock now with Bestie to
-              watch early.
+              Public release in <b>{countdown}</b>. Unlock now with Bestie or
+              spend coins for early access.
             </p>
-            {err && <div className="notice notice--error">{err}</div>}
+            {combinedError && (
+              <div className="notice notice--error">
+                {combinedError}
+                {typeof combinedError === "string" &&
+                  combinedError.toLowerCase().includes("coin") && (
+                    <div className="watch-help">
+                      Need more coins?{" "}
+                      <a href="/fan/rules" className="watch-help-link">
+                        How to earn more →
+                      </a>
+                    </div>
+                  )}
+              </div>
+            )}
             <div className="actions">
               <button className="btn btn-primary" onClick={unlockBestieHere}>
                 Unlock with Bestie
               </button>
+              {coinCost != null && (
+                <button className="btn btn-ghost" onClick={unlockWithCoins}>
+                  Unlock for {coinCost} coins
+                </button>
+              )}
               <Link className="btn btn-ghost" to="/fan/episodes">
                 Back to Episodes
               </Link>
@@ -291,6 +493,14 @@ export default function Watch() {
 
   // ---------- main watch layout ----------
 
+  const statusLabel = early
+    ? unlocked
+      ? `Unlocked early${coinCost ? ` · ${coinCost} coins` : ""}`
+      : `Early • Public in ${countdown}`
+    : watched
+    ? "Watched"
+    : "Public episode";
+
   return (
     <div className="watch-wrap">
       {/* top bar */}
@@ -303,10 +513,12 @@ export default function Watch() {
             <span
               className={
                 "watch-status-pill" +
-                (early ? " watch-status-pill--early" : " watch-status-pill--public")
+                (early
+                  ? " watch-status-pill--early"
+                  : " watch-status-pill--public")
               }
             >
-              {early ? `Early • Public in ${countdown}` : "Public episode"}
+              {statusLabel}
             </span>
           </div>
           <h1 className="title">{ep.title}</h1>
@@ -360,6 +572,9 @@ export default function Watch() {
                   Public:{" "}
                   <strong>{new Date(ep.publicAt).toLocaleString()}</strong>
                 </span>
+                {watched && (
+                  <span className="pill pill--meta">You watched this</span>
+                )}
               </div>
 
               <div className="watch-video-ctas">
@@ -437,10 +652,19 @@ export default function Watch() {
                   <dt>Status</dt>
                   <dd>
                     {early ? (
-                      <>
-                        Early for Besties • Public in{" "}
-                        <strong>{countdown}</strong>
-                      </>
+                      unlocked ? (
+                        <>
+                          Unlocked early
+                          {coinCost != null ? ` · ${coinCost} coins` : ""}
+                        </>
+                      ) : (
+                        <>
+                          Early for Besties • Public in{" "}
+                          <strong>{countdown}</strong>
+                        </>
+                      )
+                    ) : watched ? (
+                      "Public · Watched"
                     ) : (
                       "Public"
                     )}
@@ -494,6 +718,10 @@ export default function Watch() {
                   const isCurrent = e.id === ep.id;
                   const isEarlyQueue =
                     Date.now() < new Date(e.publicAt || 0).getTime();
+
+                  const watchedSet = readJsonArray("sa:watchedEpisodes");
+                  const isWatched = watchedSet.includes(e.id);
+
                   return (
                     <button
                       key={e.id}
@@ -520,6 +748,11 @@ export default function Watch() {
                           >
                             {isEarlyQueue ? "Early" : "Public"}
                           </span>
+                          {isWatched && (
+                            <span className="upnext-currentLabel">
+                              Watched
+                            </span>
+                          )}
                           {isCurrent && (
                             <span className="upnext-currentLabel">
                               Now playing
@@ -560,6 +793,8 @@ export default function Watch() {
               {related.map((e) => {
                 const isEarly =
                   Date.now() < new Date(e.publicAt || 0).getTime();
+                const watchedSet = readJsonArray("sa:watchedEpisodes");
+                const isWatched = watchedSet.includes(e.id);
                 return (
                   <button
                     key={e.id}
@@ -573,7 +808,11 @@ export default function Watch() {
                     <div className="rel-meta">
                       <div className="rel-title">{e.title}</div>
                       <span className="chip">
-                        {isEarly ? "Early" : "Public"}
+                        {isEarly
+                          ? "Early"
+                          : isWatched
+                          ? "Watched"
+                          : "Public"}
                       </span>
                     </div>
                   </button>
@@ -650,6 +889,11 @@ const styles = `
   background:#ecfdf5;
   border-color:#a7f3d0;
   color:#065f46;
+}
+.watch-status-pill--watched {
+  background:#ecfdf5;
+  border-color:#34d399;
+  color:#047857;
 }
 .watch-status-pill--early {
   background:#fdf2ff;
@@ -791,6 +1035,11 @@ const styles = `
   color:#4b5563;
 }
 
+.pill--watched {
+  border-color:#34d399;
+  color:#047857;
+}
+
 /* video CTAs */
 
 .watch-video-ctas {
@@ -799,9 +1048,11 @@ const styles = `
   gap:10px;
   margin-top:2px;
 }
+
 .watch-video-ctas .btn {
-  min-height:46px;
-  padding:11px 18px;
+  flex:1 1 160px;
+  min-height:40px;
+  padding:8px 14px;
 }
 
 /* SIDE CARDS ------------------------------------------------ */
@@ -858,8 +1109,8 @@ const styles = `
 /* force the two style buttons to be identical size */
 .watch-side-actions .btn {
   width:100%;
-  min-height:48px;
-  padding:12px 18px;
+  min-height:42px;
+  padding:9px 16px;
 }
 
 /* shared "full width" utility (kept for clarity) */
@@ -902,7 +1153,11 @@ const styles = `
 
 .upnext-thumb {
   border-radius:10px;
-  background:linear-gradient(135deg,#6366f1,#ec4899);
+  background:linear-gradient(
+    135deg,
+    var(--sa-pink-warm, #ffb3dd),
+    var(--sa-purple, #a855f7)
+  );
   height:52px;
   position:relative;
   overflow:hidden;
@@ -951,6 +1206,11 @@ const styles = `
   background:#ecfdf5;
   border-color:#bbf7d0;
   color:#166534;
+}
+.upnext-pill--watched {
+  background:#ecfdf5;
+  border-color:#34d399;
+  color:#047857;
 }
 .upnext-pill--early {
   background:#fdf2ff;
@@ -1026,6 +1286,7 @@ const styles = `
 }
 .comments-submit {
   padding-inline:14px;
+  min-height:36px;
 }
 
 .comments-list {
@@ -1046,7 +1307,11 @@ const styles = `
   width:28px;
   height:28px;
   border-radius:999px;
-  background:linear-gradient(135deg,#6366f1,#ec4899);
+  background:linear-gradient(
+    135deg,
+    var(--sa-pink-hot, #ff4fa3),
+    var(--sa-purple, #a855f7)
+  );
   color:#f9fafb;
   font-size:0.85rem;
   display:flex;
@@ -1188,18 +1453,19 @@ const styles = `
 
 .btn {
   appearance:none;
-  border:1px solid #e5e7eb;
-  background:#ffffff;
-  color:#111827;
   border-radius:999px;
-  padding:9px 16px;
-  min-height:40px;
+  padding:8px 16px;
+  min-height:36px;
+  border:1px solid rgba(244, 184, 255, 0.9);
+  background:#ffffff;
+  color:#4b5563;
   cursor:pointer;
   transition:
     transform 40ms ease,
     background 140ms ease,
     border-color 140ms ease,
-    box-shadow 140ms ease;
+    box-shadow 140ms ease,
+    color 140ms ease;
   text-decoration:none;
   display:inline-flex;
   align-items:center;
@@ -1207,29 +1473,55 @@ const styles = `
   font-size:0.9rem;
   font-weight:500;
 }
+
 .btn:hover {
-  background:#f5f3ff;
-  border-color:#ddd6fe;
-  box-shadow:0 6px 16px rgba(129,140,248,0.35);
+  background:#fff5fb;
+  border-color:rgba(249,168,212,0.9);
+  box-shadow:0 4px 12px rgba(248,113,170,0.25);
 }
+
 .btn:active {
   transform: translateY(1px);
+  box-shadow:0 3px 10px rgba(248,113,170,0.3);
+}
+
+.btn[disabled],
+.btn:disabled {
+  opacity:0.6;
+  cursor:not-allowed;
+  box-shadow:none;
+  transform:none;
 }
 
 .btn-primary {
-  background:linear-gradient(135deg,#6366f1,#ec4899);
-  border-color:#6366f1;
-  color:#fff;
-  box-shadow:0 8px 18px rgba(236,72,153,0.45);
+  background:linear-gradient(
+    135deg,
+    var(--sa-pink-hot, #ff4fa3),
+    var(--sa-purple, #a855f7)
+  );
+  border-color:transparent;
+  color:#ffffff;
+  box-shadow:0 8px 20px rgba(236,72,153,0.45);
 }
+
 .btn-primary:hover {
-  background:linear-gradient(135deg,#4f46e5,#db2777);
-  border-color:#4f46e5;
-  box-shadow:0 10px 24px rgba(79,70,229,0.55);
+  filter:brightness(1.05);
+  box-shadow:0 10px 22px rgba(236,72,153,0.5);
 }
+
+.btn-primary:active {
+  filter:brightness(0.98);
+}
+
 .btn-ghost {
-  background:#ffffff;
-  color:#374151;
+  background:rgba(255,255,255,0.96);
+  border-color:rgba(244,184,255,0.9);
+  color:#9d174d;
+}
+
+.btn-ghost:hover {
+  background:#fff5fb;
+  border-color:rgba(249,168,212,1);
 }
 
 /* NOTICES -------------------------------------------------- */
@@ -1243,6 +1535,21 @@ const styles = `
   border:1px solid #fecaca;
   background:#fef2f2;
   color:#7f1d1d;
+}
+
+/* Watch help link inside error notice */
+.watch-help {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.watch-help-link {
+  color: #4f46e5;
+  text-decoration: none;
+}
+.watch-help-link:hover {
+  text-decoration: underline;
 }
 
 /* RESPONSIVE ----------------------------------------------- */

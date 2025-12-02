@@ -13,8 +13,33 @@ export async function getSA() {
 --------------------------------------------------------------------------- */
 
 function readCfg(SA) {
-  const raw = SA?.cfg?.() || window.__cfg || {};
-  const cfg = { ...raw };
+  // Prefer SA.cfg() (from public/sa.js), then any compat cfg, then window.__cfg
+  const saCfg =
+    (SA && typeof SA.cfg === "function" ? SA.cfg() : SA?.cfg) || {};
+  const compatCfg = window.sa?.cfg || {};
+  const jsonCfg = window.__cfg || {};
+
+  // Merge with priority: SA base → compat → config.v2.json
+  const cfg = {
+    ...saCfg,
+    ...compatCfg,
+    ...jsonCfg,
+  };
+
+  // ─────────────────────────────────────
+  // 🔐 Hard-override AppSync URL in dev
+  // ─────────────────────────────────────
+  const FALLBACK_APPSYNC_URL =
+    "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
+
+  // If missing OR looks suspicious, force the known-good value
+  if (
+    !cfg.appsyncUrl ||
+    typeof cfg.appsyncUrl !== "string" ||
+    !cfg.appsyncUrl.includes("appsync-api.us-east-1.amazonaws.com")
+  ) {
+    cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
+  }
 
   // Build full Hosted UI domain if needed
   let domain = (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
@@ -32,7 +57,7 @@ function readCfg(SA) {
 
   if (!cfg.cognitoDomain) {
     console.warn(
-      "[SA] Missing cognitoDomain or (cognitoDomainPrefix/hostedUiDomain + region) in config.v2.json"
+      "[SA] Missing cognitoDomain or (cognitoDomainPrefix/hostedUiDomain + region) in config.v2.json",
     );
   }
   if (!cfg.userPoolWebClientId && !cfg.clientId) {
@@ -44,6 +69,18 @@ function readCfg(SA) {
   // Default scopes; you can add "profile" if you like
   if (!Array.isArray(cfg.scopes) || cfg.scopes.length === 0) {
     cfg.scopes = ["openid", "email"];
+  }
+
+  // -----------------------------------------------------------------------
+  // 📦 Uploads API compatibility: normalise uploadsApiUrl from legacy keys
+  // -----------------------------------------------------------------------
+  if (!cfg.uploadsApiUrl) {
+    cfg.uploadsApiUrl =
+      cfg.uploadsApiUrl ||
+      cfg.uploadsApi || // e.g. older config key
+      cfg.uploadsOrigin || // sometimes used for API origin
+      cfg.uploadApiUrl ||
+      "";
   }
 
   return cfg;
@@ -94,7 +131,7 @@ function saveTokens(tokens) {
   if (expires_in) {
     sessionStorage.setItem(
       "token_exp_at",
-      String(Date.now() + Number(expires_in) * 1000)
+      String(Date.now() + Number(expires_in) * 1000),
     );
   }
 }
@@ -138,7 +175,7 @@ export async function exchangeCodeForTokens() {
 
   const tokenEndpoint = `${cfg.cognitoDomain.replace(
     /\/+$/,
-    ""
+    "",
   )}/oauth2/token`;
   const res = await fetch(tokenEndpoint, {
     method: "POST",
@@ -190,7 +227,7 @@ export async function login(redirectUri) {
       response_type: "code",
       scope: cfg.scopes.join(" "),
       redirect_uri: redirectUri || currentRedirectUri(),
-    }
+    },
   );
 
   window.location.assign(loginUrl);
@@ -213,7 +250,7 @@ export async function logout(redirectUri) {
     {
       client_id: cfg.clientId,
       logout_uri: target,
-    }
+    },
   );
 
   window.location.assign(logoutUrl);
@@ -293,13 +330,13 @@ export async function getSignedGetUrl(key) {
   if (!bucket) {
     console.warn(
       "[getSignedGetUrl] No uploads base URL or bucket configured",
-      { cfg }
+      { cfg },
     );
     return null;
   }
 
   return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURIComponent(
-    cleanedKey
+    cleanedKey,
   )}`;
 }
 
@@ -319,6 +356,8 @@ export async function signedUpload(fileOrText, opts = {}) {
   if (!cfg.uploadsApiUrl) {
     throw new Error("Missing uploadsApiUrl in config.v2.json");
   }
+
+  console.log("[SA] uploadsApiUrl:", cfg.uploadsApiUrl);
 
   // Prepare payload
   let blob;
@@ -353,7 +392,7 @@ export async function signedUpload(fileOrText, opts = {}) {
         Authorization: await getIdToken(),
       },
       body: JSON.stringify(presignBody),
-    }
+    },
   );
 
   if (!presignRes.ok) {
@@ -366,7 +405,7 @@ export async function signedUpload(fileOrText, opts = {}) {
   if (presign.method === "POST" || presign.fields) {
     const form = new FormData();
     Object.entries(presign.fields || {}).forEach(([k, v]) =>
-      form.append(k, v)
+      form.append(k, v),
     );
     form.append("file", blob);
     const up = await fetch(presign.url, { method: "POST", body: form });
@@ -412,9 +451,14 @@ export async function dailyLoginOnce() {
     const SA = await getSA();
     await SA.gql(
       `mutation ($t:String!){
-         logGameEvent(input:{ type:$t }) { xp coins lastEventAt }
+         logGameEvent(input:{ type:$t }) {
+           success
+           xp
+           coins
+           lastEventAt
+         }
        }`,
-      { t: "DAILY_LOGIN" }
+      { t: "DAILY_LOGIN" },
     );
     localStorage.setItem(DAILY_KEY, today);
     return true;
@@ -423,57 +467,46 @@ export async function dailyLoginOnce() {
   }
 }
 
-/** Tolerant fetch: will retry without displayName if backend hasn't rolled out yet. */
+/** Fetch full profile shape defined in schema.graphql */
 export async function fetchProfile() {
   const SA = await getSA();
 
-  const withName = `query {
+  const q = `query {
     getMyProfile {
       userId
       displayName
       level
       xp
       coins
-      badges
+      badges {
+        id
+        name
+        icon
+      }
       lastEventAt
     }
   }`;
 
-  const noName = `query {
-    getMyProfile {
-      userId
-      level
-      xp
-      coins
-      badges
-      lastEventAt
-    }
-  }`;
-
-  try {
-    const data = await SA.gql(withName);
-    return data?.getMyProfile;
-  } catch (e) {
-    const msg = String(e?.message || e);
-    if (msg.includes("FieldUndefined") && msg.includes("displayName")) {
-      const data = await SA.gql(noName);
-      return data?.getMyProfile;
-    }
-    throw e;
-  }
+  const data = await SA.gql(q);
+  return data?.getMyProfile;
 }
 
-/** Updated to match your requested shape & variable name. */
+/** Match Mutation.setDisplayName(name: String!): GameProfile! */
 export async function setDisplayName(name) {
   const SA = await getSA();
   const q = `
     mutation SetDisplayName($name: String!) {
-      setDisplayName(displayName: $name) {
+      setDisplayName(name: $name) {
         userId
+        displayName
         level
         xp
         coins
-        displayName
+        badges {
+          id
+          name
+          icon
+        }
         lastEventAt
       }
     }
@@ -482,43 +515,45 @@ export async function setDisplayName(name) {
   return d?.setDisplayName;
 }
 
-/** Tolerant leaderboard query (with/without displayName). */
+/** Leaderboard: server-side rank via LeaderboardEntry */
 export async function fetchLeaderboard(n = 10) {
   const SA = await getSA();
 
-  const withName = `query ($n:Int){
+  const q = `query ($n:Int){
     topXP(limit:$n){
-      rank userId xp coins displayName
-    }
-  }`;
-  const noName = `query ($n:Int){
-    topXP(limit:$n){
-      rank userId xp coins
+      rank
+      userId
+      xp
+      coins
+      displayName
     }
   }`;
 
-  try {
-    const data = await SA.gql(withName, { n });
-    return data?.topXP ?? [];
-  } catch (e) {
-    const msg = String(e?.message || e);
-    if (msg.includes("FieldUndefined") && msg.includes("displayName")) {
-      const data = await SA.gql(noName, { n });
-      return data?.topXP ?? [];
-    }
-    throw e;
-  }
+  const data = await SA.gql(q, { n });
+  return data?.topXP ?? [];
 }
 
-export async function grantBadgeTo(userId, badge) {
+export async function grantBadgeTo(userId, badgeId) {
   const SA = await getSA();
-  const data = await SA.gql(
-    `mutation ($uid:ID!, $b:String!){
-       grantBadge(userId:$uid, badge:$b){ userId badges xp coins level }
-     }`,
-    { uid: userId, b: badge }
-  );
-  return data?.grantBadge;
+  const q = `
+    mutation ($uid:ID!, $bid:ID!){
+      grantBadge(userId:$uid, badgeId:$bid){
+        userId
+        displayName
+        level
+        xp
+        coins
+        badges {
+          id
+          name
+          icon
+        }
+        lastEventAt
+      }
+    }
+  `;
+  const d = await SA.gql(q, { uid: userId, bid: badgeId });
+  return d?.grantBadge;
 }
 
 /* ---------------------------------------------------------------------------
@@ -550,8 +585,13 @@ async function directGraphql(query, variables) {
     window.sa?.cfg?.appsyncUrl ||
     window.__cfg?.appsyncUrl ||
     cfg?.appsyncUrl;
+
   const idToken = await getIdToken();
+
+  console.log("[SA] GraphQL appsyncUrl in use:", appsyncUrl);
+
   if (!appsyncUrl || !idToken) throw new Error("Auth not ready");
+
   const r = await fetch(appsyncUrl, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: idToken },

@@ -4,41 +4,49 @@ import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
 import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
 
-// Full query – uses viewerHasFaved when available
+// Full query – tries viewerHasFaved when available, using ClosetConnection
 const GQL_FEED_FULL = /* GraphQL */ `
-  query ClosetFeedSimple($sort: ClosetFeedSort) {
-    closetFeed(sort: $sort) {
-      id
-      title
-      status
-      audience
-      mediaKey
-      rawMediaKey
-      category
-      subcategory
-      pinned
-      favoriteCount
-      viewerHasFaved
-      createdAt
+  query ClosetFeedSimple($sort: ClosetFeedSort, $limit: Int, $nextToken: String) {
+    closetFeed(sort: $sort, limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        title
+        status
+        audience
+        mediaKey
+        rawMediaKey
+        category
+        subcategory
+        pinned
+        favoriteCount
+        viewerHasFaved
+        createdAt
+        coinValue
+      }
+      nextToken
     }
   }
 `;
 
-// Legacy query – no viewerHasFaved field yet
+// Legacy query – same connection shape, but without viewerHasFaved
 const GQL_FEED_LEGACY = /* GraphQL */ `
-  query ClosetFeedSimple($sort: ClosetFeedSort) {
-    closetFeed(sort: $sort) {
-      id
-      title
-      status
-      audience
-      mediaKey
-      rawMediaKey
-      category
-      subcategory
-      pinned
-      favoriteCount
-      createdAt
+  query ClosetFeedSimple($sort: ClosetFeedSort, $limit: Int, $nextToken: String) {
+    closetFeed(sort: $sort, limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        title
+        status
+        audience
+        mediaKey
+        rawMediaKey
+        category
+        subcategory
+        pinned
+        favoriteCount
+        createdAt
+        coinValue
+      }
+      nextToken
     }
   }
 `;
@@ -59,19 +67,19 @@ const GQL_ADMIN_FALLBACK = /* GraphQL */ `
         pinned
         favoriteCount
         createdAt
+        coinValue
       }
       nextToken
     }
   }
 `;
 
-// Hearts backend – matches toggleFavoriteClosetItem(id, favoriteOn)
+// Hearts backend – uses likeClosetItem from the current schema
 const GQL_TOGGLE_FAVORITE = /* GraphQL */ `
-  mutation ToggleFavoriteClosetItem($id: ID!, $favoriteOn: Boolean) {
-    toggleFavoriteClosetItem(id: $id, favoriteOn: $favoriteOn) {
+  mutation LikeClosetItem($itemId: ID!) {
+    likeClosetItem(itemId: $itemId) {
       id
       favoriteCount
-      viewerHasFaved
     }
   }
 `;
@@ -146,10 +154,12 @@ export default function ClosetFeed() {
   const query = useQuery();
   const highlightId = query.get("highlight");
 
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
 
     (async () => {
+      let lastError = null;
+
       try {
         setLoading(true);
         setErr("");
@@ -164,14 +174,15 @@ export default function ClosetFeed() {
         const sortForBackend =
           sort === "LALAS_PICK" || sort === "MY_FAVES" ? "MOST_LOVED" : sort;
 
+        const baseVars = { sort: sortForBackend, limit: 100, nextToken: null };
+
         // --- Try full query first (with viewerHasFaved) ---
-        let res;
+        let res = null;
         try {
-          res = await window.sa.graphql(GQL_FEED_FULL, {
-            sort: sortForBackend,
-          });
+          res = await window.sa.graphql(GQL_FEED_FULL, baseVars);
         } catch (e) {
           const msg = String(e?.message || e);
+
           if (
             msg.includes("FieldUndefined") &&
             msg.includes("viewerHasFaved")
@@ -179,23 +190,37 @@ export default function ClosetFeed() {
             console.warn(
               "[ClosetFeed] viewerHasFaved unsupported – using legacy feed query",
             );
-            res = await window.sa.graphql(GQL_FEED_LEGACY, {
-              sort: sortForBackend,
-            });
+            try {
+              res = await window.sa.graphql(GQL_FEED_LEGACY, baseVars);
+            } catch (inner) {
+              console.warn(
+                "[ClosetFeed] legacy closetFeed query also failed – will rely on admin fallback",
+                inner,
+              );
+              lastError = inner;
+            }
           } else {
-            throw e;
+            // Any other GraphQL error from closetFeed (including the
+            // non-null items / ClosetConnection issue) – don't crash,
+            // just note it and fall back to admin list.
+            console.warn(
+              "[ClosetFeed] closetFeed query failed – will rely on admin fallback",
+              e,
+            );
+            lastError = e;
           }
         }
 
         let raw = [];
         const cf = res?.closetFeed;
         if (Array.isArray(cf)) {
+          // super-legacy shape (plain list)
           raw = cf;
         } else if (cf && Array.isArray(cf.items)) {
           raw = cf.items;
         }
 
-        // Fallback: if closetFeed is empty, try admin list of APPROVED
+        // Fallback: if closetFeed is empty or failed, try admin list of APPROVED
         if (!raw.length) {
           try {
             const adminRes = await window.sa.graphql(
@@ -211,7 +236,13 @@ export default function ClosetFeed() {
               "[ClosetFeed] adminListClosetItems fallback failed",
               e,
             );
+            if (!lastError) lastError = e;
           }
+        }
+
+        // If we still have nothing and we saw a real error, surface it
+        if (!raw.length && lastError) {
+          throw lastError;
         }
 
         // Visibility filter – allow APPROVED/PUBLISHED (or unknown),
@@ -349,11 +380,10 @@ export default function ClosetFeed() {
       }
 
       const res = await window.sa.graphql(GQL_TOGGLE_FAVORITE, {
-        id,
-        favoriteOn: localLiked,
+        itemId: id,
       });
 
-      const updated = res?.toggleFavoriteClosetItem;
+      const updated = res?.likeClosetItem;
       if (updated && updated.id) {
         setItems((prev) =>
           prev.map((it) =>
@@ -364,17 +394,13 @@ export default function ClosetFeed() {
                     typeof updated.favoriteCount === "number"
                       ? updated.favoriteCount
                       : it.favoriteCount ?? 0,
-                  viewerHasFaved:
-                    typeof updated.viewerHasFaved === "boolean"
-                      ? updated.viewerHasFaved
-                      : localLiked,
                 }
               : it,
           ),
         );
       }
     } catch (e) {
-      console.warn("[ClosetFeed] toggleFavoriteClosetItem failed", e);
+      console.warn("[ClosetFeed] likeClosetItem failed", e);
     } finally {
       setBusyId(null);
     }
@@ -602,6 +628,14 @@ export default function ClosetFeed() {
                           </span>
                         </div>
 
+                        {/* Fan-visible coin value */}
+                        {it.coinValue != null && it.coinValue !== 0 && (
+                          <div className="fan-coin-pill">
+                            🪙 Worth {it.coinValue} coin
+                            {it.coinValue === 1 ? "" : "s"}
+                          </div>
+                        )}
+
                         {/* category / subcategory chips */}
                         {(it.category || it.subcategory) && (
                           <div className="fan-closet-tags">
@@ -644,7 +678,7 @@ export default function ClosetFeed() {
         </section>
       </main>
 
-      {/* component-scoped styles */}
+      {/* component-scoped styles (keep your existing styles const if you have one) */}
       <style>{styles}</style>
     </div>
   );
@@ -1018,6 +1052,20 @@ const styles = `
   white-space: nowrap;
 }
 
+/* NEW: fan-side coin pill */
+.fan-coin-pill {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: #fef3c7;
+  border: 1px solid #facc15;
+  color: #92400e;
+  gap: 4px;
+}
+
 .closet-item__social {
   margin-top:auto;
   padding-top:4px;
@@ -1121,5 +1169,6 @@ const styles = `
   color: #6b7280;
 }
 `;
+
 
 

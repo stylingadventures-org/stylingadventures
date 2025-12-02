@@ -4,6 +4,9 @@
 (function () {
   "use strict";
 
+  const FALLBACK_APPSYNC_URL =
+    "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
+
   // ---------- configuration ----------
   async function loadCfg() {
     async function tryJson(url) {
@@ -32,6 +35,19 @@
       cfg.apiUrl ||
       cfg.apiURL ||
       "";
+
+    // 🔐 Hard override if missing / not an AppSync URL
+    if (
+      !cfg.appsyncUrl ||
+      typeof cfg.appsyncUrl !== "string" ||
+      !cfg.appsyncUrl.includes("appsync-api.us-east-1.amazonaws.com")
+    ) {
+      console.warn(
+        "[sa] appsyncUrl missing or suspicious in config; using fallback",
+        FALLBACK_APPSYNC_URL
+      );
+      cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
+    }
 
     // ClientId normalization
     cfg.clientId = cfg.clientId || cfg.userPoolWebClientId || "";
@@ -278,7 +294,8 @@
 
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(`GraphQL ${r.status}`);
-        if (j.errors) throw new Error(j.errors.map((e) => e.message).join("; "));
+        if (j.errors)
+          throw new Error(j.errors.map((e) => e.message).join("; "));
         return j.data;
       },
     };
@@ -288,12 +305,6 @@
   }
 
   // ---------- uploads (signed S3 via API Gateway) ----------
-  /**
-   * Global upload helper.
-   *
-   * NEW: accepts optional options:
-   *   signedUpload(file, { key: "uuid.jpg", kind: "closet" })
-   */
   async function signedUpload(fileOrText, opts = {}) {
     const SA = window.SA || {};
     const cfg = (SA.cfg && SA.cfg()) || window.__cfg || {};
@@ -304,7 +315,6 @@
     let blob;
     let key;
 
-    // Support File/Blob or string
     if (fileOrText instanceof Blob) {
       blob = fileOrText;
       const name = fileOrText.name || `upload-${Date.now()}.bin`;
@@ -315,7 +325,6 @@
       key = opts.key || `dev-tests/${Date.now()}.txt`;
     }
 
-    // Try to get an id token, but don't *require* it.
     const maybeIdToken = getStoredIdToken();
     const headers = {
       "Content-Type": "application/json",
@@ -348,7 +357,6 @@
 
     const presign = await presignRes.json();
 
-    // POST-style presign (form fields)
     if (presign.method === "POST" || presign.fields) {
       const form = new FormData();
       Object.entries(presign.fields || {}).forEach(([k, v]) =>
@@ -370,7 +378,6 @@
       };
     }
 
-    // PUT-style presign
     const uploadUrl = presign.url || presign.putUrl;
     if (!uploadUrl) {
       console.error("Unexpected presign payload:", presign);
@@ -402,7 +409,6 @@
     };
   }
 
-  // expose upload to React
   window.signedUpload = signedUpload;
 
   // ---------- minimal window.sa API (always exposes idToken) ----------
@@ -422,7 +428,6 @@
     };
   }
 
-  // convenient getter for React code (returns window.sa)
   window.getSA = async function getSA() {
     if (!window.sa) installWindowSaAlias(window.__cfg || {});
     await new Promise((r) => setTimeout(r, 0));
@@ -437,9 +442,8 @@
     const cfg = await loadCfg();
 
     const saApi = installSA();
-    installWindowSaAlias(cfg); // ensure window.sa is ready & populated
+    installWindowSaAlias(cfg);
 
-    // If a token already exists from a previous session, reflect it
     const t = getStoredIdToken();
     if (t) {
       setIdToken(t);

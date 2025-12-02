@@ -10,6 +10,9 @@ export default function Profile() {
   const [nameEdit, setNameEdit] = useState("");
   const [savingName, setSavingName] = useState(false);
 
+  const [economy, setEconomy] = useState(null);
+  const [economyError, setEconomyError] = useState("");
+
   useEffect(() => {
     let gone = false;
 
@@ -50,6 +53,23 @@ export default function Profile() {
           console.warn("[Profile] myCloset query failed:", e);
         }
 
+        // 4) Game economy config (for quick rules peek)
+        let econ = null;
+        try {
+          const econResp = await sa.gql(`
+            query GetGameEconomyConfig {
+              getGameEconomyConfig {
+                dailyCoinCap
+                weeklyCoinCap
+              }
+            }
+          `);
+          econ = econResp?.getGameEconomyConfig || null;
+        } catch (e) {
+          console.warn("[Profile] getGameEconomyConfig failed:", e);
+          if (!gone) setEconomyError(e?.message || String(e));
+        }
+
         if (!gone) {
           const merged = {
             ...prof,
@@ -59,6 +79,7 @@ export default function Profile() {
           setProfile(merged);
           setNameEdit(merged?.displayName || "");
           setCloset(closetItems);
+          setEconomy(econ);
         }
       } catch (e) {
         if (!gone) setError(e?.message || String(e));
@@ -290,8 +311,7 @@ export default function Profile() {
                 <p className="pf-empty">
                   No looks yet.{" "}
                   <a href="/fan/closet" className="pf-link">
-                    Jump into the Style Lab →
-                  </a>
+                    Jump into the Style Lab →</a>
                 </p>
               ) : (
                 <div className="pf-feed">
@@ -351,7 +371,8 @@ export default function Profile() {
                           type="button"
                           className="pf-post-btn pf-post-btn--ghost"
                           onClick={() =>
-                            (window.location.href = "/fan/closet-feed")
+                            (window.location.href =
+                              "/fan/closet-feed")
                           }
                         >
                           ✨ View Lala&apos;s Closet
@@ -366,7 +387,7 @@ export default function Profile() {
 
           {/* RIGHT COLUMN (About / stats sidebar) */}
           <aside className="pf-main-right">
-            {/* Stats card */}
+            {/* Game stats card (existing) */}
             <section className="pf-card">
               <h2 className="pf-card-title">Game stats</h2>
               <p className="pf-card-sub">
@@ -382,6 +403,59 @@ export default function Profile() {
                   suffix=" days"
                 />
               </div>
+            </section>
+
+            {/* NEW: Money system quick view */}
+            <section className="pf-card">
+              <h2 className="pf-card-title">Lala&apos;s money system</h2>
+              <p className="pf-card-sub">
+                A quick look at how many coins you can earn and where
+                to read the full rules.
+              </p>
+              {economy ? (
+                <div className="pf-intro-list">
+                  <div className="pf-intro-row">
+                    <span className="pf-intro-icon">📆</span>
+                    <span className="pf-intro-text">
+                      Daily cap:{" "}
+                      <strong>
+                        {economy.dailyCoinCap ?? "—"} coins/day
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="pf-intro-row">
+                    <span className="pf-intro-icon">📈</span>
+                    <span className="pf-intro-text">
+                      Weekly cap:{" "}
+                      <strong>
+                        {economy.weeklyCoinCap ?? "—"} coins/week
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="pf-intro-row">
+                    <span className="pf-intro-icon">📜</span>
+                    <span className="pf-intro-text">
+                      Want the full breakdown?{" "}
+                      <a href="/fan/rules" className="pf-link">
+                        Read Lala&apos;s coin rules →
+                      </a>
+                    </span>
+                  </div>
+                </div>
+              ) : economyError ? (
+                <p className="pf-empty">
+                  Couldn&apos;t load coin limits. You can still read the
+                  rules{" "}
+                  <a href="/fan/rules" className="pf-link">
+                    here →
+                  </a>
+                  .
+                </p>
+              ) : (
+                <p className="pf-empty">
+                  Loading your money rules…
+                </p>
+              )}
             </section>
 
             {/* Badges */}
@@ -957,4 +1031,3 @@ const styles = `
   }
 }
 `;
-

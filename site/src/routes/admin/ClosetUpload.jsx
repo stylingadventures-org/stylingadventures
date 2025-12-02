@@ -1,9 +1,5 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-} from "react";
+// site/src/routes/admin/ClosetUpload.jsx
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { signedUpload, getSignedGetUrl } from "../../lib/sa";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,44 +24,53 @@ const GQL = {
         rawMediaKey
         category
         subcategory
+        coinValue
         createdAt
         updatedAt
       }
     }
   `,
+  // adminListPending now returns a connection (items + nextToken)
   listPending: /* GraphQL */ `
-    query AdminListPending {
-      adminListPending {
-        id
-        title
-        status
-        mediaKey
-        rawMediaKey
-        createdAt
-        updatedAt
-        userId
-        ownerSub
-        reason
-        audience
-        category
-        subcategory
+    query AdminListPending($limit: Int, $nextToken: String) {
+      adminListPending(limit: $limit, nextToken: $nextToken) {
+        items {
+          id
+          title
+          status
+          mediaKey
+          rawMediaKey
+          createdAt
+          updatedAt
+          ownerSub
+          audience
+          category
+          subcategory
+          coinValue
+        }
+        nextToken
       }
     }
   `,
+  // closetFeed returns a connection (items + nextToken)
   listPublished: /* GraphQL */ `
     query ClosetFeedAdminView {
       closetFeed {
-        id
-        title
-        status
-        mediaKey
-        rawMediaKey
-        createdAt
-        updatedAt
-        ownerSub
-        audience
-        category
-        subcategory
+        items {
+          id
+          title
+          status
+          mediaKey
+          rawMediaKey
+          createdAt
+          updatedAt
+          ownerSub
+          audience
+          category
+          subcategory
+          coinValue
+        }
+        nextToken
       }
     }
   `,
@@ -74,7 +79,6 @@ const GQL = {
       adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
         id
         status
-        reason
       }
     }
   `,
@@ -90,10 +94,9 @@ const GQL = {
   `,
   reject: /* GraphQL */ `
     mutation Reject($closetItemId: ID!, $reason: String) {
-      adminRejectItem(closetItemId: ID!, $reason: String) {
+      adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
         id
         status
-        reason
         updatedAt
       }
     }
@@ -149,14 +152,7 @@ const SUBCATEGORY_BY_CATEGORY = {
     "Sweater",
     "Hoodie",
   ],
-  Bottoms: [
-    "Jeans",
-    "Trousers",
-    "Shorts",
-    "Skirt",
-    "Leggings",
-    "Cargo",
-  ],
+  Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings", "Cargo"],
   Sets: ["Skirt set", "Pant set", "Sweatsuit", "Lounge set"],
   Outerwear: ["Denim jacket", "Blazer", "Coat", "Bomber", "Puffer", "Cardigan"],
   Shoes: ["Heels", "Sneakers", "Boots", "Sandals", "Flats"],
@@ -189,9 +185,7 @@ function humanStatusLabel(item) {
 function randomId() {
   const g = window.crypto;
   if (g?.randomUUID) return g.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function ClosetUpload() {
@@ -199,6 +193,7 @@ export default function ClosetUpload() {
   const [title, setTitle] = useState("");
   const [season, setSeason] = useState("");
   const [vibes, setVibes] = useState("");
+  const [coinValue, setCoinValue] = useState(""); // string so "" can mean "unset"
 
   // NEW: categorization fields
   const [category, setCategory] = useState("");
@@ -250,7 +245,7 @@ export default function ClosetUpload() {
     setFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name + f.size));
       const unique = Array.from(newFiles).filter(
-        (f) => !existingNames.has(f.name + f.size)
+        (f) => !existingNames.has(f.name + f.size),
       );
       return [...prev, ...unique];
     });
@@ -321,9 +316,9 @@ export default function ClosetUpload() {
         results.push(`Uploading “${itemTitle}”…`);
 
         // Build a simple filename; the uploads Lambda will prefix with `closet/`
-        const ext = (file.name.split(".").pop() || "jpg")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "") || "jpg";
+        const ext =
+          (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") ||
+          "jpg";
         const uploadKey = `${randomId()}.${ext}`;
 
         const up = await signedUpload(file, {
@@ -339,6 +334,7 @@ export default function ClosetUpload() {
           ...(vibes.trim() ? { vibes: vibes.trim() } : {}),
           ...(category ? { category } : {}),
           ...(subcategory ? { subcategory } : {}),
+          coinValue: coinValue === "" ? null : Number(coinValue) || 0,
         };
 
         const data = await window.sa.graphql(GQL.create, { input });
@@ -347,12 +343,12 @@ export default function ClosetUpload() {
         if (created) {
           results.push(
             `✔ Created “${created.title}” (status: ${created.status}) at ${new Date(
-              created.createdAt
-            ).toLocaleString()}`
+              created.createdAt,
+            ).toLocaleString()}`,
           );
         } else {
           results.push(
-            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`
+            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`,
           );
         }
       }
@@ -360,7 +356,7 @@ export default function ClosetUpload() {
       setUploadMsg(
         `Finished uploading ${total} item${
           total > 1 ? "s" : ""
-        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`
+        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`,
       );
       setUploadDetails(results);
 
@@ -370,6 +366,7 @@ export default function ClosetUpload() {
       setVibes("");
       setCategory("");
       setSubcategory("");
+      setCoinValue(""); // reset to empty string
 
       await loadItems();
       setViewMode("REVIEW"); // jump to review after an upload
@@ -392,7 +389,10 @@ export default function ClosetUpload() {
         window.sa.graphql(GQL.listPublished, {}),
       ]);
 
-      const pending = pendingData?.adminListPending ?? [];
+      // adminListPending is a connection
+      const pendingPage = pendingData?.adminListPending;
+      const pending = pendingPage?.items ?? [];
+      // pendingPage?.nextToken if you add pagination later
 
       let published = [];
       const cf = publishedData?.closetFeed;
@@ -427,7 +427,7 @@ export default function ClosetUpload() {
             console.warn("[ClosetUpload] getSignedGetUrl failed", e);
             return item;
           }
-        })
+        }),
       );
 
       setItems(hydrated);
@@ -458,17 +458,14 @@ export default function ClosetUpload() {
   useEffect(() => {
     if (!lastUpdatedAt) return;
     const id = setInterval(() => {
-      setSecondsSinceUpdate(
-        Math.floor((Date.now() - lastUpdatedAt) / 1000)
-      );
+      setSecondsSinceUpdate(Math.floor((Date.now() - lastUpdatedAt) / 1000));
     }, 1000);
     return () => clearInterval(id);
   }, [lastUpdatedAt]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (statusFilter !== "ALL" && item.status !== statusFilter)
-        return false;
+      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
       return (item.title || "").toLowerCase().includes(q);
@@ -494,7 +491,7 @@ export default function ClosetUpload() {
   async function handleDelete(id) {
     if (
       !window.confirm(
-        "Delete (reject) this closet item? This cannot be undone."
+        "Delete (reject) this closet item? This cannot be undone.",
       )
     ) {
       return;
@@ -515,7 +512,7 @@ export default function ClosetUpload() {
 
   function updateLocalAudience(id, audience) {
     setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, audience } : it))
+      prev.map((it) => (it.id === id ? { ...it, audience } : it)),
     );
   }
 
@@ -554,8 +551,7 @@ export default function ClosetUpload() {
   }
 
   async function rejectItem(item) {
-    const reason =
-      window.prompt("Reason for rejection? (optional)") || null;
+    const reason = window.prompt("Reason for rejection? (optional)") || null;
     if (!window.confirm("Reject this closet item?")) return;
 
     try {
@@ -599,17 +595,13 @@ export default function ClosetUpload() {
           </span>
           <h1>
             Admin Closet Studio{" "}
-            <span
-              className="closet-admin-emoji"
-              role="img"
-              aria-label="dress"
-            >
+            <span className="closet-admin-emoji" role="img" aria-label="dress">
               👗
             </span>
           </h1>
           <p>
-            Upload new looks, keep the closet tidy, and make the fan side
-            feel like a curated boutique.
+            Upload new looks, keep the closet tidy, and make the fan side feel
+            like a curated boutique.
           </p>
         </div>
 
@@ -634,8 +626,8 @@ export default function ClosetUpload() {
             <div>
               <h2 className="closet-card-title">Closet upload</h2>
               <p className="closet-card-sub">
-                Drop in photos from shoots or collabs. Each file becomes its
-                own closet item.
+                Drop in photos from shoots or collabs. Each file becomes its own
+                closet item.
               </p>
             </div>
           </header>
@@ -643,8 +635,7 @@ export default function ClosetUpload() {
           {/* Dropzone */}
           <div
             className={
-              "closet-dropzone" +
-              (isDragging ? " closet-dropzone--active" : "")
+              "closet-dropzone" + (isDragging ? " closet-dropzone--active" : "")
             }
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -708,12 +699,10 @@ export default function ClosetUpload() {
               </label>
             </div>
 
-            {/* NEW: category / subcategory */}
+            {/* category / subcategory */}
             <div className="closet-upload-row">
               <label className="closet-field">
-                <span className="closet-field-label">
-                  Closet category
-                </span>
+                <span className="closet-field-label">Closet category</span>
                 <select
                   className="sa-input"
                   value={category}
@@ -735,9 +724,7 @@ export default function ClosetUpload() {
               </label>
 
               <label className="closet-field">
-                <span className="closet-field-label">
-                  Subcategory (optional)
-                </span>
+                <span className="closet-field-label">Subcategory (optional)</span>
                 <select
                   className="sa-input"
                   value={subcategory}
@@ -745,9 +732,7 @@ export default function ClosetUpload() {
                   onChange={(e) => setSubcategory(e.target.value)}
                 >
                   <option value="">
-                    {category
-                      ? "Select subcategory"
-                      : "Choose a category first"}
+                    {category ? "Select subcategory" : "Choose a category first"}
                   </option>
                   {currentSubcats.map((sub) => (
                     <option key={sub} value={sub}>
@@ -760,6 +745,25 @@ export default function ClosetUpload() {
                 </span>
               </label>
             </div>
+
+            {/* Coin value field */}
+            <label className="closet-field">
+              <span className="closet-field-label">
+                Coin value (optional)
+                <span className="closet-field-hint">
+                  {" "}
+                  How many coins this item is worth in Lala&apos;s world.
+                </span>
+              </span>
+              <input
+                type="number"
+                min="0"
+                value={coinValue}
+                onChange={(e) => setCoinValue(e.target.value)}
+                className="sa-input"
+                placeholder="e.g. 5"
+              />
+            </label>
           </div>
 
           {/* Selected files summary + preview */}
@@ -767,8 +771,7 @@ export default function ClosetUpload() {
             <div className="closet-file-summary">
               <div className="closet-file-summary-header">
                 <span>
-                  {files.length} file{files.length > 1 ? "s" : ""} ready to
-                  upload
+                  {files.length} file{files.length > 1 ? "s" : ""} ready to upload
                 </span>
                 <button
                   type="button"
@@ -794,11 +797,7 @@ export default function ClosetUpload() {
           {previewUrl && (
             <div className="closet-preview-row">
               <div className="closet-preview-frame">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="closet-preview-img"
-                />
+                <img src={previewUrl} alt="Preview" className="closet-preview-img" />
               </div>
               <p className="closet-preview-caption">
                 First look in your batch. Fans will see the cleaned, approved
@@ -827,9 +826,7 @@ export default function ClosetUpload() {
             disabled={uploading || !files.length}
           >
             {uploading
-              ? `Uploading ${files.length} look${
-                  files.length > 1 ? "s" : ""
-                }…`
+              ? `Uploading ${files.length} look${files.length > 1 ? "s" : ""}…`
               : files.length
               ? `Upload ${files.length} look${
                   files.length > 1 ? "s" : ""
@@ -839,8 +836,8 @@ export default function ClosetUpload() {
 
           <p className="closet-footer-note">
             Raw images are stored first. A background-removal worker converts
-            them into cutouts, then you can approve them in the dashboard on
-            the right.
+            them into cutouts, then you can approve them in the dashboard on the
+            right.
           </p>
         </section>
 
@@ -850,8 +847,8 @@ export default function ClosetUpload() {
             <div>
               <h2 className="closet-card-title">Closet dashboard</h2>
               <p className="closet-card-sub">
-                Switch between recent activity and pending review, then peek
-                at what fans will see in the closet.
+                Switch between recent activity and pending review, then peek at
+                what fans will see in the closet.
               </p>
             </div>
 
@@ -882,9 +879,7 @@ export default function ClosetUpload() {
               onClick={() => setViewMode("ACTIVITY")}
             >
               Activity
-              <span className="closet-tab-count">
-                {itemCount}
-              </span>
+              <span className="closet-tab-count">{itemCount}</span>
             </button>
             <button
               type="button"
@@ -895,9 +890,7 @@ export default function ClosetUpload() {
               onClick={() => setViewMode("REVIEW")}
             >
               Pending review
-              <span className="closet-tab-count">
-                {reviewList.length}
-              </span>
+              <span className="closet-tab-count">{reviewList.length}</span>
             </button>
           </div>
 
@@ -923,9 +916,7 @@ export default function ClosetUpload() {
               onChange={(e) => setSearch(e.target.value)}
             />
 
-            <span className="closet-filter-pill">
-              Showing newest first
-            </span>
+            <span className="closet-filter-pill">Showing newest first</span>
 
             <button
               type="button"
@@ -953,8 +944,8 @@ export default function ClosetUpload() {
 
               {itemCount === 0 && !itemsLoading && !itemsError && (
                 <div className="closet-grid-empty">
-                  No items match your filters yet. Try clearing search or
-                  upload a new look on the left.
+                  No items match your filters yet. Try clearing search or upload
+                  a new look on the left.
                 </div>
               )}
 
@@ -981,14 +972,10 @@ export default function ClosetUpload() {
 
                       const statusLabel = humanStatusLabel(item);
                       const categoryLabel =
-                        item.category ||
-                        (item.subcategory ? "Uncategorized" : "");
+                        item.category || (item.subcategory ? "Uncategorized" : "");
 
                       return (
-                        <article
-                          key={item.id}
-                          className="closet-grid-card"
-                        >
+                        <article key={item.id} className="closet-grid-card">
                           <div className="closet-grid-thumb">
                             {item.mediaUrl ? (
                               <img
@@ -1008,25 +995,20 @@ export default function ClosetUpload() {
                                 {item.title || "Untitled look"}
                               </div>
                               {isNewFlag && (
-                                <span className="closet-badge-new">
-                                  New
-                                </span>
+                                <span className="closet-badge-new">New</span>
                               )}
                             </div>
 
                             <div className="closet-grid-meta">
                               <span
-                                className={
-                                  "closet-status-pill " + statusClass
-                                }
+                                className={"closet-status-pill " + statusClass}
                               >
                                 {statusLabel}
                               </span>
                               <span className="closet-grid-audience">
                                 {item.audience
                                   ? AUDIENCE_OPTIONS.find(
-                                      (o) =>
-                                        o.value === item.audience
+                                      (o) => o.value === item.audience,
                                     )?.label || item.audience
                                   : "Fan / Bestie"}
                               </span>
@@ -1051,7 +1033,7 @@ export default function ClosetUpload() {
                               <span className="closet-grid-date">
                                 {item.createdAt
                                   ? new Date(
-                                      item.createdAt
+                                      item.createdAt,
                                     ).toLocaleDateString()
                                   : "—"}
                               </span>
@@ -1062,7 +1044,7 @@ export default function ClosetUpload() {
                                   onClick={() =>
                                     window.open(
                                       `/fan/closet-feed?highlight=${item.id}`,
-                                      "_blank"
+                                      "_blank",
                                     )
                                   }
                                 >
@@ -1071,9 +1053,7 @@ export default function ClosetUpload() {
                                 <button
                                   type="button"
                                   className="closet-grid-link closet-grid-link--danger"
-                                  onClick={() =>
-                                    handleDelete(item.id)
-                                  }
+                                  onClick={() => handleDelete(item.id)}
                                 >
                                   Delete
                                 </button>
@@ -1085,8 +1065,7 @@ export default function ClosetUpload() {
                     })}
                   </div>
 
-                  {(hasMore ||
-                    itemCount > previewItems.length) && (
+                  {(hasMore || itemCount > previewItems.length) && (
                     <div className="closet-grid-footer-row">
                       <span className="closet-grid-summary">
                         Showing first{" "}
@@ -1108,13 +1087,12 @@ export default function ClosetUpload() {
             <>
               <div className="closet-grid-header closet-grid-header--review">
                 <span className="closet-grid-title">
-                  Pending review ·{" "}
-                  <strong>{reviewList.length}</strong>{" "}
+                  Pending review · <strong>{reviewList.length}</strong>{" "}
                   {reviewList.length === 1 ? "item" : "items"}
                 </span>
                 <span className="closet-grid-hint">
-                  Approve to publish to the fan closet, or reject with a
-                  note for your own records.
+                  Approve to publish to the fan closet, or reject with a note
+                  for your own records.
                 </span>
               </div>
 
@@ -1128,13 +1106,11 @@ export default function ClosetUpload() {
                 </div>
               )}
 
-              {!itemsLoading &&
-                reviewList.length === 0 &&
-                !itemsError && (
-                  <div className="closet-grid-empty">
-                    Nothing waiting for review right now. 🥳
-                  </div>
-                )}
+              {!itemsLoading && reviewList.length === 0 && !itemsError && (
+                <div className="closet-grid-empty">
+                  Nothing waiting for review right now. 🥳
+                </div>
+              )}
 
               {reviewList.length > 0 && (
                 <div className="closet-grid closet-grid--review">
@@ -1143,8 +1119,7 @@ export default function ClosetUpload() {
                     const statusLabel = humanStatusLabel(item);
                     const isPending = item.status === "PENDING";
                     const categoryLabel =
-                      item.category ||
-                      (item.subcategory ? "Uncategorized" : "");
+                      item.category || (item.subcategory ? "Uncategorized" : "");
 
                     return (
                       <article
@@ -1168,9 +1143,7 @@ export default function ClosetUpload() {
                               {statusLabel}
                             </span>
                             {isPending && !hasCutout && (
-                              <span className="closet-bg-pill">
-                                BG running
-                              </span>
+                              <span className="closet-bg-pill">BG running</span>
                             )}
                             {isPending && hasCutout && (
                               <span className="closet-bg-pill closet-bg-pill--ready">
@@ -1191,14 +1164,14 @@ export default function ClosetUpload() {
                             <span className="closet-grid-audience pill-soft">
                               {item.audience
                                 ? AUDIENCE_OPTIONS.find(
-                                    (o) => o.value === item.audience
+                                    (o) => o.value === item.audience,
                                   )?.label || item.audience
                                 : "Fan + Bestie"}
                             </span>
                             <span className="closet-grid-date">
                               {item.createdAt
                                 ? new Date(
-                                    item.createdAt
+                                    item.createdAt,
                                   ).toLocaleDateString()
                                 : "Recently"}
                             </span>
@@ -1235,10 +1208,7 @@ export default function ClosetUpload() {
                               }}
                             >
                               {AUDIENCE_OPTIONS.map((opt) => (
-                                <option
-                                  key={opt.value}
-                                  value={opt.value}
-                                >
+                                <option key={opt.value} value={opt.value}>
                                   {opt.label}
                                 </option>
                               ))}
@@ -1256,14 +1226,10 @@ export default function ClosetUpload() {
                             <button
                               type="button"
                               className="sa-btn closet-review-approve"
-                              disabled={
-                                !isPending || busyId === item.id
-                              }
+                              disabled={!isPending || busyId === item.id}
                               onClick={() => approveItem(item)}
                             >
-                              {busyId === item.id
-                                ? "Saving…"
-                                : "Approve"}
+                              {busyId === item.id ? "Saving…" : "Approve"}
                             </button>
                             <button
                               type="button"
@@ -1287,7 +1253,6 @@ export default function ClosetUpload() {
     </div>
   );
 }
-
 const styles = /* css */ `
 .closet-admin-page {
   max-width: 1120px;
@@ -2125,4 +2090,3 @@ const styles = /* css */ `
   cursor:pointer;
 }
 `;
-

@@ -1,4 +1,11 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+# ─────────────────────────────────────────
 # Root query type
+# ─────────────────────────────────────────
 type Query {
   # Simple healthcheck
   hello: String
@@ -32,21 +39,32 @@ type Query {
 
   # Admin / feed views
   adminListPending(limit: Int, nextToken: String): ClosetConnection!
-  adminListClosetItems(limit: Int, nextToken: String): ClosetConnection!
-  closetFeed(limit: Int, nextToken: String): ClosetConnection!
+  adminListClosetItems(
+    status: ClosetStatus
+    limit: Int
+    nextToken: String
+  ): ClosetConnection!
+  closetFeed(
+    sort: ClosetFeedSort
+    limit: Int
+    nextToken: String
+  ): ClosetConnection!
 
   # Episodes / early access
   isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!
 
+  # Fan episode unlocks
+  myUnlockedEpisodes: [EpisodeUnlock!]!
+
   # Game / leaderboard
-  topXP(limit: Int = 50): [GameProfile!]!
-  topCoins(limit: Int = 50): [GameProfile!]!
+  topXP(limit: Int = 50, season: String): [LeaderboardEntry!]!
+  topCoins(limit: Int = 50, season: String): [LeaderboardEntry!]!
 
   # Polls
-  getPoll(id: ID!): Poll
+  getPoll(pollId: ID!): Poll
 
   # Game profile
-  getMyProfile: GameProfile
+  getMyProfile: GameProfile!
 
   # Bestie status
   meBestieStatus: BestieStatus!
@@ -58,9 +76,26 @@ type Query {
     text: String!
     kind: CreatorAiKind!
   ): CreatorAiSuggestionResult!
+
+  # Game economy config / rules (admin)
+  getGameEconomyConfig: GameEconomyConfig!
+
+  # Episodes admin (admin-only)
+  adminListEpisodes(
+    status: EpisodeStatus
+    showId: String
+    season: Int
+    limit: Int = 20
+    nextToken: String
+  ): EpisodeAdminConnection!
+
+  # Admin Settings
+  getAdminSettings: AdminSettings!
 }
 
+# ─────────────────────────────────────────
 # Root mutation type
+# ─────────────────────────────────────────
 type Mutation {
   # Roles
   setUserRole(userId: ID!, role: String!): RoleResult!
@@ -81,12 +116,18 @@ type Mutation {
   bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
   bestieDeleteClosetItem(id: ID!): Boolean!
 
-  # Closet admin
+  # Closet admin – argument names match React GQL
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
-  adminApproveItem(itemId: ID!): ClosetItem!
-  adminRejectItem(itemId: ID!, reason: String): ClosetItem!
-  adminSetClosetAudience(itemId: ID!, visibility: ClosetVisibility!): ClosetItem!
-  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
+  adminApproveItem(closetItemId: ID!): ClosetItem!
+  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+  adminSetClosetAudience(
+    closetItemId: ID!
+    audience: ClosetAudience!
+  ): ClosetItem!
+  adminUpdateClosetItem(
+    closetItemId: ID!
+    input: AdminUpdateClosetItemInput!
+  ): ClosetItem!
 
   # Bestie membership / billing
   startBestieCheckout: BestieCheckoutSession!
@@ -98,15 +139,23 @@ type Mutation {
 
   # Game engine
   logGameEvent(input: LogGameEventInput!): GameEventResult!
-  awardCoins(userId: ID!, amount: Int!): GameProfile!
 
-  # Polls
+  # Spend coins to unlock an episode early
+  unlockEpisode(episodeId: ID!): UnlockEpisodeResult!
+
+  # NOTE: aligned with lambda/game/gameplay.ts (expects input: { userId, coins, xp? })
+  awardCoins(input: AwardCoinsInput!): GameProfile!
+
+  # Polls (aligned with lambda/game/polls.ts)
   createPoll(input: CreatePollInput!): Poll!
-  votePoll(pollId: ID!, optionId: ID!): Poll!
+  votePoll(pollId: ID!, optionIndex: Int!): Poll!
 
   # Game profile updates
-  grantBadge(userId: ID!, badgeId: ID!): GameProfile!
-  setDisplayName(name: String!): GameProfile!
+  grantBadge(userId: ID!, badge: String!): GameProfile!
+
+  # NOTE: aligned with lambda/game/profile.ts (event.arguments.displayName)
+  setDisplayName(displayName: String!): GameProfile!
+
   updateProfile(input: UpdateProfileInput!): GameProfile!
 
   # Bestie workflow: background changes / stories / feed
@@ -120,10 +169,111 @@ type Mutation {
   # Creator livestream + commerce
   pinLivestreamHighlight(highlightId: ID, title: String): PinResult!
   recordAffiliateClick(itemId: ID!, source: String): AffiliateClickResult!
+
+  # Game economy config / rules (admin)
+  updateGameEconomyConfig(input: UpdateGameEconomyConfigInput!): GameEconomyConfig!
+
+  # Episodes admin (admin-only)
+  adminCreateEpisode(input: AdminCreateEpisodeInput!): Episode!
+  adminUpdateEpisode(episodeId: ID!, input: AdminUpdateEpisodeInput!): Episode!
+
+  # Admin Settings
+  updateAdminSettings(input: AdminSettingsInput!): AdminSettings!
 }
 
 # ─────────────────────────────────────────
-# Basic user / roles
+# Admin Settings Types
+# ─────────────────────────────────────────
+
+type AdminSettings {
+  animationsEnabled: Boolean!
+  soundsEnabled: Boolean!
+  autoBadgeGrant: Boolean!
+  badgeRules: [BadgeRule!]!
+}
+
+type BadgeRule {
+  id: ID!
+  label: String!
+  trigger: String! # stored as string; client evals it
+}
+
+input AdminSettingsInput {
+  animationsEnabled: Boolean
+  soundsEnabled: Boolean
+  autoBadgeGrant: Boolean
+  badgeRules: [BadgeRuleInput!]
+}
+
+input BadgeRuleInput {
+  id: ID!
+  label: String!
+  trigger: String!
+}
+
+# ─────────────────────────────────────────
+# Game economy configuration / rules
+# ─────────────────────────────────────────
+
+"""
+Single game rule describing how coins are earned or spent,
+plus optional JSON metadata to tune behavior.
+"""
+type GameRule {
+  id: ID!
+  category: String!       # e.g. WATCH_TIME, CHAT, TRIVIA, STREAK, SOCIAL, EVENT, REDEMPTION
+  label: String!          # e.g. "Watch 10 minutes"
+  description: String
+  coins: Int!             # positive = reward, negative = cost
+  per: String             # e.g. PER_10_MIN, PER_DAY, PER_EVENT
+  maxPerDay: Int
+  meta: AWSJSON
+}
+
+"""
+Top-level economy config used by admin + fan-facing rules + overview.
+"""
+type GameEconomyConfig {
+  id: ID!
+  version: Int!
+  updatedAt: AWSDateTime
+  updatedBy: String
+
+  # Global economy knobs
+  coinToUsdRatio: Float
+  dailyCoinCap: Int
+  weeklyCoinCap: Int
+  monthlyBonusEventsLimit: Int
+
+  # Rule list
+  rules: [GameRule!]!
+
+  # Optional freeform notes for admins
+  notes: String
+}
+
+input GameRuleInput {
+  id: ID
+  category: String!
+  label: String!
+  description: String
+  coins: Int!
+  per: String
+  maxPerDay: Int
+  meta: AWSJSON
+}
+
+input UpdateGameEconomyConfigInput {
+  coinToUsdRatio: Float
+  dailyCoinCap: Int
+  weeklyCoinCap: Int
+  monthlyBonusEventsLimit: Int
+  rules: [GameRuleInput!]!
+  notes: String
+}
+
+# ─────────────────────────────────────────
+# Core / Auth
 # ─────────────────────────────────────────
 
 type Me {
@@ -139,31 +289,71 @@ type RoleResult {
 }
 
 # ─────────────────────────────────────────
-# Closet core types
+# Closet enums
 # ─────────────────────────────────────────
 
+# Overall visibility flags used across the app
 enum ClosetVisibility {
   PRIVATE
   BESTIE
   PUBLIC
 }
 
+# Moderation / lifecycle status for a closet item
+enum ClosetStatus {
+  PENDING
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+# Which fans are allowed to see the look
+enum ClosetAudience {
+  PUBLIC
+  BESTIES
+  EXCLUSIVE
+}
+
+# Sorting for the fan Closet feed
+enum ClosetFeedSort {
+  NEWEST
+  MOST_LOVED
+  LALAS_PICK
+  MY_FAVES
+}
+
+# ─────────────────────────────────────────
+# Closet core
+# ─────────────────────────────────────────
+
 type ClosetItem {
   id: ID!
-  ownerId: ID
+  ownerId: ID        # admin-set owner (creator / lala / bestie)
+  ownerSub: ID       # legacy ID used in some queries
+
   title: String
   mediaKey: String
   rawMediaKey: String
+
   category: String
   subcategory: String
   colorTags: [String!]
   season: String
   notes: String
+
   visibility: ClosetVisibility!
   affiliateUrl: String
+
+  # Game / moderation metadata
+  status: ClosetStatus          # nullable to avoid enum error on legacy data
+  audience: ClosetAudience
+  pinned: Boolean               # Lala's pick
+  favoriteCount: Int
+  coinValue: Int                # how many coins the item is worth
   backgroundStatus: String
-  createdAt: String
-  updatedAt: String
+
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
 }
 
 type ClosetConnection {
@@ -184,26 +374,41 @@ input CreateClosetItemInput {
   affiliateUrl: String
 }
 
-# Inputs used by BestieCloset UI
+input UpdateClosetItemStoryInput {
+  itemId: ID!
+  storyId: ID
+  storyPosition: Int
+}
+
+input CommentOnClosetItemInput {
+  itemId: ID!
+  text: String!
+}
+
 input BestieCreateClosetItemInput {
   title: String
-  rawMediaKey: String!
+  mediaKey: String
+  rawMediaKey: String
   category: String
   subcategory: String
   colorTags: [String!]
   season: String
   notes: String
   visibility: ClosetVisibility
+  affiliateUrl: String
 }
 
 input BestieUpdateClosetItemInput {
   title: String
+  mediaKey: String
+  rawMediaKey: String
   category: String
   subcategory: String
   colorTags: [String!]
   season: String
   notes: String
   visibility: ClosetVisibility
+  affiliateUrl: String
 }
 
 input AdminCreateClosetItemInput {
@@ -218,11 +423,21 @@ input AdminCreateClosetItemInput {
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
+
+  # admin metadata
+  status: ClosetStatus
+  audience: ClosetAudience
+  pinned: Boolean
+  coinValue: Int
+  backgroundStatus: String
 }
 
 input AdminUpdateClosetItemInput {
   id: ID!
+  ownerId: ID
   title: String
+  mediaKey: String
+  rawMediaKey: String
   category: String
   subcategory: String
   colorTags: [String!]
@@ -230,25 +445,21 @@ input AdminUpdateClosetItemInput {
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
-}
 
-input UpdateClosetItemStoryInput {
-  itemId: ID!
-  storyText: String
-  stickers: [String!]
-  pollId: ID
+  # admin metadata
+  status: ClosetStatus
+  audience: ClosetAudience
+  pinned: Boolean
+  coinValue: Int
+  backgroundStatus: String
 }
-
-# ─────────────────────────────────────────
-# Comments & likes
-# ─────────────────────────────────────────
 
 type Comment {
   id: ID!
   itemId: ID!
   userId: ID!
   text: String!
-  createdAt: String!
+  createdAt: AWSDateTime!
 }
 
 type CommentConnection {
@@ -259,7 +470,7 @@ type CommentConnection {
 type Like {
   itemId: ID!
   userId: ID!
-  createdAt: String!
+  createdAt: AWSDateTime!
 }
 
 type LikeConnection {
@@ -267,96 +478,211 @@ type LikeConnection {
   nextToken: String
 }
 
-input CommentOnClosetItemInput {
-  itemId: ID!
-  text: String!
+# ─────────────────────────────────────────
+# Episodes / Bestie access
+# ─────────────────────────────────────────
+
+enum EpisodeStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
 }
 
-# ─────────────────────────────────────────
-# Bestie membership
-# ─────────────────────────────────────────
+type ThumbnailImage {
+  key: String!
+  primary: Boolean!
+}
+
+type Episode {
+  id: ID!
+  title: String!
+  season: Int
+  episodeNumber: Int
+  showId: String
+  shortDescription: String
+  fullDescription: String
+  status: EpisodeStatus!
+  publicAt: String!
+  durationSeconds: Int
+  unlockCoinCost: Int
+  chatEnabled: Boolean!
+  thumbnails: [ThumbnailImage!]!
+  outfitsLinkedCount: Int
+}
+
+type EpisodeAdminConnection {
+  items: [Episode!]!
+  nextToken: String
+}
+
+type EpisodeAccess {
+  episodeId: ID!
+  isEarly: Boolean!
+  reason: String
+}
+
+type EpisodeUnlock {
+  episodeId: ID!
+  unlockedAt: String!
+  costCoins: Int!
+  source: String
+  episode: Episode
+}
+
+type UnlockEpisodeResult {
+  success: Boolean!
+  unlockedAt: String!
+  costCoins: Int!
+  episode: Episode!
+  remainingCoins: Int!
+}
 
 type BestieStatus {
+  userId: ID!
   isBestie: Boolean!
   tier: String
-  since: String
+  renewsAt: AWSDateTime
+  trialActive: Boolean
+  trialEndsAt: AWSDateTime
 }
 
 type BestieCheckoutSession {
-  sessionId: ID!
-  url: String!
+  checkoutUrl: String!
 }
 
-# ─────────────────────────────────────────
-# Background change / stories
-# ─────────────────────────────────────────
+input AdminCreateEpisodeInput {
+  id: ID
+  title: String!
+  season: Int
+  episodeNumber: Int
+  showId: String
+  shortDescription: String
+  fullDescription: String
+  status: EpisodeStatus!          # DRAFT | SCHEDULED | PUBLISHED
+  publicAt: String!               # ISO string
+  durationSeconds: Int
+  unlockCoinCost: Int
+  chatEnabled: Boolean = true
+  thumbnails: [ThumbnailImageInput!]
+}
 
+input AdminUpdateEpisodeInput {
+  title: String
+  season: Int
+  episodeNumber: Int
+  showId: String
+  shortDescription: String
+  fullDescription: String
+  status: EpisodeStatus
+  publicAt: String
+  durationSeconds: Int
+  unlockCoinCost: Int
+  chatEnabled: Boolean
+  thumbnails: [ThumbnailImageInput!]
+}
+
+input ThumbnailImageInput {
+  key: String!
+  primary: Boolean!
+}
+
+# Background change requests
 input BgChangeRequestInput {
   itemId: ID!
-  requestedBackground: String!
+  newBackgroundKey: String!
   notes: String
 }
 
 type BgChangeRequestResult {
-  success: Boolean!
+  ok: Boolean!
   requestId: ID
 }
 
+# Stories
 type Story {
   id: ID!
   ownerId: ID!
   title: String
-  body: String
-  coverMediaKey: String
-  closetItemIds: [ID!]
   status: String
-  createdAt: String
-  publishedAt: String
+  createdAt: AWSDateTime
+  publishedAt: AWSDateTime
 }
 
 input CreateStoryInput {
   title: String!
-  body: String
-  coverMediaKey: String
   closetItemIds: [ID!]
 }
 
 type ShareResult {
-  success: Boolean!
-  message: String
+  ok: Boolean!
+  url: String
 }
 
 # ─────────────────────────────────────────
-# Game / XP / profile
+# Fans / Game types
 # ─────────────────────────────────────────
 
+"""Per-fan game profile / XP / coins."""
 type GameProfile {
-  id: ID!
+  userId: ID!
   displayName: String
+  level: Int!
   xp: Int!
   coins: Int!
-  badges: [Badge!]
+  badges: [String!]!
+  avatarUrl: String
+  bio: String
+
+  # Timestamp of last gameplay-related event
+  lastEventAt: AWSDateTime
+
+  # Daily login streak
+  streakCount: Int
+  lastLoginAt: AWSDateTime
+
+  # Fan’s pinned closet items
   pinnedClosetItems: [ClosetItem!]!
 }
 
-type Badge {
-  id: ID!
-  name: String!
-  icon: String
+"""Result of logging a game event."""
+type GameEventResult {
+  success: Boolean!
+
+  # current XP / coins after the event
+  xp: Int
+  coins: Int
+
+  # delta from this event
+  newXP: Int
+  newCoins: Int
+
+  lastEventAt: AWSDateTime
+}
+
+"""Leaderboard entry for topXP / topCoins."""
+type LeaderboardEntry {
+  userId: ID!
+  displayName: String
+  xp: Int
+  coins: Int
+  rank: Int!
 }
 
 input LogGameEventInput {
   type: String!
-  metadata: String
+  metadata: AWSJSON
 }
 
-type GameEventResult {
-  success: Boolean!
+input AwardCoinsInput {
+  userId: ID!
+  coins: Int!
+  xp: Int
 }
 
 input UpdateProfileInput {
-  bio: String
+  displayName: String
   avatarUrl: String
+  bio: String
 }
 
 # ─────────────────────────────────────────
@@ -364,17 +690,12 @@ input UpdateProfileInput {
 # ─────────────────────────────────────────
 
 type Poll {
-  id: ID!
+  pollId: ID!
   question: String!
-  options: [PollOption!]!
-  totalVotes: Int!
-  createdAt: String
-}
-
-type PollOption {
-  id: ID!
-  label: String!
-  votes: Int!
+  options: [String!]!
+  totals: [Int!]!
+  createdBy: String
+  createdAt: AWSDateTime
 }
 
 input CreatePollInput {
@@ -383,40 +704,32 @@ input CreatePollInput {
 }
 
 # ─────────────────────────────────────────
-# Episodes / early access
-# ─────────────────────────────────────────
-
-type EpisodeAccess {
-  episodeId: ID!
-  isEarlyAccess: Boolean!
-  canView: Boolean!
-}
-
-# ─────────────────────────────────────────
-# Creator / livestream / AI / commerce
+# Creator / Livestream / Commerce / AI
 # ─────────────────────────────────────────
 
 type CreatorLivestreamInfo {
-  channelArn: String!
-  playbackUrl: String!
-}
-
-enum CreatorAiKind {
-  CAPTION
-  HASHTAGS
-  PLAN
-}
-
-type CreatorAiSuggestionResult {
-  suggestions: [String!]!
+  channelArn: String
+  playbackUrl: String
+  isLive: Boolean!
 }
 
 type CreatorRevenueSummary {
-  creatorId: ID!
-  tier: String!
-  last30dRevenue: Float!
+  periodStart: AWSDateTime
+  periodEnd: AWSDateTime
+  currency: String!
   totalRevenue: Float!
-  affiliateClicks: Int!
+  totalOrders: Int!
+}
+
+enum CreatorAiKind {
+  STYLE_POST
+  EPISODE_CAPTION
+  EMAIL_SUBJECT
+  GENERIC
+}
+
+type CreatorAiSuggestionResult {
+  text: String!
 }
 
 type PinResult {
@@ -426,5 +739,3 @@ type PinResult {
 type AffiliateClickResult {
   ok: Boolean!
 }
-
-
