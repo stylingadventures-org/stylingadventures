@@ -7,11 +7,22 @@
   const FALLBACK_APPSYNC_URL =
     "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
 
+  // ⚠️ REPLACE abc123def4 WITH YOUR REAL API ID (UploadsStack.UploadsApiUrl)
+  const FALLBACK_UPLOADS_API_URL =
+    "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod";
+
+  const BAD_UPLOAD_HOSTS = [
+    // Old dead endpoint we never want to use again
+    "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
+  ];
+
   // ---------- configuration ----------
   async function loadCfg() {
     async function tryJson(url) {
       try {
-        const r = await fetch(`${url}?ts=${Date.now()}`, { cache: "no-store" });
+        const r = await fetch(`${url}?ts=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (r.ok) return r.json();
       } catch (e) {
         console.debug("[sa] config fetch failed", url, e);
@@ -44,7 +55,7 @@
     ) {
       console.warn(
         "[sa] appsyncUrl missing or suspicious in config; using fallback",
-        FALLBACK_APPSYNC_URL
+        FALLBACK_APPSYNC_URL,
       );
       cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
     }
@@ -89,8 +100,45 @@
     cfg.redirectUri = cfg.redirectUri || `${origin}/callback`;
     cfg.logoutUri = cfg.logoutUri || `${origin}/`;
 
-    // Optional uploads API base (APIGW)
-    cfg.uploadsApiUrl = cfg.uploadsApiUrl || raw.uploadsApiUrl || "";
+    // ----- uploadsApiUrl normalisation + override -----
+    let uploadsUrl =
+      cfg.uploadsApiUrl ||
+      raw.uploadsApiUrl ||
+      raw.uploadsApi ||
+      raw.uploadsOrigin ||
+      raw.uploadApiUrl ||
+      "";
+
+    uploadsUrl = String(uploadsUrl || "").trim();
+
+    const uploadsUrlIsBad =
+      !uploadsUrl ||
+      BAD_UPLOAD_HOSTS.some((host) => uploadsUrl.includes(host));
+
+    if (uploadsUrlIsBad) {
+      // Prefer an explicit good URL from config if present
+      const candidate =
+        (raw.uploadsApiUrl || "").trim() ||
+        (raw.uploadsApi || "").trim() ||
+        (raw.uploadsOrigin || "").trim() ||
+        (raw.uploadApiUrl || "").trim() ||
+        "";
+
+      const candidateIsGood =
+        candidate &&
+        !BAD_UPLOAD_HOSTS.some((host) => candidate.includes(host));
+
+      cfg.uploadsApiUrl = candidateIsGood
+        ? candidate
+        : FALLBACK_UPLOADS_API_URL;
+
+      console.warn(
+        "[sa] uploadsApiUrl missing or stale; using",
+        cfg.uploadsApiUrl,
+      );
+    } else {
+      cfg.uploadsApiUrl = uploadsUrl;
+    }
 
     window.__cfg = cfg;
     return cfg;
@@ -100,9 +148,10 @@
   function parseJwt(t) {
     try {
       return JSON.parse(
-        atob(String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+        atob(String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
       );
-    } catch (e) {
+    } catch {
+      // Invalid / missing token – treat as anonymous
       return {};
     }
   }
@@ -166,7 +215,10 @@
     let expMs = 0;
     try {
       expMs = (parseJwt(tok).exp | 0) * 1000;
-    } catch {}
+    } catch (err) {
+      // ignore parse errors; we’ll treat as expired below if needed
+      void err;
+    }
 
     // If we don't have exp or it's still > 60s in the future, just use it.
     if (!expMs || expMs - Date.now() > 60_000) {
@@ -177,7 +229,10 @@
     // Token expired -> clear local state and force re-login
     try {
       window.SA && window.SA.logoutLocal();
-    } catch {}
+    } catch (err) {
+      // ignore logout errors; user will be treated as signed out
+      void err;
+    }
     throw new Error("Session expired. Please sign in again.");
   }
 
@@ -228,7 +283,10 @@
             : window.location.pathname + window.location.search;
         try {
           sessionStorage.setItem("sa:returnTo", dest);
-        } catch {}
+        } catch (err) {
+          // ignore storage quota errors
+          void err;
+        }
 
         const scope = (cfg._scopes && cfg._scopes.join(" ")) || "openid email";
 
@@ -240,18 +298,26 @@
         });
 
         (window.top || window).location.assign(
-          `${cfg._hostBase}/login?${qp.toString()}`
+          `${cfg._hostBase}/login?${qp.toString()}`,
         );
       },
 
       logoutLocal: () => {
-        ["id_token", "access_token", "refresh_token"].forEach((k) =>
-          sessionStorage.removeItem(k)
-        );
-        localStorage.removeItem("sa_id_token");
-        localStorage.removeItem("sa:idToken");
-        localStorage.removeItem("sa:accessToken");
-        localStorage.removeItem("sa:expiresAt");
+        ["id_token", "access_token", "refresh_token"].forEach((k) => {
+          try {
+            sessionStorage.removeItem(k);
+          } catch (err) {
+            void err;
+          }
+        });
+        try {
+          localStorage.removeItem("sa_id_token");
+          localStorage.removeItem("sa:idToken");
+          localStorage.removeItem("sa:accessToken");
+          localStorage.removeItem("sa:expiresAt");
+        } catch (err) {
+          void err;
+        }
         syncSaSession({ idToken: "", accessToken: "", email: "" });
       },
 
@@ -261,7 +327,9 @@
 
         try {
           window.SA.logoutLocal();
-        } catch {}
+        } catch (err) {
+          void err;
+        }
 
         if (cfg._hostBase && cfg.clientId) {
           const qp = new URLSearchParams({
@@ -312,6 +380,8 @@
       throw new Error("Missing uploadsApiUrl in config.v2.json");
     }
 
+    console.log("[SA public] uploadsApiUrl:", cfg.uploadsApiUrl);
+
     let blob;
     let key;
 
@@ -347,7 +417,7 @@
         method: "POST",
         headers,
         body: JSON.stringify(body),
-      }
+      },
     );
 
     if (!presignRes.ok) {
@@ -360,7 +430,7 @@
     if (presign.method === "POST" || presign.fields) {
       const form = new FormData();
       Object.entries(presign.fields || {}).forEach(([k, v]) =>
-        form.append(k, v)
+        form.append(k, v),
       );
       form.append("file", blob);
 
@@ -458,8 +528,7 @@
       "[app] ready; role =",
       saApi.getRole(),
       "cfg.appsyncUrl =",
-      cfg.appsyncUrl || "(missing)"
+      cfg.appsyncUrl || "(missing)",
     );
   });
 })();
-

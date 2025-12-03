@@ -6,7 +6,8 @@
 
   "redirectUri": "http://localhost:5173/callback",
   "logoutUri": "http://localhost:5173/",
-  "uploadsApiUrl": "https://r9mrarhdxa.execute-api.us-east-1.amazonaws.com/prod",
+
+  "uploadsApiUrl": "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
 
   "userPoolId": "us-east-1_aXLKIxbqK",
   "userPoolWebClientId": "51uc25i7ob3otirvgi66mpht79",

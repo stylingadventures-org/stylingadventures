@@ -5,6 +5,9 @@ import { signedUpload, getSignedGetUrl } from "../../lib/sa";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const GRID_PREVIEW_LIMIT = 6;
 
+// IMPORTANT: fallback public CDN for raw uploads (same as fan/admin library)
+const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
+
 function isNew(createdAt) {
   if (!createdAt) return false;
   const t = new Date(createdAt).getTime();
@@ -74,6 +77,8 @@ const GQL = {
       }
     }
   `,
+  // used for "Delete" on activity grid – we still send a reason string,
+  // but do NOT request `reason` back in the selection set
   rejectAsDelete: /* GraphQL */ `
     mutation AdminRejectItem($closetItemId: ID!, $reason: String) {
       adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
@@ -92,6 +97,7 @@ const GQL = {
       }
     }
   `,
+  // review-mode reject – again, no `reason` field in the return type
   reject: /* GraphQL */ `
     mutation Reject($closetItemId: ID!, $reason: String) {
       adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
@@ -144,14 +150,7 @@ const SUBCATEGORY_BY_CATEGORY = {
     "Slip dress",
     "Party dress",
   ],
-  Tops: [
-    "Crop top",
-    "T-shirt",
-    "Blouse",
-    "Corset top",
-    "Sweater",
-    "Hoodie",
-  ],
+  Tops: ["Crop top", "T-shirt", "Blouse", "Corset top", "Sweater", "Hoodie"],
   Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings", "Cargo"],
   Sets: ["Skirt set", "Pant set", "Sweatsuit", "Lounge set"],
   Outerwear: ["Denim jacket", "Blazer", "Coat", "Bomber", "Puffer", "Cardigan"],
@@ -185,7 +184,9 @@ function humanStatusLabel(item) {
 function randomId() {
   const g = window.crypto;
   if (g?.randomUUID) return g.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 export default function ClosetUpload() {
@@ -317,8 +318,9 @@ export default function ClosetUpload() {
 
         // Build a simple filename; the uploads Lambda will prefix with `closet/`
         const ext =
-          (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") ||
-          "jpg";
+          (file.name.split(".").pop() || "jpg")
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "") || "jpg";
         const uploadKey = `${randomId()}.${ext}`;
 
         const up = await signedUpload(file, {
@@ -342,9 +344,9 @@ export default function ClosetUpload() {
 
         if (created) {
           results.push(
-            `✔ Created “${created.title}” (status: ${created.status}) at ${new Date(
-              created.createdAt,
-            ).toLocaleString()}`,
+            `✔ Created “${created.title}” (status: ${
+              created.status
+            }) at ${new Date(created.createdAt).toLocaleString()}`,
           );
         } else {
           results.push(
@@ -417,18 +419,35 @@ export default function ClosetUpload() {
       });
 
       const hydrated = await Promise.all(
-        merged.map(async (item) => {
-          const key = effectiveKey(item);
-          if (!key) return item;
-          try {
-            const url = await getSignedGetUrl(key);
-            return { ...item, mediaUrl: url || null };
-          } catch (e) {
-            console.warn("[ClosetUpload] getSignedGetUrl failed", e);
-            return item;
-          }
-        }),
+  merged.map(async (item) => {
+    const key = effectiveKey(item);
+    if (!key) return item;
+
+    let url = null;
+
+    try {
+      url = await getSignedGetUrl(key);
+    } catch (e) {
+      console.warn(
+        "[ClosetUpload] getSignedGetUrl failed, falling back to public CDN",
+        e,
       );
+    }
+
+    if (!url && PUBLIC_UPLOADS_CDN) {
+      const cleanedKey = String(key).replace(/^\/+/, "");
+      const encodedKey = cleanedKey
+        .split("/")
+        .map((seg) => encodeURIComponent(seg))
+        .join("/");
+      url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
+    }
+
+    console.log("[ClosetUpload] mediaUrl for item", item.id, "=>", url);
+
+    return { ...item, mediaUrl: url || null };
+  }),
+);
 
       setItems(hydrated);
       setLastUpdatedAt(Date.now());
@@ -635,7 +654,8 @@ export default function ClosetUpload() {
           {/* Dropzone */}
           <div
             className={
-              "closet-dropzone" + (isDragging ? " closet-dropzone--active" : "")
+              "closet-dropzone" +
+              (isDragging ? " closet-dropzone--active" : "")
             }
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -724,7 +744,9 @@ export default function ClosetUpload() {
               </label>
 
               <label className="closet-field">
-                <span className="closet-field-label">Subcategory (optional)</span>
+                <span className="closet-field-label">
+                  Subcategory (optional)
+                </span>
                 <select
                   className="sa-input"
                   value={subcategory}
@@ -771,7 +793,8 @@ export default function ClosetUpload() {
             <div className="closet-file-summary">
               <div className="closet-file-summary-header">
                 <span>
-                  {files.length} file{files.length > 1 ? "s" : ""} ready to upload
+                  {files.length} file{files.length > 1 ? "s" : ""} ready to
+                  upload
                 </span>
                 <button
                   type="button"
@@ -797,7 +820,11 @@ export default function ClosetUpload() {
           {previewUrl && (
             <div className="closet-preview-row">
               <div className="closet-preview-frame">
-                <img src={previewUrl} alt="Preview" className="closet-preview-img" />
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="closet-preview-img"
+                />
               </div>
               <p className="closet-preview-caption">
                 First look in your batch. Fans will see the cleaned, approved
@@ -972,7 +999,8 @@ export default function ClosetUpload() {
 
                       const statusLabel = humanStatusLabel(item);
                       const categoryLabel =
-                        item.category || (item.subcategory ? "Uncategorized" : "");
+                        item.category ||
+                        (item.subcategory ? "Uncategorized" : "");
 
                       return (
                         <article key={item.id} className="closet-grid-card">
@@ -1119,7 +1147,8 @@ export default function ClosetUpload() {
                     const statusLabel = humanStatusLabel(item);
                     const isPending = item.status === "PENDING";
                     const categoryLabel =
-                      item.category || (item.subcategory ? "Uncategorized" : "");
+                      item.category ||
+                      (item.subcategory ? "Uncategorized" : "");
 
                     return (
                       <article
@@ -1253,6 +1282,7 @@ export default function ClosetUpload() {
     </div>
   );
 }
+
 const styles = /* css */ `
 .closet-admin-page {
   max-width: 1120px;

@@ -283,7 +283,6 @@ function getUserTier(identity: any): UserTier {
   const claims = identity?.claims || {};
 
   // Prefer explicit tier claim if present.
-  the
   const tierClaim =
     (claims["custom:tier"] as string | undefined) ||
     (claims["tier"] as string | undefined);
@@ -1755,6 +1754,3 @@ export const handler = async (event: any) => {
     throw err;
   }
 };
-
-
-

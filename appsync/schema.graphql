@@ -120,6 +120,9 @@ type Mutation {
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
   adminApproveItem(closetItemId: ID!): ClosetItem!
   adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+  adminPublishClosetItem(closetItemId: ID!): ClosetItem
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["Admin"])
   adminSetClosetAudience(
     closetItemId: ID!
     audience: ClosetAudience!

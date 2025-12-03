@@ -1,5 +1,7 @@
 // site/src/lib/sa.js
 
+/* eslint-disable no-console */
+
 /** Wait for the global SA helper (set by public/sa.js) */
 export async function getSA() {
   if (window.SA) return window.SA;
@@ -32,7 +34,6 @@ function readCfg(SA) {
   const FALLBACK_APPSYNC_URL =
     "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
 
-  // If missing OR looks suspicious, force the known-good value
   if (
     !cfg.appsyncUrl ||
     typeof cfg.appsyncUrl !== "string" ||
@@ -81,6 +82,39 @@ function readCfg(SA) {
       cfg.uploadsOrigin || // sometimes used for API origin
       cfg.uploadApiUrl ||
       "";
+  }
+
+  // Known-bad hosts we never want to keep using
+  const BAD_UPLOAD_HOSTS = [
+    "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
+  ];
+
+  // Prefer uploadsApiUrl from config.v2.json if it looks better
+  const jsonUploadsUrl =
+    jsonCfg.uploadsApiUrl ||
+    jsonCfg.uploadsApi ||
+    jsonCfg.uploadsOrigin ||
+    jsonCfg.uploadApiUrl ||
+    "";
+
+  // Final hardcoded fallback if all configs are missing or stale.
+  // 🚨 Replace this with your *real* UploadsApiUrl if you want a hard override.
+  const FALLBACK_UPLOADS_API_URL =
+    jsonUploadsUrl ||
+    "https://REPLACE_WITH_UPLOADS_API_URL.execute-api.us-east-1.amazonaws.com/prod";
+
+  const currentUploadsUrl = String(cfg.uploadsApiUrl || "").trim();
+
+  const isBadUploadsUrl =
+    !currentUploadsUrl ||
+    BAD_UPLOAD_HOSTS.some((host) => currentUploadsUrl.includes(host));
+
+  if (isBadUploadsUrl) {
+    if (jsonUploadsUrl && !BAD_UPLOAD_HOSTS.some((h) => jsonUploadsUrl.includes(h))) {
+      cfg.uploadsApiUrl = jsonUploadsUrl.trim();
+    } else {
+      cfg.uploadsApiUrl = FALLBACK_UPLOADS_API_URL;
+    }
   }
 
   return cfg;
@@ -151,7 +185,10 @@ export async function getIdToken() {
       SA?.auth?.tokens?.()?.idToken?.toString?.() ||
       SA?.tokens?.idToken?.toString?.();
     if (tok) return String(tok);
-  } catch {}
+  } catch (e) {
+    // Swallow – we'll fall back to localStorage/sessionStorage
+    console.warn("[SA] getIdToken via SA failed, falling back to storage", e);
+  }
   return readToken("id_token");
 }
 
@@ -205,7 +242,6 @@ export async function handleCallbackIfPresent() {
 
   try {
     await exchangeCodeForTokens();
-    // After successful login, go "home"
     window.history.replaceState({}, "", homeUri());
   } catch (e) {
     console.error("[SA] Callback error:", e);
@@ -260,12 +296,17 @@ export function clearTokens() {
   ["id_token", "access_token", "refresh_token", "token_exp_at"].forEach((k) => {
     try {
       sessionStorage.removeItem(k);
-    } catch {}
+    } catch (e) {
+      // Ignore storage errors (private mode, etc.)
+      console.warn("[SA] sessionStorage remove failed", k, e);
+    }
   });
   ["sa_id_token", "sa_access_token", "sa_refresh_token"].forEach((k) => {
     try {
       localStorage.removeItem(k);
-    } catch {}
+    } catch (e) {
+      console.warn("[SA] localStorage remove failed", k, e);
+    }
   });
 }
 
@@ -284,9 +325,17 @@ export const Auth = {
 /**
  * Build a public URL for an existing object key (no GET presign).
  *
- * The uploads API's /presign endpoint is now POST-only for uploads,
- * so previews should just construct a URL using the configured CDN
- * or S3 bucket instead of calling /presign?method=GET.
+ * Strategy:
+ *   1. If key is already a full URL, return it as-is.
+ *   2. Otherwise, build "<baseUrl>/<key>" where baseUrl comes from config:
+ *        thumbsCdn / uploadsCdn / uploadsUrl / uploadsOrigin / assetsBaseUrl /
+ *        mediaBaseUrl / webBucketOrigin
+ *   3. If there is no baseUrl, fall back to standard S3 URL:
+ *        https://<bucket>.s3.<region>.amazonaws.com/<key>
+ *
+ * NOTE:
+ *   - We do NOT force a CloudFront domain here; that must come from config.
+ *   - We URL-encode each path segment, not the whole key (no "%2F" issues).
  */
 export async function getSignedGetUrl(key) {
   if (!key) return null;
@@ -296,11 +345,21 @@ export async function getSignedGetUrl(key) {
     return String(key);
   }
 
-  const SA = await getSA().catch(() => undefined);
-  const cfg = readCfg(SA);
+  const SA = await getSA().catch((e) => {
+    console.warn("[getSignedGetUrl] getSA failed, continuing with window cfg", e);
+    return undefined;
+  });
+
+  const cfg = readCfg(SA || {});
   const cleanedKey = String(key).replace(/^\/+/, "");
 
-  // Prefer a CDN / base URL if present
+  // Encode each segment but keep "/" as a path separator
+  const encodedKey = cleanedKey
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+
+  // Prefer any explicit CDN / uploads base URL from config
   const baseUrl = (
     cfg.thumbsCdn ||
     cfg.uploadsCdn ||
@@ -313,7 +372,7 @@ export async function getSignedGetUrl(key) {
   ).replace(/\/+$/, "");
 
   if (baseUrl) {
-    return `${baseUrl}/${encodeURIComponent(cleanedKey)}`;
+    return `${baseUrl}/${encodedKey}`;
   }
 
   // Fallback: construct standard S3 URL from bucket + region
@@ -335,9 +394,7 @@ export async function getSignedGetUrl(key) {
     return null;
   }
 
-  return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURIComponent(
-    cleanedKey,
-  )}`;
+  return `https://${bucket}.s3.${region}.amazonaws.com/${encodedKey}`;
 }
 
 /**
@@ -348,8 +405,9 @@ export async function getSignedGetUrl(key) {
  */
 export async function signedUpload(fileOrText, opts = {}) {
   // Prefer native helper exposed by public/sa.js if present
-  if (typeof window.signedUpload === "function")
+  if (typeof window.signedUpload === "function") {
     return window.signedUpload(fileOrText, opts);
+  }
 
   const SA = await getSA();
   const cfg = readCfg(SA);
@@ -462,8 +520,9 @@ export async function dailyLoginOnce() {
     );
     localStorage.setItem(DAILY_KEY, today);
     return true;
-  } catch {
-    return false; // non-fatal if not signed in yet
+  } catch (e) {
+    console.warn("[SA] dailyLoginOnce failed (non-fatal)", e);
+    return false;
   }
 }
 
@@ -566,7 +625,8 @@ function parseJwt(t) {
   try {
     const [, payload] = String(t || "").split(".");
     return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-  } catch {
+  } catch (e) {
+    console.warn("[SA] parseJwt failed", e);
     return {};
   }
 }
@@ -605,6 +665,7 @@ async function directGraphql(query, variables) {
 async function readyCompat() {
   // Best-effort wait until config + token exist
   const start = Date.now();
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const idTok = await getIdToken();
     const appsyncUrl =
