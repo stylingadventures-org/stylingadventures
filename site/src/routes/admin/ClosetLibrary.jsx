@@ -1,5 +1,9 @@
+// site/src/routes/admin/ClosetLibrary.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { getSignedGetUrl } from "../../lib/sa";
+
+// IMPORTANT: fallback public CDN for raw uploads (same as fan feed)
+const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
 
 const GQL = {
   list: /* GraphQL */ `
@@ -47,7 +51,6 @@ const GQL = {
       adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
         id
         status
-        reason
         updatedAt
       }
     }
@@ -89,6 +92,16 @@ const GQL = {
       ) {
         id
         pinned
+      }
+    }
+  `,
+  // NEW: publish approved looks to the fan closet
+  publish: /* GraphQL */ `
+    mutation AdminPublishItem($closetItemId: ID!) {
+      adminPublishClosetItem(closetItemId: $closetItemId) {
+        id
+        status
+        updatedAt
       }
     }
   `,
@@ -183,6 +196,12 @@ function humanStatusLabel(item) {
   if (status === "PENDING" && hasCutout) {
     return "ready to review";
   }
+  if (status === "APPROVED") {
+    return "approved";
+  }
+  if (status === "PUBLISHED") {
+    return "live in fan closet";
+  }
   return status.toLowerCase();
 }
 
@@ -231,13 +250,33 @@ export default function ClosetLibrary() {
         rawItems.map(async (item) => {
           const key = effectiveKey(item);
           if (!key) return item;
+
+          let url = null;
+
           try {
-            const url = await getSignedGetUrl(key);
-            return { ...item, mediaUrl: url || null };
+            url = await getSignedGetUrl(key);
           } catch (e) {
-            console.warn("[ClosetLibrary] getSignedGetUrl failed", e);
-            return item;
+            console.warn(
+              "[ClosetLibrary] getSignedGetUrl failed, falling back to public CDN",
+              e,
+            );
           }
+
+          if (!url && PUBLIC_UPLOADS_CDN) {
+  const encodedKey = String(key)
+    .replace(/^\/+/, "") // no leading slash
+    .split("/")          // keep path segments
+    .map(encodeURIComponent)
+    .join("/");
+
+  url =
+    PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") +
+    "/" +
+    encodedKey;
+}
+
+
+          return { ...item, mediaUrl: url || null };
         }),
       );
 
@@ -327,7 +366,7 @@ export default function ClosetLibrary() {
   async function approveItem(item) {
     if (
       !window.confirm(
-        "Approve this look and make it eligible for the fan closet?",
+        "Approve this look so it’s ready to publish to the fan closet?",
       )
     ) {
       return;
@@ -350,6 +389,31 @@ export default function ClosetLibrary() {
     } catch (e) {
       console.error(e);
       alert(e?.message || "Failed to approve item.");
+      setBusyId(null);
+    }
+  }
+
+  async function publishItem(item) {
+    if (
+      !window.confirm(
+        "Publish this look so it appears in the public fan closet feed?",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setBusyId(item.id);
+      await window.sa.graphql(GQL.publish, {
+        closetItemId: item.id,
+      });
+
+      await loadItems();
+      setSelected(null);
+      setDrawerDraft(null);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Failed to publish item.");
       setBusyId(null);
     }
   }
@@ -829,6 +893,17 @@ export default function ClosetLibrary() {
                           </button>
                         )}
 
+                        {item.status === "APPROVED" && (
+                          <button
+                            type="button"
+                            className="closet-grid-link"
+                            disabled={isBusy}
+                            onClick={() => publishItem(item)}
+                          >
+                            {isBusy ? "Working…" : "Publish"}
+                          </button>
+                        )}
+
                         {item.status !== "REJECTED" && (
                           <button
                             type="button"
@@ -844,7 +919,9 @@ export default function ClosetLibrary() {
                           type="button"
                           className="closet-grid-link closet-grid-link--danger"
                           disabled={isBusy}
-                          onClick={() => rejectItem(item, { deleteMode: true })}
+                          onClick={() =>
+                            rejectItem(item, { deleteMode: true })
+                          }
                         >
                           {isBusy ? "Working…" : "Delete"}
                         </button>
@@ -1064,6 +1141,17 @@ export default function ClosetLibrary() {
                         onClick={() => approveItem(selected)}
                       >
                         {busyId === selected.id ? "Saving…" : "Approve"}
+                      </button>
+                    )}
+
+                    {selected.status === "APPROVED" && (
+                      <button
+                        type="button"
+                        className="sa-btn closet-drawer-approve"
+                        disabled={busyId === selected.id}
+                        onClick={() => publishItem(selected)}
+                      >
+                        {busyId === selected.id ? "Saving…" : "Publish"}
                       </button>
                     )}
 

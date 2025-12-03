@@ -12,6 +12,9 @@ import {
 
 const BUCKET = process.env.BUCKET!;
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "https://stylingadventures.com";
+
+// Comma-separated list of allowed origins, e.g.
+// "https://d3fbghr37bcpbig.cloudfront.net,http://localhost:5173"
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? WEB_ORIGIN)
   .split(",")
   .map((s) => s.trim())
@@ -31,7 +34,22 @@ type AnyEvent = APIGatewayProxyEventV2 & { requestContext: any };
 function resolveOrigin(event: AnyEvent): string {
   const hdrs = event.headers || {};
   const reqOrigin = (hdrs.origin || hdrs.Origin || "").trim();
-  if (reqOrigin && ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
+  if (!reqOrigin) return WEB_ORIGIN;
+
+  // 🔓 Dev convenience: always allow localhost / 127.0.0.1
+  if (
+    reqOrigin.startsWith("http://localhost") ||
+    reqOrigin.startsWith("http://127.0.0.1")
+  ) {
+    return reqOrigin;
+  }
+
+  // Normal prod path: only if explicitly allowed
+  if (ALLOWED_ORIGINS.includes(reqOrigin)) {
+    return reqOrigin;
+  }
+
+  // Fallback to main web origin
   return WEB_ORIGIN;
 }
 
@@ -82,7 +100,7 @@ function parseBody<T = any>(event: AnyEvent): T | undefined {
 function ok(
   headers: Record<string, string>,
   body: any,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
 ): APIGatewayProxyResultV2 {
   return {
     statusCode: 200,
@@ -94,7 +112,7 @@ function ok(
 function err(
   headers: Record<string, string>,
   statusCode: number,
-  message: string
+  message: string,
 ): APIGatewayProxyResultV2 {
   return {
     statusCode,
@@ -106,7 +124,7 @@ function err(
 // ----- handler -----
 
 export const handler = async (
-  event: AnyEvent
+  event: AnyEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const origin = resolveOrigin(event);
   const headers = makeBaseHeaders(origin);
@@ -213,7 +231,7 @@ export const handler = async (
         new DeleteObjectCommand({
           Bucket: BUCKET,
           Key: key,
-        })
+        }),
       );
 
       return ok(headers, { deleted: key });

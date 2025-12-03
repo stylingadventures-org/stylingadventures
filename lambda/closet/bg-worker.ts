@@ -19,13 +19,12 @@ const s3 = new S3Client({});
 const {
   TABLE_NAME = "",
   RAW_MEDIA_GSI_NAME = "rawMediaKeyIndex",
-  REMOVE_BG_API_KEY = "",
+  REMOVE_BG_API_KEY,
   OUTPUT_BUCKET = "",
 } = process.env;
 
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
 if (!RAW_MEDIA_GSI_NAME) throw new Error("Missing env: RAW_MEDIA_GSI_NAME");
-if (!REMOVE_BG_API_KEY) throw new Error("Missing env: REMOVE_BG_API_KEY");
 
 const REMOVE_BG_URL = "https://api.remove.bg/v1.0/removebg";
 
@@ -66,14 +65,30 @@ async function bufferFromS3(
 
 /**
  * Call remove.bg with the image as base64 and return the cutout buffer.
+ * If no API key is configured, just return the original buffer.
  */
-async function callRemoveBg(imageB64: string): Promise<Buffer> {
+async function callRemoveBgOrStub(imageB64: string): Promise<{
+  buf: Buffer;
+  status: string;
+  contentType: string;
+}> {
+  if (!REMOVE_BG_API_KEY) {
+    console.warn(
+      "[bg-worker] REMOVE_BG_API_KEY not set – using original image as cutout"
+    );
+    return {
+      buf: Buffer.from(imageB64, "base64"),
+      status: "SKIPPED",
+      contentType: "image/png",
+    };
+  }
+
   console.log("[bg-worker] Calling remove.bg");
 
   const params = new URLSearchParams();
   params.set("image_file_b64", imageB64);
   params.set("size", "auto");
-  params.set("format", "png"); // always get PNG with alpha
+  params.set("format", "png"); // always PNG with alpha
 
   const res = await fetch(REMOVE_BG_URL, {
     method: "POST",
@@ -98,32 +113,77 @@ async function callRemoveBg(imageB64: string): Promise<Buffer> {
   }
 
   const arrayBuf = await res.arrayBuffer();
-  return Buffer.from(arrayBuf);
+  return {
+    buf: Buffer.from(arrayBuf),
+    status: "DONE",
+    contentType: "image/png",
+  };
 }
 
 /**
- * Process one S3 object: find the closet item, remove background, update Dynamo.
+ * Try to find a closet item by rawMediaKey, being tolerant of small key differences.
+ */
+async function findClosetItemByRawKey(rawKey: string) {
+  // Try several common variants:
+  const candidates = Array.from(
+    new Set([
+      rawKey,
+      // add a leading slash
+      "/" + rawKey.replace(/^\/+/, ""),
+      // strip leading slash
+      rawKey.replace(/^\/+/, ""),
+      // strip "public/" prefix
+      rawKey.replace(/^public\//, ""),
+      // strip leading slash + "public/"
+      rawKey.replace(/^\/?public\//, ""),
+    ])
+  );
+
+  console.log("[bg-worker] Looking up closet item by rawMediaKey", {
+    rawKey,
+    candidates,
+  });
+
+  for (const candidate of candidates) {
+    const q = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: RAW_MEDIA_GSI_NAME,
+        KeyConditionExpression: "rawMediaKey = :k",
+        ExpressionAttributeValues: { ":k": S(candidate) },
+        Limit: 1,
+      })
+    );
+
+    const item = q.Items?.[0];
+    if (item) {
+      console.log("[bg-worker] Found closet item for candidate key", {
+        candidate,
+        pk: item.pk?.S,
+        sk: item.sk?.S,
+        id: item.id?.S,
+      });
+      return item;
+    }
+  }
+
+  console.warn(
+    "[bg-worker] No closet item found for any rawMediaKey candidate",
+    candidates
+  );
+  return null;
+}
+
+/**
+ * Process one S3 object: find the closet item, remove background (or stub),
+ * update Dynamo.
  */
 async function processRecord(bucket: string, key: string): Promise<void> {
   console.log("[bg-worker] Processing record", { bucket, key });
 
-  // Look up closet item by rawMediaKey
-  const q = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: RAW_MEDIA_GSI_NAME,
-      KeyConditionExpression: "rawMediaKey = :k",
-      ExpressionAttributeValues: { ":k": S(key) },
-      Limit: 1,
-    })
-  );
-
-  const item = q.Items?.[0];
+  const item = await findClosetItemByRawKey(key);
   if (!item) {
-    console.warn(
-      "[bg-worker] No closet item found for rawMediaKey",
-      key
-    );
+    // Nothing to do; we already logged.
     return;
   }
 
@@ -136,14 +196,31 @@ async function processRecord(bucket: string, key: string): Promise<void> {
     return;
   }
 
-  console.log("[bg-worker] Found closet item", { id, pk, sk });
+  console.log("[bg-worker] Using closet item", { id, pk, sk });
 
   // Download original
-  const { buf } = await bufferFromS3(bucket, key);
+  const { buf, contentType } = await bufferFromS3(bucket, key);
   const imgB64 = buf.toString("base64");
 
-  // Call remove.bg
-  const cutoutBuf = await callRemoveBg(imgB64);
+  // Try to remove bg; fall back to original on error.
+  let cutoutBuf: Buffer;
+  let bgStatus = "DONE";
+  let outContentType = "image/png";
+
+  try {
+    const res = await callRemoveBgOrStub(imgB64);
+    cutoutBuf = res.buf;
+    bgStatus = res.status;
+    outContentType = res.contentType || contentType || "image/png";
+  } catch (err) {
+    console.error(
+      "[bg-worker] Background removal failed, falling back to original image",
+      err
+    );
+    cutoutBuf = buf;
+    bgStatus = "FAILED_FALLBACK_ORIGINAL";
+    outContentType = contentType || "image/png";
+  }
 
   // Decide where to store the cutout
   const outBucket = OUTPUT_BUCKET || bucket;
@@ -160,21 +237,23 @@ async function processRecord(bucket: string, key: string): Promise<void> {
       Bucket: outBucket,
       Key: cutoutKey,
       Body: cutoutBuf,
-      ContentType: "image/png",
+      ContentType: outContentType,
       ACL: "private",
     })
   );
 
-  // Update Dynamo row with mediaKey
+  // Update Dynamo row with mediaKey + backgroundStatus
   const updatedAt = nowIso();
   await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
       Key: { pk: S(pk), sk: S(sk) },
-      UpdateExpression: "SET mediaKey = :m, updatedAt = :u",
+      UpdateExpression:
+        "SET mediaKey = :m, updatedAt = :u, backgroundStatus = :s",
       ExpressionAttributeValues: {
         ":m": S(cutoutKey),
         ":u": S(updatedAt),
+        ":s": S(bgStatus),
       },
     })
   );
@@ -182,6 +261,7 @@ async function processRecord(bucket: string, key: string): Promise<void> {
   console.log("[bg-worker] Updated item with mediaKey", {
     id,
     mediaKey: cutoutKey,
+    backgroundStatus: bgStatus,
   });
 }
 

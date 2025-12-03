@@ -4,6 +4,10 @@ import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
 import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
 
+// IMPORTANT: fallback public CDN for raw uploads
+// (from your earlier CORS message / CloudFront config)
+const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
+
 // Full query – tries viewerHasFaved when available, using ClosetConnection
 const GQL_FEED_FULL = /* GraphQL */ `
   query ClosetFeedSimple($sort: ClosetFeedSort, $limit: Int, $nextToken: String) {
@@ -51,10 +55,10 @@ const GQL_FEED_LEGACY = /* GraphQL */ `
   }
 `;
 
-// Fallback: use admin list of approved items if closetFeed is empty
+// Fallback: use admin list of *published* items if closetFeed is empty
 const GQL_ADMIN_FALLBACK = /* GraphQL */ `
   query AdminListClosetItemsForFeed {
-    adminListClosetItems(status: APPROVED, limit: 100) {
+    adminListClosetItems(status: PUBLISHED, limit: 100) {
       items {
         id
         title
@@ -154,7 +158,7 @@ export default function ClosetFeed() {
   const query = useQuery();
   const highlightId = query.get("highlight");
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {
@@ -220,13 +224,10 @@ export default function ClosetFeed() {
           raw = cf.items;
         }
 
-        // Fallback: if closetFeed is empty or failed, try admin list of APPROVED
+        // Fallback: if closetFeed is empty or failed, try admin list of PUBLISHED
         if (!raw.length) {
           try {
-            const adminRes = await window.sa.graphql(
-              GQL_ADMIN_FALLBACK,
-              {},
-            );
+            const adminRes = await window.sa.graphql(GQL_ADMIN_FALLBACK, {});
             const adminItems = adminRes?.adminListClosetItems?.items ?? [];
             if (adminItems.length) {
               raw = adminItems;
@@ -245,13 +246,13 @@ export default function ClosetFeed() {
           throw lastError;
         }
 
-        // Visibility filter – allow APPROVED/PUBLISHED (or unknown),
-        // hide obvious non-fan states and admin-only/hide audiences.
+        // Visibility filter – ONLY PUBLISHED items,
+        // and hide obvious non-fan states and admin-only/hide audiences.
         const visible = raw.filter((it) => {
           const status = (it.status || "").toUpperCase();
 
-          if (status === "REJECTED" || status === "DRAFT") return false;
-          if (status === "PENDING") return false;
+          // enforce published-only feed
+          if (status !== "PUBLISHED") return false;
 
           const audience = (it.audience || "").toUpperCase();
           if (audience === "HIDDEN" || audience === "ADMIN_ONLY") {
@@ -277,17 +278,30 @@ export default function ClosetFeed() {
           };
         });
 
-        // Hydrate S3 URLs
+        // Hydrate S3 / CDN URLs with a robust fallback
         const hydrated = await Promise.all(
           withKeys.map(async (it) => {
             if (!it.effectiveKey) return it;
+
+            let url = null;
+
             try {
-              const url = await getSignedGetUrl(it.effectiveKey);
-              return { ...it, mediaUrl: url || null };
+              url = await getSignedGetUrl(it.effectiveKey);
             } catch (e) {
-              console.warn("[ClosetFeed] getSignedGetUrl failed", e);
-              return it;
+              console.warn(
+                "[ClosetFeed] getSignedGetUrl failed, falling back to public CDN",
+                e,
+              );
             }
+
+            if (!url && PUBLIC_UPLOADS_CDN) {
+              url =
+                PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") +
+                "/" +
+                encodeURIComponent(it.effectiveKey);
+            }
+
+            return { ...it, mediaUrl: url || null };
           }),
         );
 
@@ -441,7 +455,7 @@ export default function ClosetFeed() {
                 <p className="closet-hero__stat-label">Closet mood</p>
                 <p className="closet-hero__stat-value">Pastel Barbiecore</p>
                 <p className="closet-hero__stat-sub">
-                  New looks will appear here as Lala&apos;s team approves
+                  New looks will appear here as Lala&apos;s team publishes
                   uploads.
                 </p>
                 <Link
@@ -524,7 +538,7 @@ export default function ClosetFeed() {
               <span role="img" aria-label="empty closet">
                 🧺
               </span>{" "}
-              No approved closet items yet. Style Lala in the{" "}
+              No published closet items yet. Style Lala in the{" "}
               <Link to="/fan/closet">Style Lab</Link> and submit your looks for
               review to see them appear here.
             </div>

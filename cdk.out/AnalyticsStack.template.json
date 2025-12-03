@@ -325,7 +325,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "f7d3164e3d3ffcdafdb2638c7cd2b8fa97faf96982e7cffe884afac7c674f5c0.zip"
+     "S3Key": "591325769762c9c20260e54ea33afb9ced0901b84d4ea5990945dddabf1088de.zip"
     },
     "Environment": {
      "Variables": {
@@ -364,7 +364,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "AnalyticsStack/AnalyticsIngestFn/Resource",
-    "aws:asset:path": "asset.f7d3164e3d3ffcdafdb2638c7cd2b8fa97faf96982e7cffe884afac7c674f5c0",
+    "aws:asset:path": "asset.591325769762c9c20260e54ea33afb9ced0901b84d4ea5990945dddabf1088de",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
