@@ -161,11 +161,52 @@ const SUBCATEGORY_BY_CATEGORY = {
   Beauty: ["Perfume", "Body mist", "Lip product", "Face", "Eyes"],
 };
 
-/** Prefer cleaned mediaKey; fallback to rawMediaKey if cutout not ready. */
+// Use cleaned mediaKey if present, otherwise rawMediaKey.
 function effectiveKey(item) {
   const k = item.mediaKey || item.rawMediaKey || null;
   if (!k) return null;
   return String(k).replace(/^\/+/, "");
+}
+
+/**
+ * Build mediaUrl per item using signed URL, with fallback to S3 bucket
+ * AND automatic closet/ prefix insertion.
+ */
+async function hydrateItems(items) {
+  return Promise.all(
+    items.map(async (item) => {
+      const key = effectiveKey(item);
+      if (!key) return item;
+
+      let url = null;
+
+      try {
+        url = await getSignedGetUrl(key);
+      } catch (err) {
+        console.warn("[ClosetUpload] getSignedGetUrl failed → fallback", err);
+      }
+
+      if (!url && PUBLIC_UPLOADS_CDN) {
+        let fallbackKey = key.replace(/^\/+/, "");
+
+        // ensure closet/ prefix for all fallback URLs
+        if (!fallbackKey.startsWith("closet/")) {
+          fallbackKey = `closet/${fallbackKey}`;
+        }
+
+        const encodedKey = fallbackKey
+          .split("/")
+          .map((seg) => encodeURIComponent(seg))
+          .join("/");
+
+        url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
+
+        console.log("[ClosetUpload] Fallback URL built:", url);
+      }
+
+      return { ...item, mediaUrl: url || null };
+    })
+  );
 }
 
 function humanStatusLabel(item) {
@@ -246,7 +287,7 @@ export default function ClosetUpload() {
     setFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name + f.size));
       const unique = Array.from(newFiles).filter(
-        (f) => !existingNames.has(f.name + f.size),
+        (f) => !existingNames.has(f.name + f.size)
       );
       return [...prev, ...unique];
     });
@@ -346,11 +387,11 @@ export default function ClosetUpload() {
           results.push(
             `✔ Created “${created.title}” (status: ${
               created.status
-            }) at ${new Date(created.createdAt).toLocaleString()}`,
+            }) at ${new Date(created.createdAt).toLocaleString()}`
           );
         } else {
           results.push(
-            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`,
+            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`
           );
         }
       }
@@ -358,7 +399,7 @@ export default function ClosetUpload() {
       setUploadMsg(
         `Finished uploading ${total} item${
           total > 1 ? "s" : ""
-        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`,
+        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`
       );
       setUploadDetails(results);
 
@@ -418,36 +459,7 @@ export default function ClosetUpload() {
         return tb - ta;
       });
 
-      const hydrated = await Promise.all(
-  merged.map(async (item) => {
-    const key = effectiveKey(item);
-    if (!key) return item;
-
-    let url = null;
-
-    try {
-      url = await getSignedGetUrl(key);
-    } catch (e) {
-      console.warn(
-        "[ClosetUpload] getSignedGetUrl failed, falling back to public CDN",
-        e,
-      );
-    }
-
-    if (!url && PUBLIC_UPLOADS_CDN) {
-      const cleanedKey = String(key).replace(/^\/+/, "");
-      const encodedKey = cleanedKey
-        .split("/")
-        .map((seg) => encodeURIComponent(seg))
-        .join("/");
-      url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
-    }
-
-    console.log("[ClosetUpload] mediaUrl for item", item.id, "=>", url);
-
-    return { ...item, mediaUrl: url || null };
-  }),
-);
+      const hydrated = await hydrateItems(merged);
 
       setItems(hydrated);
       setLastUpdatedAt(Date.now());
@@ -510,7 +522,7 @@ export default function ClosetUpload() {
   async function handleDelete(id) {
     if (
       !window.confirm(
-        "Delete (reject) this closet item? This cannot be undone.",
+        "Delete (reject) this closet item? This cannot be undone."
       )
     ) {
       return;
@@ -531,7 +543,7 @@ export default function ClosetUpload() {
 
   function updateLocalAudience(id, audience) {
     setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, audience } : it)),
+      prev.map((it) => (it.id === id ? { ...it, audience } : it))
     );
   }
 
@@ -604,7 +616,7 @@ export default function ClosetUpload() {
 
   return (
     <div className="closet-admin-page">
-      <style>{styles}</style>
+      <style>{closetUploadStyles}</style>
 
       {/* Header banner */}
       <header className="closet-admin-header">
@@ -1036,7 +1048,7 @@ export default function ClosetUpload() {
                               <span className="closet-grid-audience">
                                 {item.audience
                                   ? AUDIENCE_OPTIONS.find(
-                                      (o) => o.value === item.audience,
+                                      (o) => o.value === item.audience
                                     )?.label || item.audience
                                   : "Fan / Bestie"}
                               </span>
@@ -1061,7 +1073,7 @@ export default function ClosetUpload() {
                               <span className="closet-grid-date">
                                 {item.createdAt
                                   ? new Date(
-                                      item.createdAt,
+                                      item.createdAt
                                     ).toLocaleDateString()
                                   : "—"}
                               </span>
@@ -1072,7 +1084,7 @@ export default function ClosetUpload() {
                                   onClick={() =>
                                     window.open(
                                       `/fan/closet-feed?highlight=${item.id}`,
-                                      "_blank",
+                                      "_blank"
                                     )
                                   }
                                 >
@@ -1193,14 +1205,14 @@ export default function ClosetUpload() {
                             <span className="closet-grid-audience pill-soft">
                               {item.audience
                                 ? AUDIENCE_OPTIONS.find(
-                                    (o) => o.value === item.audience,
+                                    (o) => o.value === item.audience
                                   )?.label || item.audience
                                 : "Fan + Bestie"}
                             </span>
                             <span className="closet-grid-date">
                               {item.createdAt
                                 ? new Date(
-                                    item.createdAt,
+                                    item.createdAt
                                   ).toLocaleDateString()
                                 : "Recently"}
                             </span>
@@ -1283,7 +1295,7 @@ export default function ClosetUpload() {
   );
 }
 
-const styles = /* css */ `
+const closetUploadStyles = /* css */ `
 .closet-admin-page {
   max-width: 1120px;
   margin: 0 auto;

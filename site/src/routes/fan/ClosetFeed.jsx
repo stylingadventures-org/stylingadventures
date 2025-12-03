@@ -295,10 +295,14 @@ export default function ClosetFeed() {
             }
 
             if (!url && PUBLIC_UPLOADS_CDN) {
+              const cleanedKey = String(it.effectiveKey).replace(/^\/+/, "");
+              const encodedKey = cleanedKey
+                .split("/")
+                .map((seg) => encodeURIComponent(seg))
+                .join("/");
+
               url =
-                PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") +
-                "/" +
-                encodeURIComponent(it.effectiveKey);
+                PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
             }
 
             return { ...it, mediaUrl: url || null };
