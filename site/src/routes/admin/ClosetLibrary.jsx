@@ -2,8 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getSignedGetUrl } from "../../lib/sa";
 
-// IMPORTANT: fallback public CDN for raw uploads (same as fan feed)
-const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
+// IMPORTANT: fallback public CDN for raw uploads (same as fan feed + admin upload)
+const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
 
 const GQL = {
   list: /* GraphQL */ `
@@ -31,6 +31,8 @@ const GQL = {
           createdAt
           updatedAt
           ownerSub
+          scheduledAt
+          episodeIds
         }
         nextToken
       }
@@ -43,6 +45,7 @@ const GQL = {
         status
         updatedAt
         audience
+        episodeIds
       }
     }
   `,
@@ -52,6 +55,7 @@ const GQL = {
         id
         status
         updatedAt
+        episodeIds
       }
     }
   `,
@@ -64,34 +68,33 @@ const GQL = {
         id
         audience
         updatedAt
+        episodeIds
       }
     }
   `,
-  // update title / category / subcategory / coinValue
+  // update title / category / subcategory / coinValue / scheduledAt / episodeIds
   updateMeta: /* GraphQL */ `
-    mutation AdminUpdateClosetItem(
-      $id: ID!
-      $input: AdminUpdateClosetItemInput!
-    ) {
-      adminUpdateClosetItem(closetItemId: $id, input: $input) {
+    mutation AdminUpdateClosetItem($input: AdminUpdateClosetItemInput!) {
+      adminUpdateClosetItem(input: $input) {
         id
         title
         category
         subcategory
         coinValue
+        scheduledAt
         updatedAt
+        episodeIds
       }
     }
   `,
-  // Lala's picks: pin/unpin via adminUpdateClosetItem
+  // Lala's picks: pin/unpin (same underlying mutation)
   pinHighlight: /* GraphQL */ `
-    mutation AdminPinClosetItem($closetItemId: ID!, $pinned: Boolean!) {
-      adminUpdateClosetItem(
-        closetItemId: $closetItemId
-        input: { pinned: $pinned }
-      ) {
+    mutation AdminPinClosetItem($input: AdminUpdateClosetItemInput!) {
+      adminUpdateClosetItem(input: $input) {
         id
         pinned
+        scheduledAt
+        episodeIds
       }
     }
   `,
@@ -102,6 +105,8 @@ const GQL = {
         id
         status
         updatedAt
+        scheduledAt
+        episodeIds
       }
     }
   `,
@@ -117,13 +122,13 @@ const STATUS_OPTIONS = [
 
 const AUDIENCE_OPTIONS = [
   { value: "PUBLIC", label: "Fan + Bestie" },
-  { value: "BESTIE", label: "Bestie only" },
+  { value: "BESTIES", label: "Bestie only" },
   { value: "EXCLUSIVE", label: "Exclusive drop" },
 ];
 
 const AUDIENCE_LABELS = {
   PUBLIC: "Fan + Bestie",
-  BESTIE: "Bestie only",
+  BESTIES: "Bestie only",
   EXCLUSIVE: "Exclusive drop",
 };
 
@@ -186,6 +191,48 @@ function effectiveKey(item) {
   return String(k).replace(/^\/+/, "");
 }
 
+/**
+ * Build mediaUrl per item using signed URL, with fallback to public CDN.
+ * IMPORTANT: we do NOT mutate/guess the key (no auto "closet/" prefix).
+ * We just trust the key from mediaKey/rawMediaKey.
+ */
+async function hydrateItems(items) {
+  return Promise.all(
+    items.map(async (item) => {
+      const key = effectiveKey(item);
+      if (!key) return item;
+
+      let url = null;
+
+      try {
+        url = await getSignedGetUrl(key);
+        if (url) {
+          console.log("[ClosetLibrary] signed URL ok", { key, url });
+        }
+      } catch (e) {
+        console.warn("[ClosetLibrary] getSignedGetUrl failed → fallback", {
+          key,
+          error: e,
+        });
+      }
+
+      if (!url && PUBLIC_UPLOADS_CDN) {
+        const encodedKey = String(key)
+          .replace(/^\/+/, "") // remove leading slashes only
+          .split("/")
+          .map((seg) => encodeURIComponent(seg))
+          .join("/");
+
+        url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
+
+        console.log("[ClosetLibrary] Fallback URL built", { key, url });
+      }
+
+      return { ...item, mediaUrl: url || null };
+    })
+  );
+}
+
 function humanStatusLabel(item) {
   const status = item.status || "UNKNOWN";
   const hasCutout = !!item.mediaKey;
@@ -207,6 +254,26 @@ function humanStatusLabel(item) {
 
 function getSubcategories(category) {
   return SUBCATEGORY_BY_CATEGORY[category] || [];
+}
+
+// Helpers for mapping AWSDateTime ⇄ <input type="date/time">
+function toDateInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function toTimeInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${min}`;
 }
 
 export default function ClosetLibrary() {
@@ -246,39 +313,7 @@ export default function ClosetLibrary() {
         rawItems = rawItems.filter((i) => i.status !== "REJECTED");
       }
 
-      const hydrated = await Promise.all(
-        rawItems.map(async (item) => {
-          const key = effectiveKey(item);
-          if (!key) return item;
-
-          let url = null;
-
-          try {
-            url = await getSignedGetUrl(key);
-          } catch (e) {
-            console.warn(
-              "[ClosetLibrary] getSignedGetUrl failed, falling back to public CDN",
-              e,
-            );
-          }
-
-          if (!url && PUBLIC_UPLOADS_CDN) {
-  const encodedKey = String(key)
-    .replace(/^\/+/, "") // no leading slash
-    .split("/")          // keep path segments
-    .map(encodeURIComponent)
-    .join("/");
-
-  url =
-    PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") +
-    "/" +
-    encodedKey;
-}
-
-
-          return { ...item, mediaUrl: url || null };
-        }),
-      );
+      const hydrated = await hydrateItems(rawItems);
 
       hydrated.sort((a, b) => {
         const ta = new Date(a.createdAt || 0).getTime();
@@ -302,6 +337,9 @@ export default function ClosetLibrary() {
               updated.coinValue === null || updated.coinValue === undefined
                 ? null
                 : updated.coinValue,
+            scheduleDate: toDateInputValue(updated.scheduledAt),
+            scheduleTime: toTimeInputValue(updated.scheduledAt),
+            episodesText: (updated.episodeIds || []).join(", "),
           });
         }
       }
@@ -309,7 +347,7 @@ export default function ClosetLibrary() {
       console.error(e);
       setError(
         e?.message ||
-          "Failed to load closet items. Check GraphQL / adminListClosetItems.",
+          "Failed to load closet items. Check GraphQL / adminListClosetItems."
       );
     } finally {
       setLoading(false);
@@ -361,12 +399,32 @@ export default function ClosetLibrary() {
     STATUS_OPTIONS.find((opt) => opt.value === statusFilter)?.label ||
     "All statuses";
 
+  // ----- helpers -----
+
+  function parseEpisodeText(text) {
+    const raw = String(text || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return raw;
+  }
+
+  function episodesEqual(a, b) {
+    const aa = (a || []).map(String);
+    const bb = (b || []).map(String);
+    if (aa.length !== bb.length) return false;
+    for (let i = 0; i < aa.length; i += 1) {
+      if (aa[i] !== bb[i]) return false;
+    }
+    return true;
+  }
+
   // ----- actions -----
 
   async function approveItem(item) {
     if (
       !window.confirm(
-        "Approve this look so it’s ready to publish to the fan closet?",
+        "Approve this look so it’s ready to publish to the fan closet?"
       )
     ) {
       return;
@@ -396,7 +454,7 @@ export default function ClosetLibrary() {
   async function publishItem(item) {
     if (
       !window.confirm(
-        "Publish this look so it appears in the public fan closet feed?",
+        "Publish this look so it appears in the public fan closet feed?"
       )
     ) {
       return;
@@ -489,7 +547,6 @@ export default function ClosetLibrary() {
       input.subcategory = drawerDraft.subcategory || null;
     }
 
-    // coinValue: allow null (no coin value) or non-negative integer
     const selectedCoin =
       selected.coinValue === null || selected.coinValue === undefined
         ? null
@@ -504,21 +561,42 @@ export default function ClosetLibrary() {
       input.coinValue = draftCoin;
     }
 
+    // schedule handling
+    const prevScheduledAt = selected.scheduledAt || null;
+    let nextScheduledAt = null;
+
+    if (drawerDraft.scheduleDate) {
+      const time = drawerDraft.scheduleTime || "00:00";
+      const local = new Date(`${drawerDraft.scheduleDate}T${time}`);
+      if (!Number.isNaN(local.getTime())) {
+        nextScheduledAt = local.toISOString();
+      }
+    }
+
+    if ((nextScheduledAt || null) !== (prevScheduledAt || null)) {
+      input.scheduledAt = nextScheduledAt;
+    }
+
+    // episodes handling
+    const prevEpisodes = (selected.episodeIds || []).map(String);
+    const nextEpisodes = parseEpisodeText(drawerDraft.episodesText);
+
+    if (!episodesEqual(prevEpisodes, nextEpisodes)) {
+      // If empty, send [] to clear links
+      input.episodeIds = nextEpisodes.length ? nextEpisodes : [];
+    }
+
     if (!Object.keys(input).length) {
       return;
     }
 
     try {
       setBusyId(selected.id);
-      await window.sa.graphql(GQL.updateMeta, {
-        id: selected.id,
-        input,
-      });
 
-      setSelected((prev) =>
-        prev && prev.id === selected.id ? { ...prev, ...input } : prev,
-      );
-      setDrawerDraft((prev) => (prev ? { ...prev, ...input } : prev));
+      // 👇 include id inside input
+      await window.sa.graphql(GQL.updateMeta, {
+        input: { id: selected.id, ...input },
+      });
 
       await loadItems();
     } catch (e) {
@@ -537,27 +615,22 @@ export default function ClosetLibrary() {
       setBusyId(selected.id);
 
       const res = await window.sa.graphql(GQL.pinHighlight, {
-        closetItemId: selected.id,
-        pinned: nextPinned,
+        input: { id: selected.id, pinned: nextPinned },
       });
 
       const updated = res?.adminUpdateClosetItem;
       const pinnedValue =
         typeof updated?.pinned === "boolean" ? updated.pinned : nextPinned;
 
-      // Update drawer + grid immediately
       setSelected((prev) =>
-        prev && prev.id === selected.id
-          ? { ...prev, pinned: pinnedValue }
-          : prev,
+        prev && prev.id === selected.id ? { ...prev, pinned: pinnedValue } : prev
       );
       setItems((prev) =>
         prev.map((it) =>
-          it.id === selected.id ? { ...it, pinned: pinnedValue } : it,
-        ),
+          it.id === selected.id ? { ...it, pinned: pinnedValue } : it
+        )
       );
 
-      // Optional: reload from backend to stay in sync
       await loadItems();
     } catch (e) {
       console.error(e);
@@ -577,6 +650,9 @@ export default function ClosetLibrary() {
         item.coinValue === null || item.coinValue === undefined
           ? null
           : item.coinValue,
+      scheduleDate: toDateInputValue(item.scheduledAt),
+      scheduleTime: toTimeInputValue(item.scheduledAt),
+      episodesText: (item.episodeIds || []).join(", "),
     });
   }
 
@@ -584,6 +660,8 @@ export default function ClosetLibrary() {
     setSelected(null);
     setDrawerDraft(null);
   }
+
+  const now = new Date();
 
   return (
     <div className="closet-admin-page closet-library-page">
@@ -777,6 +855,23 @@ export default function ClosetLibrary() {
               const categoryLabel =
                 item.category || (item.subcategory ? "Uncategorized" : "");
 
+              // schedule label
+              let scheduleText = "";
+              if (item.scheduledAt) {
+                const dt = new Date(item.scheduledAt);
+                if (!Number.isNaN(dt.getTime())) {
+                  const localStr = dt.toLocaleString();
+                  if (dt > now) {
+                    scheduleText = `Drops ${localStr}`;
+                  } else {
+                    scheduleText = `Scheduled drop · ${localStr}`;
+                  }
+                }
+              }
+
+              const hasEpisodes =
+                Array.isArray(item.episodeIds) && item.episodeIds.length > 0;
+
               return (
                 <article
                   key={item.id}
@@ -820,6 +915,12 @@ export default function ClosetLibrary() {
                       </span>
                     </div>
 
+                    {scheduleText && (
+                      <div className="closet-grid-schedule">
+                        {scheduleText}
+                      </div>
+                    )}
+
                     {(categoryLabel || item.subcategory || item.pinned) && (
                       <div className="closet-grid-tags">
                         {item.pinned && (
@@ -837,6 +938,17 @@ export default function ClosetLibrary() {
                             {item.subcategory}
                           </span>
                         )}
+                      </div>
+                    )}
+
+                    {hasEpisodes && (
+                      <div className="closet-grid-episodes">
+                        <span className="closet-grid-episodes-label">
+                          Episodes:
+                        </span>
+                        <span className="closet-grid-episodes-list">
+                          {item.episodeIds.join(", ")}
+                        </span>
                       </div>
                     )}
 
@@ -1081,9 +1193,33 @@ export default function ClosetLibrary() {
                             <option key={sub} value={sub}>
                               {sub}
                             </option>
-                          ),
+                          )
                         )}
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Episodes */}
+                  <div className="closet-drawer-field">
+                    <label className="closet-drawer-label">
+                      Episodes (IDs)
+                    </label>
+                    <input
+                      className="sa-input closet-drawer-titleInput"
+                      placeholder="ep-1, ep-2, ep-3"
+                      value={drawerDraft?.episodesText || ""}
+                      disabled={busyId === selected.id}
+                      onChange={(e) =>
+                        setDrawerDraft((prev) => ({
+                          ...prev,
+                          episodesText: e.target.value,
+                        }))
+                      }
+                    />
+                    <div className="closet-drawer-metaText">
+                      Comma-separated list of episode IDs where this look
+                      appears. Example:{" "}
+                      <code>ep-101, ep-102, lala-special-1</code>.
                     </div>
                   </div>
 
@@ -1094,7 +1230,9 @@ export default function ClosetLibrary() {
                       className="sa-input closet-drawer-audienceInput"
                       value={selected.audience || "PUBLIC"}
                       disabled={busyId === selected.id}
-                      onChange={(e) => updateAudience(selected, e.target.value)}
+                      onChange={(e) =>
+                        updateAudience(selected, e.target.value)
+                      }
                     >
                       {AUDIENCE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -1102,6 +1240,54 @@ export default function ClosetLibrary() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Schedule controls */}
+                  <div className="closet-drawer-field">
+                    <label className="closet-drawer-label">
+                      Schedule (optional)
+                    </label>
+                    <div className="closet-drawer-twoCol">
+                      <div>
+                        <input
+                          type="date"
+                          className="sa-input"
+                          value={drawerDraft?.scheduleDate || ""}
+                          disabled={busyId === selected.id}
+                          onChange={(e) =>
+                            setDrawerDraft((prev) => ({
+                              ...prev,
+                              scheduleDate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="time"
+                          className="sa-input"
+                          value={drawerDraft?.scheduleTime || ""}
+                          disabled={busyId === selected.id}
+                          onChange={(e) =>
+                            setDrawerDraft((prev) => ({
+                              ...prev,
+                              scheduleTime: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="closet-drawer-metaText">
+                      Set a date and time for when this look should appear in
+                      Lala&apos;s fan closet feed. Leave blank for immediate
+                      availability.
+                    </div>
+                    {selected.scheduledAt && (
+                      <div className="closet-drawer-metaText">
+                        Currently scheduled for{" "}
+                        {new Date(selected.scheduledAt).toLocaleString()}
+                      </div>
+                    )}
                   </div>
 
                   <div className="closet-drawer-row closet-drawer-row--meta">
@@ -1512,6 +1698,14 @@ const styles = /* css */ `
   color: #6b7280;
 }
 
+/* schedule label */
+
+.closet-grid-schedule {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #4b5563;
+}
+
 /* Category tags */
 
 .closet-grid-tags {
@@ -1537,6 +1731,23 @@ const styles = /* css */ `
 .closet-grid-tag--lala {
   background: #fef3c7;
   color: #92400e;
+}
+
+/* Episodes line */
+
+.closet-grid-episodes {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.closet-grid-episodes-label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.closet-grid-episodes-list {
+  word-break: break-word;
 }
 
 /* Coin pill */
@@ -1654,7 +1865,7 @@ const styles = /* css */ `
 }
 
 .closet-drawer {
-  width: 360px;
+  width: 380px;
   max-width: 90vw;
   background: #fdfbff;
   border-left: 1px solid #e5e7eb;
@@ -1756,11 +1967,94 @@ const styles = /* css */ `
 }
 
 .closet-drawer-audienceInput {
-  max-width: 200px;
+  max-width: 220px;
 }
 
-.closet-drawer-actions {
+/* NEW: drawer header + sections --------------------------- */
+
+.closet-drawer-headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.closet-drawer-headerMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.closet-drawer-headerSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.closet-drawer-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.closet-drawer-sectionHeader h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.closet-drawer-sectionHeader p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.closet-drawer-twoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+@media (max-width: 480px) {
+  .closet-drawer-twoCol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.closet-drawer-unsaved {
   margin-top: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.closet-drawer-section--meta {
+  margin-top: 6px;
+}
+
+/* ACTIONS ROW -------------------------------------------- */
+
+.closet-drawer-actionsRow {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.closet-drawer-actionsRight {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -1793,6 +2087,23 @@ const styles = /* css */ `
   color: #991b1b;
 }
 
+.closet-drawer-save {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #111827;
+}
+
+.closet-drawer-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.closet-drawer-approvePrimary {
+  background: #4ade80;
+  border-color: #22c55e;
+  color: #064e3b;
+}
+
 /* chip button for Lala's pick */
 
 .closet-drawer-chipButton {
@@ -1802,6 +2113,12 @@ const styles = /* css */ `
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.closet-drawer-chipButton--active {
+  background: #fef3c7;
+  border-color: #facc15;
+  color: #92400e;
 }
 
 /* shared pill input style */
@@ -1822,4 +2139,3 @@ const styles = /* css */ `
   box-shadow:0 0 0 1px rgba(168,85,247,0.25);
 }
 `;
-

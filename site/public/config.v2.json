@@ -19,6 +19,7 @@
   "hostedUiDomain": "sa-dev-637423256673",
 
   "scopes": ["openid", "email", "profile"],
+
   "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
 }
 

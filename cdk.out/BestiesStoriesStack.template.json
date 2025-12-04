@@ -102,7 +102,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "96b1de494db571e8673d4dea06071287a732004569316a5a286a175f4ef8750f.zip"
+     "S3Key": "69ff2ce4ecc33817942aeefb4dc5561a76cc78ff49fbcfb8e8048e4fbd40e252.zip"
     },
     "Environment": {
      "Variables": {
@@ -138,7 +138,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesStoriesStack/ComposeStoryFn/Resource",
-    "aws:asset:path": "asset.96b1de494db571e8673d4dea06071287a732004569316a5a286a175f4ef8750f",
+    "aws:asset:path": "asset.69ff2ce4ecc33817942aeefb4dc5561a76cc78ff49fbcfb8e8048e4fbd40e252",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -244,7 +244,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "eea5f97ee80c6457e7c5bb4df2f700f02f5caf2c54bc37055fec2978ec8b9813.zip"
+     "S3Key": "b72d9b0d601064eb78ca86b0615630051d85104eeca937271f61bef2267bef23.zip"
     },
     "Environment": {
      "Variables": {
@@ -280,7 +280,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesStoriesStack/PublishStoryFn/Resource",
-    "aws:asset:path": "asset.eea5f97ee80c6457e7c5bb4df2f700f02f5caf2c54bc37055fec2978ec8b9813",
+    "aws:asset:path": "asset.b72d9b0d601064eb78ca86b0615630051d85104eeca937271f61bef2267bef23",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

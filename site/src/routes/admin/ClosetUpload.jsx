@@ -6,7 +6,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const GRID_PREVIEW_LIMIT = 6;
 
 // IMPORTANT: fallback public CDN for raw uploads (same as fan/admin library)
-const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
+const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
 
 function isNew(createdAt) {
   if (!createdAt) return false;
@@ -57,8 +57,8 @@ const GQL = {
   `,
   // closetFeed returns a connection (items + nextToken)
   listPublished: /* GraphQL */ `
-    query ClosetFeedAdminView {
-      closetFeed {
+    query ClosetFeedAdminView($limit: Int, $nextToken: String) {
+      closetFeed(sort: NEWEST, limit: $limit, nextToken: $nextToken) {
         items {
           id
           title
@@ -121,7 +121,7 @@ const GQL = {
 
 const AUDIENCE_OPTIONS = [
   { value: "PUBLIC", label: "Fan + Bestie" },
-  { value: "BESTIE", label: "Bestie only" },
+  { value: "BESTIES", label: "Bestie only" },
   { value: "EXCLUSIVE", label: "Exclusive drop" },
 ];
 
@@ -169,8 +169,9 @@ function effectiveKey(item) {
 }
 
 /**
- * Build mediaUrl per item using signed URL, with fallback to S3 bucket
- * AND automatic closet/ prefix insertion.
+ * Build mediaUrl per item using signed URL, with fallback to public CDN.
+ * IMPORTANT: we do NOT mutate/guess the key (no auto "closet/" prefix).
+ * We just trust the key from mediaKey/rawMediaKey – same behavior as ClosetLibrary.
  */
 async function hydrateItems(items) {
   return Promise.all(
@@ -182,26 +183,25 @@ async function hydrateItems(items) {
 
       try {
         url = await getSignedGetUrl(key);
+        if (url) {
+          console.log("[ClosetUpload] signed URL ok", { key, url });
+        }
       } catch (err) {
-        console.warn("[ClosetUpload] getSignedGetUrl failed → fallback", err);
+        console.warn("[ClosetUpload] getSignedGetUrl failed → fallback", {
+          key,
+          error: err,
+        });
       }
 
       if (!url && PUBLIC_UPLOADS_CDN) {
-        let fallbackKey = key.replace(/^\/+/, "");
-
-        // ensure closet/ prefix for all fallback URLs
-        if (!fallbackKey.startsWith("closet/")) {
-          fallbackKey = `closet/${fallbackKey}`;
-        }
-
-        const encodedKey = fallbackKey
+        const encodedKey = String(key)
+          .replace(/^\/+/, "") // strip only leading slashes
           .split("/")
           .map((seg) => encodeURIComponent(seg))
           .join("/");
 
         url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
-
-        console.log("[ClosetUpload] Fallback URL built:", url);
+        console.log("[ClosetUpload] Fallback URL built:", { key, url });
       }
 
       return { ...item, mediaUrl: url || null };
@@ -429,14 +429,17 @@ export default function ClosetUpload() {
     try {
       const [pendingData, publishedData] = await Promise.all([
         window.sa.graphql(GQL.listPending, {}),
-        window.sa.graphql(GQL.listPublished, {}),
+        window.sa.graphql(GQL.listPublished, {
+          limit: 40,
+          nextToken: null,
+        }),
       ]);
 
       // adminListPending is a connection
       const pendingPage = pendingData?.adminListPending;
       const pending = pendingPage?.items ?? [];
-      // pendingPage?.nextToken if you add pagination later
 
+      // closetFeed is a connection
       let published = [];
       const cf = publishedData?.closetFeed;
       if (Array.isArray(cf)) {
@@ -655,10 +658,10 @@ export default function ClosetUpload() {
         <section className="sa-card closet-upload-card">
           <header className="closet-card-header">
             <div>
-              <h2 className="closet-card-title">Closet upload</h2>
+              <h2 className="closet-card-title">Upload new looks</h2>
               <p className="closet-card-sub">
-                Drop in photos from shoots or collabs. Each file becomes its own
-                closet item.
+                Drag in outfit photos from your camera roll, add a title, and
+                send them into the background-removal queue.
               </p>
             </div>
           </header>
@@ -669,149 +672,40 @@ export default function ClosetUpload() {
               "closet-dropzone" +
               (isDragging ? " closet-dropzone--active" : "")
             }
-            onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <div className="closet-drop-icon">＋</div>
-            <div className="closet-drop-title">Choose files…</div>
+            <div className="closet-drop-icon">⬆️</div>
+            <div className="closet-drop-title">Drop outfit images here</div>
             <div className="closet-drop-text">
-              Drag & drop or click to browse. You can add multiple images at
-              once.
+              Or click to select from your computer. JPG / PNG, up to a few at
+              a time.
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={handleFileInputChange}
+            />
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileInputChange}
-            style={{ display: "none" }}
-          />
-
-          {/* Meta fields */}
-          <div className="closet-upload-fields">
-            <label className="closet-field">
-              <span className="closet-field-label">Base title</span>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="sa-input"
-                placeholder="e.g. Pastel knit set"
-              />
-              <span className="closet-field-hint">
-                If blank, we’ll use each filename as the item title.
-              </span>
-            </label>
-
-            <div className="closet-upload-row">
-              <label className="closet-field">
-                <span className="closet-field-label">Season / chapter</span>
-                <input
-                  type="text"
-                  value={season}
-                  onChange={(e) => setSeason(e.target.value)}
-                  className="sa-input"
-                  placeholder="e.g. Holiday Drop"
-                />
-              </label>
-
-              <label className="closet-field">
-                <span className="closet-field-label">Vibes / tags</span>
-                <input
-                  type="text"
-                  value={vibes}
-                  onChange={(e) => setVibes(e.target.value)}
-                  className="sa-input"
-                  placeholder="e.g. cozy, barbiecore"
-                />
-              </label>
-            </div>
-
-            {/* category / subcategory */}
-            <div className="closet-upload-row">
-              <label className="closet-field">
-                <span className="closet-field-label">Closet category</span>
-                <select
-                  className="sa-input"
-                  value={category}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCategory(val);
-                    setSubcategory("");
-                  }}
-                >
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="closet-field-hint">
-                  e.g. Dresses, Tops, Shoes, Beauty…
-                </span>
-              </label>
-
-              <label className="closet-field">
-                <span className="closet-field-label">
-                  Subcategory (optional)
-                </span>
-                <select
-                  className="sa-input"
-                  value={subcategory}
-                  disabled={!category}
-                  onChange={(e) => setSubcategory(e.target.value)}
-                >
-                  <option value="">
-                    {category ? "Select subcategory" : "Choose a category first"}
-                  </option>
-                  {currentSubcats.map((sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
-                    </option>
-                  ))}
-                </select>
-                <span className="closet-field-hint">
-                  Helps keep Lala&apos;s digital closet super organized.
-                </span>
-              </label>
-            </div>
-
-            {/* Coin value field */}
-            <label className="closet-field">
-              <span className="closet-field-label">
-                Coin value (optional)
-                <span className="closet-field-hint">
-                  {" "}
-                  How many coins this item is worth in Lala&apos;s world.
-                </span>
-              </span>
-              <input
-                type="number"
-                min="0"
-                value={coinValue}
-                onChange={(e) => setCoinValue(e.target.value)}
-                className="sa-input"
-                placeholder="e.g. 5"
-              />
-            </label>
-          </div>
-
-          {/* Selected files summary + preview */}
+          {/* File summary + preview */}
           {files.length > 0 && (
             <div className="closet-file-summary">
               <div className="closet-file-summary-header">
                 <span>
-                  {files.length} file{files.length > 1 ? "s" : ""} ready to
+                  {files.length} file{files.length === 1 ? "" : "s"} ready to
                   upload
                 </span>
                 <button
                   type="button"
                   className="sa-link"
                   onClick={clearFiles}
+                  disabled={uploading}
                 >
                   Clear
                 </button>
@@ -826,25 +720,122 @@ export default function ClosetUpload() {
                   </li>
                 ))}
               </ul>
+              <div className="closet-preview-row">
+                <div className="closet-preview-frame">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="closet-preview-img"
+                    />
+                  ) : (
+                    <span className="sa-muted">Preview</span>
+                  )}
+                </div>
+                <p className="closet-preview-caption">
+                  The first image will be used for the thumbnail preview. You
+                  can upload multiple items in one batch – each file becomes its
+                  own closet item.
+                </p>
+              </div>
             </div>
           )}
 
-          {previewUrl && (
-            <div className="closet-preview-row">
-              <div className="closet-preview-frame">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="closet-preview-img"
+          {/* Upload form fields */}
+          <div className="closet-upload-fields">
+            <div className="closet-field">
+              <label className="closet-field-label">Title (optional)</label>
+              <input
+                className="sa-input"
+                placeholder="Name this look…"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <div className="closet-field-hint">
+                If left blank, we&apos;ll use the file name as the title.
+              </div>
+            </div>
+
+            <div className="closet-upload-row">
+              <div className="closet-field">
+                <label className="closet-field-label">Season (optional)</label>
+                <input
+                  className="sa-input"
+                  placeholder="e.g. Spring 2025"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value)}
                 />
               </div>
-              <p className="closet-preview-caption">
-                First look in your batch. Fans will see the cleaned, approved
-                version in their closet feed.
-              </p>
+              <div className="closet-field">
+                <label className="closet-field-label">Vibes (optional)</label>
+                <input
+                  className="sa-input"
+                  placeholder="e.g. Date night, brunch, red carpet"
+                  value={vibes}
+                  onChange={(e) => setVibes(e.target.value)}
+                />
+              </div>
             </div>
-          )}
 
+            {/* Category + subcategory */}
+            <div className="closet-upload-row">
+              <div className="closet-field">
+                <label className="closet-field-label">Category</label>
+                <select
+                  className="sa-input"
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setSubcategory("");
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="closet-field">
+                <label className="closet-field-label">Subcategory</label>
+                <select
+                  className="sa-input"
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                  disabled={!category}
+                >
+                  <option value="">
+                    {category ? "Select subcategory" : "Choose a category first"}
+                  </option>
+                  {currentSubcats.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Coin value */}
+            <div className="closet-field">
+              <label className="closet-field-label">Coin value</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className="sa-input"
+                placeholder="Optional – how many coins this look is worth"
+                value={coinValue}
+                onChange={(e) => setCoinValue(e.target.value)}
+              />
+              <div className="closet-field-hint">
+                Fans can earn + spend coins in Lala&apos;s world. Leave blank
+                for no coin value yet.
+              </div>
+            </div>
+          </div>
+
+          {/* Upload status + button */}
           {uploadMsg && (
             <div className="closet-upload-status">
               {uploadMsg}
@@ -860,52 +851,50 @@ export default function ClosetUpload() {
 
           <button
             type="button"
-            onClick={handleSubmit}
             className="closet-upload-btn"
-            disabled={uploading || !files.length}
+            disabled={uploading || files.length === 0}
+            onClick={handleSubmit}
           >
             {uploading
-              ? `Uploading ${files.length} look${files.length > 1 ? "s" : ""}…`
+              ? "Uploading looks…"
               : files.length
               ? `Upload ${files.length} look${
-                  files.length > 1 ? "s" : ""
-                } to closet`
-              : "Upload to closet"}
+                  files.length === 1 ? "" : "s"
+                } to queue`
+              : "Add images to upload"}
           </button>
 
-          <p className="closet-footer-note">
-            Raw images are stored first. A background-removal worker converts
-            them into cutouts, then you can approve them in the dashboard on the
-            right.
-          </p>
+          <div className="closet-footer-note">
+            Background removal runs automatically after upload. Once items are
+            ready, you can approve them on the right and choose their audience.
+          </div>
         </section>
 
-        {/* RIGHT: Dashboard panel */}
+        {/* RIGHT: Activity / Review dashboard */}
         <section className="sa-card closet-dashboard-card">
-          <header className="closet-dashboard-header">
+          <div className="closet-dashboard-header">
             <div>
-              <h2 className="closet-card-title">Closet dashboard</h2>
+              <h2 className="closet-card-title">Closet activity</h2>
               <p className="closet-card-sub">
-                Switch between recent activity and pending review, then peek at
-                what fans will see in the closet.
+                See what&apos;s in the queue, what&apos;s live in the fan
+                closet, and quickly approve or reject new uploads.
               </p>
             </div>
-
             <div className="closet-auto-meta">
-              <span className="closet-auto-block">
-                <span className="closet-auto-label">AUTO-UPDATED</span>
+              <div className="closet-auto-block">
+                <span className="closet-auto-label">Auto-update</span>
                 <span className="closet-auto-value">{autoLabel}</span>
-              </span>
-              <a
-                href="/fan/closet-feed"
-                target="_blank"
-                rel="noreferrer"
-                className="closet-admin-viewlink"
+              </div>
+              <button
+                type="button"
+                className="closet-filter-refresh"
+                onClick={loadItems}
+                disabled={itemsLoading}
               >
-                Open fan closet →
-              </a>
+                {itemsLoading ? "Refreshing…" : "Refresh"}
+              </button>
             </div>
-          </header>
+          </div>
 
           {/* Tabs */}
           <div className="closet-tabs">
@@ -918,7 +907,7 @@ export default function ClosetUpload() {
               onClick={() => setViewMode("ACTIVITY")}
             >
               Activity
-              <span className="closet-tab-count">{itemCount}</span>
+              <span className="closet-tab-count">{items.length}</span>
             </button>
             <button
               type="button"
@@ -928,365 +917,266 @@ export default function ClosetUpload() {
               }
               onClick={() => setViewMode("REVIEW")}
             >
-              Pending review
-              <span className="closet-tab-count">{reviewList.length}</span>
+              Review queue
+              <span className="closet-tab-count">{pendingItems.length}</span>
             </button>
           </div>
 
           {/* Filters row */}
-          <div className="closet-filters-row">
+          <div className="closet-filters-row" style={{ marginTop: 10 }}>
             <select
+              className="closet-filter-input"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="closet-filter-input"
-              disabled={isReviewMode} // review mode always pending
+              disabled={isReviewMode}
             >
               <option value="ALL">All statuses</option>
               <option value="PENDING">Pending</option>
               <option value="PUBLISHED">Published</option>
-              <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
             </select>
-
             <input
               className="closet-filter-input"
               placeholder="Search titles…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-
-            <span className="closet-filter-pill">Showing newest first</span>
-
-            <button
-              type="button"
-              className="closet-filter-refresh"
-              onClick={loadItems}
-              disabled={itemsLoading}
-            >
-              {itemsLoading ? "Refreshing…" : "Refresh"}
-            </button>
+            <div className="closet-filter-pill">
+              Showing{" "}
+              <strong>{isReviewMode ? pendingItems.length : itemCount}</strong>{" "}
+              looks
+            </div>
           </div>
 
-          {/* ACTIVITY MODE */}
+          {/* Error */}
+          {itemsError && (
+            <div className="closet-grid-error" style={{ marginTop: 8 }}>
+              {itemsError}
+            </div>
+          )}
+
+          {/* ACTIVITY GRID */}
           {!isReviewMode && (
             <>
-              <div className="closet-grid-header">
-                <span className="closet-grid-title">
-                  Closet items grid · <strong>{itemCount}</strong>{" "}
-                  {itemCount === 1 ? "item" : "items"}
-                </span>
+              {itemCount === 0 && !itemsLoading && !itemsError && (
+                <div className="closet-grid-empty" style={{ marginTop: 12 }}>
+                  No closet activity yet. Once you upload looks, they&apos;ll
+                  appear here.
+                </div>
+              )}
+
+              <div className="closet-grid" style={{ marginTop: 10 }}>
+                {previewItems.map((item) => {
+                  const status = item.status || "UNKNOWN";
+                  const label = humanStatusLabel(item);
+
+                  let statusClass = "closet-status-pill--default";
+                  if (status === "PUBLISHED")
+                    statusClass = "closet-status-pill--published";
+                  else if (status === "PENDING")
+                    statusClass = "closet-status-pill--pending";
+                  else if (status === "REJECTED")
+                    statusClass = "closet-status-pill--rejected";
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="closet-grid-card closet-grid-card--activity"
+                    >
+                      <div className="closet-grid-thumb">
+                        {item.mediaUrl ? (
+                          <img
+                            src={item.mediaUrl}
+                            alt={item.title || "Closet item"}
+                          />
+                        ) : (
+                          <span className="closet-grid-thumb-empty">
+                            No preview
+                          </span>
+                        )}
+                      </div>
+                      <div className="closet-grid-body">
+                        <div className="closet-grid-title-row">
+                          <div className="closet-grid-main-title">
+                            {item.title || "Untitled look"}
+                          </div>
+                          {isNew(item.createdAt) && (
+                            <span className="closet-badge-new">New</span>
+                          )}
+                        </div>
+                        <div className="closet-grid-meta">
+                          <span
+                            className={"closet-status-pill " + statusClass}
+                          >
+                            {label}
+                          </span>
+                          {item.audience && (
+                            <span className="closet-grid-audience">
+                              {item.audience.toLowerCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="closet-grid-footer">
+                          <span className="closet-grid-date">
+                            {item.createdAt
+                              ? new Date(
+                                  item.createdAt
+                                ).toLocaleDateString()
+                              : "—"}
+                          </span>
+                          <div className="closet-grid-actions">
+                            <button
+                              type="button"
+                              className="closet-grid-link closet-grid-link--danger"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
 
-              {itemsError && (
-                <div className="closet-grid-error">{itemsError}</div>
-              )}
-
-              {itemCount === 0 && !itemsLoading && !itemsError && (
-                <div className="closet-grid-empty">
-                  No items match your filters yet. Try clearing search or upload
-                  a new look on the left.
+              {hasMore && (
+                <div className="closet-grid-footer-row">
+                  Showing {previewItems.length} of {itemCount} looks. Use the
+                  Closet Library page to browse everything.
                 </div>
-              )}
-
-              {itemsLoading && itemCount === 0 && (
-                <div className="closet-grid-empty">
-                  Loading closet items…
-                </div>
-              )}
-
-              {itemCount > 0 && (
-                <>
-                  <div className="closet-grid">
-                    {previewItems.map((item) => {
-                      const status = item.status || "UNKNOWN";
-                      const isNewFlag = isNew(item.createdAt);
-
-                      let statusClass = "closet-status-pill--default";
-                      if (status === "PUBLISHED" || status === "APPROVED")
-                        statusClass = "closet-status-pill--published";
-                      else if (status === "PENDING")
-                        statusClass = "closet-status-pill--pending";
-                      else if (status === "REJECTED")
-                        statusClass = "closet-status-pill--rejected";
-
-                      const statusLabel = humanStatusLabel(item);
-                      const categoryLabel =
-                        item.category ||
-                        (item.subcategory ? "Uncategorized" : "");
-
-                      return (
-                        <article key={item.id} className="closet-grid-card">
-                          <div className="closet-grid-thumb">
-                            {item.mediaUrl ? (
-                              <img
-                                src={item.mediaUrl}
-                                alt={item.title || "Closet item"}
-                              />
-                            ) : (
-                              <span className="closet-grid-thumb-empty">
-                                No preview
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="closet-grid-body">
-                            <div className="closet-grid-title-row">
-                              <div className="closet-grid-main-title">
-                                {item.title || "Untitled look"}
-                              </div>
-                              {isNewFlag && (
-                                <span className="closet-badge-new">New</span>
-                              )}
-                            </div>
-
-                            <div className="closet-grid-meta">
-                              <span
-                                className={"closet-status-pill " + statusClass}
-                              >
-                                {statusLabel}
-                              </span>
-                              <span className="closet-grid-audience">
-                                {item.audience
-                                  ? AUDIENCE_OPTIONS.find(
-                                      (o) => o.value === item.audience
-                                    )?.label || item.audience
-                                  : "Fan / Bestie"}
-                              </span>
-                            </div>
-
-                            {(categoryLabel || item.subcategory) && (
-                              <div className="closet-grid-tags">
-                                {categoryLabel && (
-                                  <span className="closet-grid-tag">
-                                    {categoryLabel}
-                                  </span>
-                                )}
-                                {item.subcategory && (
-                                  <span className="closet-grid-tag closet-grid-tag--soft">
-                                    {item.subcategory}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="closet-grid-footer">
-                              <span className="closet-grid-date">
-                                {item.createdAt
-                                  ? new Date(
-                                      item.createdAt
-                                    ).toLocaleDateString()
-                                  : "—"}
-                              </span>
-                              <div className="closet-grid-actions">
-                                <button
-                                  type="button"
-                                  className="closet-grid-link"
-                                  onClick={() =>
-                                    window.open(
-                                      `/fan/closet-feed?highlight=${item.id}`,
-                                      "_blank"
-                                    )
-                                  }
-                                >
-                                  View
-                                </button>
-                                <button
-                                  type="button"
-                                  className="closet-grid-link closet-grid-link--danger"
-                                  onClick={() => handleDelete(item.id)}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-
-                  {(hasMore || itemCount > previewItems.length) && (
-                    <div className="closet-grid-footer-row">
-                      <span className="closet-grid-summary">
-                        Showing first{" "}
-                        <strong>
-                          {Math.min(GRID_PREVIEW_LIMIT, itemCount)}
-                        </strong>{" "}
-                        of <strong>{itemCount}</strong> item
-                        {itemCount === 1 ? "" : "s"}.
-                      </span>
-                    </div>
-                  )}
-                </>
               )}
             </>
           )}
 
-          {/* REVIEW MODE */}
+          {/* REVIEW GRID */}
           {isReviewMode && (
             <>
-              <div className="closet-grid-header closet-grid-header--review">
-                <span className="closet-grid-title">
-                  Pending review · <strong>{reviewList.length}</strong>{" "}
-                  {reviewList.length === 1 ? "item" : "items"}
-                </span>
-                <span className="closet-grid-hint">
-                  Approve to publish to the fan closet, or reject with a note
-                  for your own records.
-                </span>
+              {reviewList.length === 0 && !itemsLoading && !itemsError && (
+                <div className="closet-grid-empty" style={{ marginTop: 12 }}>
+                  Nothing pending review right now. Upload new looks on the left
+                  to start a fresh batch.
+                </div>
+              )}
+
+              <div className="closet-grid closet-grid--review">
+                {reviewList.map((item) => {
+                  const readyForReview = !!item.mediaKey;
+                  const isBusy = busyId === item.id;
+
+                  const audienceVal = item.audience || "PUBLIC";
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="closet-grid-card closet-grid-card--review"
+                    >
+                      <div className="closet-grid-thumb">
+                        {item.mediaUrl ? (
+                          <img
+                            src={item.mediaUrl}
+                            alt={item.title || "Closet item"}
+                          />
+                        ) : (
+                          <span className="closet-grid-thumb-empty">
+                            No preview
+                          </span>
+                        )}
+
+                        <div className="closet-review-pills">
+                          {!readyForReview && (
+                            <span className="closet-bg-pill">
+                              Processing background…
+                            </span>
+                          )}
+                          {readyForReview && (
+                            <span className="closet-bg-pill closet-bg-pill--ready">
+                              Cutout ready
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="closet-grid-body closet-grid-body--review">
+                        <div className="closet-grid-title-row">
+                          <div className="closet-grid-main-title">
+                            {item.title || "Untitled look"}
+                          </div>
+                          {isNew(item.createdAt) && (
+                            <span className="closet-badge-new">New</span>
+                          )}
+                        </div>
+
+                        <div className="closet-grid-meta closet-grid-meta--review">
+                          <span className="pill-soft">
+                            {item.category || "Uncategorized"}
+                          </span>
+                          <span className="closet-grid-audience">
+                            {audienceVal.toLowerCase()}
+                          </span>
+                        </div>
+
+                        <div className="closet-review-audience-row">
+                          <label className="closet-review-label">
+                            Audience
+                          </label>
+                          <select
+                            className="sa-input closet-review-audience"
+                            value={audienceVal}
+                            disabled={isBusy}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateLocalAudience(item.id, val);
+                              saveAudience(item.id, val);
+                            }}
+                          >
+                            {AUDIENCE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="closet-review-hint">
+                            Choose whether this look is visible to all fans,
+                            besties only, or saved for a special drop.
+                          </div>
+                        </div>
+
+                        <div className="closet-review-actions">
+                          <button
+                            type="button"
+                            className="closet-review-approve"
+                            disabled={isBusy || !readyForReview}
+                            onClick={() => approveItem(item)}
+                          >
+                            {isBusy
+                              ? "Working…"
+                              : readyForReview
+                              ? "Approve look"
+                              : "Waiting on bg…"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="closet-review-reject sa-link"
+                            disabled={isBusy}
+                            onClick={() => rejectItem(item)}
+                          >
+                            Reject
+                          </button>
+                        </div>
+
+                        <div className="closet-grid-footer-row">
+                          Uploaded{" "}
+                          {item.createdAt
+                            ? new Date(item.createdAt).toLocaleString()
+                            : "—"}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-
-              {itemsError && (
-                <div className="closet-grid-error">{itemsError}</div>
-              )}
-
-              {itemsLoading && reviewList.length === 0 && (
-                <div className="closet-grid-empty">
-                  Loading pending looks…
-                </div>
-              )}
-
-              {!itemsLoading && reviewList.length === 0 && !itemsError && (
-                <div className="closet-grid-empty">
-                  Nothing waiting for review right now. 🥳
-                </div>
-              )}
-
-              {reviewList.length > 0 && (
-                <div className="closet-grid closet-grid--review">
-                  {reviewList.map((item) => {
-                    const hasCutout = !!item.mediaKey;
-                    const statusLabel = humanStatusLabel(item);
-                    const isPending = item.status === "PENDING";
-                    const categoryLabel =
-                      item.category ||
-                      (item.subcategory ? "Uncategorized" : "");
-
-                    return (
-                      <article
-                        key={item.id}
-                        className="closet-grid-card closet-grid-card--review"
-                      >
-                        <div className="closet-grid-thumb">
-                          {item.mediaUrl ? (
-                            <img
-                              src={item.mediaUrl}
-                              alt={item.title || "Closet item"}
-                            />
-                          ) : (
-                            <span className="closet-grid-thumb-empty">
-                              No preview yet
-                            </span>
-                          )}
-
-                          <div className="closet-review-pills">
-                            <span className="closet-status-pill closet-status-pill--pending">
-                              {statusLabel}
-                            </span>
-                            {isPending && !hasCutout && (
-                              <span className="closet-bg-pill">BG running</span>
-                            )}
-                            {isPending && hasCutout && (
-                              <span className="closet-bg-pill closet-bg-pill--ready">
-                                Cutout ready
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="closet-grid-body closet-grid-body--review">
-                          <div className="closet-grid-title-row">
-                            <div className="closet-grid-main-title">
-                              {item.title || "Untitled look"}
-                            </div>
-                          </div>
-
-                          <div className="closet-grid-meta closet-grid-meta--review">
-                            <span className="closet-grid-audience pill-soft">
-                              {item.audience
-                                ? AUDIENCE_OPTIONS.find(
-                                    (o) => o.value === item.audience
-                                  )?.label || item.audience
-                                : "Fan + Bestie"}
-                            </span>
-                            <span className="closet-grid-date">
-                              {item.createdAt
-                                ? new Date(
-                                    item.createdAt
-                                  ).toLocaleDateString()
-                                : "Recently"}
-                            </span>
-                          </div>
-
-                          {(categoryLabel || item.subcategory) && (
-                            <div className="closet-grid-tags">
-                              {categoryLabel && (
-                                <span className="closet-grid-tag">
-                                  {categoryLabel}
-                                </span>
-                              )}
-                              {item.subcategory && (
-                                <span className="closet-grid-tag closet-grid-tag--soft">
-                                  {item.subcategory}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="closet-review-audience-row">
-                            <label className="closet-review-label">
-                              Audience
-                            </label>
-                            <select
-                              className="sa-input closet-review-audience"
-                              value={item.audience || "PUBLIC"}
-                              onChange={async (e) => {
-                                const val = e.target.value;
-                                updateLocalAudience(item.id, val);
-                                if (item.status !== "PENDING") {
-                                  await saveAudience(item.id, val);
-                                }
-                              }}
-                            >
-                              {AUDIENCE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {!hasCutout && (
-                            <p className="closet-review-hint">
-                              Background is still processing. You can approve
-                              now, or wait for the cutout preview to finish.
-                            </p>
-                          )}
-
-                          <div className="closet-review-actions">
-                            <button
-                              type="button"
-                              className="sa-btn closet-review-approve"
-                              disabled={!isPending || busyId === item.id}
-                              onClick={() => approveItem(item)}
-                            >
-                              {busyId === item.id ? "Saving…" : "Approve"}
-                            </button>
-                            <button
-                              type="button"
-                              className="sa-link closet-review-reject"
-                              disabled={busyId === item.id}
-                              onClick={() => rejectItem(item)}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
             </>
           )}
         </section>

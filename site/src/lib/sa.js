@@ -1,5 +1,3 @@
-// site/src/lib/sa.js
-
 /* eslint-disable no-console */
 
 /** Wait for the global SA helper (set by public/sa.js) */
@@ -110,7 +108,10 @@ function readCfg(SA) {
     BAD_UPLOAD_HOSTS.some((host) => currentUploadsUrl.includes(host));
 
   if (isBadUploadsUrl) {
-    if (jsonUploadsUrl && !BAD_UPLOAD_HOSTS.some((h) => jsonUploadsUrl.includes(h))) {
+    if (
+      jsonUploadsUrl &&
+      !BAD_UPLOAD_HOSTS.some((h) => jsonUploadsUrl.includes(h))
+    ) {
       cfg.uploadsApiUrl = jsonUploadsUrl.trim();
     } else {
       cfg.uploadsApiUrl = FALLBACK_UPLOADS_API_URL;
@@ -346,7 +347,10 @@ export async function getSignedGetUrl(key) {
   }
 
   const SA = await getSA().catch((e) => {
-    console.warn("[getSignedGetUrl] getSA failed, continuing with window cfg", e);
+    console.warn(
+      "[getSignedGetUrl] getSA failed, continuing with window cfg",
+      e,
+    );
     return undefined;
   });
 
@@ -493,6 +497,46 @@ export async function signedUpload(fileOrText, opts = {}) {
   };
 }
 
+/**
+ * Helper: upload a profile photo and store its URL in GameProfile.avatarUrl.
+ * Can be used from the profile page + fan home/community.
+ */
+export async function uploadProfilePhoto(file) {
+  if (!(file instanceof Blob)) {
+    throw new Error("uploadProfilePhoto expects a File/Blob");
+  }
+
+  // Upload to the same uploads API, but mark as a profile avatar
+  const upload = await signedUpload(file, { kind: "profile" });
+
+  const SA = await getSA();
+  const avatarUrl =
+    upload.url ||
+    (await getSignedGetUrl(upload.key)) ||
+    null;
+
+  if (!avatarUrl) {
+    console.warn(
+      "[uploadProfilePhoto] could not compute avatarUrl from upload result",
+      upload,
+    );
+    return upload;
+  }
+
+  const q = `
+    mutation UpdateProfileAvatar($url:String!) {
+      updateProfile(input:{ avatarUrl:$url }) {
+        userId
+        avatarUrl
+      }
+    }
+  `;
+
+  await SA.gql(q, { url: avatarUrl });
+
+  return { ...upload, avatarUrl };
+}
+
 /* ---------------------------------------------------------------------------
    Fans/Game helpers (profile, leaderboard, badges, daily login)
 --------------------------------------------------------------------------- */
@@ -537,12 +581,12 @@ export async function fetchProfile() {
       level
       xp
       coins
-      badges {
-        id
-        name
-        icon
-      }
+      badges         # [String!]! in schema
+      avatarUrl
+      bio
       lastEventAt
+      streakCount
+      lastLoginAt
     }
   }`;
 
@@ -555,18 +599,18 @@ export async function setDisplayName(name) {
   const SA = await getSA();
   const q = `
     mutation SetDisplayName($name: String!) {
-      setDisplayName(name: $name) {
+      setDisplayName(displayName: $name) {
         userId
         displayName
         level
         xp
         coins
-        badges {
-          id
-          name
-          icon
-        }
+        badges
+        avatarUrl
+        bio
         lastEventAt
+        streakCount
+        lastLoginAt
       }
     }
   `;
@@ -595,23 +639,23 @@ export async function fetchLeaderboard(n = 10) {
 export async function grantBadgeTo(userId, badgeId) {
   const SA = await getSA();
   const q = `
-    mutation ($uid:ID!, $bid:ID!){
-      grantBadge(userId:$uid, badgeId:$bid){
+    mutation ($uid:ID!, $badge:String!){
+      grantBadge(userId:$uid, badge:$badge){
         userId
         displayName
         level
         xp
         coins
-        badges {
-          id
-          name
-          icon
-        }
+        badges
+        avatarUrl
+        bio
         lastEventAt
+        streakCount
+        lastLoginAt
       }
     }
   `;
-  const d = await SA.gql(q, { uid: userId, bid: badgeId });
+  const d = await SA.gql(q, { uid: userId, badge: badgeId });
   return d?.grantBadge;
 }
 

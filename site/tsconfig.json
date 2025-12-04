@@ -12,5 +12,5 @@
       "@features/*": ["src/features/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../lambda/closet/adminPublishClosetItem.ts"]
 }

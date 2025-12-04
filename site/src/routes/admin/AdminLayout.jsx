@@ -133,15 +133,6 @@ export default function AdminLayout() {
               <span>Closet library</span>
             </NavLink>
 
-            {/* existing Bestie closet admin route */}
-            <NavLink
-              to="/admin/closet-library/bestie"
-              className={navClass}
-            >
-              <span className="section-nav-pill-icon">🧺</span>
-              <span>Bestie closet</span>
-            </NavLink>
-
             {/* Episodes & game section with Game overview link */}
             <div className="section-sidebar-label" style={{ marginTop: 16 }}>
               Episodes & game
