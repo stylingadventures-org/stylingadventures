@@ -25,7 +25,7 @@ interface AppSyncEvent {
 export const handler = async (event: AppSyncEvent) => {
   const { closetItemId } = event.arguments;
 
-  // Optional: enforce admin group, in addition to AppSync @auth
+  // Enforce admin group (on top of @auth)
   const groups = event.identity?.groups ?? [];
   if (!groups.includes("Admin")) {
     throw new Error("Not authorized");
@@ -47,14 +47,34 @@ export const handler = async (event: AppSyncEvent) => {
     throw new Error("Closet item not found");
   }
 
-  // 2) Optional: only APPROVED → PUBLISHED
+  // 2) Only APPROVED → PUBLISHED
   if (item.status !== "APPROVED") {
     throw new Error("Item must be APPROVED before publishing");
   }
 
   const now = new Date().toISOString();
 
-  // 3) Update status to PUBLISHED (+ updatedAt)
+  // If mediaKey is still empty but we have a rawMediaKey,
+  // use rawMediaKey as the thumbnail so the UI has something to render.
+  const shouldSetMediaKey = (!item.mediaKey || item.mediaKey === "") && item.rawMediaKey;
+
+  let UpdateExpression = "SET #status = :published, #updatedAt = :now";
+  const ExpressionAttributeNames: Record<string, string> = {
+    "#status": "status",
+    "#updatedAt": "updatedAt",
+  };
+  const ExpressionAttributeValues: Record<string, any> = {
+    ":published": "PUBLISHED",
+    ":now": now,
+  };
+
+  if (shouldSetMediaKey) {
+    UpdateExpression += ", #mediaKey = :mediaKey";
+    ExpressionAttributeNames["#mediaKey"] = "mediaKey";
+    ExpressionAttributeValues[":mediaKey"] = item.rawMediaKey;
+  }
+
+  // 3) Update status (and maybe mediaKey) in DynamoDB
   const updateResp = await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
@@ -62,20 +82,14 @@ export const handler = async (event: AppSyncEvent) => {
         pk: `CLOSET#${closetItemId}`,
         sk: `CLOSET#${closetItemId}`,
       },
-      UpdateExpression: "SET #status = :published, #updatedAt = :now",
-      ExpressionAttributeNames: {
-        "#status": "status",
-        "#updatedAt": "updatedAt",
-      },
-      ExpressionAttributeValues: {
-        ":published": "PUBLISHED",
-        ":now": now,
-      },
+      UpdateExpression,
+      ExpressionAttributeNames,
+      ExpressionAttributeValues,
       ReturnValues: "ALL_NEW",
     }),
   );
 
-  // 4) Map back to GraphQL ClosetItem shape if needed
+  // 4) Return updated item – AppSync will map this to ClosetItem
   return {
     id: closetItemId,
     ...updateResp.Attributes,

@@ -49,6 +49,7 @@ type Query {
     limit: Int
     nextToken: String
   ): ClosetConnection!
+    @aws_cognito_user_pools
 
   # Episodes / early access
   isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!
@@ -127,8 +128,9 @@ type Mutation {
     closetItemId: ID!
     audience: ClosetAudience!
   ): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["Admin"])
   adminUpdateClosetItem(
-    closetItemId: ID!
     input: AdminUpdateClosetItemInput!
   ): ClosetItem!
 
@@ -295,7 +297,14 @@ type RoleResult {
 # Closet enums
 # ─────────────────────────────────────────
 
-# Overall visibility flags used across the app
+# Which fans are allowed to see the look (admin-facing)
+enum ClosetAudience {
+  PUBLIC
+  BESTIES
+  EXCLUSIVE
+}
+
+# Overall visibility flags used across the app (legacy / fan-facing)
 enum ClosetVisibility {
   PRIVATE
   BESTIE
@@ -310,13 +319,6 @@ enum ClosetStatus {
   REJECTED
 }
 
-# Which fans are allowed to see the look
-enum ClosetAudience {
-  PUBLIC
-  BESTIES
-  EXCLUSIVE
-}
-
 # Sorting for the fan Closet feed
 enum ClosetFeedSort {
   NEWEST
@@ -326,35 +328,42 @@ enum ClosetFeedSort {
 }
 
 # ─────────────────────────────────────────
-# Closet core
+# Closet core types
 # ─────────────────────────────────────────
 
 type ClosetItem {
   id: ID!
-  ownerId: ID        # admin-set owner (creator / lala / bestie)
-  ownerSub: ID       # legacy ID used in some queries
-
+  ownerId: ID
+  # admin-set owner (creator / lala / bestie)
+  ownerSub: ID
+  # legacy ID used in some queries
   title: String
   mediaKey: String
   rawMediaKey: String
-
   category: String
   subcategory: String
   colorTags: [String!]
   season: String
+  # short vibe / mood label from admin (e.g. "Date night", "Cozy Sunday")
+  vibes: String
   notes: String
-
   visibility: ClosetVisibility!
   affiliateUrl: String
-
+  # Link this closet item to one or more episodes
+  # (episodes where the outfit appears / is featured)
+  episodeIds: [ID!]
   # Game / moderation metadata
-  status: ClosetStatus          # nullable to avoid enum error on legacy data
+  status: ClosetStatus!
+  # now required in practice
   audience: ClosetAudience
-  pinned: Boolean               # Lala's pick
+  pinned: Boolean
+  # Lala's pick
   favoriteCount: Int
-  coinValue: Int                # how many coins the item is worth
+  # how many coins the item is worth
+  coinValue: Int
   backgroundStatus: String
-
+  # when this item is scheduled to go live (if applicable)
+  scheduledAt: AWSDateTime
   createdAt: AWSDateTime
   updatedAt: AWSDateTime
 }
@@ -364,6 +373,10 @@ type ClosetConnection {
   nextToken: String
 }
 
+# ─────────────────────────────────────────
+# Closet inputs – fan / bestie
+# ─────────────────────────────────────────
+
 input CreateClosetItemInput {
   title: String
   mediaKey: String
@@ -372,9 +385,11 @@ input CreateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
+  vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
+  episodeIds: [ID!]
 }
 
 input UpdateClosetItemStoryInput {
@@ -396,9 +411,11 @@ input BestieCreateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
+  vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
+  episodeIds: [ID!]
 }
 
 input BestieUpdateClosetItemInput {
@@ -409,10 +426,16 @@ input BestieUpdateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
+  vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
+  episodeIds: [ID!]
 }
+
+# ─────────────────────────────────────────
+# Closet inputs – admin
+# ─────────────────────────────────────────
 
 input AdminCreateClosetItemInput {
   ownerId: ID
@@ -423,10 +446,13 @@ input AdminCreateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
+  # new: matches "Vibes" field in admin upload form
+  vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
-
+  # Link to episodes this look appears in
+  episodeIds: [ID!]
   # admin metadata
   status: ClosetStatus
   audience: ClosetAudience
@@ -445,16 +471,19 @@ input AdminUpdateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
+  vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
-
+  # Link to episodes this look appears in
+  episodeIds: [ID!]
   # admin metadata
   status: ClosetStatus
   audience: ClosetAudience
   pinned: Boolean
   coinValue: Int
   backgroundStatus: String
+  scheduledAt: AWSDateTime
 }
 
 type Comment {

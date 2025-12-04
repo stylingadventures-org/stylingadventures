@@ -42,7 +42,7 @@ import BestieTools from "./routes/admin/BestieTools.jsx";
 import ClosetUpload from "./routes/admin/ClosetUpload.jsx";
 import Users from "./routes/admin/Users.jsx";
 import ClosetLibrary from "./routes/admin/ClosetLibrary.jsx";
-import AdminBestieCloset from "./routes/admin/AdminBestieCloset.jsx";
+// ⬇️ removed AdminBestieCloset import
 import AdminSettings from "./routes/admin/AdminSettings.jsx";
 import BadgeRuleEditor from "./routes/admin/BadgeRuleEditor.jsx";
 
@@ -116,8 +116,7 @@ const router = createBrowserRouter([
           { path: "bestie", element: <BestieTools /> },
           { path: "closet-upload", element: <ClosetUpload /> },
           { path: "closet-library", element: <ClosetLibrary /> },
-          // keep your existing bestie closet route
-          { path: "closet-library/bestie", element: <AdminBestieCloset /> },
+          // ⬇️ removed /admin/closet-library/bestie route
 
           // 🔹 Game overview + Episode studio + game rules admin
           { path: "game-overview", element: <AdminGameOverview /> },

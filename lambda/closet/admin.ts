@@ -69,6 +69,12 @@ type ClosetItem = {
 
   favoriteCount?: number;
   viewerHasFaved?: boolean;
+
+  // newer admin metadata
+  coinValue?: number | null;
+  scheduledAt?: string | null;
+  episodeIds?: string[] | null;
+  backgroundStatus?: string | null;
 };
 
 type AdminCreateClosetItemInput = {
@@ -101,12 +107,49 @@ type AdminUpdateClosetItemInput = {
   pinned?: boolean | null;
   season?: string | null;
   vibes?: string | null;
+
+  coinValue?: number | null;
+  backgroundStatus?: string | null;
+  scheduledAt?: string | null;
+  episodeIds?: string[] | null;
 };
 
 type AdminClosetItemsPage = {
   items: ClosetItem[];
   nextToken?: string | null;
 };
+
+/* ---------- helpers for reading DDB attributes safely ---------- */
+
+function getString(attr: any): string | undefined {
+  const v = attr?.S;
+  if (typeof v !== "string") return undefined;
+  if (!v.trim()) return undefined;
+  return v;
+}
+
+function getNumber(attr: any): number | undefined {
+  const v = attr?.N;
+  if (typeof v !== "string") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function getBool(attr: any): boolean | undefined {
+  const v = attr?.BOOL;
+  return typeof v === "boolean" ? v : undefined;
+}
+
+function getStringList(attr: any): string[] | undefined {
+  const list = attr?.L;
+  if (!Array.isArray(list)) return undefined;
+  const out = list
+    .map((x: any) => (typeof x?.S === "string" ? x.S : null))
+    .filter(Boolean) as string[];
+  return out.length ? out : undefined;
+}
+
+/* ---------- auth helpers ---------- */
 
 function parseGroups(identity: any): string[] {
   const claims = identity?.claims || {};
@@ -143,42 +186,51 @@ function getIdentity(event: AppSyncEvent) {
   return { sub, isAdmin, isCreator, groups };
 }
 
-function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
-  const favoriteCountAttr = (raw.favoriteCount as any)?.N;
-  const favoriteCount =
-    typeof favoriteCountAttr === "string" ? Number(favoriteCountAttr) : 0;
+/* ---------- DDB → ClosetItem mapper (defensive) ---------- */
 
-  const pinnedAttr = raw.pinned as any;
-  const pinned =
-    typeof pinnedAttr?.BOOL === "boolean" ? pinnedAttr.BOOL : undefined;
+function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
+  const favoriteCount = getNumber(raw.favoriteCount) ?? 0;
+  const pinned = getBool(raw.pinned);
+
+  const createdAt = getString(raw.createdAt) ?? nowIso();
+  const updatedAt = getString(raw.updatedAt) ?? createdAt;
+
+  // NOTE: we intentionally NEVER return empty strings for AWSDateTime fields.
+  // If the underlying record has "", we normalize to nowIso() above so
+  // AppSync can serialize it as AWSDateTime.
 
   return {
-    id: raw.id.S!,
-    userId: raw.ownerSub.S!,
-    ownerSub: raw.ownerSub.S!,
-    status: raw.status.S! as ClosetStatus,
-    createdAt: raw.createdAt.S!,
-    updatedAt: raw.updatedAt.S!,
-    mediaKey: raw.mediaKey?.S ?? "",
-    rawMediaKey: raw.rawMediaKey?.S ?? "",
-    title: raw.title?.S ?? "",
-    reason: raw.reason?.S ?? "",
-    season: raw.season?.S ?? null,
-    vibes: raw.vibes?.S ?? null,
-    audience: raw.audience?.S ?? null,
+    id: getString(raw.id) ?? "",
+    userId: getString(raw.ownerSub) ?? "",
+    ownerSub: getString(raw.ownerSub) ?? "",
+    status: (getString(raw.status) as ClosetStatus) ?? "PENDING",
+    createdAt,
+    updatedAt,
+    mediaKey: getString(raw.mediaKey) ?? "",
+    rawMediaKey: getString(raw.rawMediaKey) ?? "",
+    title: getString(raw.title) ?? "",
+    reason: getString(raw.reason) ?? "",
+    season: getString(raw.season) ?? null,
+    vibes: getString(raw.vibes) ?? null,
+    audience: getString(raw.audience) ?? null,
 
-    // categorization
-    category: raw.category?.S ?? null,
-    subcategory: raw.subcategory?.S ?? null,
+    category: getString(raw.category) ?? null,
+    subcategory: getString(raw.subcategory) ?? null,
 
-    // pinned flag
     pinned,
-
     favoriteCount,
     viewerHasFaved: false,
+
+    coinValue: getNumber(raw.coinValue) ?? null,
+    scheduledAt: getString(raw.scheduledAt) ?? null,
+    episodeIds: getStringList(raw.episodeIds) ?? null,
+    backgroundStatus: getString(raw.backgroundStatus) ?? null,
+
     ...extra,
   };
 }
+
+/* ---------- misc helpers ---------- */
 
 function randomId() {
   if ((globalThis as any).crypto?.randomUUID) {
@@ -228,7 +280,7 @@ export const adminListPending = async (
       ExpressionAttributeValues: { ":p": S("STATUS#PENDING") },
       ScanIndexForward: true,
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned, coinValue, scheduledAt, episodeIds, backgroundStatus",
       ExpressionAttributeNames: { "#s": "status" },
       Limit: limit,
       ExclusiveStartKey: exclusiveKey,
@@ -267,7 +319,7 @@ export const adminListClosetItems = async (
         ExpressionAttributeValues: { ":p": S(`STATUS#${status}`) },
         ScanIndexForward: false, // newest first
         ProjectionExpression:
-          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned, coinValue, scheduledAt, episodeIds, backgroundStatus",
         ExpressionAttributeNames: { "#s": "status" },
         Limit: limit,
         ExclusiveStartKey: exclusiveKey,
@@ -294,7 +346,7 @@ export const adminListClosetItems = async (
       FilterExpression: "begins_with(pk, :p)",
       ExpressionAttributeValues: { ":p": S("ITEM#") },
       ProjectionExpression:
-        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
+        "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned, coinValue, scheduledAt, episodeIds, backgroundStatus",
       ExpressionAttributeNames: { "#s": "status" },
       Limit: limit,
       ExclusiveStartKey: exclusiveKey,
@@ -392,22 +444,27 @@ export const closetFeed = async (
         // we'll sort in code; index order doesn't matter
         ScanIndexForward: true,
         ProjectionExpression:
-          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount, category, subcategory, season, vibes, pinned",
+          "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, audience, favoriteCount, category, subcategory, season, vibes, pinned, coinValue, scheduledAt, episodeIds, backgroundStatus",
         ExpressionAttributeNames: { "#s": "status" },
       }),
     );
 
-    const chunk = (itemsOut.Items || []).map((it) =>
-      mapItem(
-        {
-          ...it,
-          status: it["status"],
-        },
-        {
-          viewerHasFaved: favIds.has(it.id.S as string),
-        },
-      ),
-    );
+    const chunk = (itemsOut.Items || [])
+      .map((raw) => {
+        const idStr = getString((raw as any).id) ?? "";
+
+        return mapItem(
+          {
+            ...raw,
+            status: (raw as any)["status"],
+          },
+          {
+            viewerHasFaved: idStr ? favIds.has(idStr) : false,
+          },
+        );
+      })
+      // drop any weird rows that don't have a real id
+      .filter((item) => !!item.id);
 
     collected.push(...chunk);
   }
@@ -510,6 +567,10 @@ export const adminCreateClosetItem = async (
     subcategory: input.subcategory ?? null,
     favoriteCount: 0,
     viewerHasFaved: false,
+    coinValue: null,
+    scheduledAt: null,
+    episodeIds: null,
+    backgroundStatus: null,
   };
 };
 
@@ -617,7 +678,7 @@ export const adminRejectItem = async (
   });
 };
 
-// adminUpdateClosetItem – update title/category/subcategory/audience/pinned/season/vibes
+// adminUpdateClosetItem – update title/category/subcategory/audience/pinned/season/vibes/coinValue/backgroundStatus/scheduledAt/episodeIds
 export const adminUpdateClosetItem = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem> => {
@@ -656,6 +717,10 @@ export const adminUpdateClosetItem = async (
       "pinned",
       "season",
       "vibes",
+      "coinValue",
+      "backgroundStatus",
+      "scheduledAt",
+      "episodeIds",
     ] as const
   ).forEach((field) => {
     if (
@@ -723,6 +788,40 @@ export const adminUpdateClosetItem = async (
         : { BOOL: Boolean(input.pinned) };
   }
 
+  if (input.coinValue !== undefined) {
+    updateExpr.push("coinValue = :coinValue");
+    exprValues[":coinValue"] =
+      input.coinValue === null
+        ? { NULL: true }
+        : { N: String(input.coinValue) };
+  }
+
+  if (input.backgroundStatus !== undefined) {
+    updateExpr.push("backgroundStatus = :backgroundStatus");
+    exprValues[":backgroundStatus"] =
+      input.backgroundStatus === null
+        ? { NULL: true }
+        : S(input.backgroundStatus);
+  }
+
+  if (input.scheduledAt !== undefined) {
+    updateExpr.push("scheduledAt = :scheduledAt");
+    exprValues[":scheduledAt"] =
+      input.scheduledAt === null
+        ? { NULL: true }
+        : S(input.scheduledAt);
+  }
+
+  if (input.episodeIds !== undefined) {
+    updateExpr.push("episodeIds = :episodeIds");
+    exprValues[":episodeIds"] =
+      input.episodeIds === null
+        ? { NULL: true }
+        : {
+            L: input.episodeIds.map((id) => S(id)),
+          };
+  }
+
   if (updateExpr.length === 1) {
     throw new Error("No fields provided to update");
   }
@@ -739,7 +838,6 @@ export const adminUpdateClosetItem = async (
   );
 
   if (!out.Attributes) {
-    // Extremely unlikely now, but keep a clear error if AWS ever returns nothing.
     throw new Error("Closet item not found");
   }
 
@@ -891,7 +989,7 @@ export const handler = async (event: AppSyncEvent) => {
   if (field === "adminUpdateClosetItem")
     return adminUpdateClosetItem(event);
   if (field === "closetFeed") return closetFeed(event);
-    if (field === "topClosetLooks") return topClosetLooks(event);
+  if (field === "topClosetLooks") return topClosetLooks(event);
 
   // Support both old + new schema names for the hearts mutation
   if (field === "toggleFavoriteClosetItem" || field === "likeClosetItem") {
@@ -900,4 +998,3 @@ export const handler = async (event: AppSyncEvent) => {
 
   throw new Error(`No resolver implemented for field ${field}`);
 };
-

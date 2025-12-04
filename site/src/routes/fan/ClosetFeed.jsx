@@ -5,8 +5,8 @@ import { getSignedGetUrl } from "../../lib/sa";
 import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
 
 // IMPORTANT: fallback public CDN for raw uploads
-// (from your earlier CORS message / CloudFront config)
-const PUBLIC_UPLOADS_CDN = "https://d3fghn37bcpbig.cloudfront.net";
+// Must match uploadsCdn in config.v2.json
+const PUBLIC_UPLOADS_CDN = "https://d123abc456defg.cloudfront.net";
 
 // Full query – tries viewerHasFaved when available, using ClosetConnection
 const GQL_FEED_FULL = /* GraphQL */ `
@@ -25,6 +25,7 @@ const GQL_FEED_FULL = /* GraphQL */ `
         favoriteCount
         viewerHasFaved
         createdAt
+        scheduledAt
         coinValue
       }
       nextToken
@@ -48,6 +49,7 @@ const GQL_FEED_LEGACY = /* GraphQL */ `
         pinned
         favoriteCount
         createdAt
+        scheduledAt
         coinValue
       }
       nextToken
@@ -71,6 +73,7 @@ const GQL_ADMIN_FALLBACK = /* GraphQL */ `
         pinned
         favoriteCount
         createdAt
+        scheduledAt
         coinValue
       }
       nextToken
@@ -107,7 +110,8 @@ function audienceChip(it) {
   let label = "Fan + Bestie";
   let mod = "public";
 
-  if (raw === "BESTIE") {
+  // support both BESTIES (schema) and BESTIE (legacy data)
+  if (raw === "BESTIES" || raw === "BESTIE") {
     label = "Bestie only";
     mod = "bestie";
   } else if (raw === "EXCLUSIVE") {
@@ -151,7 +155,7 @@ export default function ClosetFeed() {
   const [sort, setSort] = useState("NEWEST");
   const [busyId, setBusyId] = useState(null); // while syncing favorite
 
-  // client-side pagination
+  // client-side pagination (live items only)
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
@@ -204,8 +208,8 @@ export default function ClosetFeed() {
               lastError = inner;
             }
           } else {
-            // Any other GraphQL error from closetFeed (including the
-            // non-null items / ClosetConnection issue) – don't crash,
+            // Any other GraphQL error from closetFeed (including
+            // non-null items / ClosetConnection issues) – don't crash,
             // just note it and fall back to admin list.
             console.warn(
               "[ClosetFeed] closetFeed query failed – will rely on admin fallback",
@@ -369,6 +373,22 @@ export default function ClosetFeed() {
     }
   }, [highlightId, items]);
 
+  // ----- split live vs upcoming (published) -----
+  const now = new Date();
+
+  const liveItems = items.filter(
+    (item) =>
+      item.status === "PUBLISHED" &&
+      (!item.scheduledAt || new Date(item.scheduledAt) <= now),
+  );
+
+  const upcomingItems = items.filter(
+    (item) =>
+      item.status === "PUBLISHED" &&
+      item.scheduledAt &&
+      new Date(item.scheduledAt) > now,
+  );
+
   // ----- hearts -----
 
   async function toggleFavoriteToBackend(item) {
@@ -424,11 +444,11 @@ export default function ClosetFeed() {
     }
   }
 
-  // pagination slice
-  const visibleItems = items.slice(0, page * pageSize);
-  const hasMore = items.length > visibleItems.length;
+  // pagination slice – only for live items
+  const visibleItems = liveItems.slice(0, page * pageSize);
+  const hasMore = liveItems.length > visibleItems.length;
 
-  const totalLooks = items.length;
+  const totalLooks = liveItems.length;
   const showingLooks = visibleItems.length;
 
   return (
@@ -504,10 +524,10 @@ export default function ClosetFeed() {
 
           <div className="closet-filterBar-right">
             {totalLooks > 0
-              ? `Showing ${showingLooks} of ${totalLooks} look${
+              ? `Showing ${showingLooks} of ${totalLooks} live look${
                   totalLooks === 1 ? "" : "s"
                 }`
-              : "No looks yet"}
+              : "No live looks yet"}
           </div>
         </section>
 
@@ -537,15 +557,60 @@ export default function ClosetFeed() {
             </div>
           )}
 
-          {!isInitialLoading && !err && items.length === 0 && (
-            <div className="closet-empty" style={{ marginTop: 12 }}>
-              <span role="img" aria-label="empty closet">
-                🧺
-              </span>{" "}
-              No published closet items yet. Style Lala in the{" "}
-              <Link to="/fan/closet">Style Lab</Link> and submit your looks for
-              review to see them appear here.
-            </div>
+          {!isInitialLoading &&
+            !err &&
+            liveItems.length === 0 &&
+            upcomingItems.length === 0 && (
+              <div className="closet-empty" style={{ marginTop: 12 }}>
+                <span role="img" aria-label="empty closet">
+                  🧺
+                </span>{" "}
+                No published closet items yet. Style Lala in the{" "}
+                <Link to="/fan/closet">Style Lab</Link> and submit your looks
+                for review to see them appear here.
+              </div>
+            )}
+
+          {!isInitialLoading &&
+            !err &&
+            liveItems.length === 0 &&
+            upcomingItems.length > 0 && (
+              <div className="closet-empty" style={{ marginTop: 12 }}>
+                No live looks right now, but{" "}
+                <strong>new drops are already scheduled</strong> below.
+              </div>
+            )}
+
+          {/* Upcoming scheduled drops */}
+          {!err && upcomingItems.length > 0 && (
+            <section className="closet-upcoming-section">
+              <h2>Coming soon to Lala&apos;s closet</h2>
+              <p className="closet-upcoming-sub">
+                Peek at the next drops and set your alarms.
+              </p>
+              <div className="closet-upcoming-grid">
+                {upcomingItems.map((item) => (
+                  <article key={item.id} className="closet-upcoming-card">
+                    {item.mediaUrl && (
+                      <img
+                        src={item.mediaUrl}
+                        alt={item.title || ""}
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="closet-upcoming-body">
+                      <h3>{item.title || "New look"}</h3>
+                      <p className="closet-upcoming-date">
+                        Drops{" "}
+                        {item.scheduledAt
+                          ? new Date(item.scheduledAt).toLocaleString()
+                          : "soon"}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
 
           {!err && visibleItems.length > 0 && (
@@ -696,7 +761,7 @@ export default function ClosetFeed() {
         </section>
       </main>
 
-      {/* component-scoped styles (keep your existing styles const if you have one) */}
+      {/* component-scoped styles */}
       <style>{styles}</style>
     </div>
   );
@@ -917,6 +982,68 @@ const styles = `
   margin-top:18px;
   font-size:0.9rem;
   color:#4b5563;
+}
+
+/* UPCOMING SECTION */
+.closet-upcoming-section {
+  margin-top: 16px;
+  margin-bottom: 10px;
+  padding: 10px 12px 12px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+}
+
+.closet-upcoming-section h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.closet-upcoming-sub {
+  margin: 2px 0 8px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.closet-upcoming-grid {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.closet-upcoming-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 16px rgba(148,163,184,0.25);
+}
+
+.closet-upcoming-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  display: block;
+}
+
+.closet-upcoming-body {
+  padding: 8px 10px 10px;
+}
+
+.closet-upcoming-body h3 {
+  margin: 0 0 2px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.closet-upcoming-date {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
 }
 
 /* GRID + CARDS */
@@ -1187,6 +1314,7 @@ const styles = `
   color: #6b7280;
 }
 `;
+
 
 
 

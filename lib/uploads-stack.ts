@@ -80,12 +80,13 @@ export class UploadsStack extends Stack {
         sourceMap: true,
       },
       environment: {
-        BUCKET_NAME: this.uploadsBucket.bucketName,
+        // 👈 match what the lambda code expects
+        UPLOADS_BUCKET_NAME: this.uploadsBucket.bucketName,
       },
     });
 
-    // Allow Lambda to PUT objects into the uploads bucket
-    this.uploadsBucket.grantPut(uploadApiFn);
+    // Allow Lambda to PUT (and sign for GET) objects into the uploads bucket
+    this.uploadsBucket.grantReadWrite(uploadApiFn);
 
     //
     // 3) REST API exposing POST /presign
@@ -95,7 +96,6 @@ export class UploadsStack extends Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: corsAllowedOrigins,
         allowMethods: apigw.Cors.ALL_METHODS,
-        // DEFAULT_HEADERS already includes Content-Type, Authorization, etc.
         allowHeaders: apigw.Cors.DEFAULT_HEADERS,
       },
     });
@@ -105,7 +105,16 @@ export class UploadsStack extends Stack {
       "POST",
       new apigw.LambdaIntegration(uploadApiFn),
       {
-        // you can tighten this later if you want Cognito auth
+        authorizationType: apigw.AuthorizationType.NONE,
+      },
+    );
+
+    // (Optional) /get route if we ever want signed GETs from the API
+    const getResource = api.root.addResource("get");
+    getResource.addMethod(
+      "POST",
+      new apigw.LambdaIntegration(uploadApiFn),
+      {
         authorizationType: apigw.AuthorizationType.NONE,
       },
     );
@@ -115,17 +124,5 @@ export class UploadsStack extends Stack {
       value: api.url,
       exportName: `SA-UploadsApiUrl-${envName}`,
     });
-
-    // If/when you need the existing web bucket for reading assets,
-    // you can import it like this (not used yet, so commented out):
-    //
-    // const webBucket = s3.Bucket.fromBucketName(
-    //   this,
-    //   "WebBucket",
-    //   props.webBucketName,
-    // );
-    //
-    // Then grant read access as needed:
-    // webBucket.grantRead(someLambda);
   }
 }
