@@ -98,7 +98,7 @@ const GQL = {
       }
     }
   `,
-  // NEW: publish approved looks to the fan closet
+  // publish approved looks to the fan closet
   publish: /* GraphQL */ `
     mutation AdminPublishItem($closetItemId: ID!) {
       adminPublishClosetItem(closetItemId: $closetItemId) {
@@ -185,22 +185,22 @@ const SUBCATEGORY_BY_CATEGORY = {
 // In "ALL" mode, we hide rejected items by default so the library feels clean.
 const HIDE_REJECTED_IN_ALL = true;
 
+// Prefer rawMediaKey first, then mediaKey
 function effectiveKey(item) {
-  const k = item.mediaKey || item.rawMediaKey || null;
+  const k = item.rawMediaKey || item.mediaKey || null;
   if (!k) return null;
   return String(k).replace(/^\/+/, "");
 }
 
 /**
- * Build mediaUrl per item using signed URL, with fallback to public CDN.
- * IMPORTANT: we do NOT mutate/guess the key (no auto "closet/" prefix).
- * We just trust the key from mediaKey/rawMediaKey.
+ * When we load items, we sign rawMediaKey / mediaKey and stash it as previewUrl.
+ * We also keep the existing fallback to the public CDN.
  */
 async function hydrateItems(items) {
   return Promise.all(
     items.map(async (item) => {
       const key = effectiveKey(item);
-      if (!key) return item;
+      if (!key) return { ...item, previewUrl: null };
 
       let url = null;
 
@@ -218,7 +218,7 @@ async function hydrateItems(items) {
 
       if (!url && PUBLIC_UPLOADS_CDN) {
         const encodedKey = String(key)
-          .replace(/^\/+/, "") // remove leading slashes only
+          .replace(/^\/+/, "")
           .split("/")
           .map((seg) => encodeURIComponent(seg))
           .join("/");
@@ -228,7 +228,7 @@ async function hydrateItems(items) {
         console.log("[ClosetLibrary] Fallback URL built", { key, url });
       }
 
-      return { ...item, mediaUrl: url || null };
+      return { ...item, previewUrl: url || null };
     })
   );
 }
@@ -276,6 +276,28 @@ function toTimeInputValue(iso) {
   return `${h}:${min}`;
 }
 
+function parseEpisodeText(text) {
+  const raw = String(text || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return raw;
+}
+
+function episodesEqual(a, b) {
+  const aa = (a || []).map(String);
+  const bb = (b || []).map(String);
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i += 1) {
+    if (aa[i] !== bb[i]) return false;
+  }
+  return true;
+}
+
+// ------------------------------------------------------
+// Component
+// ------------------------------------------------------
+
 export default function ClosetLibrary() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -295,6 +317,13 @@ export default function ClosetLibrary() {
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
 
   async function loadItems() {
+    // Guard: don't hammer GraphQL if we somehow render while not ADMIN
+    if (window.sa?.role && window.sa.role !== "ADMIN") {
+      setError("Admin access only. Please sign into the admin portal.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -399,27 +428,9 @@ export default function ClosetLibrary() {
     STATUS_OPTIONS.find((opt) => opt.value === statusFilter)?.label ||
     "All statuses";
 
-  // ----- helpers -----
-
-  function parseEpisodeText(text) {
-    const raw = String(text || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return raw;
-  }
-
-  function episodesEqual(a, b) {
-    const aa = (a || []).map(String);
-    const bb = (b || []).map(String);
-    if (aa.length !== bb.length) return false;
-    for (let i = 0; i < aa.length; i += 1) {
-      if (aa[i] !== bb[i]) return false;
-    }
-    return true;
-  }
-
-  // ----- actions -----
+  // ------------------------------------------------------
+  // Actions
+  // ------------------------------------------------------
 
   async function approveItem(item) {
     if (
@@ -529,39 +540,58 @@ export default function ClosetLibrary() {
     }
   }
 
+  // IMPORTANT: safe meta save – only sends changed fields, never just { id }
   async function saveDrawerMeta() {
     if (!selected || !drawerDraft) return;
 
-    const input = {};
+    // Always send id, track if anything actually changed
+    const input = { id: selected.id };
+    let changed = false;
+
+    // ---- title ----
     const trimmedTitle = (drawerDraft.title || "").trim();
-
     if (trimmedTitle !== (selected.title || "")) {
-      input.title = trimmedTitle || null;
+      input.title = trimmedTitle || null; // allow clearing
+      changed = true;
     }
 
-    if ((drawerDraft.category || "") !== (selected.category || "")) {
-      input.category = drawerDraft.category || null;
+    // ---- category / subcategory ----
+    const draftCategory = drawerDraft.category || "";
+    const draftSubcategory = drawerDraft.subcategory || "";
+    const prevCategory = selected.category || "";
+    const prevSubcategory = selected.subcategory || "";
+
+    if (draftCategory !== prevCategory) {
+      input.category = draftCategory || null;
+      changed = true;
     }
 
-    if ((drawerDraft.subcategory || "") !== (selected.subcategory || "")) {
-      input.subcategory = drawerDraft.subcategory || null;
+    if (draftSubcategory !== prevSubcategory) {
+      input.subcategory = draftSubcategory || null;
+      changed = true;
     }
 
+    // ---- coin value ----
     const selectedCoin =
       selected.coinValue === null || selected.coinValue === undefined
         ? null
-        : selected.coinValue;
+        : Number(selected.coinValue);
 
-    const draftCoin =
+    let draftCoin =
       drawerDraft.coinValue === "" || drawerDraft.coinValue === null
         ? null
-        : Number(drawerDraft.coinValue) || 0;
+        : Number(drawerDraft.coinValue);
 
-    if (draftCoin !== selectedCoin) {
-      input.coinValue = draftCoin;
+    if (Number.isNaN(draftCoin)) {
+      draftCoin = null;
     }
 
-    // schedule handling
+    if (draftCoin !== selectedCoin) {
+      input.coinValue = draftCoin; // can be null to clear
+      changed = true;
+    }
+
+    // ---- schedule ----
     const prevScheduledAt = selected.scheduledAt || null;
     let nextScheduledAt = null;
 
@@ -574,34 +604,47 @@ export default function ClosetLibrary() {
     }
 
     if ((nextScheduledAt || null) !== (prevScheduledAt || null)) {
-      input.scheduledAt = nextScheduledAt;
+      input.scheduledAt = nextScheduledAt; // may be null to clear
+      changed = true;
     }
 
-    // episodes handling
+    // ---- episodes ----
     const prevEpisodes = (selected.episodeIds || []).map(String);
     const nextEpisodes = parseEpisodeText(drawerDraft.episodesText);
 
     if (!episodesEqual(prevEpisodes, nextEpisodes)) {
-      // If empty, send [] to clear links
       input.episodeIds = nextEpisodes.length ? nextEpisodes : [];
+      changed = true;
     }
 
-    if (!Object.keys(input).length) {
+    // ---- nothing changed? ----
+    if (!changed) {
+      alert("No changes to save – update a field first.");
       return;
     }
 
     try {
       setBusyId(selected.id);
 
-      // 👇 include id inside input
       await window.sa.graphql(GQL.updateMeta, {
-        input: { id: selected.id, ...input },
+        input,
       });
 
       await loadItems();
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Failed to save changes.");
+      if (
+        typeof e?.message === "string" &&
+        e.message.includes("No fields provided to update")
+      ) {
+        // Backend thinks nothing changed – treat as no-op
+        alert(
+          "The server says there were no changes to update. Try editing a field, then save again."
+        );
+      } else {
+        alert(e?.message || "Failed to save changes.");
+      }
+    } finally {
       setBusyId(null);
     }
   }
@@ -882,9 +925,9 @@ export default function ClosetLibrary() {
                     onClick={() => openDrawer(item)}
                     style={{ cursor: "pointer" }}
                   >
-                    {item.mediaUrl ? (
+                    {item.previewUrl ? (
                       <img
-                        src={item.mediaUrl}
+                        src={item.previewUrl}
                         alt={item.title || "Closet item"}
                       />
                     ) : (
@@ -1064,9 +1107,9 @@ export default function ClosetLibrary() {
               <div className="closet-drawer-layout">
                 <div className="closet-drawer-imageWrap">
                   <div className="closet-drawer-thumb">
-                    {selected.mediaUrl ? (
+                    {selected.previewUrl ? (
                       <img
-                        src={selected.mediaUrl}
+                        src={selected.previewUrl}
                         alt={selected.title || "Closet item"}
                       />
                     ) : (

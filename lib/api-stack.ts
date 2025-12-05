@@ -32,6 +32,13 @@ export interface ApiStackProps extends StackProps {
 const ADMIN_GROUP_NAME = "ADMIN";
 const CREATOR_GROUP_NAME = "creator";
 
+// Optional: shared CDN base for raw uploads / previews
+// (kept in Lambda env so resolvers can emit fully-qualified URLs if needed)
+const PUBLIC_UPLOADS_CDN = process.env.PUBLIC_UPLOADS_CDN ?? "";
+
+/**
+ * AppSync + Lambda API stack for Styling Adventures.
+ */
 export class ApiStack extends Stack {
   public readonly api!: appsync.GraphqlApi;
 
@@ -143,6 +150,7 @@ export class ApiStack extends Stack {
         STORY_PUBLISH_SM_ARN: storyPublishSm.stateMachineArn,
         ADMIN_GROUP_NAME,
         CREATOR_GROUP_NAME,
+        PUBLIC_UPLOADS_CDN,
         NODE_OPTIONS: "--enable-source-maps",
       },
     });
@@ -277,6 +285,7 @@ export class ApiStack extends Stack {
         ...DDB_ENV,
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
         ADMIN_GROUP_NAME,
+        PUBLIC_UPLOADS_CDN,
         NODE_OPTIONS: "--enable-source-maps",
       },
       timeout: Duration.seconds(10),

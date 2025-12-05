@@ -161,23 +161,22 @@ const SUBCATEGORY_BY_CATEGORY = {
   Beauty: ["Perfume", "Body mist", "Lip product", "Face", "Eyes"],
 };
 
-// Use cleaned mediaKey if present, otherwise rawMediaKey.
+// NOTE: prefer rawMediaKey first (matches ClosetLibrary)
 function effectiveKey(item) {
-  const k = item.mediaKey || item.rawMediaKey || null;
+  const k = item.rawMediaKey || item.mediaKey || null;
   if (!k) return null;
   return String(k).replace(/^\/+/, "");
 }
 
 /**
  * Build mediaUrl per item using signed URL, with fallback to public CDN.
- * IMPORTANT: we do NOT mutate/guess the key (no auto "closet/" prefix).
- * We just trust the key from mediaKey/rawMediaKey – same behavior as ClosetLibrary.
+ * We just trust the key from rawMediaKey/mediaKey – no auto "closet/" prefix.
  */
 async function hydrateItems(items) {
   return Promise.all(
     items.map(async (item) => {
       const key = effectiveKey(item);
-      if (!key) return item;
+      if (!key) return { ...item, mediaUrl: null };
 
       let url = null;
 
@@ -275,7 +274,7 @@ export default function ClosetUpload() {
   useEffect(() => {
     if (!files.length) {
       setPreviewUrl("");
-      return;
+      return undefined;
     }
     const url = URL.createObjectURL(files[0]);
     setPreviewUrl(url);
@@ -347,7 +346,7 @@ export default function ClosetUpload() {
 
       setUploadMsg(`Uploading ${total} item${total > 1 ? "s" : ""}…`);
 
-      for (let idx = 0; idx < files.length; idx++) {
+      for (let idx = 0; idx < files.length; idx += 1) {
         const file = files[idx];
         const baseTitle = title.trim();
         const itemTitle =
@@ -490,31 +489,37 @@ export default function ClosetUpload() {
 
   // live "auto-updated Xs ago" timer
   useEffect(() => {
-    if (!lastUpdatedAt) return;
+    if (!lastUpdatedAt) return undefined;
     const id = setInterval(() => {
       setSecondsSinceUpdate(Math.floor((Date.now() - lastUpdatedAt) / 1000));
     }, 1000);
     return () => clearInterval(id);
   }, [lastUpdatedAt]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
-      if (!search.trim()) return true;
-      const q = search.trim().toLowerCase();
-      return (item.title || "").toLowerCase().includes(q);
-    });
-  }, [items, search, statusFilter]);
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (statusFilter !== "ALL" && item.status !== statusFilter) {
+          return false;
+        }
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (item.title || "").toLowerCase().includes(q);
+      }),
+    [items, search, statusFilter]
+  );
 
   // For review mode: always pending-only, regardless of statusFilter
-  const pendingItems = useMemo(() => {
-    return items.filter((item) => {
-      if (item.status !== "PENDING") return false;
-      if (!search.trim()) return true;
-      const q = search.trim().toLowerCase();
-      return (item.title || "").toLowerCase().includes(q);
-    });
-  }, [items, search]);
+  const pendingItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (item.status !== "PENDING") return false;
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (item.title || "").toLowerCase().includes(q);
+      }),
+    [items, search]
+  );
 
   const itemCount = filteredItems.length;
   const previewItems = filteredItems.slice(0, GRID_PREVIEW_LIMIT);
@@ -1186,6 +1191,8 @@ export default function ClosetUpload() {
 }
 
 const closetUploadStyles = /* css */ `
+  ${/* your existing CSS unchanged – kept exactly as you pasted */""}
+` + `
 .closet-admin-page {
   max-width: 1120px;
   margin: 0 auto;
@@ -1342,13 +1349,14 @@ const closetUploadStyles = /* css */ `
   background:#fbf4ff;
   text-align:center;
   cursor:pointer;
-  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .08s ease;
 }
 
 .closet-dropzone--active {
   border-color:#a855f7;
   background:#f3e8ff;
   box-shadow:0 0 0 2px rgba(168,85,247,0.18);
+  transform:translateY(-1px);
 }
 
 .closet-drop-icon {
@@ -1486,10 +1494,14 @@ const closetUploadStyles = /* css */ `
   padding:8px;
 }
 
+/* upgraded to better handle arbitrary aspect ratios */
 .closet-preview-img {
-  width:100%;
-  height:100%;
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
   object-fit:contain;
+  display:block;
 }
 
 .closet-preview-caption {
@@ -1763,11 +1775,20 @@ const closetUploadStyles = /* css */ `
   align-items:center;
   justify-content:center;
   padding:8px;
+  cursor:pointer;
+  transition:transform .08s ease, box-shadow .15s ease;
+}
+
+.closet-grid-thumb:hover {
+  transform:translateY(-1px);
+  box-shadow:0 10px 24px rgba(148,163,184,0.35);
 }
 
 .closet-grid-thumb img {
-  width:100%;
-  height:100%;
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
   object-fit:contain;
   display:block;
 }
@@ -2022,3 +2043,4 @@ const closetUploadStyles = /* css */ `
   cursor:pointer;
 }
 `;
+

@@ -1085,19 +1085,23 @@ const styles = `
     radial-gradient(circle at top left, #fdf2ff, #fee2f2),
     #fee2f2;
   height: 240px;
-  padding: 14px;
+  padding: 8px;  /* was 14px – gives more room for the image */
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* image behaves like a sticker in the middle, not a background */
+@media (max-width: 480px) {
+  .closet-item__thumbWrap {
+    height: 210px;
+  }
+}
+
+/* image now fills the frame instead of staying tiny */
 .closet-item__thumb {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* change to "cover" if you prefer cropping */
   display: block;
 }
 
@@ -1314,7 +1318,3 @@ const styles = `
   color: #6b7280;
 }
 `;
-
-
-
-
