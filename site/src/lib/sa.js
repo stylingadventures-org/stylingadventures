@@ -8,6 +8,12 @@ export async function getSA() {
   return window.SA;
 }
 
+/**
+ * Shared public uploads CDN (same domain used in admin+fan closet UIs)
+ * Used as a safe fallback/override when config still points at old S3 URLs.
+ */
+const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
+
 /* ---------------------------------------------------------------------------
    Auth utilities (Cognito Hosted UI – code grant)
 --------------------------------------------------------------------------- */
@@ -324,18 +330,18 @@ export const Auth = {
 --------------------------------------------------------------------------- */
 
 /**
- * Build a public URL for an existing object key (no GET presign).
+ * Build a URL for an existing object key (no GET presign).
  *
  * Strategy:
  *   1. If key is already a full URL, return it as-is.
- *   2. Otherwise, build "<baseUrl>/<key>" where baseUrl comes from config:
- *        thumbsCdn / uploadsCdn / uploadsUrl / uploadsOrigin / assetsBaseUrl /
- *        mediaBaseUrl / webBucketOrigin
- *   3. If there is no baseUrl, fall back to standard S3 URL:
+ *   2. Otherwise, build "<cdn>/<key>" where cdn comes from config
+ *      (thumbsCdn / uploadsCdn / uploadsUrl / uploadsOrigin / assetsBaseUrl /
+ *       mediaBaseUrl / webBucketOrigin), with a preference for CloudFront-style
+ *       hosts over direct S3 URLs.
+ *   3. If there is no usable CDN, fall back to standard S3 URL:
  *        https://<bucket>.s3.<region>.amazonaws.com/<key>
  *
  * NOTE:
- *   - We do NOT force a CloudFront domain here; that must come from config.
  *   - We URL-encode each path segment, not the whole key (no "%2F" issues).
  */
 export async function getSignedGetUrl(key) {
@@ -364,7 +370,7 @@ export async function getSignedGetUrl(key) {
     .join("/");
 
   // Prefer any explicit CDN / uploads base URL from config
-  const baseUrl = (
+  let baseUrl = (
     cfg.thumbsCdn ||
     cfg.uploadsCdn ||
     cfg.uploadsUrl ||
@@ -373,7 +379,14 @@ export async function getSignedGetUrl(key) {
     cfg.mediaBaseUrl ||
     cfg.webBucketOrigin ||
     ""
-  ).replace(/\/+$/, "");
+  ).toString().trim().replace(/\/+$/, "");
+
+  // If baseUrl is missing OR looks like a direct S3 URL,
+  // prefer the shared PUBLIC_UPLOADS_CDN (CloudFront) if available.
+  const looksLikeS3 = /\.s3\.[^/]+\.amazonaws\.com$/i.test(baseUrl);
+  if ((!baseUrl || looksLikeS3) && PUBLIC_UPLOADS_CDN) {
+    baseUrl = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "");
+  }
 
   if (baseUrl) {
     return `${baseUrl}/${encodedKey}`;
