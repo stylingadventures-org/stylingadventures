@@ -1271,7 +1271,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "642093fb651350dadf3f3da2ee6150708dadcca293c41a5746c84b1b97d2d2c2.zip"
+     "S3Key": "14041ff7aa30d0fc5af97f3a3c10e8844f0c327d989f903aeba1b3cb284b0e1a.zip"
     },
     "Environment": {
      "Variables": {
@@ -1310,7 +1310,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ApplyBgChangeFn/Resource",
-    "aws:asset:path": "asset.642093fb651350dadf3f3da2ee6150708dadcca293c41a5746c84b1b97d2d2c2",
+    "aws:asset:path": "asset.14041ff7aa30d0fc5af97f3a3c10e8844f0c327d989f903aeba1b3cb284b0e1a",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

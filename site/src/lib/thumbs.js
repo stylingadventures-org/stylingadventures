@@ -15,9 +15,12 @@ function getUploadsBase() {
 export async function getThumbUrlForMediaKey(mediaKey) {
   if (!mediaKey) return null;
 
-  const uploadsBase = getUploadsBase();
-  if (!uploadsBase) {
-    console.warn("[thumbs] uploadsApiUrl / VITE_UPLOADS_API_URL not set");
+    const uploadsBase = getUploadsBase();
+  if (
+    !uploadsBase ||
+    uploadsBase.includes("REPLACE_WITH_UPLOADS_API_URL") // dev placeholder
+  ) {
+    console.warn("[thumbs] uploadsApiUrl not set or placeholder; skipping thumb presign");
     return null;
   }
 

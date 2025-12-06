@@ -1,10 +1,8 @@
 // site/src/routes/admin/ClosetLibrary.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { getSignedGetUrl } from "../../lib/sa";
+import { hydrateClosetItems } from "../../lib/closetMedia";
 
-// IMPORTANT: fallback public CDN for raw uploads (same as fan feed + admin upload)
-const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
-
+// GraphQL documents
 const GQL = {
   list: /* GraphQL */ `
     query AdminListClosetItems(
@@ -185,54 +183,6 @@ const SUBCATEGORY_BY_CATEGORY = {
 // In "ALL" mode, we hide rejected items by default so the library feels clean.
 const HIDE_REJECTED_IN_ALL = true;
 
-// Prefer rawMediaKey first, then mediaKey
-function effectiveKey(item) {
-  const k = item.rawMediaKey || item.mediaKey || null;
-  if (!k) return null;
-  return String(k).replace(/^\/+/, "");
-}
-
-/**
- * When we load items, we sign rawMediaKey / mediaKey and stash it as previewUrl.
- * We also keep the existing fallback to the public CDN.
- */
-async function hydrateItems(items) {
-  return Promise.all(
-    items.map(async (item) => {
-      const key = effectiveKey(item);
-      if (!key) return { ...item, previewUrl: null };
-
-      let url = null;
-
-      try {
-        url = await getSignedGetUrl(key);
-        if (url) {
-          console.log("[ClosetLibrary] signed URL ok", { key, url });
-        }
-      } catch (e) {
-        console.warn("[ClosetLibrary] getSignedGetUrl failed → fallback", {
-          key,
-          error: e,
-        });
-      }
-
-      if (!url && PUBLIC_UPLOADS_CDN) {
-        const encodedKey = String(key)
-          .replace(/^\/+/, "")
-          .split("/")
-          .map((seg) => encodeURIComponent(seg))
-          .join("/");
-
-        url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
-
-        console.log("[ClosetLibrary] Fallback URL built", { key, url });
-      }
-
-      return { ...item, previewUrl: url || null };
-    })
-  );
-}
-
 function humanStatusLabel(item) {
   const status = item.status || "UNKNOWN";
   const hasCutout = !!item.mediaKey;
@@ -342,7 +292,11 @@ export default function ClosetLibrary() {
         rawItems = rawItems.filter((i) => i.status !== "REJECTED");
       }
 
-      const hydrated = await hydrateItems(rawItems);
+      // Shared hydration: attaches item.previewUrl
+      const hydrated = await hydrateClosetItems(rawItems, {
+        logPrefix: "[ClosetLibrary]",
+        urlField: "previewUrl",
+      });
 
       hydrated.sort((a, b) => {
         const ta = new Date(a.createdAt || 0).getTime();
@@ -390,7 +344,7 @@ export default function ClosetLibrary() {
   }, [statusFilter]);
 
   useEffect(() => {
-    if (!lastUpdatedAt) return;
+    if (!lastUpdatedAt) return undefined;
     const id = setInterval(() => {
       setSecondsSinceUpdate(Math.floor((Date.now() - lastUpdatedAt) / 1000));
     }, 1000);
@@ -637,7 +591,6 @@ export default function ClosetLibrary() {
         typeof e?.message === "string" &&
         e.message.includes("No fields provided to update")
       ) {
-        // Backend thinks nothing changed – treat as no-op
         alert(
           "The server says there were no changes to update. Try editing a field, then save again."
         );
@@ -1037,7 +990,7 @@ export default function ClosetLibrary() {
                           View
                         </button>
 
-                        {item.status === "PENDING" && (
+                          {item.status === "PENDING" && (
                           <button
                             type="button"
                             className="closet-grid-link"
