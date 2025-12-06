@@ -183,9 +183,11 @@ async function hydrateItems(items) {
       try {
         url = await getSignedGetUrl(key);
         if (url) {
+          // eslint-disable-next-line no-console
           console.log("[ClosetUpload] signed URL ok", { key, url });
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.warn("[ClosetUpload] getSignedGetUrl failed → fallback", {
           key,
           error: err,
@@ -200,6 +202,7 @@ async function hydrateItems(items) {
           .join("/");
 
         url = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
+        // eslint-disable-next-line no-console
         console.log("[ClosetUpload] Fallback URL built:", { key, url });
       }
 
@@ -211,13 +214,18 @@ async function hydrateItems(items) {
 function humanStatusLabel(item) {
   const status = item.status || "UNKNOWN";
   const hasCutout = !!item.mediaKey;
+  const hasAnyImage = !!(item.mediaKey || item.rawMediaKey);
 
-  if (status === "PENDING" && !hasCutout && item.rawMediaKey) {
+  // If we're pending but *no* image key yet, treat as still processing
+  if (status === "PENDING" && !hasAnyImage) {
     return "processing bg";
   }
-  if (status === "PENDING" && hasCutout) {
-    return "ready to review";
+
+  // In this dev stack we treat rawMediaKey as “good enough” to review
+  if (status === "PENDING" && hasAnyImage) {
+    return hasCutout ? "cutout ready" : "ready to review";
   }
+
   return status.toLowerCase();
 }
 
@@ -1066,7 +1074,11 @@ export default function ClosetUpload() {
 
               <div className="closet-grid closet-grid--review">
                 {reviewList.map((item) => {
-                  const readyForReview = !!item.mediaKey;
+                  const readyForReview = !!(
+                    item.mediaKey || item.rawMediaKey
+                  );
+                  const hasCutout = !!item.mediaKey;
+                  const hasAnyImage = !!(item.mediaKey || item.rawMediaKey);
                   const isBusy = busyId === item.id;
 
                   const audienceVal = item.audience || "PUBLIC";
@@ -1089,12 +1101,17 @@ export default function ClosetUpload() {
                         )}
 
                         <div className="closet-review-pills">
-                          {!readyForReview && (
+                          {!hasAnyImage && (
                             <span className="closet-bg-pill">
                               Processing background…
                             </span>
                           )}
-                          {readyForReview && (
+                          {hasAnyImage && !hasCutout && (
+                            <span className="closet-bg-pill closet-bg-pill--ready">
+                              Original photo
+                            </span>
+                          )}
+                          {hasCutout && (
                             <span className="closet-bg-pill closet-bg-pill--ready">
                               Cutout ready
                             </span>

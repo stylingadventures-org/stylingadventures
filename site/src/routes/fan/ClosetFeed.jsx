@@ -2,11 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getSignedGetUrl } from "../../lib/sa";
+import { hydrateClosetItems } from "../../lib/closetMedia";
 import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
-
-// IMPORTANT: fallback public CDN for raw uploads
-// Must match uploadsCdn in config.v2.json
-const PUBLIC_UPLOADS_CDN = "https://d123abc456defg.cloudfront.net";
 
 // Full query – tries viewerHasFaved when available, using ClosetConnection
 const GQL_FEED_FULL = /* GraphQL */ `
@@ -282,36 +279,12 @@ export default function ClosetFeed() {
           };
         });
 
-        // Hydrate S3 / CDN URLs with a robust fallback
-        const hydrated = await Promise.all(
-          withKeys.map(async (it) => {
-            if (!it.effectiveKey) return it;
-
-            let url = null;
-
-            try {
-              url = await getSignedGetUrl(it.effectiveKey);
-            } catch (e) {
-              console.warn(
-                "[ClosetFeed] getSignedGetUrl failed, falling back to public CDN",
-                e,
-              );
-            }
-
-            if (!url && PUBLIC_UPLOADS_CDN) {
-              const cleanedKey = String(it.effectiveKey).replace(/^\/+/, "");
-              const encodedKey = cleanedKey
-                .split("/")
-                .map((seg) => encodeURIComponent(seg))
-                .join("/");
-
-              url =
-                PUBLIC_UPLOADS_CDN.replace(/\/+$/, "") + "/" + encodedKey;
-            }
-
-            return { ...it, mediaUrl: url || null };
-          }),
-        );
+        // Hydrate S3 / CDN URLs with a robust fallback (shared helper)
+        const hydrated = await hydrateClosetItems(withKeys, {
+          preferRaw: false,
+          urlField: "mediaUrl",
+          debugTag: "ClosetFeed",
+        });
 
         // Sort client-side as a fallback (backend already gives NEWEST / MOST_LOVED)
         hydrated.sort((a, b) => {

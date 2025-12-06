@@ -1,8 +1,10 @@
+// lambda/presign/index.ts
 import {
   S3Client,
   PutObjectCommand,
   ListObjectsV2Command,
   DeleteObjectCommand,
+  GetObjectCommand,             // ⬅️ NEW
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
@@ -14,7 +16,7 @@ const BUCKET = process.env.BUCKET!;
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "https://stylingadventures.com";
 
 // Comma-separated list of allowed origins, e.g.
-// "https://d3fbghr37bcpbig.cloudfront.net,http://localhost:5173"
+// "https://d3fghr37bcpbig.cloudfront.net,http://localhost:5173"
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? WEB_ORIGIN)
   .split(",")
   .map((s) => s.trim())
@@ -143,7 +145,35 @@ export const handler = async (
   }
 
   try {
-    // --- POST /presign ---
+    // --- GET /presign?key=...&method=GET ---
+    // Used by thumbs.js and any "view" presign callers
+    if (method === "GET" && /\/presign$/.test(path)) {
+      const qs = event.queryStringParameters || {};
+      const rawKey = qs.key ? decodeURIComponent(qs.key) : "";
+      const op = (qs.method || "GET").toString().toUpperCase();
+
+      if (!rawKey) return err(headers, 400, 'Missing "key"');
+      if (rawKey.includes("..")) return err(headers, 400, "Illegal key");
+
+      const key = rawKey.replace(/^\/+/, "");
+
+      // For GET we just return a read URL for the exact key
+      const getCmd = new GetObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+      });
+
+      const url = await getSignedUrl(s3, getCmd, { expiresIn: 900 });
+
+      return ok(headers, {
+        url,
+        key,
+        method: op,
+        thumbsCdn: THUMBS_CDN ?? undefined,
+      });
+    }
+
+    // --- POST /presign --- (uploads; you already had this)
     if (method === "POST" && /\/presign$/.test(path)) {
       const body = parseBody<{
         key: string;

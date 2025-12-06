@@ -8,6 +8,10 @@ const REMOVE_BG_API = "https://api.remove.bg/v1.0/removebg";
 type RemoveBgParams = {
   bucket: string;
   key: string;
+  /**
+   * Prefix under which we should write the cutout.
+   * Example: "closet/315ba046-...-98adcac22520"
+   */
   destKeyPrefix: string;
 };
 
@@ -30,16 +34,15 @@ export async function removeBackgroundForS3Object({
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
-    }),
+    })
   );
 
-  // Read the body as a Buffer
   const body = await streamToBuffer(orig.Body as any);
 
   // 2) Call remove.bg
   const form = new FormData();
   form.append("image_file", new Blob([body]), "source.png");
-  form.append("size", "auto"); // or "medium", etc.
+  form.append("size", "auto");
 
   const resp = await fetch(REMOVE_BG_API, {
     method: "POST",
@@ -57,7 +60,9 @@ export async function removeBackgroundForS3Object({
   const cutout = Buffer.from(await resp.arrayBuffer());
 
   // 3) Save the cutout back to S3
-  const destKey = `${destKeyPrefix}/cutout.png`;
+  // We keep it in the same general "closet/..." namespace so the
+  // front-end can just use mediaKey directly.
+  const destKey = `${destKeyPrefix}-cutout.png`;
 
   await s3.send(
     new PutObjectCommand({
@@ -65,7 +70,7 @@ export async function removeBackgroundForS3Object({
       Key: destKey,
       Body: cutout,
       ContentType: "image/png",
-    }),
+    })
   );
 
   return destKey;
@@ -80,3 +85,4 @@ function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
     stream.on("end", () => resolve(Buffer.concat(chunks)));
   });
 }
+

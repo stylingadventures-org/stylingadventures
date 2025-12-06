@@ -1,20 +1,23 @@
 // lambda/trigger-thumbnail/index.ts
-import type { SQSEvent, SQSRecord } from 'aws-lambda';
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
+import type { SQSEvent, SQSRecord } from "aws-lambda";
+import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 
 const sfn = new SFNClient({});
-const STATE_MACHINE_ARN = process.env.THUMB_SM_ARN || '';
+const STATE_MACHINE_ARN = process.env.THUMB_SM_ARN || "";
 
+// Now supports both users/* and closet/* image keys
 const isSupportedKey = (key: string) =>
-  /^users\//i.test(key) && /\.(?:jpe?g|png|webp)$/i.test(key);
+  /^(users\/|closet\/)/i.test(key) && /\.(?:jpe?g|png|webp)$/i.test(key);
 
-function extractS3RecordsFromBody(bodyStr: string): Array<{ bucket: string; key: string }> {
+function extractS3RecordsFromBody(
+  bodyStr: string,
+): Array<{ bucket: string; key: string }> {
   const out: Array<{ bucket: string; key: string }> = [];
   let body: any;
   try {
     body = JSON.parse(bodyStr);
   } catch {
-    console.warn('Skipping record; non-JSON body:', bodyStr.slice(0, 256));
+    console.warn("Skipping record; non-JSON body:", bodyStr.slice(0, 256));
     return out;
   }
 
@@ -36,7 +39,7 @@ function extractS3RecordsFromBody(bodyStr: string): Array<{ bucket: string; key:
     : [];
 
   if (candidates.length === 0) {
-    console.warn('Skipping record; unrecognized body:', bodyStr.slice(0, 512));
+    console.warn("Skipping record; unrecognized body:", bodyStr.slice(0, 512));
     return out;
   }
 
@@ -45,11 +48,11 @@ function extractS3RecordsFromBody(bodyStr: string): Array<{ bucket: string; key:
     let key = rec?.s3?.object?.key as string | undefined;
     if (!bucket || !key) continue;
 
-    // S3 can URL-encode keys and turn spaces to '+'
-    key = decodeURIComponent(String(key).replace(/\+/g, ' '));
+    // S3 can URL-encode keys and turn spaces to "+"
+    key = decodeURIComponent(String(key).replace(/\+/g, " "));
 
     if (!isSupportedKey(key)) {
-      console.info('Ignored (filter)', { key });
+      console.info("Ignored (filter)", { key });
       continue;
     }
     out.push({ bucket, key });
@@ -58,21 +61,26 @@ function extractS3RecordsFromBody(bodyStr: string): Array<{ bucket: string; key:
 }
 
 export const handler = async (event: SQSEvent) => {
-  if (!STATE_MACHINE_ARN) throw new Error('Missing env THUMB_SM_ARN');
+  if (!STATE_MACHINE_ARN) throw new Error("Missing env THUMB_SM_ARN");
 
-  console.info('SQS batch size:', event.Records.length);
+  console.info("SQS batch size:", event.Records.length);
   const toStart: Array<{ bucket: string; key: string }> = [];
 
   for (const r of event.Records as SQSRecord[]) {
-    toStart.push(...extractS3RecordsFromBody(r.body ?? ''));
+    toStart.push(...extractS3RecordsFromBody(r.body ?? ""));
   }
 
   for (const item of toStart) {
     const input = JSON.stringify(item);
-    await sfn.send(new StartExecutionCommand({ stateMachineArn: STATE_MACHINE_ARN, input }));
-    console.info('Started execution', item);
+    await sfn.send(
+      new StartExecutionCommand({
+        stateMachineArn: STATE_MACHINE_ARN,
+        input,
+      }),
+    );
+    console.info("Started execution", item);
   }
 
-  console.info('Dispatched', toStart.length, 'execution(s).');
+  console.info("Dispatched", toStart.length, "execution(s).");
   return { ok: true, count: toStart.length };
 };

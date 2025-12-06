@@ -15,26 +15,23 @@ export async function getSA() {
 const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
 
 /* ---------------------------------------------------------------------------
-   Auth utilities (Cognito Hosted UI – code grant)
+   Auth / config helpers
 --------------------------------------------------------------------------- */
 
 function readCfg(SA) {
-  // Prefer SA.cfg() (from public/sa.js), then any compat cfg, then window.__cfg
+  // Prefer SA.cfg() (from public/sa.js), then compat cfg, then config.v2.json
   const saCfg =
     (SA && typeof SA.cfg === "function" ? SA.cfg() : SA?.cfg) || {};
   const compatCfg = window.sa?.cfg || {};
   const jsonCfg = window.__cfg || {};
 
-  // Merge with priority: SA base → compat → config.v2.json
   const cfg = {
     ...saCfg,
     ...compatCfg,
     ...jsonCfg,
   };
 
-  // ─────────────────────────────────────
-  // 🔐 Hard-override AppSync URL in dev
-  // ─────────────────────────────────────
+  // Hard-override AppSync URL in dev if missing or weird
   const FALLBACK_APPSYNC_URL =
     "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
 
@@ -60,30 +57,17 @@ function readCfg(SA) {
   }
   cfg.cognitoDomain = domain;
 
-  if (!cfg.cognitoDomain) {
-    console.warn(
-      "[SA] Missing cognitoDomain or (cognitoDomainPrefix/hostedUiDomain + region) in config.v2.json",
-    );
-  }
-  if (!cfg.userPoolWebClientId && !cfg.clientId) {
-    console.warn("[SA] Missing userPoolWebClientId/clientId in config.v2.json");
-  }
-
-  cfg.clientId = cfg.clientId || cfg.userPoolWebClientId;
-
-  // Default scopes; you can add "profile" if you like
-  if (!Array.isArray(cfg.scopes) || cfg.scopes.length === 0) {
+  // Default scopes
+  if (!cfg.scopes || !Array.isArray(cfg.scopes) || cfg.scopes.length === 0) {
     cfg.scopes = ["openid", "email"];
   }
 
-  // -----------------------------------------------------------------------
-  // 📦 Uploads API compatibility: normalise uploadsApiUrl from legacy keys
-  // -----------------------------------------------------------------------
+  // Normalise uploadsApiUrl from legacy keys
   if (!cfg.uploadsApiUrl) {
     cfg.uploadsApiUrl =
       cfg.uploadsApiUrl ||
-      cfg.uploadsApi || // e.g. older config key
-      cfg.uploadsOrigin || // sometimes used for API origin
+      cfg.uploadsApi ||
+      cfg.uploadsOrigin ||
       cfg.uploadApiUrl ||
       "";
   }
@@ -93,21 +77,13 @@ function readCfg(SA) {
     "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
   ];
 
-  // Prefer uploadsApiUrl from config.v2.json if it looks better
+  const currentUploadsUrl = String(cfg.uploadsApiUrl || "").trim();
   const jsonUploadsUrl =
     jsonCfg.uploadsApiUrl ||
     jsonCfg.uploadsApi ||
     jsonCfg.uploadsOrigin ||
     jsonCfg.uploadApiUrl ||
     "";
-
-  // Final hardcoded fallback if all configs are missing or stale.
-  // 🚨 Replace this with your *real* UploadsApiUrl if you want a hard override.
-  const FALLBACK_UPLOADS_API_URL =
-    jsonUploadsUrl ||
-    "https://REPLACE_WITH_UPLOADS_API_URL.execute-api.us-east-1.amazonaws.com/prod";
-
-  const currentUploadsUrl = String(cfg.uploadsApiUrl || "").trim();
 
   const isBadUploadsUrl =
     !currentUploadsUrl ||
@@ -120,7 +96,9 @@ function readCfg(SA) {
     ) {
       cfg.uploadsApiUrl = jsonUploadsUrl.trim();
     } else {
-      cfg.uploadsApiUrl = FALLBACK_UPLOADS_API_URL;
+      // Last-resort placeholder – you should never actually hit this in dev
+      cfg.uploadsApiUrl =
+        "https://REPLACE_WITH_UPLOADS_API_URL.execute-api.us-east-1.amazonaws.com/prod";
     }
   }
 
@@ -144,7 +122,7 @@ function webOrigin() {
  * ⚠️ Choose ONE of these callback paths and keep it consistent
  * in BOTH this file and the Cognito app client's Callback URLs.
  */
-const CALLBACK_PATH = "/callback"; // or "/callback/" if you prefer trailing slash
+const CALLBACK_PATH = "/callback";
 
 function currentRedirectUri() {
   return `${webOrigin()}${CALLBACK_PATH}`;
@@ -193,7 +171,6 @@ export async function getIdToken() {
       SA?.tokens?.idToken?.toString?.();
     if (tok) return String(tok);
   } catch (e) {
-    // Swallow – we'll fall back to localStorage/sessionStorage
     console.warn("[SA] getIdToken via SA failed, falling back to storage", e);
   }
   return readToken("id_token");
@@ -214,7 +191,7 @@ export async function exchangeCodeForTokens() {
     grant_type: "authorization_code",
     client_id: cfg.clientId,
     code,
-    redirect_uri: currentRedirectUri(), // must match /login redirect_uri
+    redirect_uri: currentRedirectUri(),
   });
 
   const tokenEndpoint = `${cfg.cognitoDomain.replace(
@@ -304,7 +281,6 @@ export function clearTokens() {
     try {
       sessionStorage.removeItem(k);
     } catch (e) {
-      // Ignore storage errors (private mode, etc.)
       console.warn("[SA] sessionStorage remove failed", k, e);
     }
   });
@@ -330,19 +306,15 @@ export const Auth = {
 --------------------------------------------------------------------------- */
 
 /**
- * Build a URL for an existing object key (no GET presign).
+ * Build a URL for an existing object key (closet images, etc.).
  *
  * Strategy:
  *   1. If key is already a full URL, return it as-is.
- *   2. Otherwise, build "<cdn>/<key>" where cdn comes from config
- *      (thumbsCdn / uploadsCdn / uploadsUrl / uploadsOrigin / assetsBaseUrl /
- *       mediaBaseUrl / webBucketOrigin), with a preference for CloudFront-style
- *       hosts over direct S3 URLs.
- *   3. If there is no usable CDN, fall back to standard S3 URL:
- *        https://<bucket>.s3.<region>.amazonaws.com/<key>
+ *   2. Prefer a CDN-style base URL (CloudFront) from config or PUBLIC_UPLOADS_CDN.
+ *   3. As a last resort, build a direct S3 URL from bucket + region.
  *
  * NOTE:
- *   - We URL-encode each path segment, not the whole key (no "%2F" issues).
+ *   We intentionally DO NOT call the uploads API /presign route here anymore.
  */
 export async function getSignedGetUrl(key) {
   if (!key) return null;
@@ -352,24 +324,25 @@ export async function getSignedGetUrl(key) {
     return String(key);
   }
 
-  const SA = await getSA().catch((e) => {
-    console.warn(
-      "[getSignedGetUrl] getSA failed, continuing with window cfg",
-      e,
-    );
-    return undefined;
-  });
-
-  const cfg = readCfg(SA || {});
   const cleanedKey = String(key).replace(/^\/+/, "");
-
-  // Encode each segment but keep "/" as a path separator
   const encodedKey = cleanedKey
     .split("/")
     .map((seg) => encodeURIComponent(seg))
     .join("/");
 
-  // Prefer any explicit CDN / uploads base URL from config
+  let cfg;
+  try {
+    const SA = await getSA().catch(() => undefined);
+    cfg = readCfg(SA || {});
+  } catch (e) {
+    console.warn(
+      "[getSignedGetUrl] readCfg failed; falling back to window.__cfg",
+      e,
+    );
+    cfg = window.__cfg || {};
+  }
+
+  // CDN-style base first
   let baseUrl = (
     cfg.thumbsCdn ||
     cfg.uploadsCdn ||
@@ -378,21 +351,18 @@ export async function getSignedGetUrl(key) {
     cfg.assetsBaseUrl ||
     cfg.mediaBaseUrl ||
     cfg.webBucketOrigin ||
+    PUBLIC_UPLOADS_CDN ||
     ""
-  ).toString().trim().replace(/\/+$/, "");
-
-  // If baseUrl is missing OR looks like a direct S3 URL,
-  // prefer the shared PUBLIC_UPLOADS_CDN (CloudFront) if available.
-  const looksLikeS3 = /\.s3\.[^/]+\.amazonaws\.com$/i.test(baseUrl);
-  if ((!baseUrl || looksLikeS3) && PUBLIC_UPLOADS_CDN) {
-    baseUrl = PUBLIC_UPLOADS_CDN.replace(/\/+$/, "");
-  }
+  )
+    .toString()
+    .trim()
+    .replace(/\/+$/, "");
 
   if (baseUrl) {
     return `${baseUrl}/${encodedKey}`;
   }
 
-  // Fallback: construct standard S3 URL from bucket + region
+  // Last resort: direct S3 URL
   const bucket =
     cfg.uploadsBucket ||
     cfg.mediaBucket ||
@@ -404,10 +374,7 @@ export async function getSignedGetUrl(key) {
   const region = cfg.region || "us-east-1";
 
   if (!bucket) {
-    console.warn(
-      "[getSignedGetUrl] No uploads base URL or bucket configured",
-      { cfg },
-    );
+    console.warn("[getSignedGetUrl] No uploads base URL or bucket configured");
     return null;
   }
 
@@ -417,7 +384,7 @@ export async function getSignedGetUrl(key) {
 /**
  * Upload a Blob or text via API Gateway presign to S3.
  *
- * NEW: accepts an optional options object:
+ * Usage:
  *   signedUpload(file, { key: "uuid.jpg", kind: "closet" })
  */
 export async function signedUpload(fileOrText, opts = {}) {
@@ -512,14 +479,12 @@ export async function signedUpload(fileOrText, opts = {}) {
 
 /**
  * Helper: upload a profile photo and store its URL in GameProfile.avatarUrl.
- * Can be used from the profile page + fan home/community.
  */
 export async function uploadProfilePhoto(file) {
   if (!(file instanceof Blob)) {
     throw new Error("uploadProfilePhoto expects a File/Blob");
   }
 
-  // Upload to the same uploads API, but mark as a profile avatar
   const upload = await signedUpload(file, { kind: "profile" });
 
   const SA = await getSA();
@@ -551,7 +516,7 @@ export async function uploadProfilePhoto(file) {
 }
 
 /* ---------------------------------------------------------------------------
-   Fans/Game helpers (profile, leaderboard, badges, daily login)
+   Fans/Game helpers
 --------------------------------------------------------------------------- */
 
 // Once/day guard (per browser) for DAILY_LOGIN
@@ -594,7 +559,7 @@ export async function fetchProfile() {
       level
       xp
       coins
-      badges         # [String!]! in schema
+      badges
       avatarUrl
       bio
       lastEventAt
@@ -674,8 +639,6 @@ export async function grantBadgeTo(userId, badgeId) {
 
 /* ---------------------------------------------------------------------------
    ✨ Compatibility bridge for Admin pages (drop-in safe)
-   - Exposes window.sa.ready / window.sa.graphql / window.sa.session / window.sa.cfg
-   - Provides a named export `graphql(query, variables)`
 --------------------------------------------------------------------------- */
 
 function parseJwt(t) {

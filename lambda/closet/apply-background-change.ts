@@ -1,43 +1,58 @@
+// lambda/closet/apply-background-change.ts
 import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 
 const ddb = new DynamoDBClient({});
 
-// These env vars come from the Step Function / stack if we wire them later.
-// For now we keep it very tolerant so it works even if not set.
+// These env vars come from the Step Function / stack.
 const TABLE_NAME = process.env.TABLE_NAME || "";
 const PK_NAME = process.env.PK_NAME || "pk";
 const SK_NAME = process.env.SK_NAME || "sk";
 
 /**
- * Minimal "apply background change" handler.
+ * Apply the result of background processing to the ClosetItem row.
  *
- * This is intentionally lightweight so the infra can deploy.
- * Later we can upgrade it to:
- *   - copy processed image from bg-removal bucket
- *   - update ClosetItem.pendingBackgroundKey -> backgroundKey
- *   - flip status flags, etc.
+ * Expected event shape (flexible – we try multiple property names):
+ * {
+ *   itemId: "closet item id",
+ *   ownerId: "user sub",
+ *   mediaKey: "closet/xxx-cutout.png"        // preferred
+ *   // or:
+ *   processedKey: "closet/xxx-cutout.png"
+ *   newBackgroundKey: "closet/xxx-cutout.png"
+ *   backgroundStatus: "COMPLETED" | "FAILED" // optional
+ * }
  */
 export const handler = async (event: any) => {
   console.log("ApplyBackgroundChange event:", JSON.stringify(event));
 
   const itemId =
     event?.itemId ||
-    event?.detail?.itemId ||
     event?.closetItemId ||
+    event?.detail?.itemId ||
+    event?.detail?.closetItemId ||
     event?.id;
 
   const ownerId =
     event?.ownerId ||
-    event?.detail?.ownerId ||
     event?.userId ||
-    event?.sub;
+    event?.sub ||
+    event?.detail?.ownerId ||
+    event?.detail?.userId;
 
-  const backgroundKey =
+  const mediaKey =
+    event?.mediaKey ||
+    event?.detail?.mediaKey ||
+    event?.processedKey ||
+    event?.detail?.processedKey ||
     event?.backgroundKey ||
     event?.detail?.backgroundKey ||
-    event?.processedKey ||
-    event?.newBackgroundKey;
+    event?.newBackgroundKey ||
+    event?.detail?.newBackgroundKey;
+
+  // optional explicit status from the workflow
+  const incomingStatus =
+    event?.backgroundStatus || event?.detail?.backgroundStatus || null;
 
   if (!TABLE_NAME) {
     console.warn("TABLE_NAME not set; skipping DynamoDB update");
@@ -64,18 +79,28 @@ export const handler = async (event: any) => {
       ":now": new Date().toISOString(),
     };
 
-    if (backgroundKey) {
-      updateExprParts.push("#backgroundKey = :bk");
-      names["#backgroundKey"] = "backgroundKey";
-      values[":bk"] = backgroundKey;
+    if (mediaKey) {
+      // This is the field your GraphQL API exposes and that the
+      // front-end reads.
+      updateExprParts.push("#mediaKey = :mk");
+      names["#mediaKey"] = "mediaKey";
+      values[":mk"] = mediaKey;
 
-      // clear any "pending" key if present
+      // If you previously had a "pendingBackgroundKey", clear it.
       updateExprParts.push("#pendingBackgroundKey = :null");
       names["#pendingBackgroundKey"] = "pendingBackgroundKey";
       values[":null"] = null;
     }
 
-    const updateCmd = new UpdateItemCommand({
+    // Track background processing status on the item
+    const finalStatus = incomingStatus || (mediaKey ? "COMPLETED" : null);
+    if (finalStatus) {
+      updateExprParts.push("#backgroundStatus = :bs");
+      names["#backgroundStatus"] = "backgroundStatus";
+      values[":bs"] = finalStatus;
+    }
+
+    const cmd = new UpdateItemCommand({
       TableName: TABLE_NAME,
       Key: marshall({
         [PK_NAME]: `USER#${ownerId}`,
@@ -88,8 +113,17 @@ export const handler = async (event: any) => {
       }),
     });
 
-    console.log("ApplyBackgroundChange: UpdateItem", JSON.stringify(updateCmd));
-    await ddb.send(updateCmd);
+    console.log(
+      "ApplyBackgroundChange: UpdateItem",
+      JSON.stringify({
+        TableName: cmd.input.TableName,
+        Key: cmd.input.Key,
+        UpdateExpression: cmd.input.UpdateExpression,
+        ExpressionAttributeNames: cmd.input.ExpressionAttributeNames,
+      })
+    );
+
+    await ddb.send(cmd);
   } catch (err) {
     console.error("ApplyBackgroundChange: DDB update failed", err);
     return {
@@ -104,3 +138,4 @@ export const handler = async (event: any) => {
     applied: true,
   };
 };
+
