@@ -1,4 +1,3 @@
-// bin/stylingadventures.ts
 import "dotenv/config";
 import "source-map-support/register";
 import * as fs from "fs";
@@ -135,8 +134,6 @@ const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
 });
 
 // 4) Core Workflows (approval / background / story publish)
-//    NOTE: currently not used by ApiStack directly, but left in place
-//    for backwards-compatibility / future reuse.
 const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
   env,
   table: data.table,
@@ -190,7 +187,7 @@ const livestream = new LivestreamStack(app, "LivestreamStack", {
   description: `Creator livestream infra - ${envName}`,
 });
 
-// 10) Pro Creators — scheduling + AI helpers
+// 10) Pro Creators — scheduling + AI helpers (separate infra stack, still used elsewhere)
 const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
   env,
   envName,
@@ -287,7 +284,7 @@ const api = new ApiStack(app, "ApiStack", {
   storyPublishSm: bestiesStories.storyPublishStateMachine,
 
   livestreamFn: livestream.livestreamFn,
-  // creatorAiFn removed – AI lambda is now owned inside ApiStack
+  // creatorAiFn removed – CreatorTools Lambda now lives inside ApiStack
   commerceFn: commerce.commerceFn,
 
   adminModerationFn: admin.moderationFn,

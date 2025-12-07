@@ -1,248 +1,386 @@
 // site/src/routes/creator/Library.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { graphql } from "../../lib/sa";
 
-const demoFolders = [
-  {
-    id: "cab1",
-    name: "Winter street style",
-    count: 24,
-    updatedAt: "2025-01-05T12:00:00Z",
-  },
-  {
-    id: "cab2",
-    name: "Holiday glam drop",
-    count: 18,
-    updatedAt: "2025-01-03T09:12:00Z",
-  },
-  {
-    id: "cab3",
-    name: "Episode 3 BTS",
-    count: 12,
-    updatedAt: "2024-12-28T16:30:00Z",
-  },
-];
+/**
+ * Backed by:
+ *
+ *   query {
+ *     creatorCabinets {
+ *       id
+ *       name
+ *       assetCount
+ *       updatedAt
+ *     }
+ *   }
+ *
+ *   mutation CreateCreatorCabinet($name: String!) {
+ *     createCreatorCabinet(input: { name: $name }) {
+ *       id
+ *       name
+ *       assetCount
+ *       updatedAt
+ *     }
+ *   }
+ */
+
+const LIST_QUERY = `
+  query CreatorCabinets {
+    creatorCabinets {
+      id
+      name
+      assetCount
+      updatedAt
+    }
+  }
+`;
+
+const CREATE_MUTATION = `
+  mutation CreateCreatorCabinet($name: String!) {
+    createCreatorCabinet(input: { name: $name }) {
+      id
+      name
+      assetCount
+      updatedAt
+    }
+  }
+`;
+
+function normaliseCount(cabinet) {
+  if (!cabinet) return 0;
+  // assetCount is the field your schema definitely has;
+  // totalAssets / assets are safety fallbacks.
+  return (
+    cabinet.assetCount ??
+    cabinet.totalAssets ??
+    cabinet.assets ??
+    0
+  );
+}
 
 export default function CreatorLibrary() {
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [cabinets, setCabinets] = useState([]);
   const [search, setSearch] = useState("");
-  const [folders, setFolders] = useState(demoFolders);
   const [newName, setNewName] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return folders;
-    return folders.filter((f) => f.name.toLowerCase().includes(q));
-  }, [folders, search]);
+  // ----- Data loading -----
+  useEffect(() => {
+    let cancelled = false;
 
-  const handleCreate = (e) => {
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await graphql(LIST_QUERY);
+        if (cancelled) return;
+        setCabinets(data?.creatorCabinets || []);
+      } catch (e) {
+        console.error("[CreatorLibrary] load error", e);
+        if (!cancelled) {
+          setError("We couldn’t load your cabinets. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredCabinets = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return cabinets;
+    return cabinets.filter((c) =>
+      (c.name || "").toLowerCase().includes(term),
+    );
+  }, [cabinets, search]);
+
+  const totalAssets = useMemo(
+    () => cabinets.reduce((sum, c) => sum + normaliseCount(c), 0),
+    [cabinets],
+  );
+
+  // ----- Actions -----
+  async function handleCreate(e) {
     e.preventDefault();
-    const name = newName.trim();
-    if (!name) return;
-    const now = new Date().toISOString();
-    setFolders((prev) => [
-      {
-        id: `cab-${Date.now()}`,
-        name,
-        count: 0,
-        updatedAt: now,
-      },
-      ...prev,
-    ]);
-    setNewName("");
-  };
+    const trimmed = newName.trim();
+    if (!trimmed) return;
 
+    setCreating(true);
+    setError("");
+
+    try {
+      const data = await graphql(CREATE_MUTATION, { name: trimmed });
+      const created = data?.createCreatorCabinet;
+      if (created) {
+        // Prepend so the new one is visible at the top
+        setCabinets((prev) => [created, ...prev]);
+        setNewName("");
+      }
+    } catch (e) {
+      console.error("[CreatorLibrary] create error", e);
+      setError("Couldn’t create that cabinet. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function handleOpen(cabinetId) {
+    if (!cabinetId) return;
+    navigate(`/creator/library/${encodeURIComponent(cabinetId)}`);
+  }
+
+  // ----- Render -----
   return (
-    <section className="creator-library">
-      <style>{styles}</style>
+    <section className="section section-tight">
+      <header className="section-header">
+        <h2 className="section-title">Filing cabinets</h2>
+        <p className="section-subtitle">
+          Organize your reference photos, finished looks, and episode assets.
+          Later this will connect directly to S3 + search.
+        </p>
+      </header>
 
-      <div className="creator-card">
-        <div className="lib-head">
-          <div>
-            <h2>Filing cabinets</h2>
-            <p className="lib-sub">
-              Organize your reference photos, finished looks, and episode
-              assets. Later this will connect directly to S3 + search.
-            </p>
-          </div>
-          <form onSubmit={handleCreate} className="lib-create">
+      {/* New cabinet + stats + search bar */}
+      <div
+        className="creator-library-bar"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1rem",
+          alignItems: "flex-end",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <form
+          onSubmit={handleCreate}
+          style={{ display: "flex", gap: "0.5rem", flexGrow: 1, maxWidth: 420 }}
+        >
+          <div style={{ flexGrow: 1 }}>
+            <label
+              htmlFor="new-cabinet-name"
+              className="field-label"
+              style={{ display: "block", marginBottom: 4 }}
+            >
+              New cabinet name
+            </label>
             <input
-              className="lib-input"
-              placeholder="New cabinet name"
+              id="new-cabinet-name"
+              type="text"
+              className="input"
+              placeholder="Winter street style"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
-            <button type="submit" className="lib-btn" disabled={!newName.trim()}>
-              Create
-            </button>
-          </form>
-        </div>
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={creating || !newName.trim()}
+            style={{ marginBottom: 0 }}
+          >
+            {creating ? "Creating…" : "Create"}
+          </button>
+        </form>
 
-        <div className="lib-search-row">
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            minWidth: 260,
+          }}
+        >
+          <div className="muted">
+            {cabinets.length} cabinets • {totalAssets} assets
+          </div>
           <input
-            className="lib-input lib-input--wide"
+            type="search"
+            className="input"
             placeholder="Search cabinets…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+      </div>
 
-        <div className="lib-grid">
-          {filtered.map((f) => (
-            <article key={f.id} className="lib-card">
-              <div className="lib-icon">🗂</div>
-              <div className="lib-main">
-                <div className="lib-name">{f.name}</div>
-                <div className="lib-meta">
-                  {f.count} asset{f.count === 1 ? "" : "s"} • updated{" "}
-                  {new Date(f.updatedAt).toLocaleDateString()}
+      {error && (
+        <div className="notice notice-error" style={{ marginBottom: "1rem" }}>
+          {error}
+        </div>
+      )}
+
+      {/* List / empty state */}
+      {loading ? (
+        <p className="muted">Loading cabinets…</p>
+      ) : filteredCabinets.length === 0 ? (
+        <div className="creator-library-empty">
+          <p className="muted">No cabinets yet.</p>
+          <p className="muted">
+            Create your first cabinet to organize episode assets.
+          </p>
+        </div>
+      ) : (
+        <ul className="creator-library-list">
+          {filteredCabinets.map((cabinet) => {
+            const count = normaliseCount(cabinet);
+            return (
+              <li
+                key={cabinet.id}
+                className="creator-library-row card card-ghost"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0.9rem 1.1rem",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                <div>
+                  <div className="creator-library-row-title">
+                    {cabinet.name || "Untitled cabinet"}
+                  </div>
+                  <div className="creator-library-row-meta muted">
+                    {count} asset{count === 1 ? "" : "s"}
+                  </div>
                 </div>
-              </div>
-              <div className="lib-actions">
                 <button
                   type="button"
-                  className="lib-link"
-                  onClick={() =>
-                    alert("Asset browser coming soon – S3 + thumbnails.")
-                  }
+                  className="btn btn-secondary"
+                  onClick={() => handleOpen(cabinet.id)}
                 >
                   Open
                 </button>
-                <button
-                  type="button"
-                  className="lib-link lib-link--muted"
-                  onClick={() =>
-                    alert("Rename / delete / share controls coming soon.")
-                  }
-                >
-                  …
-                </button>
-              </div>
-            </article>
-          ))}
-          {filtered.length === 0 && (
-            <div className="lib-empty">
-              No cabinets match “{search}”. Try a different name.
-            </div>
-          )}
-        </div>
-      </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
 
 const styles = `
-.creator-card {
-  background:#f9fafb;
-  border-radius:16px;
-  border:1px solid #e5e7eb;
-  padding:14px;
-  box-shadow:0 10px 24px rgba(15,23,42,0.08);
+.creator-shell {
+  max-width: 1120px;
+  margin: 0 auto 40px;
+  padding: 10px 12px 32px;
 }
 
-.creator-library h2 {
-  margin:0 0 4px;
-  font-size:1rem;
-}
-.lib-sub {
-  margin:0;
-  font-size:0.86rem;
-  color:#6b7280;
+.creator-header {
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: radial-gradient(circle at 0 0, #f9fafb, #f3f4f6 50%, #e5e7eb);
+  padding: 14px 16px 10px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.15);
 }
 
-.lib-head {
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
+.creator-header-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
-.lib-create {
-  display:flex;
-  gap:6px;
-  flex-wrap:wrap;
-}
-.lib-input {
-  border-radius:999px;
-  border:1px solid #d1d5db;
-  padding:6px 10px;
-  font-size:0.86rem;
-}
-.lib-input:focus {
-  outline:none;
-  border-color:#111827;
-}
-.lib-input--wide {
-  width:100%;
-  border-radius:999px;
-}
-.lib-btn {
-  border-radius:999px;
-  border:none;
-  background:#111827;
-  color:#f9fafb;
-  font-size:0.86rem;
-  padding:6px 12px;
-  cursor:pointer;
-}
-.lib-btn:disabled {
-  opacity:0.6;
-  cursor:default;
+.creator-logo-block {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
-.lib-search-row {
-  margin-top:10px;
+.creator-logo-pill {
+  border-radius: 999px;
+  padding: 8px 11px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #111827;
+  color: #f9fafb;
 }
 
-.lib-grid {
-  margin-top:10px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+.creator-logo-text h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #0f172a;
 }
-.lib-card {
-  display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto;
-  gap:8px;
-  padding:8px 10px;
-  border-radius:12px;
-  border:1px solid #e5e7eb;
-  background:#f3f4f6;
+
+.creator-logo-text p {
+  margin: 0;
+  margin-top: 2px;
+  font-size: 0.86rem;
+  color: #6b7280;
 }
-.lib-icon {
-  font-size:1.2rem;
-  align-self:center;
+
+.creator-header-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
-.lib-main {
-  display:flex;
-  flex-direction:column;
-  gap:2px;
+
+.creator-pill {
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: #374151;
 }
-.lib-name {
-  font-size:0.92rem;
-  font-weight:600;
+
+/* Nav */
+
+.creator-nav {
+  margin-top: 10px;
+  padding-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.4);
 }
-.lib-meta {
-  font-size:0.8rem;
-  color:#6b7280;
+
+.creator-nav-item {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #4b5563;
+  text-decoration: none;
+  cursor: pointer;
 }
-.lib-actions {
-  display:flex;
-  align-items:center;
-  gap:6px;
+.creator-nav-item:hover {
+  background: rgba(17, 24, 39, 0.04);
 }
-.lib-link {
-  background:transparent;
-  border:none;
-  padding:0;
-  font-size:0.82rem;
-  color:#111827;
-  cursor:pointer;
+.creator-nav-item--active {
+  background: #111827;
+  color: #f9fafb;
+  border-color: #111827;
 }
-.lib-link--muted {
-  color:#9ca3af;
+
+/* Main */
+
+.creator-main {
+  margin-top: 14px;
 }
-.lib-empty {
-  margin-top:6px;
-  font-size:0.86rem;
-  color:#6b7280;
+
+/* Responsive */
+
+@media (max-width: 720px) {
+  .creator-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 `;

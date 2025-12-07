@@ -1,5 +1,4 @@
 // lambda/auth/seed-admin.ts
-import { CloudFormationCustomResourceHandler } from "aws-lambda";
 import {
   CognitoIdentityProviderClient,
   ListUsersCommand,
@@ -37,7 +36,11 @@ async function seedUser(email: string) {
   }
 
   const username = user.Username;
-  console.log(`Seeding user ${username} (${email}) into groups: ${GROUPS_TO_SEED.join(",")}`);
+  console.log(
+    `Seeding user ${username} (${email}) into groups: ${GROUPS_TO_SEED.join(
+      ",",
+    )}`,
+  );
 
   for (const groupName of GROUPS_TO_SEED) {
     await client.send(
@@ -50,7 +53,7 @@ async function seedUser(email: string) {
   }
 }
 
-export const handler: CloudFormationCustomResourceHandler = async (event) => {
+export const handler = async (event: any) => {
   console.log("SeedAdmin event:", JSON.stringify(event, null, 2));
 
   // idempotent: on Create and Update, try seeding. On Delete, do nothing.
@@ -66,7 +69,10 @@ export const handler: CloudFormationCustomResourceHandler = async (event) => {
   }
 
   return {
-    PhysicalResourceId: event.PhysicalResourceId || "SeedAdminCustomResource",
+    PhysicalResourceId:
+      event.PhysicalResourceId ||
+      event.LogicalResourceId ||
+      "SeedAdminCustomResource",
     Status: "SUCCESS",
   };
 };

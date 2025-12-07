@@ -1,7 +1,5 @@
-schema {
-  query: Query
-  mutation: Mutation
-}
+# Styling Adventures GraphQL Schema
+# Root types: Query, Mutation
 
 # ─────────────────────────────────────────
 # Root query type
@@ -74,6 +72,20 @@ type Query {
   ): ClosetConnection!
     @aws_cognito_user_pools
 
+  """
+  Stories for the **public / community feed** (PUBLISHED only).
+  Powered by BestiesStoriesStack.
+  """
+  stories(limit: Int, nextToken: String): BestieStoryConnection
+    @aws_cognito_user_pools
+
+  """
+  Stories created by the current user (Bestie or higher).
+  """
+  myStories(limit: Int, nextToken: String): BestieStoryConnection
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   # Episodes / early access
   isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!
     @aws_cognito_user_pools
@@ -119,8 +131,16 @@ type Query {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
+  creatorFolders(cabinetId: ID!): [CreatorFolder!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   creatorCabinetAssets(
     cabinetId: ID!
+    folderId: ID
+    category: CreatorCabinetCategory
+    tag: String
+    search: String
     limit: Int
     nextToken: String
   ): CreatorAssetConnection!
@@ -326,7 +346,7 @@ type Mutation {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
-  # Creator AI (now as Mutation, with new enum / result type)
+  # Creator AI (Mutation, with new enum / result type)
   creatorAiSuggest(
     text: String
     kind: CreatorAiSuggestionKind
@@ -351,6 +371,25 @@ type Mutation {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
+  createCreatorFolder(
+    input: CreateCreatorFolderInput!
+  ): CreatorFolder!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  renameCreatorFolder(
+    input: RenameCreatorFolderInput!
+  ): CreatorFolder!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  deleteCreatorFolder(
+    id: ID!
+    cabinetId: ID!
+  ): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   """
   Returns a one-time signed URL for uploading a photo/video into a cabinet,
   plus the asset record that will represent it.
@@ -358,6 +397,25 @@ type Mutation {
   createCreatorAssetUpload(
     input: CreateCreatorAssetUploadInput!
   ): CreatorUploadUrl!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  updateCreatorAsset(
+    input: UpdateCreatorAssetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  deleteCreatorAsset(
+    id: ID!
+    cabinetId: ID!
+  ): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  moveCreatorAsset(
+    input: MoveCreatorAssetInput!
+  ): CreatorAsset!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
@@ -395,7 +453,7 @@ type AdminSettings {
 type BadgeRule {
   id: ID!
   label: String!
-  trigger: String! # stored as string; client evals it
+  trigger: String!
 }
 
 input AdminSettingsInput {
@@ -421,11 +479,11 @@ plus optional JSON metadata to tune behavior.
 """
 type GameRule {
   id: ID!
-  category: String!       # e.g. WATCH_TIME, CHAT, TRIVIA, STREAK, SOCIAL, EVENT, REDEMPTION
-  label: String!          # e.g. "Watch 10 minutes"
+  category: String!
+  label: String!
   description: String
-  coins: Int!             # positive = reward, negative = cost
-  per: String             # e.g. PER_10_MIN, PER_DAY, PER_EVENT
+  coins: Int!
+  per: String
   maxPerDay: Int
   meta: AWSJSON
 }
@@ -492,21 +550,18 @@ type RoleResult {
 # Closet enums
 # ─────────────────────────────────────────
 
-# Which fans are allowed to see the look (admin-facing)
 enum ClosetAudience {
   PUBLIC
   BESTIES
   EXCLUSIVE
 }
 
-# Overall visibility flags used across the app (legacy / fan-facing)
 enum ClosetVisibility {
   PRIVATE
   BESTIE
   PUBLIC
 }
 
-# Moderation / lifecycle status for a closet item
 enum ClosetStatus {
   PENDING
   APPROVED
@@ -514,7 +569,6 @@ enum ClosetStatus {
   REJECTED
 }
 
-# Sorting for the fan Closet feed
 enum ClosetFeedSort {
   NEWEST
   MOST_LOVED
@@ -529,9 +583,7 @@ enum ClosetFeedSort {
 type ClosetItem {
   id: ID!
   ownerId: ID
-  # admin-set owner (creator / lala / bestie)
   ownerSub: ID
-  # legacy ID used in some queries
   title: String
   mediaKey: String
   rawMediaKey: String
@@ -539,25 +591,17 @@ type ClosetItem {
   subcategory: String
   colorTags: [String!]
   season: String
-  # short vibe / mood label from admin (e.g. "Date night", "Cozy Sunday")
   vibes: String
   notes: String
   visibility: ClosetVisibility!
   affiliateUrl: String
-  # Link this closet item to one or more episodes
-  # (episodes where the outfit appears / is featured)
   episodeIds: [ID!]
-  # Game / moderation metadata
   status: ClosetStatus!
-  # now required in practice
   audience: ClosetAudience
   pinned: Boolean
-  # Lala's pick
   favoriteCount: Int
-  # how many coins the item is worth
   coinValue: Int
   backgroundStatus: String
-  # when this item is scheduled to go live (if applicable)
   scheduledAt: AWSDateTime
   createdAt: AWSDateTime
   updatedAt: AWSDateTime
@@ -641,14 +685,11 @@ input AdminCreateClosetItemInput {
   subcategory: String
   colorTags: [String!]
   season: String
-  # new: matches "Vibes" field in admin upload form
   vibes: String
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
-  # Link to episodes this look appears in
   episodeIds: [ID!]
-  # admin metadata
   status: ClosetStatus
   audience: ClosetAudience
   pinned: Boolean
@@ -670,9 +711,7 @@ input AdminUpdateClosetItemInput {
   notes: String
   visibility: ClosetVisibility
   affiliateUrl: String
-  # Link to episodes this look appears in
   episodeIds: [ID!]
-  # admin metadata
   status: ClosetStatus
   audience: ClosetAudience
   pinned: Boolean
@@ -785,8 +824,8 @@ input AdminCreateEpisodeInput {
   showId: String
   shortDescription: String
   fullDescription: String
-  status: EpisodeStatus!          # DRAFT | SCHEDULED | PUBLISHED
-  publicAt: String!               # ISO string
+  status: EpisodeStatus!
+  publicAt: String!
   durationSeconds: Int
   unlockCoinCost: Int
   chatEnabled: Boolean = true
@@ -813,7 +852,6 @@ input ThumbnailImageInput {
   primary: Boolean!
 }
 
-# Background change requests
 input BgChangeRequestInput {
   itemId: ID!
   newBackgroundKey: String!
@@ -825,7 +863,34 @@ type BgChangeRequestResult {
   requestId: ID
 }
 
-# Stories
+# ─────────────────────────────────────────
+# Bestie Stories
+# ─────────────────────────────────────────
+
+enum BestieStoryStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+type BestieStory {
+  id: ID!
+  title: String!
+  body: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+  status: BestieStoryStatus!
+  episodeId: ID
+  closetItemIds: [ID!]
+  mediaKeys: [String!]
+}
+
+type BestieStoryConnection {
+  items: [BestieStory!]!
+  nextToken: String
+}
+
 type Story {
   id: ID!
   ownerId: ID!
@@ -849,7 +914,6 @@ type ShareResult {
 # Fans / Game types
 # ─────────────────────────────────────────
 
-"""Per-fan game profile / XP / coins."""
 type GameProfile {
   userId: ID!
   displayName: String
@@ -859,34 +923,21 @@ type GameProfile {
   badges: [String!]!
   avatarUrl: String
   bio: String
-
-  # Timestamp of last gameplay-related event
   lastEventAt: AWSDateTime
-
-  # Daily login streak
   streakCount: Int
   lastLoginAt: AWSDateTime
-
-  # Fan’s pinned closet items
   pinnedClosetItems: [ClosetItem!]!
 }
 
-"""Result of logging a game event."""
 type GameEventResult {
   success: Boolean!
-
-  # current XP / coins after the event
   xp: Int
   coins: Int
-
-  # delta from this event
   newXP: Int
   newCoins: Int
-
   lastEventAt: AWSDateTime
 }
 
-"""Leaderboard entry for topXP / topCoins."""
 type LeaderboardEntry {
   userId: ID!
   displayName: String
@@ -948,8 +999,6 @@ type CreatorRevenueSummary {
   totalOrders: Int!
 }
 
-# --- Creator AI -------------------------------------------------
-
 enum CreatorAiSuggestionKind {
   CAPTION
   HASHTAGS
@@ -959,8 +1008,6 @@ enum CreatorAiSuggestionKind {
 type CreatorAiSuggestionResult {
   suggestions: [String!]!
 }
-
-# --- Creator filing cabinets -----------------------------------
 
 enum CreatorAssetKind {
   PHOTO
@@ -972,12 +1019,12 @@ enum CreatorAssetKind {
 High-level category for creator content.
 """
 enum CreatorCabinetCategory {
-  OUTFIT_REFS        # inspiration / looks
-  EPISODE_BTS        # behind-the-scenes
-  STORYBOARD         # story beats / frames
-  BRIEF              # brand briefs / notes
-  SPONSOR_ASSETS     # brand logos, ad assets
-  THUMBNAILS         # thumbnails / cover art
+  OUTFIT_REFS
+  EPISODE_BTS
+  STORYBOARD
+  BRIEF
+  SPONSOR_ASSETS
+  THUMBNAILS
   OTHER
 }
 
@@ -987,7 +1034,17 @@ type CreatorCabinet {
   name: String!
   description: String
   defaultCategory: CreatorCabinetCategory
+  tags: [String!]
   assetCount: Int!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorFolder {
+  id: ID!
+  cabinetId: ID!
+  name: String!
+  specialKind: String
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
 }
@@ -995,6 +1052,7 @@ type CreatorCabinet {
 type CreatorAsset {
   id: ID!
   cabinetId: ID!
+  folderId: ID
   ownerSub: ID!
   kind: CreatorAssetKind!
   category: CreatorCabinetCategory
@@ -1013,7 +1071,7 @@ type CreatorAssetConnection {
 }
 
 type CreatorUploadUrl {
-  uploadUrl: AWSURL!
+  uploadUrl: String!
   asset: CreatorAsset!
 }
 
@@ -1021,6 +1079,7 @@ input CreateCreatorCabinetInput {
   name: String!
   description: String
   defaultCategory: CreatorCabinetCategory
+  tags: [String!]
 }
 
 input UpdateCreatorCabinetInput {
@@ -1028,10 +1087,23 @@ input UpdateCreatorCabinetInput {
   name: String
   description: String
   defaultCategory: CreatorCabinetCategory
+  tags: [String!]
+}
+
+input CreateCreatorFolderInput {
+  cabinetId: ID!
+  name: String!
+}
+
+input RenameCreatorFolderInput {
+  id: ID!
+  cabinetId: ID!
+  name: String!
 }
 
 input CreateCreatorAssetUploadInput {
   cabinetId: ID!
+  folderId: ID
   fileName: String!
   contentType: String!
   kind: CreatorAssetKind!
@@ -1039,6 +1111,22 @@ input CreateCreatorAssetUploadInput {
   title: String
   notes: String
   tags: [String!]
+}
+
+input UpdateCreatorAssetInput {
+  id: ID!
+  cabinetId: ID!
+  folderId: ID
+  category: CreatorCabinetCategory
+  title: String
+  notes: String
+  tags: [String!]
+}
+
+input MoveCreatorAssetInput {
+  id: ID!
+  cabinetId: ID!
+  destinationFolderId: ID
 }
 
 type PinResult {

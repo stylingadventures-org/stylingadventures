@@ -19,16 +19,17 @@ const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
 --------------------------------------------------------------------------- */
 
 function readCfg(SA) {
-  // Prefer SA.cfg() (from public/sa.js), then compat cfg, then config.v2.json
+  // Prefer config.v2.json, then compat cfg, then SA.cfg() – BUT allow SA.cfg()
+  // to override when it has fresher values from the live stack.
+  const jsonCfg = window.__cfg || {};
+  const compatCfg = window.sa?.cfg || {};
   const saCfg =
     (SA && typeof SA.cfg === "function" ? SA.cfg() : SA?.cfg) || {};
-  const compatCfg = window.sa?.cfg || {};
-  const jsonCfg = window.__cfg || {};
 
   const cfg = {
-    ...saCfg,
-    ...compatCfg,
     ...jsonCfg,
+    ...compatCfg,
+    ...saCfg,
   };
 
   // Hard-override AppSync URL in dev if missing or weird
@@ -128,7 +129,7 @@ function currentRedirectUri() {
   return `${webOrigin()}${CALLBACK_PATH}`;
 }
 
-/** Home after login/logout */
+/** Default home after login/logout (can be overridden by cfg.logoutUri) */
 function homeUri() {
   return `${webOrigin()}/`;
 }
@@ -163,16 +164,8 @@ function readToken(name) {
 
 /** Best-effort Cognito ID token for Authorization header */
 export async function getIdToken() {
-  try {
-    const SA = await getSA();
-    const tok =
-      SA?.auth?.idToken?.() ||
-      SA?.auth?.tokens?.()?.idToken?.toString?.() ||
-      SA?.tokens?.idToken?.toString?.();
-    if (tok) return String(tok);
-  } catch (e) {
-    console.warn("[SA] getIdToken via SA failed, falling back to storage", e);
-  }
+  // 🔒 Source of truth is our own storage.
+  // Do NOT read from window.SA here – that causes "zombie" sessions.
   return readToken("id_token");
 }
 
@@ -191,7 +184,7 @@ export async function exchangeCodeForTokens() {
     grant_type: "authorization_code",
     client_id: cfg.clientId,
     code,
-    redirect_uri: currentRedirectUri(),
+    redirect_uri: cfg.redirectUri || currentRedirectUri(),
   });
 
   const tokenEndpoint = `${cfg.cognitoDomain.replace(
@@ -240,25 +233,52 @@ export async function login(redirectUri) {
     throw new Error("Auth misconfigured: missing cognitoDomain/clientId");
   }
 
+  const redirect =
+    redirectUri || cfg.redirectUri || currentRedirectUri();
+
   const loginUrl = withQuery(
     `${cfg.cognitoDomain.replace(/\/+$/, "")}/login`,
     {
       client_id: cfg.clientId,
       response_type: "code",
       scope: cfg.scopes.join(" "),
-      redirect_uri: redirectUri || currentRedirectUri(),
+      redirect_uri: redirect,
     },
   );
 
   window.location.assign(loginUrl);
 }
 
+/**
+ * NEW logout: clears our storage, attempts global SA signOut/logout,
+ * then hits Cognito Hosted UI /logout with proper client + redirect.
+ */
 export async function logout(redirectUri) {
-  const SA = await getSA();
-  const cfg = readCfg(SA);
+  let SA;
+  try {
+    SA = await getSA().catch(() => undefined);
+  } catch {
+    SA = undefined;
+  }
+
+  // Clear our own tokens + Cognito / Amplify caches
   clearTokens();
 
-  const target = redirectUri || homeUri();
+  // Best-effort: ask the global SA helper (public/sa.js) to log out too
+  try {
+    if (SA?.auth?.signOut) {
+      await SA.auth.signOut();
+    } else if (typeof SA?.logout === "function") {
+      await SA.logout();
+    } else if (typeof SA?.clearTokens === "function") {
+      SA.clearTokens();
+    }
+  } catch (e) {
+    console.warn("[SA] global SA logout failed", e);
+  }
+
+  const cfg = readCfg(SA || {});
+  const target = redirectUri || cfg.logoutUri || homeUri();
 
   if (!cfg.cognitoDomain || !cfg.clientId) {
     window.location.assign(target);
@@ -276,21 +296,58 @@ export async function logout(redirectUri) {
   window.location.assign(logoutUrl);
 }
 
+/**
+ * NEW clearTokens: nukes our keys + common Cognito/Amplify/SA cache keys
+ * from BOTH sessionStorage and localStorage.
+ */
 export function clearTokens() {
-  ["id_token", "access_token", "refresh_token", "token_exp_at"].forEach((k) => {
+  // Known keys we set
+  const directKeys = [
+    "id_token",
+    "access_token",
+    "refresh_token",
+    "token_exp_at",
+    "sa_id_token",
+    "sa_access_token",
+    "sa_refresh_token",
+  ];
+
+  for (const store of [sessionStorage, localStorage]) {
+    directKeys.forEach((k) => {
+      try {
+        store.removeItem(k);
+      } catch (e) {
+        console.warn("[SA] remove failed", k, e);
+      }
+    });
+
+    // 🔥 Also nuke typical Cognito / Amplify / SA caches
     try {
-      sessionStorage.removeItem(k);
+      const toRemove = [];
+      for (let i = 0; i < store.length; i += 1) {
+        const key = store.key(i);
+        if (!key) continue;
+        if (
+          key.startsWith("CognitoIdentityServiceProvider.") ||
+          key.startsWith("amplify-") ||
+          key.startsWith("aws.cognito.") ||
+          key.startsWith("sa.") ||
+          key.startsWith("sa_")
+        ) {
+          toRemove.push(key);
+        }
+      }
+      toRemove.forEach((k) => {
+        try {
+          store.removeItem(k);
+        } catch (e) {
+          console.warn("[SA] wildcard remove failed", k, e);
+        }
+      });
     } catch (e) {
-      console.warn("[SA] sessionStorage remove failed", k, e);
+      console.warn("[SA] wildcard clearTokens loop failed", e);
     }
-  });
-  ["sa_id_token", "sa_access_token", "sa_refresh_token"].forEach((k) => {
-    try {
-      localStorage.removeItem(k);
-    } catch (e) {
-      console.warn("[SA] localStorage remove failed", k, e);
-    }
-  });
+  }
 }
 
 export const Auth = {
@@ -649,6 +706,58 @@ function parseJwt(t) {
     console.warn("[SA] parseJwt failed", e);
     return {};
   }
+}
+
+// --- Simple session helper (role-aware) -----------------------------
+
+/**
+ * Read current session from our own storage.
+ * Returns:
+ *   { idToken, email, sub, groups, rawPayload }
+ */
+export function getSessionFromStorage() {
+  const idToken = readToken("id_token");
+  if (!idToken) {
+    return {
+      idToken: "",
+      email: "",
+      sub: "",
+      groups: [],
+      rawPayload: {},
+    };
+  }
+
+  const payload = parseJwt(idToken) || {};
+  const groups = payload["cognito:groups"] || [];
+  const email = payload.email || payload["cognito:username"] || "";
+  const sub = payload.sub || "";
+
+  return {
+    idToken,
+    email,
+    sub,
+    groups: Array.isArray(groups) ? groups : [],
+    rawPayload: payload,
+  };
+}
+
+/**
+ * Convenience flags for roles (FAN / BESTIE / CREATOR / ADMIN).
+ * (You can extend this later with tiers from Dynamo if needed.)
+ */
+export function getRoleFlags() {
+  const { groups } = getSessionFromStorage();
+  const isAdmin = groups.includes("ADMIN");
+  const isCreator = groups.includes("CREATOR") || isAdmin;
+  const isBestie = groups.includes("BESTIE") || isCreator || isAdmin;
+
+  return {
+    isAdmin,
+    isCreator,
+    isBestie,
+    isFan: !isBestie && !isCreator && !isAdmin,
+    groups,
+  };
 }
 
 function pickSessionCompat(idToken) {
