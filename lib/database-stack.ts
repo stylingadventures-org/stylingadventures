@@ -17,7 +17,8 @@ export class DatabaseStack extends Stack {
       "dev";
 
     this.table = new dynamodb.Table(this, "ClosetTable", {
-      tableName: `stylingadventures-closet-${envName}`,
+      // Single-table app: sa2-<env>-app
+      tableName: `sa2-${envName}-app`,
       partitionKey: {
         name: "pk",
         type: dynamodb.AttributeType.STRING,
@@ -31,6 +32,9 @@ export class DatabaseStack extends Stack {
     });
 
     // GSI used by your Lambda (STATUS_GSI / gsi1)
+    // now also used by CreatorCabinet + CreatorAsset:
+    //  - pk: "CREATOR_CABINET", sk: createdAt
+    //  - pk: `CREATOR_ASSET#USER#<ownerSub>`, sk: `${category}#${createdAt}`
     this.table.addGlobalSecondaryIndex({
       indexName: "gsi1",
       partitionKey: {

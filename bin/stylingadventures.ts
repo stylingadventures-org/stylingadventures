@@ -118,22 +118,25 @@ const webOrigin = (
 const webBucketName = web.webBucketName;
 const webCloudFrontOrigin = web.cloudFrontOrigin;
 
-// 2) ✅ Identity v2 (Cognito) — REPLACES old IdentityStack
-const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
-  env,
-  envName,
-  webOrigin,
-  cognitoDomainPrefix: `sa2-${envName}-${env.account ?? "local"}`,
-  description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
-});
-
-// 3) Data (DynamoDB)
+// 2) Data (DynamoDB) — MUST be before IdentityV2Stack so we can pass appTable
 const data = new DataStack(app, "DataStack", {
   env,
   description: `Primary application table - ${envName}`,
 });
 
+// 3) ✅ Identity v2 (Cognito) — uses appTable for tier sync / triggers
+const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
+  env,
+  envName,
+  webOrigin,
+  appTable: data.table,
+  cognitoDomainPrefix: `sa2-${envName}-${env.account ?? "local"}`,
+  description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
+});
+
 // 4) Core Workflows (approval / background / story publish)
+//    NOTE: currently not used by ApiStack directly, but left in place
+//    for backwards-compatibility / future reuse.
 const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
   env,
   table: data.table,
@@ -278,12 +281,13 @@ const api = new ApiStack(app, "ApiStack", {
   userPool: identity.userPool,
   table: data.table,
 
-  closetApprovalSm: workflows.closetApprovalSm,
+  // Use the real Besties closet approval workflow
+  closetApprovalSm: bestiesCloset.closetUploadStateMachine,
   backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
   storyPublishSm: bestiesStories.storyPublishStateMachine,
 
   livestreamFn: livestream.livestreamFn,
-  creatorAiFn: creatorTools.aiFn,
+  // creatorAiFn removed – AI lambda is now owned inside ApiStack
   commerceFn: commerce.commerceFn,
 
   adminModerationFn: admin.moderationFn,

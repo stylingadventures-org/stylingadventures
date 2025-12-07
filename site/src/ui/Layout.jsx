@@ -5,6 +5,10 @@ import AuthStatus from "./AuthStatus";
 import { getSA } from "../lib/sa";
 import { fetchBestieStatus, isBestieActive } from "../lib/bestie";
 
+function isCreatorTier(role) {
+  return ["CREATOR", "COLLAB", "ADMIN", "PRIME"].includes(role);
+}
+
 export default function Layout() {
   const [role, setRole] = useState("FAN");
   const [bestiePath, setBestiePath] = useState("/fan/bestie");
@@ -170,6 +174,7 @@ export default function Layout() {
           box-shadow:none;
         }
 
+        /* default active pill (Fan / Bestie / Admin) */
         .pill.active {
           background:linear-gradient(90deg, var(--brand), var(--accent-pink));
           color:var(--brand-ink);
@@ -177,6 +182,19 @@ export default function Layout() {
           box-shadow:
             0 12px 30px rgba(79,70,229,0.55),
             0 0 24px rgba(236,72,153,0.55);
+        }
+
+        /* Creator pill – more neutral / studio look */
+        .pill--creator.active {
+          background:linear-gradient(135deg, #111827, #4b5563);
+          color:#f9fafb;
+          border-color:#111827;
+          box-shadow:0 10px 26px rgba(15,23,42,0.55);
+        }
+        .pill--creator:hover {
+          background:#111827;
+          color:#f9fafb;
+          border-color:#111827;
         }
 
         .spacer {
@@ -238,6 +256,18 @@ export default function Layout() {
               Bestie
             </NavLink>
 
+            {/* Creator tab – only for Creator/Collab/Admin/Prime */}
+            {isCreatorTier(role) && (
+              <NavLink
+                to="/creator"
+                className={({ isActive }) =>
+                  `pill pill--creator ${isActive ? "active" : ""}`
+                }
+              >
+                Creator
+              </NavLink>
+            )}
+
             {role === "ADMIN" && (
               <NavLink
                 to="/admin"
@@ -266,3 +296,4 @@ export default function Layout() {
     </>
   );
 }
+

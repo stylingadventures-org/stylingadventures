@@ -5,6 +5,7 @@ import {
   GetCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { AppSyncIdentityCognito } from "aws-lambda";
 import { TABLE_NAME } from "../_shared/env";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -13,6 +14,8 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 
 const PK = (sub: string) => `USER#${sub}`;
 const SK = "PROFILE";
+
+type UserTier = "FREE" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN" | "PRIME";
 
 type GameProfile = {
   userId: string;
@@ -26,7 +29,70 @@ type GameProfile = {
   lastEventAt?: string | null; // AWSDateTime
   streakCount?: number | null;
   lastLoginAt?: string | null; // AWSDateTime
+  // GraphQL may have this as a child field; for FREE we explicitly return [].
+  pinnedClosetItems?: any[];
 };
+
+type SAIdentity =
+  | (AppSyncIdentityCognito & { groups?: string[] | null })
+  | null
+  | undefined;
+
+// Prefer explicit token tier claim; fall back to groups if needed.
+function getUserTier(identity: SAIdentity): UserTier {
+  const claims = (identity as any)?.claims || {};
+
+  const claimTier =
+    (claims["tier"] as string | undefined) ??
+    (claims["custom:tier"] as string | undefined);
+
+  const validTiers: UserTier[] = [
+    "FREE",
+    "BESTIE",
+    "CREATOR",
+    "COLLAB",
+    "ADMIN",
+    "PRIME",
+  ];
+
+  if (claimTier && validTiers.includes(claimTier as UserTier)) {
+    return claimTier as UserTier;
+  }
+
+  const rawGroups = claims["cognito:groups"];
+  const groups: string[] = Array.isArray(rawGroups)
+    ? (rawGroups as string[])
+    : String(rawGroups || "")
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+
+  if (groups.includes("ADMIN")) return "ADMIN";
+  if (groups.includes("PRIME")) return "PRIME";
+  if (groups.includes("CREATOR")) return "CREATOR";
+  if (groups.includes("COLLAB")) return "COLLAB";
+  if (groups.includes("BESTIE")) return "BESTIE";
+
+  return "FREE";
+}
+
+// Non-persistent “fan” profile for FREE tier
+function defaultFreeProfile(userId: string): GameProfile {
+  return {
+    userId,
+    displayName: "Fan",
+    level: 1,
+    xp: 0,
+    coins: 0,
+    badges: [],
+    avatarUrl: null,
+    bio: null,
+    lastEventAt: null,
+    streakCount: null,
+    lastLoginAt: null,
+    pinnedClosetItems: [],
+  };
+}
 
 // Same level curve as gameplay (XP-based)
 function levelFromXp(xp: number): number {
@@ -199,22 +265,38 @@ async function setDisplayName(
 type AppSyncEvent = {
   info: { fieldName: string };
   arguments: any;
-  identity?: { sub?: string };
+  identity?: SAIdentity;
 };
 
 export const handler = async (event: AppSyncEvent) => {
-  const sub = event.identity?.sub;
+  const identity = event.identity;
+  const sub = identity?.sub;
   if (!sub) throw new Error("Unauthorized: missing sub");
+
+  const tier = getUserTier(identity);
 
   switch (event.info.fieldName) {
     case "getMyProfile":
+      // FREE tier → always return non-persistent default profile
+      if (tier === "FREE") {
+        return defaultFreeProfile(sub);
+      }
       return getMyProfile(sub);
 
     case "setDisplayName":
+      // For FREE tier, ignore write and just return default profile
+      if (tier === "FREE") {
+        return defaultFreeProfile(sub);
+      }
       // 🔁 matches schema: setDisplayName(displayName: String!)
       return setDisplayName(sub, event.arguments.displayName);
 
     case "updateProfile": {
+      // For FREE tier, ignore write and just return default profile
+      if (tier === "FREE") {
+        return defaultFreeProfile(sub);
+      }
+
       const { displayName, avatarUrl, bio } = event.arguments.input || {};
       const pk = PK(sub);
 

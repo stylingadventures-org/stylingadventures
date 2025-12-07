@@ -1,0 +1,352 @@
+### ---------------------------------------------------------
+### ENV VARS (edit these before running tests)
+### ---------------------------------------------------------
+
+@apiUrl = https://YOUR-APPSYNC-URL-HERE/graphql
+
+# Paste raw JWTs (ID or access token) below:
+@fanJwt = eyJraWQiOiJ...FAN_TOKEN_HERE
+@bestieJwt = eyJraWQiOiJ...BESTIE_TOKEN_HERE
+@adminJwt = eyJraWQiOiJ...ADMIN_TOKEN_HERE
+
+### Utility: GraphQL POST template
+# NOTE: REST Client will reuse this pattern; each request below sets its own body.
+
+### ---------------------------------------------------------
+### 1. FAN FLOW – ME + PROFILE + CLOSET + FEED
+### ---------------------------------------------------------
+
+# 1.1 Fan: who am I? (me + getMyProfile)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query FanMeAndProfile { me { id email role tier } getMyProfile { userId displayName level xp coins badges pinnedClosetItems { id title } } }"
+}
+
+###
+
+# 1.2 Fan: create a closet item
+# Save the returned id from the response as @closetItemId for later tests.
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "mutation CreateClosetItem($input: CreateClosetItemInput!) { createClosetItem(input: $input) { id title mediaKey visibility status createdAt } }",
+  "variables": {
+    "input": {
+      "title": "Smoke Test Look",
+      "mediaKey": "uploads/dev-smoke-test-look.jpg",
+      "rawMediaKey": "uploads/dev-smoke-test-look-raw.jpg",
+      "category": "TOP",
+      "subcategory": "TEE",
+      "colorTags": ["white"],
+      "season": "SPRING",
+      "vibes": "Smoke test",
+      "notes": "Created from smoke-test.http",
+      "visibility": "PUBLIC"
+    }
+  }
+}
+
+###
+
+# 1.3 Fan: request closet approval (kicks Step Functions workflow)
+# Replace CLOSET_ITEM_ID with the id from 1.2
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "mutation RequestClosetApproval($id: ID!) { requestClosetApproval(itemId: $id) { id status audience backgroundStatus } }",
+  "variables": {
+    "id": "CLOSET_ITEM_ID"
+  }
+}
+
+###
+
+# 1.4 Fan: list my closet (should include the new item)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query MyCloset { myCloset(limit: 10) { items { id title status visibility createdAt } nextToken } }"
+}
+
+###
+
+# 1.5 Fan: community feed (global)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query ClosetFeed { closetFeed(sort: NEWEST, limit: 10) { items { id title status audience visibility } nextToken } }"
+}
+
+###
+
+# 1.6 Fan: check an episode’s early access status
+# Replace EPISODE_ID with a real episode id from your data (or test fixture).
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query EarlyAccess($episodeId: ID!) { isEpisodeEarlyAccess(episodeId: $episodeId) { episodeId isEarly reason } }",
+  "variables": {
+    "episodeId": "EPISODE_ID"
+  }
+}
+
+###
+
+# 1.7 Fan: unlock episode with coins (if config allows)
+# Replace EPISODE_ID with a real one.
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "mutation UnlockEpisode($episodeId: ID!) { unlockEpisode(episodeId: $episodeId) { success unlockedAt costCoins remainingCoins episode { id title status } } }",
+  "variables": {
+    "episodeId": "EPISODE_ID"
+  }
+}
+
+###
+
+# 1.8 Fan: my unlocked episodes (should reflect 1.7 if successful)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query MyUnlockedEpisodes { myUnlockedEpisodes { episodeId unlockedAt costCoins episode { id title status } } }"
+}
+
+### ---------------------------------------------------------
+### 2. ADMIN FLOW – MODERATION & COMMUNITY
+### ---------------------------------------------------------
+
+# 2.1 Admin: list pending closet items (should show the item from 1.2)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "query AdminListPending { adminListPending(limit: 20) { items { id title status ownerId ownerSub audience createdAt } nextToken } }"
+}
+
+###
+
+# 2.2 Admin: approve a closet item
+# Replace CLOSET_ITEM_ID with the id from 1.2
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "mutation AdminApproveItem($id: ID!) { adminApproveItem(closetItemId: $id) { id status audience backgroundStatus } }",
+  "variables": {
+    "id": "CLOSET_ITEM_ID"
+  }
+}
+
+###
+
+# 2.3 Admin: optionally set audience and publish
+# Replace CLOSET_ITEM_ID again
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "mutation AdminSetAudienceAndPublish($id: ID!, $audience: ClosetAudience!) { adminSetClosetAudience(closetItemId: $id, audience: $audience) { id audience status } adminPublishClosetItem(closetItemId: $id) { id status audience } }",
+  "variables": {
+    "id": "CLOSET_ITEM_ID",
+    "audience": "PUBLIC"
+  }
+}
+
+###
+
+# 2.4 Admin: add the item to the community feed
+# (Besties/Creators/Admin can do this; we test with ADMIN here)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "mutation AddToCommunityFeed($id: ID!) { addClosetItemToCommunityFeed(itemId: $id) { id status audience visibility } }",
+  "variables": {
+    "id": "CLOSET_ITEM_ID"
+  }
+}
+
+###
+
+# 2.5 Admin: verify item appears in global feed
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "query AdminViewFeed { closetFeed(sort: NEWEST, limit: 10) { items { id title status audience visibility } nextToken } }"
+}
+
+###
+
+# 2.6 Admin: basic admin settings roundtrip
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "query GetAdminSettings { getAdminSettings { animationsEnabled soundsEnabled autoBadgeGrant badgeRules { id label trigger } } }"
+}
+
+###
+
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{adminJwt}}
+
+{
+  "query": "mutation UpdateAdminSettings($input: AdminSettingsInput!) { updateAdminSettings(input: $input) { animationsEnabled soundsEnabled autoBadgeGrant badgeRules { id label trigger } } }",
+  "variables": {
+    "input": {
+      "animationsEnabled": true,
+      "soundsEnabled": true,
+      "autoBadgeGrant": false,
+      "badgeRules": []
+    }
+  }
+}
+
+### ---------------------------------------------------------
+### 3. BESTIE FLOW – TIER, CLOSET, BACKGROUND, STORIES
+### ---------------------------------------------------------
+
+# 3.1 Bestie: check current bestie status
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "query MeBestieStatus { meBestieStatus { userId isBestie tier renewsAt trialActive trialEndsAt } }"
+}
+
+###
+
+# 3.2 Bestie: bestieClosetItems
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "query BestieClosetItems { bestieClosetItems(limit: 10) { items { id title status visibility audience backgroundStatus } nextToken } }"
+}
+
+###
+
+# 3.3 Bestie: request background change on an item
+# Use the CLOSET_ITEM_ID approved/published in section 2.
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "mutation RequestBgChange($input: BgChangeRequestInput!) { requestClosetBackgroundChange(input: $input) { ok requestId } }",
+  "variables": {
+    "input": {
+      "itemId": "CLOSET_ITEM_ID",
+      "newBackgroundKey": "uploads/dev-smoke-test-bg.jpg",
+      "notes": "Smoke test background change"
+    }
+  }
+}
+
+###
+
+# 3.4 Bestie: create a story using one or more closet items
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "mutation CreateStory($input: CreateStoryInput!) { createStory(input: $input) { id ownerId title status createdAt } }",
+  "variables": {
+    "input": {
+      "title": "Smoke Test Story",
+      "closetItemIds": ["CLOSET_ITEM_ID"]
+    }
+  }
+}
+
+###
+
+# 3.5 Bestie: publish a story
+# Replace STORY_ID with the id from 3.4
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "mutation PublishStory($id: ID!) { publishStory(storyId: $id) { id ownerId title status publishedAt } }",
+  "variables": {
+    "id": "STORY_ID"
+  }
+}
+
+###
+
+# 3.6 Bestie: share closet item to Pinterest
+# (Backend just returns a ShareResult; external sharing is on the client)
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{bestieJwt}}
+
+{
+  "query": "mutation ShareToPinterest($id: ID!) { shareClosetItemToPinterest(itemId: $id) { ok url } }",
+  "variables": {
+    "id": "CLOSET_ITEM_ID"
+  }
+}
+
+### ---------------------------------------------------------
+### 4. GAME / LEADERBOARD – FAN FLOW
+### ---------------------------------------------------------
+
+# 4.1 Fan: log a game event
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "mutation LogGameEvent($input: LogGameEventInput!) { logGameEvent(input: $input) { success xp coins newXP newCoins lastEventAt } }",
+  "variables": {
+    "input": {
+      "type": "TRIVIA_WIN",
+      "metadata": {
+        "source": "smoke-test",
+        "points": 10
+      }
+    }
+  }
+}
+
+###
+
+# 4.2 Fan: leaderboard
+POST {{apiUrl}}
+Content-Type: application/json
+Authorization: {{fanJwt}}
+
+{
+  "query": "query Leaderboard { topXP(limit: 10) { userId displayName xp rank } topCoins(limit: 10) { userId displayName coins rank } }"
+}

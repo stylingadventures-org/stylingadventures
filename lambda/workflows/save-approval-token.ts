@@ -1,52 +1,53 @@
 // lambda/workflows/save-approval-token.ts
-import { SNSHandler } from "aws-lambda";
+import { SNSHandler, SNSEvent } from "aws-lambda";
 import {
   DynamoDBClient,
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 
 const ddb = new DynamoDBClient({});
-const { TABLE_NAME = "" } = process.env;
-if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
+const TABLE_NAME = process.env.TABLE_NAME!;
+const PK_NAME = process.env.PK_NAME || "pk";
+const SK_NAME = process.env.SK_NAME || "sk";
 
-/**
- * SNS message from WAIT_FOR_TASK_TOKEN contains:
- *  {
- *    "token": "<task token>",
- *    "itemId": "<id>",
- *    "ownerSub": "<sub>"
- *  }
- * We persist `approvalToken` on the item so the admin resolver can callback SFN.
- */
-export const handler: SNSHandler = async (event) => {
-  for (const rec of event.Records) {
-    if (!rec.Sns?.Message) continue;
-    let msg: any;
-    try {
-      msg = JSON.parse(rec.Sns.Message);
-    } catch {
-      console.warn("Bad SNS message:", rec.Sns.Message);
-      continue;
-    }
-    const token = msg?.token;
-    const itemId = msg?.itemId;
-    if (!token || !itemId) {
-      console.warn("Missing token or itemId in SNS message:", msg);
-      continue;
-    }
+interface ApprovalMessage {
+  type: "CLOSET_UPLOAD" | "BESTIE_BACKGROUND_CHANGE" | string;
+  detail: {
+    itemId: string;
+    userId?: string;
+    ownerSub?: string;
+    // and any extra context you pass
+  };
+  taskToken: string;
+}
 
+export const handler: SNSHandler = async (event: SNSEvent) => {
+  const records = event.Records || [];
+
+  for (const record of records) {
+    const msg: ApprovalMessage = JSON.parse(record.Sns.Message);
+
+    const { itemId, ...detail } = msg.detail;
+    const pk = `CLOSET#${itemId}`; // 👈 adjust if your items are keyed differently
+    const sk = "ITEM";
+
+    // Option A: store the taskToken on the existing item
     await ddb.send(
       new UpdateItemCommand({
         TableName: TABLE_NAME,
-        Key: { pk: { S: `ITEM#${itemId}` }, sk: { S: "META" } },
-        UpdateExpression:
-          "SET approvalToken = :t, updatedAt = :u, gsi2pk = if_not_exists(gsi2pk, :g2), gsi2sk = if_not_exists(gsi2sk, :u)",
-        ExpressionAttributeValues: {
-          ":t": { S: token },
-          ":u": { S: new Date().toISOString() },
-          ":g2": { S: "STATUS#PENDING" },
+        Key: {
+          [PK_NAME]: { S: pk },
+          [SK_NAME]: { S: sk },
         },
-      })
+        UpdateExpression:
+          "SET approvalTaskToken = :taskToken, approvalType = :type, approvalDetail = :detail, approvalStatus = :status",
+        ExpressionAttributeValues: {
+          ":taskToken": { S: msg.taskToken },
+          ":type": { S: msg.type },
+          ":detail": { S: JSON.stringify(detail) },
+          ":status": { S: "PENDING" },
+        },
+      }),
     );
   }
 };
