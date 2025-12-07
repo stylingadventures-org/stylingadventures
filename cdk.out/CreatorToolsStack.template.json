@@ -1,20 +1,24 @@
 {
  "Description": "Creator scheduling + AI helpers - dev",
  "Resources": {
-  "CreatorStorySchedulerRole468B8196": {
-   "Type": "AWS::IAM::Role",
+  "CreatorMediaBucket07B47A03": {
+   "Type": "AWS::S3::Bucket",
    "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
       {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "states.amazonaws.com"
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
        }
       }
-     ],
-     "Version": "2012-10-17"
+     ]
+    },
+    "BucketName": "sa-dev-creator-media",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
     },
     "Tags": [
      {
@@ -27,84 +31,13 @@
      }
     ]
    },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorStoryScheduler/Role/Resource"
+    "aws:cdk:path": "CreatorToolsStack/CreatorMediaBucket/Resource"
    }
   },
-  "CreatorStorySchedulerRoleDefaultPolicy57A44A8A": {
-   "Type": "AWS::IAM::Policy",
-   "Properties": {
-    "PolicyDocument": {
-     "Statement": [
-      {
-       "Action": "states:StartExecution",
-       "Effect": "Allow",
-       "Resource": {
-        "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
-       }
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "PolicyName": "CreatorStorySchedulerRoleDefaultPolicy57A44A8A",
-    "Roles": [
-     {
-      "Ref": "CreatorStorySchedulerRole468B8196"
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorStoryScheduler/Role/DefaultPolicy/Resource"
-   }
-  },
-  "CreatorStoryScheduler9A597BB5": {
-   "Type": "AWS::StepFunctions::StateMachine",
-   "Properties": {
-    "DefinitionString": {
-     "Fn::Join": [
-      "",
-      [
-       "{\"StartAt\":\"ValidateInput\",\"States\":{\"ValidateInput\":{\"Type\":\"Pass\",\"Comment\":\"Validate creator schedule input; expand later\",\"Next\":\"WaitUntilScheduled\"},\"WaitUntilScheduled\":{\"Type\":\"Wait\",\"TimestampPath\":\"$.scheduledAt\",\"Next\":\"StartStoryPublishSm\"},\"StartStoryPublishSm\":{\"End\":true,\"Type\":\"Task\",\"Resource\":\"arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":states:::states:startExecution\",\"Parameters\":{\"Input\":{\"storyId.$\":\"$.storyId\",\"ownerSub.$\":\"$.ownerSub\",\"scheduledAt.$\":\"$.scheduledAt\"},\"StateMachineArn\":\"",
-       {
-        "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
-       },
-       "\"}}}}"
-      ]
-     ]
-    },
-    "RoleArn": {
-     "Fn::GetAtt": [
-      "CreatorStorySchedulerRole468B8196",
-      "Arn"
-     ]
-    },
-    "StateMachineName": "SA-CreatorStoryScheduler-dev",
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "DependsOn": [
-    "CreatorStorySchedulerRoleDefaultPolicy57A44A8A",
-    "CreatorStorySchedulerRole468B8196"
-   ],
-   "UpdateReplacePolicy": "Delete",
-   "DeletionPolicy": "Delete",
-   "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorStoryScheduler/Resource"
-   }
-  },
-  "CreatorAiFnServiceRole7F662149": {
+  "CreatorToolsFnServiceRole02AF0704": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -145,10 +78,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorAiFn/ServiceRole/Resource"
+    "aws:cdk:path": "CreatorToolsStack/CreatorToolsFn/ServiceRole/Resource"
    }
   },
-  "CreatorAiFnServiceRoleDefaultPolicy620F4FAA": {
+  "CreatorToolsFnServiceRoleDefaultPolicyF5B62932": {
    "Type": "AWS::IAM::Policy",
    "Properties": {
     "PolicyDocument": {
@@ -187,54 +120,92 @@
        ]
       },
       {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "CreatorMediaBucket07B47A03",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "CreatorMediaBucket07B47A03",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
-        "Ref": "CreatorStoryScheduler9A597BB5"
+        "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
        }
-      },
-      {
-       "Action": "bedrock:InvokeModel",
-       "Effect": "Allow",
-       "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
       }
      ],
      "Version": "2012-10-17"
     },
-    "PolicyName": "CreatorAiFnServiceRoleDefaultPolicy620F4FAA",
+    "PolicyName": "CreatorToolsFnServiceRoleDefaultPolicyF5B62932",
     "Roles": [
      {
-      "Ref": "CreatorAiFnServiceRole7F662149"
+      "Ref": "CreatorToolsFnServiceRole02AF0704"
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorAiFn/ServiceRole/DefaultPolicy/Resource"
+    "aws:cdk:path": "CreatorToolsStack/CreatorToolsFn/ServiceRole/DefaultPolicy/Resource"
    }
   },
-  "CreatorAiFnF1C41CA2": {
+  "CreatorToolsFn517D3A39": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "4649e8037e9f8ac8605ddaabe26e718dc714491cf4cde7132d2fe43054fd325d.zip"
+     "S3Key": "75b5a3a6812abff406b178a9c5a92db35ade7f053b5cb24412ae3f48aa097d48.zip"
     },
     "Environment": {
      "Variables": {
       "TABLE_NAME": {
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
-      "STORY_SCHEDULER_ARN": {
-       "Ref": "CreatorStoryScheduler9A597BB5"
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "STATUS_GSI": "gsi1",
+      "CREATOR_MEDIA_BUCKET": {
+       "Ref": "CreatorMediaBucket07B47A03"
       },
-      "CREATOR_TOOLS_ALLOWED_GROUPS": "creator,admin"
+      "STORY_PUBLISH_SM_ARN": {
+       "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
+      },
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
     "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
-      "CreatorAiFnServiceRole7F662149",
+      "CreatorToolsFnServiceRole02AF0704",
       "Arn"
      ]
     },
@@ -249,15 +220,15 @@
       "Value": "dev"
      }
     ],
-    "Timeout": 10
+    "Timeout": 30
    },
    "DependsOn": [
-    "CreatorAiFnServiceRoleDefaultPolicy620F4FAA",
-    "CreatorAiFnServiceRole7F662149"
+    "CreatorToolsFnServiceRoleDefaultPolicyF5B62932",
+    "CreatorToolsFnServiceRole02AF0704"
    ],
    "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CreatorAiFn/Resource",
-    "aws:asset:path": "asset.4649e8037e9f8ac8605ddaabe26e718dc714491cf4cde7132d2fe43054fd325d",
+    "aws:cdk:path": "CreatorToolsStack/CreatorToolsFn/Resource",
+    "aws:asset:path": "asset.75b5a3a6812abff406b178a9c5a92db35ade7f053b5cb24412ae3f48aa097d48",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -265,20 +236,10 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOzU7DQAyEn6V3x5SkF460ghtQZQ8cI3fjtJufTRR7W1CUd0ebEglOn2fs0TjFNM1wu6GbJLZsktadcDJKtgG6STGJ8lAFb9X1XgolaQSN8vC6ekZp1JcvtiFK+HeP05FE4JOcglFSfiN7cZ7hUPm/egZHHU553y6rhce+dfY7yvs0Q0vdqaTC9yXXgu8L1jdAsoJEWAWfI0Ay3AfbsO5J+DeKh8qvgRlylj6MlmEJGKWz8+fY9xF0CDpDLMJaHq7pFh+fcLepxblkDF5dx5jf+QMZ1mKvQAEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zXNTQqDMBAF4LO4j1Mbu+myCl2WogeQMUaJPwk4SaWE3L1E7ep7AzNvOHCeQ5bgRqnopnRWLfjaopgYbtR4ysEXTkzSsrLXZzookGRgMy5th402nRwJXjtPp4VVRjOFC/jKzDIe777NrMQ3jkcKjPIGiaQleETOQih7/a8JrJJk3Cok21dqi4PSQ2DxKYx0+fAMrne4JSMpla5OW7VIqA5/p0aePOIAAAA="
    },
    "Metadata": {
     "aws:cdk:path": "CreatorToolsStack/CDKMetadata/Default"
-   }
-  }
- },
- "Outputs": {
-  "CreatorStorySchedulerArn": {
-   "Value": {
-    "Ref": "CreatorStoryScheduler9A597BB5"
-   },
-   "Export": {
-    "Name": "SA-CreatorStorySchedulerArn-dev"
    }
   }
  },

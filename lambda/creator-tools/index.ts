@@ -1,4 +1,3 @@
-// lambda/creator/ai.ts
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -29,7 +28,6 @@ function now() {
 // GraphQL handler – router
 // ─────────────────────────────────────────────
 export const handler = async (event: any) => {
-  console.log("[CreatorTools] event", JSON.stringify(event));
   const field = event.info?.fieldName;
   const sub =
     event.identity?.sub ||
@@ -45,11 +43,8 @@ export const handler = async (event: any) => {
     case "createCreatorCabinet":
       return createCabinet(sub, event.arguments?.input);
     case "updateCreatorCabinet":
-      return updateCabinet(
-        sub,
-        event.arguments?.id,
-        event.arguments?.input,
-      );
+      // schema: updateCreatorCabinet(input: UpdateCreatorCabinetInput!)
+      return updateCabinet(sub, event.arguments?.input);
     case "deleteCreatorCabinet":
       return deleteCabinet(sub, event.arguments?.id);
 
@@ -61,11 +56,7 @@ export const handler = async (event: any) => {
     case "renameCreatorFolder":
       return renameFolder(sub, event.arguments?.input);
     case "deleteCreatorFolder":
-      return deleteFolder(
-        sub,
-        event.arguments?.id,
-        event.arguments?.cabinetId,
-      );
+      return deleteFolder(sub, event.arguments?.id, event.arguments?.cabinetId);
 
     // ASSETS
     case "creatorCabinetAssets":
@@ -75,11 +66,7 @@ export const handler = async (event: any) => {
     case "updateCreatorAsset":
       return updateAsset(sub, event.arguments?.input);
     case "deleteCreatorAsset":
-      return deleteAsset(
-        sub,
-        event.arguments?.id,
-        event.arguments?.cabinetId,
-      );
+      return deleteAsset(sub, event.arguments?.id, event.arguments?.cabinetId);
     case "moveCreatorAsset":
       return moveAsset(sub, event.arguments?.input);
 
@@ -93,7 +80,7 @@ export const handler = async (event: any) => {
 };
 
 // ─────────────────────────────────────────────
-// Helpers – mapping helpers
+// Mapping helpers
 // ─────────────────────────────────────────────
 
 function mapCabinet(item: any) {
@@ -125,18 +112,13 @@ function mapFolder(item: any) {
 
 function mapAsset(item: any) {
   if (!item) return null;
-
-  // Ensure kind is always one of PHOTO | VIDEO | OTHER (schema: CreatorAssetKind!)
-  const rawKind = (item.kind as string) || "OTHER";
-  const kind =
-    rawKind === "PHOTO" || rawKind === "VIDEO" ? rawKind : "OTHER";
-
   return {
     id: item.id,
     cabinetId: item.cabinetId,
     folderId: item.folderId ?? null,
     ownerSub: item.ownerSub,
-    kind,
+    // ensure non-null for GraphQL
+    kind: item.kind ?? "OTHER",
     category: item.category ?? null,
     title: item.title ?? null,
     notes: item.notes ?? null,
@@ -157,8 +139,7 @@ async function listCabinets(sub: string) {
     new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: STATUS_GSI,
-      KeyConditionExpression:
-        "#gpk = :gpk AND begins_with(#gsk, :prefix)",
+      KeyConditionExpression: "#gpk = :gpk AND begins_with(#gsk, :prefix)",
       ExpressionAttributeNames: {
         "#gpk": "gsi1pk",
         "#gsk": "gsi1sk",
@@ -235,7 +216,8 @@ async function createCabinet(sub: string, input: any) {
   return mapCabinet(item);
 }
 
-async function updateCabinet(sub: string, id: string, input: any) {
+async function updateCabinet(sub: string, input: any) {
+  const id = input?.id;
   if (!id) throw new Error("id is required");
   if (!input) throw new Error("input is required");
 
@@ -261,9 +243,7 @@ async function updateCabinet(sub: string, id: string, input: any) {
     values[":description"] = input.description ?? null;
     sets.push("#description = :description");
   }
-  if (
-    Object.prototype.hasOwnProperty.call(input, "defaultCategory")
-  ) {
+  if (Object.prototype.hasOwnProperty.call(input, "defaultCategory")) {
     names["#defaultCategory"] = "defaultCategory";
     values[":defaultCategory"] = input.defaultCategory ?? null;
     sets.push("#defaultCategory = :defaultCategory");
@@ -344,7 +324,7 @@ async function deleteCabinet(sub: string, id: string) {
 async function listFolders(sub: string, cabinetId: string) {
   if (!cabinetId) throw new Error("cabinetId is required");
 
-  // optional: check cabinet ownership (soft check)
+  // optional: check cabinet ownership
   const cabinet = await getCabinet(sub, cabinetId);
   if (!cabinet) {
     // hide if not owner
@@ -428,8 +408,7 @@ async function renameFolder(sub: string, input: any) {
         [PK]: `CAB#${cabinetId}`,
         [SK]: `FOLDER#${id}`,
       },
-      UpdateExpression:
-        "SET #name = :name, #updatedAt = :updatedAt",
+      UpdateExpression: "SET #name = :name, #updatedAt = :updatedAt",
       ConditionExpression: "#ownerSub = :ownerSub",
       ExpressionAttributeNames: {
         "#name": "name",
@@ -448,11 +427,7 @@ async function renameFolder(sub: string, input: any) {
   return mapFolder(res.Attributes);
 }
 
-async function deleteFolder(
-  sub: string,
-  id: string,
-  cabinetId: string,
-) {
+async function deleteFolder(sub: string, id: string, cabinetId: string) {
   if (!id) throw new Error("id is required");
   if (!cabinetId) throw new Error("cabinetId is required");
 
@@ -591,9 +566,8 @@ async function listAssets(sub: string, args: any) {
     });
   }
 
-  const connectionNextToken = res.LastEvaluatedKey
-    ? res.LastEvaluatedKey[SK]
-    : null;
+  const connectionNextToken =
+    res.LastEvaluatedKey ? res.LastEvaluatedKey[SK] : null;
 
   return {
     items: items.map(mapAsset),
@@ -610,13 +584,16 @@ async function createAssetUpload(sub: string, input: any) {
     title,
     notes,
     tags = [],
-    filename,
+    fileName,
+    filename, // tolerate old name
     contentType,
     kind,
   } = input || {};
 
+  const finalFileName = fileName ?? filename;
+
   if (!cabinetId) throw new Error("cabinetId is required");
-  if (!filename) throw new Error("filename is required");
+  if (!finalFileName) throw new Error("fileName is required");
   if (!contentType) throw new Error("contentType is required");
 
   // Ensure cabinet exists + belongs to user
@@ -627,7 +604,7 @@ async function createAssetUpload(sub: string, input: any) {
 
   const assetId = uuid();
   const folderPart = folderId || "unsorted";
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const safeName = String(finalFileName).replace(/[^a-zA-Z0-9._-]/g, "_");
 
   const s3Key = [
     "creator-media",
@@ -638,9 +615,7 @@ async function createAssetUpload(sub: string, input: any) {
   ].join("/");
 
   const nowIso = now();
-
-  const normalizedKind =
-    kind === "PHOTO" || kind === "VIDEO" ? kind : "OTHER";
+  const assetKind = kind ?? "OTHER";
 
   // 1) create ASSET row in Dynamo (pending upload)
   await ddb.send(
@@ -654,7 +629,7 @@ async function createAssetUpload(sub: string, input: any) {
         cabinetId,
         folderId: folderId ?? null,
         ownerSub: sub,
-        kind: normalizedKind,
+        kind: assetKind,
         category: category ?? null,
         title: title ?? null,
         notes: notes ?? null,
@@ -696,9 +671,7 @@ async function createAssetUpload(sub: string, input: any) {
     ContentType: contentType,
   });
 
-  const uploadUrl = await getSignedUrl(s3, putCmd, {
-    expiresIn: 900,
-  });
+  const uploadUrl = await getSignedUrl(s3, putCmd, { expiresIn: 900 });
 
   return {
     uploadUrl,
@@ -707,7 +680,7 @@ async function createAssetUpload(sub: string, input: any) {
       cabinetId,
       folderId,
       ownerSub: sub,
-      kind: normalizedKind,
+      kind: assetKind,
       category,
       title,
       notes,
@@ -762,6 +735,16 @@ async function updateAsset(sub: string, input: any) {
     values[":tags"] = input.tags ?? [];
     sets.push("#tags = :tags");
   }
+  if (Object.prototype.hasOwnProperty.call(input, "kind")) {
+    names["#kind"] = "kind";
+    values[":kind"] = input.kind ?? "OTHER";
+    sets.push("#kind = :kind");
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "contentType")) {
+    names["#contentType"] = "contentType";
+    values[":contentType"] = input.contentType ?? null;
+    sets.push("#contentType = :contentType");
+  }
 
   const res = await ddb.send(
     new UpdateCommand({
@@ -781,11 +764,7 @@ async function updateAsset(sub: string, input: any) {
   return mapAsset(res.Attributes);
 }
 
-async function deleteAsset(
-  sub: string,
-  id: string,
-  cabinetId: string,
-) {
+async function deleteAsset(sub: string, id: string, cabinetId: string) {
   if (!id) throw new Error("id is required");
   if (!cabinetId) throw new Error("cabinetId is required");
 
@@ -869,7 +848,7 @@ async function moveAsset(sub: string, input: any) {
 }
 
 // ─────────────────────────────────────────────
-// AI – simple stub (safe until you wire Bedrock)
+// AI – stubbed (safe, no Bedrock needed)
 // ─────────────────────────────────────────────
 
 async function runCreatorAi(event: any) {
@@ -877,7 +856,6 @@ async function runCreatorAi(event: any) {
   const kind: string = event.arguments?.kind ?? "OTHER";
 
   const base = text || "your content";
-
   const suggestions: string[] = [];
 
   if (kind === "CAPTION") {

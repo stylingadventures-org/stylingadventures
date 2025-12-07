@@ -1,67 +1,34 @@
 // site/src/ui/Layout.jsx
-import React, { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import AuthStatus from "./AuthStatus";
-import { getSA } from "../lib/sa";
-import { fetchBestieStatus, isBestieActive } from "../lib/bestie";
-
-function isCreatorTier(role) {
-  return ["CREATOR", "COLLAB", "ADMIN", "PRIME"].includes(role);
-}
+import React from "react";
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { Auth, getRoleFlags, getSessionFromStorage } from "../lib/sa";
 
 export default function Layout() {
-  const [role, setRole] = useState("FAN");
-  const [bestiePath, setBestiePath] = useState("/fan/bestie");
+  const { pathname } = useLocation();
 
-  useEffect(() => {
-    let alive = true;
+  const { isAdmin, isCreator, isBestie } = getRoleFlags();
+  const { email, idToken } = getSessionFromStorage();
+  const isAuthed = !!idToken;
 
-    (async () => {
-      try {
-        const sa = await getSA();
-        const r = sa?.getRole?.() || "FAN";
-        if (!alive) return;
-        setRole(r);
+  // Bestie path: if you’re Bestie/Creator/Admin, go straight to /bestie.
+  // Otherwise land on the fan upsell page.
+  const bestiePath =
+    pathname.startsWith("/bestie") || pathname.startsWith("/fan/bestie")
+      ? pathname // keep current section when possible
+      : isBestie
+      ? "/bestie"
+      : "/fan/bestie";
 
-        // Admins always get direct access to /bestie
-        if (r === "ADMIN") {
-          setBestiePath("/bestie");
-        }
+  const onSignIn = () => {
+    // Remember destination (optional)
+    sessionStorage.setItem("sa:returnTo", pathname || "/fan");
+    Auth.login();
+  };
 
-        // If role already says BESTIE, prefer /bestie while we fetch status.
-        if (r === "BESTIE") {
-          setBestiePath("/bestie");
-        }
-
-        // Ask backend for real Bestie membership (works even if role is FAN)
-        try {
-          const status = await fetchBestieStatus();
-          if (!alive) return;
-
-          if (isBestieActive(status)) {
-            setBestiePath("/bestie");
-          } else if (r !== "ADMIN" && r !== "BESTIE") {
-            setBestiePath("/fan/bestie");
-          }
-        } catch (innerErr) {
-          console.warn("[Layout] bestie status fetch failed", innerErr);
-          // If we already decided /bestie for admin/BESTIE, keep it.
-          if (r !== "ADMIN" && r !== "BESTIE") {
-            setBestiePath("/fan/bestie");
-          }
-        }
-      } catch (err) {
-        if (!alive) return;
-        console.warn("[Layout] SA init failed", err);
-        setRole("FAN");
-        setBestiePath("/fan/bestie");
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const onSignOut = () => {
+    sessionStorage.removeItem("sa:returnTo");
+    Auth.logout();
+  };
 
   return (
     <>
@@ -197,8 +164,50 @@ export default function Layout() {
           border-color:#111827;
         }
 
+        /* Admin pill – compact badge feel */
+        .pill--admin {
+          font-size:12px;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+        }
+        .pill--admin.active {
+          background:#111827;
+          color:#f9fafb;
+          border-color:#111827;
+          box-shadow:0 10px 26px rgba(15,23,42,0.55);
+        }
+
         .spacer {
           flex:1 1 auto;
+        }
+
+        .user-controls {
+          display:flex;
+          align-items:center;
+          gap:8px;
+          font-size:0.8rem;
+          color:var(--muted);
+        }
+
+        .user-email {
+          max-width:200px;
+          white-space:nowrap;
+          text-overflow:ellipsis;
+          overflow:hidden;
+        }
+
+        .user-controls button {
+          border-radius:999px;
+          border:1px solid var(--ring);
+          background:#ffffff;
+          padding:6px 12px;
+          font-size:0.8rem;
+          cursor:pointer;
+        }
+
+        .user-controls button:hover {
+          border-color:#cbd5f5;
+          box-shadow:0 6px 14px rgba(148,163,184,0.35);
         }
 
         main.page {
@@ -225,6 +234,7 @@ export default function Layout() {
           nav.nav { margin-left:4px; }
           .brand { font-size:20px; }
           .hide-sm { display:none; }
+          .user-email { max-width:120px; }
         }
       `}</style>
 
@@ -233,53 +243,76 @@ export default function Layout() {
           <div className="brand">Styling Adventures</div>
 
           <nav className="nav" aria-label="Primary">
-            <NavLink
+            <Link
               to="/"
-              end
-              className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
+              className={`pill ${pathname === "/" ? "active" : ""}`}
             >
               Home
-            </NavLink>
+            </Link>
 
-            <NavLink
+            <Link
               to="/fan"
-              className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
+              className={`pill ${
+                pathname.startsWith("/fan") && !pathname.startsWith("/fan/bestie")
+                  ? "active"
+                  : ""
+              }`}
             >
               Fan
-            </NavLink>
+            </Link>
 
-            {/* Bestie tab – visible to everyone, target depends on membership/role */}
-            <NavLink
+            {/* Bestie tab – visible to everyone, path depends on membership */}
+            <Link
               to={bestiePath}
-              className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
+              className={`pill ${
+                pathname.startsWith("/bestie") || pathname.startsWith("/fan/bestie")
+                  ? "active"
+                  : ""
+              }`}
             >
               Bestie
-            </NavLink>
+            </Link>
 
-            {/* Creator tab – only for Creator/Collab/Admin/Prime */}
-            {isCreatorTier(role) && (
-              <NavLink
+            {/* Creator tab – only for Creators/Admins (via role flags) */}
+            {isCreator && (
+              <Link
                 to="/creator"
-                className={({ isActive }) =>
-                  `pill pill--creator ${isActive ? "active" : ""}`
-                }
+                className={`pill pill--creator ${
+                  pathname.startsWith("/creator") ? "active" : ""
+                }`}
               >
                 Creator
-              </NavLink>
+              </Link>
             )}
 
-            {role === "ADMIN" && (
-              <NavLink
+            {isAdmin && (
+              <Link
                 to="/admin"
-                className={({ isActive }) => `pill ${isActive ? "active" : ""}`}
+                className={`pill pill--admin ${
+                  pathname.startsWith("/admin") ? "active" : ""
+                }`}
               >
-                Admin
-              </NavLink>
+                ADMIN
+              </Link>
             )}
           </nav>
 
           <div className="spacer" />
-          <AuthStatus />
+
+          <div className="user-controls">
+            {isAuthed ? (
+              <>
+                {email && <span className="user-email">{email}</span>}
+                <button type="button" onClick={onSignOut}>
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={onSignIn}>
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

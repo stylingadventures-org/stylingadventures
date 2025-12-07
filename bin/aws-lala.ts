@@ -1,28 +1,41 @@
-import "dotenv/config"; // load .env into process.env
+import "dotenv/config";
 import "source-map-support/register";
 import * as fs from "fs";
 import * as path from "path";
 import * as cdk from "aws-cdk-lib";
 import * as ddb from "aws-cdk-lib/aws-dynamodb";
 
-import { IdentityStack } from "../lib/identity-stack";
-import { WorkflowsStack } from "../lib/workflows-stack";
+// ⬇️ IMPORTANT: use IdentityV2Stack, NOT IdentityStack
+import { IdentityV2Stack } from "../lib/identity-v2-stack";
+import { WorkflowsV2Stack } from "../lib/workflows-v2-stack";
 import { ApiStack } from "../lib/api-stack";
 import { UploadsStack } from "../lib/uploads-stack";
 import { WebStack } from "../lib/web-stack";
 
-// 👇 Besties stacks
+// Besties stacks
 import { BestiesClosetStack } from "../lib/besties-closet-stack";
 import { BestiesStoriesStack } from "../lib/besties-stories-stack";
 import { BestiesEngagementStack } from "../lib/besties-engagement-stack";
 
-// 👇 Creator / Pro stacks (Task 3)
+// Creator / Pro stacks
 import { LivestreamStack } from "../lib/livestream-stack";
 import { CreatorToolsStack } from "../lib/creator-tools-stack";
 import { CommerceStack } from "../lib/commerce-stack";
 import { AnalyticsStack } from "../lib/analytics-stack";
 
-// ---- tiny config loader (optional) ----
+// Collaborator / Promo stacks
+import { CollaboratorStack } from "../lib/collaborator-stack";
+import { PromoKitStack } from "../lib/promo-kit-stack";
+
+// Admin stack
+import { AdminStack } from "../lib/admin-stack";
+
+// 🆕 Prime Studios / Layout / Publishing stacks
+import { LayoutEngineStack } from "../lib/layout-engine-stack";
+import { PrimeStudiosStack } from "../lib/prime-studios-stack";
+import { PublishingStack } from "../lib/publishing-stack";
+
+// ---- tiny config loader ----
 type Cfg = { webOrigin?: string };
 function loadConfig(): Cfg {
   try {
@@ -77,7 +90,6 @@ class DataStack extends cdk.Stack {
       projectionType: ddb.ProjectionType.ALL,
     });
 
-    // GSI for looking up items by rawMediaKey (background-removal pipeline)
     this.table.addGlobalSecondaryIndex({
       indexName: "rawMediaKeyIndex",
       partitionKey: {
@@ -89,67 +101,56 @@ class DataStack extends cdk.Stack {
   }
 }
 
-// 1) Web hosting FIRST so we know the final CloudFront origin
+// 1) Web hosting FIRST so we know the final CloudFront origin / bucket
 const web = new WebStack(app, "WebStack", {
   env,
   envName,
   description: `Static web hosting (S3 + CloudFront) - ${envName}`,
 });
-const cloudFrontOrigin = `https://${web.distribution.domainName}`;
 
-// Prefer config.json WEB_ORIGIN if you have a custom domain wired; otherwise use CF
 const webOrigin = (
   cfg.webOrigin ||
   process.env.WEB_ORIGIN ||
-  cloudFrontOrigin
+  web.webOrigin
 ).replace(/\/+$/, "");
 
-// 2) Identity (Cognito) — receives webOrigin for callback/logout URLs
-const identity = new IdentityStack(app, "IdentityStack", {
-  env,
-  envName,
-  webOrigin,
-  // simple, unique-enough domain prefix; matches your previous pattern
-  cognitoDomainPrefix: `sa-${envName}-${env.account ?? "local"}`,
-  description: `Cognito (user pool, app client, hosted UI, identity pool) - ${envName}`,
-});
+const webBucketName = web.webBucketName;
+const webCloudFrontOrigin = web.cloudFrontOrigin;
 
-// 3) Data (DynamoDB)
+// 2) Data (DynamoDB) — MUST be before IdentityV2Stack so we can pass appTable
 const data = new DataStack(app, "DataStack", {
   env,
   description: `Primary application table - ${envName}`,
 });
 
-// 4) Core Workflows (Fan/Fleet closet approvals)
-const workflows = new WorkflowsStack(app, "WorkflowsStack", {
+// 3) ✅ Identity v2 (Cognito) — uses appTable for tier sync / triggers
+const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
   env,
-  table: data.table,
-  description: `Closet approval workflow - ${envName}`,
+  envName,
+  webOrigin,
+  appTable: data.table,
+  cognitoDomainPrefix: `sa2-${envName}-${env.account ?? "local"}`,
+  description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
 });
 
-// 5) Uploads API + thumbs CDN
-// NOTE: these two values are from your deployed WebStack / infra;
-// if you later output them from WebStack directly, you can replace them.
-const webBucketName = "webstack-staticsitebucket8958ee3f-x6o1ifgoyjt1";
-const uploadsCdnDomain = "d1so4qr6zsby5r.cloudfront.net";
-const uploadsOrigin = `https://${uploadsCdnDomain}`;
+// 4) Core Workflows (approval / background / story publish)
+const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
+  env,
+  table: data.table,
+  description: `Closet & story workflow state machines - ${envName}`,
+});
 
+// 5) Uploads API
 const uploads = new UploadsStack(app, "UploadsStack", {
   env,
   userPool: identity.userPool,
-  // Origin that the browser JS runs on (your SPA)
   webOrigin,
-  // Origin that serves thumbs / uploads CDN
-  cloudFrontOrigin: uploadsOrigin,
+  cloudFrontOrigin: webCloudFrontOrigin,
   webBucketName,
-  table: data.table, // let bg-worker update closet items
+  table: data.table,
   description: `Uploads API, S3, and thumbs CDN - ${envName}`,
 });
 
-// Make sure UploadsStack exposes a public uploads bucket, e.g.:
-// public readonly uploadsBucket: s3.Bucket;
-// and set it in the constructor.
-// Then this line is correct:
 const uploadsBucket = uploads.uploadsBucket;
 
 // 6) Besties – closet + background change approvals
@@ -160,14 +161,14 @@ const bestiesCloset = new BestiesClosetStack(app, "BestiesClosetStack", {
   description: `Besties closet + background change workflows - ${envName}`,
 });
 
-// 7) Besties – stories compose/publish/schedule
+// 7) Besties – stories
 const bestiesStories = new BestiesStoriesStack(app, "BestiesStoriesStack", {
   env,
   table: data.table,
   description: `Besties stories compose/publish/schedule workflows - ${envName}`,
 });
 
-// 8) Besties – engagement (likes/wishlist/comments/metrics fan-out)
+// 8) Besties – engagement
 const bestiesEngagement = new BestiesEngagementStack(
   app,
   "BestiesEngagementStack",
@@ -178,7 +179,7 @@ const bestiesEngagement = new BestiesEngagementStack(
   },
 );
 
-// 9) Pro Creators — livestream infra (IVS)
+// 9) Pro Creators — livestream infra
 const livestream = new LivestreamStack(app, "LivestreamStack", {
   env,
   envName,
@@ -191,12 +192,12 @@ const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
   env,
   envName,
   table: data.table,
-  // tie into existing story publish workflow (Besties stories)
+  // still using BestiesStories for now; Prime Studios can hook in later if desired
   storyPublishStateMachine: bestiesStories.storyPublishStateMachine,
   description: `Creator scheduling + AI helpers - ${envName}`,
 });
 
-// 11) Commerce — orders / revenue tracking
+// 11) Commerce
 const commerce = new CommerceStack(app, "CommerceStack", {
   env,
   envName,
@@ -205,7 +206,7 @@ const commerce = new CommerceStack(app, "CommerceStack", {
   description: `Commerce + monetisation - ${envName}`,
 });
 
-// 12) Analytics — engagement / revenue metrics export
+// 12) Analytics
 const analytics = new AnalyticsStack(app, "AnalyticsStack", {
   env,
   envName,
@@ -213,25 +214,80 @@ const analytics = new AnalyticsStack(app, "AnalyticsStack", {
   description: `Analytics + metrics export - ${envName}`,
 });
 
-// 13) AppSync API – wire all workflows
+// 13) Layout Engine — positioning + accessibility validation
+const layoutEngine = new LayoutEngineStack(app, "LayoutEngineStack", {
+  env,
+  envName,
+  description: `Layout templates + accessibility validation - ${envName}`,
+});
+
+// 14) Prime Studios — episode production + support systems
+const primeStudios = new PrimeStudiosStack(app, "PrimeStudiosStack", {
+  env,
+  envName,
+  table: data.table,
+  userPool: identity.userPool,
+  layoutValidatorFn: layoutEngine.layoutValidatorFn,
+  description: `Prime Studios episode production + support systems - ${envName}`,
+});
+
+// 15) Publishing — episode publishing pipeline
+const publishing = new PublishingStack(app, "PublishingStack", {
+  env,
+  envName,
+  table: data.table,
+  layoutValidatorFn: layoutEngine.layoutValidatorFn,
+  description: `Prime Studios episode publishing pipeline - ${envName}`,
+});
+
+// 16) Collaborators
+const collaborators = new CollaboratorStack(app, "CollaboratorStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  webOrigin,
+  description: `Collaborator portal (invites, uploads, reminders) - ${envName}`,
+});
+
+// 17) Promo kits
+const promoKit = new PromoKitStack(app, "PromoKitStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  collabEventBus: collaborators.collabEventBus,
+  webOrigin,
+  description: `Promo kit generation + wall of slay - ${envName}`,
+});
+
+// 18) Admin
+const admin = new AdminStack(app, "AdminStack", {
+  env,
+  table: data.table,
+  uploadsBucket,
+  userPool: identity.userPool,
+  webOrigin,
+  analyticsBucket: analytics.analyticsBucket,
+  description: `Platform admin tools (moderation, events, shoutouts, analytics) - ${envName}`,
+});
+
+// 19) AppSync API
 const api = new ApiStack(app, "ApiStack", {
   env,
   userPool: identity.userPool,
   table: data.table,
 
-  // Existing closet approval SM (fan + bestie)
-  closetApprovalSm: workflows.closetApprovalSm,
-
-  // 👇 Besties workflows
+  // Use the real Besties closet approval workflow
+  closetApprovalSm: bestiesCloset.closetUploadStateMachine,
   backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
   storyPublishSm: bestiesStories.storyPublishStateMachine,
 
-  // 👇 Creator / Pro Lambdas from new stacks
   livestreamFn: livestream.livestreamFn,
-  creatorAiFn: creatorTools.aiFn,
+  // ✅ creatorAiFn REMOVED – CreatorTools Lambda now lives inside ApiStack
   commerceFn: commerce.commerceFn,
 
-  description: `AppSync GraphQL API - ${envName}`,
+  adminModerationFn: admin.moderationFn,
 });
 
 // ---- Tags ----

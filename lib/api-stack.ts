@@ -95,7 +95,7 @@ export class ApiStack extends Stack {
     // CREATOR MEDIA BUCKET (for cabinets / creator assets)
     // ────────────────────────────────────────────────────────────
     const creatorMediaBucket = new s3.Bucket(this, "CreatorMediaBucket", {
-      bucketName: `sa2-${envName}-creator-media`,
+      // let CDK generate a unique bucket name (avoids global name conflicts)
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       cors: [
@@ -724,19 +724,16 @@ export class ApiStack extends Stack {
       });
     }
 
-    // 🔹 Creator Tools Lambda (AI + cabinets) lives INSIDE ApiStack now.
+    // 🔹 Creator Tools Lambda (cabinets + folders + assets + simple AI stub)
     const creatorToolsFn = new NodejsFunction(this, "CreatorToolsFn", {
-      entry: "lambda/creator/ai.ts", // extended to handle creator cabinets + AI
+      entry: "lambda/creator-tools/index.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
         ...DDB_ENV,
         CREATOR_MEDIA_BUCKET: creatorMediaBucket.bucketName,
-        STORY_SCHEDULER_ARN: storyPublishSm.stateMachineArn,
         PUBLIC_UPLOADS_CDN,
         NODE_OPTIONS: "--enable-source-maps",
-        BEDROCK_MODEL_ID:
-          "anthropic.claude-3-5-sonnet-20240620-v1:0",
       },
       timeout: Duration.seconds(20),
       memorySize: 512,
@@ -747,16 +744,6 @@ export class ApiStack extends Stack {
 
     // Access to S3 for uploads / search / thumbnails
     creatorMediaBucket.grantReadWrite(creatorToolsFn);
-
-    // Bedrock Claude 3.5 Sonnet permissions
-    creatorToolsFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel"],
-        resources: [
-          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0`,
-        ],
-      }),
-    );
 
     const creatorAiDs = this.api.addLambdaDataSource(
       "CreatorAiDs",
@@ -805,22 +792,41 @@ export class ApiStack extends Stack {
       fieldName: "createCreatorAssetUpload",
     });
 
-    if (commerceFn) {
-      const commerceDs = this.api.addLambdaDataSource(
-        "CommerceDs",
-        commerceFn,
-      );
+    // 🔹 New: folders + richer asset ops
+    creatorAiDs.createResolver("CreatorFoldersResolver", {
+      typeName: "Query",
+      fieldName: "creatorFolders",
+    });
 
-      commerceDs.createResolver("CreatorRevenueSummaryResolver", {
-        typeName: "Query",
-        fieldName: "creatorRevenueSummary",
-      });
+    creatorAiDs.createResolver("CreateCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorFolder",
+    });
 
-      commerceDs.createResolver("RecordAffiliateClickResolver", {
-        typeName: "Mutation",
-        fieldName: "recordAffiliateClick",
-      });
-    }
+    creatorAiDs.createResolver("RenameCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "renameCreatorFolder",
+    });
+
+    creatorAiDs.createResolver("DeleteCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorFolder",
+    });
+
+    creatorAiDs.createResolver("UpdateCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "updateCreatorAsset",
+    });
+
+    creatorAiDs.createResolver("DeleteCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorAsset",
+    });
+
+    creatorAiDs.createResolver("MoveCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "moveCreatorAsset",
+    });
 
     // ────────────────────────────────────────────────────────────
     // OUTPUTS

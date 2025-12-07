@@ -20,7 +20,7 @@ import ClosetFeed from "./routes/fan/ClosetFeed.jsx";
 // Fan section layout + home/dashboard
 import FanLayout from "./routes/fan/FanLayout.jsx";
 import FanHome from "./routes/fan/Home.jsx";
-// 🔹 Fan Bestie upsell page (lives at /fan/Bestiegateway)
+// 🔹 Fan Bestie upsell page (lives at /fan/bestie)
 import FanBestie from "./routes/fan/Bestiegateway.jsx";
 
 // 🔹 Fan-facing game rules sheet
@@ -36,11 +36,11 @@ import BestieContent from "./routes/bestie/Content.jsx";
 import BestieCloset from "./routes/bestie/BestieCloset.jsx";
 
 // 🔹 Creator section
-// Creator section
 import CreatorLayout from "./routes/creator/Layout.jsx";
 import CreatorDashboard from "./routes/creator/Dashboard.jsx";
 import CreatorTools from "./routes/creator/Tools.jsx";
-import CreatorLibrary from "./routes/creator/Library.jsx";
+import CreatorLibrary from "./routes/creator/Library.jsx"; // list of cabinets + search
+import CreatorCabinetView from "./routes/creator/CabinetView.jsx"; // single cabinet view
 import CreatorStories from "./routes/creator/Stories.jsx";
 import CreatorEarnings from "./routes/creator/Earnings.jsx";
 
@@ -116,14 +116,20 @@ const router = createBrowserRouter([
         ],
       },
 
-            // ---------- CREATOR section ----------
+      // ---------- CREATOR section ----------
       {
         path: "creator",
         element: <CreatorLayout />,
         children: [
           { index: true, element: <CreatorDashboard /> },
           { path: "tools", element: <CreatorTools /> },
+
+          // Filing cabinets (all cabinets)
           { path: "library", element: <CreatorLibrary /> },
+
+          // Single cabinet view
+          { path: "library/:cabinetId", element: <CreatorCabinetView /> },
+
           { path: "stories", element: <CreatorStories /> },
           { path: "earnings", element: <CreatorEarnings /> },
         ],
