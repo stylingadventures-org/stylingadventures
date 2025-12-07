@@ -25,14 +25,62 @@ type AppSyncEvent = {
   identity?: SAIdentity;
 };
 
-function isAdmin(id: SAIdentity): boolean {
-  const g = (id as any)?.groups;
-  return Array.isArray(g) && g.includes("ADMIN");
+type UserTier = "FREE" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN" | "PRIME";
+
+// ─────────────────────────────────────────────
+// Auth helpers
+// ─────────────────────────────────────────────
+
+function isAdminOrPrime(id: SAIdentity): boolean {
+  const groups = (id as any)?.groups;
+  if (!Array.isArray(groups)) return false;
+  return groups.includes("ADMIN") || groups.includes("PRIME");
 }
+
 function assertSelfOrAdmin(targetUserId: string, identity?: SAIdentity) {
   if (!identity?.sub) throw new Error("Unauthenticated");
-  if (!isAdmin(identity) && identity.sub !== targetUserId)
+  if (!isAdminOrPrime(identity) && identity.sub !== targetUserId) {
     throw new Error("Forbidden");
+  }
+}
+
+// Prefer explicit token tier claim; fall back to groups if needed.
+function getUserTier(identity: SAIdentity): UserTier {
+  const claims = (identity as any)?.claims || {};
+
+  const claimTier =
+    (claims["tier"] as string | undefined) ??
+    (claims["custom:tier"] as string | undefined);
+
+  const validTiers: UserTier[] = [
+    "FREE",
+    "BESTIE",
+    "CREATOR",
+    "COLLAB",
+    "ADMIN",
+    "PRIME",
+  ];
+
+  if (claimTier && validTiers.includes(claimTier as UserTier)) {
+    return claimTier as UserTier;
+  }
+
+  // Fallback: infer from Cognito groups
+  const rawGroups = claims["cognito:groups"];
+  const groups: string[] = Array.isArray(rawGroups)
+    ? (rawGroups as string[])
+    : String(rawGroups || "")
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+
+  if (groups.includes("ADMIN")) return "ADMIN";
+  if (groups.includes("PRIME")) return "PRIME";
+  if (groups.includes("CREATOR")) return "CREATOR";
+  if (groups.includes("COLLAB")) return "COLLAB";
+  if (groups.includes("BESTIE")) return "BESTIE";
+
+  return "FREE";
 }
 
 // Accept object or JSON string
@@ -59,6 +107,7 @@ function levelFromXp(xp: number): number {
   }
   return lvl;
 }
+
 function pad(n: number, width = 12) {
   const s = Math.max(0, n | 0).toString();
   return s.padStart(width, "0");
@@ -75,6 +124,7 @@ function isSameUtcDay(aIso?: string, bIso?: string) {
     a.getUTCDate() === b.getUTCDate()
   );
 }
+
 function isYesterdayUtc(aIso: string, bIso: string) {
   const a = new Date(aIso); // last login
   const b = new Date(bIso); // now
@@ -104,6 +154,22 @@ export const handler = async (event: AppSyncEvent) => {
     const evType: string = input.type || "UNKNOWN";
     const metadata = coerceMeta(input.metadata);
 
+    // Determine tier from token claims
+    const tier = getUserTier(identity);
+
+    // FREE tier: allow "play", but do NOT persist anything.
+    // Fans can tap/try things, but no stored XP/coins/progress.
+    if (tier === "FREE") {
+      return {
+        success: true,
+        xp: 0,
+        coins: 0,
+        newXP: 0,
+        newCoins: 0,
+        lastEventAt: nowIso,
+      };
+    }
+
     // Returned GameEventResult:
     // {
     //   success: Boolean!
@@ -125,7 +191,7 @@ export const handler = async (event: AppSyncEvent) => {
         }),
       );
 
-      const lastLoginRaw = got.Item?.lastLoginAt as string | undefined;
+      const lastLoginRaw = got.Item?.lastLoginAt as string | number | undefined;
       const lastLoginAt =
         typeof lastLoginRaw === "string"
           ? lastLoginRaw
@@ -136,8 +202,8 @@ export const handler = async (event: AppSyncEvent) => {
       let streak = Number(got.Item?.streakCount ?? 0);
 
       // default rewards
-      let xpInc = 1,
-        coinInc = 0;
+      let xpInc = 1;
+      let coinInc = 0;
 
       if (lastLoginAt && isSameUtcDay(lastLoginAt, nowIso)) {
         // already logged in today – no-op rewards
@@ -158,12 +224,12 @@ export const handler = async (event: AppSyncEvent) => {
           TableName: TABLE_NAME,
           Key: { pk: `USER#${userId}`, sk: "PROFILE" },
           UpdateExpression: `
-          SET xp = if_not_exists(xp,:z) + :xi,
-              coins = if_not_exists(coins,:z) + :ci,
-              lastEventAt = :now,
-              lastLoginAt = :now,
-              streakCount = :st
-        `.replace(/\s+/g, " "),
+            SET xp = if_not_exists(xp,:z) + :xi,
+                coins = if_not_exists(coins,:z) + :ci,
+                lastEventAt = :now,
+                lastLoginAt = :now,
+                streakCount = :st
+          `.replace(/\s+/g, " "),
           ExpressionAttributeValues: {
             ":z": 0,
             ":xi": xpInc,
@@ -224,10 +290,10 @@ export const handler = async (event: AppSyncEvent) => {
         TableName: TABLE_NAME,
         Key: { pk: `USER#${userId}`, sk: "PROFILE" },
         UpdateExpression: `
-        SET xp = if_not_exists(xp,:z) + :xi,
-            coins = if_not_exists(coins,:z) + :ci,
-            lastEventAt = :now
-      `.replace(/\s+/g, " "),
+          SET xp = if_not_exists(xp,:z) + :xi,
+              coins = if_not_exists(coins,:z) + :ci,
+              lastEventAt = :now
+        `.replace(/\s+/g, " "),
         ExpressionAttributeValues: {
           ":z": 0,
           ":xi": xpInc,
@@ -290,6 +356,8 @@ export const handler = async (event: AppSyncEvent) => {
   if (fieldName === "awardCoins") {
     const { userId, coins, xp } = event.arguments
       .input as { userId: string; coins: number; xp?: number };
+
+    // Only self or ADMIN/PRIME, but schema already restricts to ADMIN/PRIME.
     assertSelfOrAdmin(userId, identity);
 
     const incCoins = Math.max(0, coins | 0);

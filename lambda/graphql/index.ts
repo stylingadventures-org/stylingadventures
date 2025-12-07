@@ -14,6 +14,7 @@ import {
 } from "@aws-sdk/client-eventbridge";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
+import { AppSyncIdentityCognito } from "aws-lambda";
 
 const ddbMarshal = (value: any) =>
   marshall(value, { removeUndefinedValues: true });
@@ -27,6 +28,75 @@ const STATUS_GSI = process.env.STATUS_GSI ?? "gsi1"; // status index name
 const ddb = new DynamoDBClient({});
 const sfn = new SFNClient({});
 const eb = new EventBridgeClient({});
+
+// ────────────────────────────────────────────────────────────
+// Tier helpers (keep in sync with gameplay/profile)
+// ────────────────────────────────────────────────────────────
+
+type UserTier = "FREE" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN" | "PRIME";
+
+// AppSync sometimes sends groups: null – accept null|undefined.
+type SAIdentity =
+  | (AppSyncIdentityCognito & { groups?: string[] | null })
+  | null
+  | undefined;
+
+// Prefer explicit token tier claim; fall back to groups if needed.
+function getUserTier(identity: SAIdentity): UserTier {
+  const claims = (identity as any)?.claims || {};
+
+  const claimTier =
+    (claims["tier"] as string | undefined) ??
+    (claims["custom:tier"] as string | undefined);
+
+  const validTiers: UserTier[] = [
+    "FREE",
+    "BESTIE",
+    "CREATOR",
+    "COLLAB",
+    "ADMIN",
+    "PRIME",
+  ];
+
+  if (claimTier && validTiers.includes(claimTier as UserTier)) {
+    return claimTier as UserTier;
+  }
+
+  const rawGroups = claims["cognito:groups"];
+  const groups = Array.isArray(rawGroups)
+    ? rawGroups
+    : String(rawGroups || "")
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+
+  if (groups.includes("ADMIN")) return "ADMIN";
+  if (groups.includes("PRIME")) return "PRIME";
+  if (groups.includes("CREATOR")) return "CREATOR";
+  if (groups.includes("COLLAB")) return "COLLAB";
+  if (groups.includes("BESTIE")) return "BESTIE";
+
+  return "FREE";
+}
+
+function assertAuth(identity: SAIdentity) {
+  if (!identity?.sub) throw new Error("Unauthenticated");
+}
+
+function assertBestieOrHigher(identity: SAIdentity) {
+  assertAuth(identity);
+  const tier = getUserTier(identity);
+  if (tier === "FREE") {
+    // FAN-only: not allowed to own closet
+    throw new Error("This is a Bestie feature. Upgrade to unlock your closet.");
+  }
+}
+
+// Helper used by existing callers – returns the tier after asserting.
+function requireBestieTier(identity: SAIdentity): UserTier {
+  assertBestieOrHigher(identity);
+  return getUserTier(identity);
+}
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -48,8 +118,6 @@ type ClosetAudience =
   | "EXCLUSIVE"
   | "ADMIN_ONLY"
   | "HIDDEN";
-
-type UserTier = "FREE" | "BESTIE" | "CREATOR" | "COLLAB" | "ADMIN" | "PRIME";
 
 interface ClosetItem {
   id: string;
@@ -258,16 +326,14 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
 /**
  * Ensure the caller is authenticated and return sub/userId.
  */
-function requireUserSub(identity: any): string {
-  if (!identity?.sub) {
-    throw new Error("Not authenticated");
-  }
-  return identity.sub as string;
+function requireUserSub(identity: SAIdentity): string {
+  assertAuth(identity);
+  return identity!.sub as string;
 }
 
 // helper: check if identity is admin/collab
-function isAdminIdentity(identity: any): boolean {
-  const claims = identity?.claims || {};
+function isAdminIdentity(identity: SAIdentity): boolean {
+  const claims = (identity as any)?.claims || {};
   const raw = claims["cognito:groups"];
   const groups = Array.isArray(raw)
     ? raw
@@ -279,58 +345,22 @@ function isAdminIdentity(identity: any): boolean {
   return groups.includes("ADMIN") || groups.includes("COLLAB");
 }
 
-function getUserTier(identity: any): UserTier {
-  const claims = identity?.claims || {};
-
-  // Prefer explicit tier claim if present.
-  const tierClaim =
-    (claims["custom:tier"] as string | undefined) ||
-    (claims["tier"] as string | undefined);
-
-  let tier: UserTier = "FREE";
-  if (
-    tierClaim &&
-    ["FREE", "BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"].includes(
-      tierClaim,
-    )
-  ) {
-    tier = tierClaim as UserTier;
-  }
-
-  // Fallback: infer from cognito groups if present.
-  const rawGroups = claims["cognito:groups"];
-  const groups = Array.isArray(rawGroups)
-    ? rawGroups
-    : String(rawGroups || "")
-        .split(",")
-        .map((g) => g.trim())
-        .filter(Boolean);
-
-  if (groups.includes("ADMIN")) return "ADMIN";
-  if (groups.includes("COLLAB")) return "COLLAB";
-  if (groups.includes("PRIME")) return "PRIME";
-  if (groups.includes("CREATOR")) return "CREATOR";
-  if (groups.includes("BESTIE")) return "BESTIE";
-
-  return tier;
-}
-
-function requireBestieTier(identity: any): UserTier {
-  const tier = getUserTier(identity);
-  const allowed: UserTier[] = ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"];
-  if (!allowed.includes(tier)) {
-    throw new Error("Bestie tier required");
-  }
-  return tier;
-}
-
 // ────────────────────────────────────────────────────────────
 // 1) myCloset – return all items owned by the current user.
-//    Now returns a ClosetConnection.
+//    Now returns a ClosetConnection and is Bestie+ only.
+//    FREE tier gets an empty closet.
 // ────────────────────────────────────────────────────────────
 
-async function handleMyCloset(identity: any): Promise<ClosetConnection> {
-  const sub = requireUserSub(identity);
+async function handleMyCloset(identity: SAIdentity): Promise<ClosetConnection> {
+  assertAuth(identity);
+  const tier = getUserTier(identity);
+
+  if (tier === "FREE") {
+    // Fans don't have their own closet
+    return { items: [], nextToken: null };
+  }
+
+  const sub = identity!.sub as string;
 
   const res = await ddb.send(
     new QueryCommand({
@@ -354,12 +384,14 @@ async function handleMyCloset(identity: any): Promise<ClosetConnection> {
 }
 
 // Bestie closet paginated connection – for now, just wraps myCloset
-// Explicitly returns ClosetConnection.
+// Explicitly returns ClosetConnection & enforces Bestie+.
 async function handleBestieClosetItems(
   args: { limit?: number | null; nextToken?: string | null },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetConnection> {
-  // reuse existing logic for user's closet
+  // Bestie+ only
+  requireBestieTier(identity);
+
   const myClosetConnection = await handleMyCloset(identity);
   const allItems = myClosetConnection.items;
 
@@ -378,7 +410,7 @@ async function handleBestieClosetItems(
 }
 
 // ────────────────────────────────────────────────────────────
-// 2) createClosetItem – create a new item in DRAFT.
+// 2) createClosetItem – create a new item in DRAFT (Bestie+).
 // ────────────────────────────────────────────────────────────
 
 async function handleCreateClosetItem(
@@ -394,8 +426,10 @@ async function handleCreateClosetItem(
       subcategory?: string | null;
     };
   },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  // Only Besties+ can own a closet
+  requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const id = randomUUID();
   const now = nowIso();
@@ -446,8 +480,9 @@ async function handleCreateClosetItem(
 
 async function handleUpdateClosetMediaKey(
   args: { closetItemId: string; mediaKey: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const now = nowIso();
 
@@ -483,8 +518,9 @@ async function handleUpdateClosetMediaKey(
 
 async function handleRequestClosetApproval(
   args: { closetItemId: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const now = nowIso();
 
@@ -536,8 +572,9 @@ async function handleRequestClosetApproval(
 
 async function handleUpdateClosetItemStory(
   args: { closetItemId: string; story: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const { closetItemId, story } = args;
 
@@ -600,11 +637,12 @@ async function loadClosetItemById(
 
 // ────────────────────────────────────────────────────────────
 // 6) likeClosetItem – public like/heart interaction (legacy).
+//     Fans ARE allowed to like (no tier restriction here).
 // ────────────────────────────────────────────────────────────
 
 async function handleLikeClosetItem(
   args: { closetItemId: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
   const viewerSub = requireUserSub(identity);
   const { closetItemId } = args;
@@ -675,11 +713,12 @@ async function handleLikeClosetItem(
 
 // ────────────────────────────────────────────────────────────
 // 7) commentOnClosetItem – COMMENT child + bump commentCount
+//     Fans ARE allowed to comment.
 // ────────────────────────────────────────────────────────────
 
 async function handleCommentOnClosetItem(
   args: { closetItemId: string; text: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItemComment> {
   const authorSub = requireUserSub(identity);
   const { closetItemId, text } = args;
@@ -746,12 +785,16 @@ async function handleCommentOnClosetItem(
 
 // ────────────────────────────────────────────────────────────
 // 8) pinHighlight – owner (or admin) can pin/unpin a closet item.
+//     Bestie+ only (fans can't pin).
 // ────────────────────────────────────────────────────────────
 
 async function handlePinHighlight(
   args: { closetItemId: string; pinned: boolean },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  // Bestie+ only
+  requireBestieTier(identity);
+
   const callerSub = requireUserSub(identity);
   const admin = isAdminIdentity(identity);
 
@@ -865,12 +908,16 @@ async function handleAdminClosetItemComments(args: {
 
 // ────────────────────────────────────────────────────────────
 // 12) toggleWishlistItem – viewer's wishlist for a closet item.
+//     Bestie+ only. Fans cannot maintain a wishlist.
 // ────────────────────────────────────────────────────────────
 
 async function handleToggleWishlistItem(
   args: { closetItemId: string; on?: boolean | null },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
+  // Bestie+ only for wishlist
+  requireBestieTier(identity);
+
   const viewerSub = requireUserSub(identity);
   const { closetItemId, on } = args;
   const now = nowIso();
@@ -1019,11 +1066,19 @@ async function handleToggleWishlistItem(
 
 // ────────────────────────────────────────────────────────────
 // 13) myWishlist – viewer's wishlist expanded to ClosetItem
-//     Now returns a ClosetConnection.
+//     Now returns a ClosetConnection. FREE → empty list.
 // ────────────────────────────────────────────────────────────
 
-async function handleMyWishlist(identity: any): Promise<ClosetConnection> {
-  const viewerSub = requireUserSub(identity);
+async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection> {
+  assertAuth(identity);
+  const tier = getUserTier(identity);
+
+  if (tier === "FREE") {
+    // Fans don't have a persistent wishlist
+    return { items: [], nextToken: null };
+  }
+
+  const viewerSub = identity!.sub as string;
 
   const res = await ddb.send(
     new QueryCommand({
@@ -1079,12 +1134,12 @@ async function handleMyWishlist(identity: any): Promise<ClosetConnection> {
 
 async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
   const source = event.source || {};
-  const identity = event.identity || {};
+  const identity: SAIdentity = event.identity || {};
 
   const userId: string | undefined =
     (source.userId as string | undefined) ||
     (source.id as string | undefined) ||
-    (identity.sub as string | undefined);
+    (identity?.sub as string | undefined);
 
   if (!userId) {
     throw new Error("Cannot resolve pinnedClosetItems: missing userId");
@@ -1192,11 +1247,12 @@ async function handleClosetFeed(event: any): Promise<ClosetConnection> {
 
 // ────────────────────────────────────────────────────────────
 // 16) toggleFavoriteClosetItem – hearts in fan closet feed
+//     Fans ARE allowed to favorite feed items.
 // ────────────────────────────────────────────────────────────
 
 async function handleToggleFavoriteClosetItem(
   args: { id: string; favoriteOn?: boolean | null },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
   const viewerSub = requireUserSub(identity);
   const { id: closetItemId, favoriteOn } = args;
@@ -1334,7 +1390,7 @@ async function handleRequestClosetBackgroundChange(
     requestedBackgroundKey?: string | null;
     mode?: string | null;
   },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const callerSub = requireUserSub(identity);
@@ -1399,7 +1455,7 @@ async function handleCreateStory(
       scheduledAt?: string | null;
     };
   },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<Story> {
   requireBestieTier(identity);
   const sub = requireUserSub(identity);
@@ -1443,7 +1499,7 @@ async function handlePublishStory(
     storyId: string;
     scheduledAt?: string | null;
   },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<Story> {
   requireBestieTier(identity);
   const sub = requireUserSub(identity);
@@ -1498,7 +1554,7 @@ async function handlePublishStory(
 
 async function handleAddClosetItemToCommunityFeed(
   args: { closetItemId: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const callerSub = requireUserSub(identity);
@@ -1551,7 +1607,7 @@ async function handleAddClosetItemToCommunityFeed(
 
 async function handleRemoveClosetItemFromCommunityFeed(
   args: { closetItemId: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<ClosetItem> {
   requireBestieTier(identity);
   const callerSub = requireUserSub(identity);
@@ -1590,11 +1646,12 @@ async function handleRemoveClosetItemFromCommunityFeed(
 
 // ────────────────────────────────────────────────────────────
 // 22) shareClosetItemToPinterest – fire-and-forget event record
+//     Besties-only sharing of their looks.
 // ────────────────────────────────────────────────────────────
 
 async function handleShareClosetItemToPinterest(
   args: { closetItemId: string },
-  identity: any,
+  identity: SAIdentity,
 ): Promise<boolean> {
   requireBestieTier(identity);
   const sharerSub = requireUserSub(identity);

@@ -12,38 +12,61 @@ type Query {
 
   # Current user basic info
   me: Me!
+    @aws_cognito_user_pools
 
-  # Closet queries (fan / bestie)
+  # Closet queries
+  # Bestie+ only: Fans do not have a personal closet
   myCloset(limit: Int, nextToken: String): ClosetConnection!
-  myWishlist(limit: Int, nextToken: String): ClosetConnection!
-  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  # Comments & likes
+  myWishlist(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  # Bestie-only view (used by BestieCloset UI)
+  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  # Comments & likes (Fans + Besties)
   closetItemComments(
     itemId: ID!
     limit: Int
     nextToken: String
   ): CommentConnection!
+    @aws_cognito_user_pools
 
   adminClosetItemLikes(
     itemId: ID!
     limit: Int
     nextToken: String
   ): LikeConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   adminClosetItemComments(
     itemId: ID!
     limit: Int
     nextToken: String
   ): CommentConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Admin / feed views
   adminListPending(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminListClosetItems(
     status: ClosetStatus
     limit: Int
     nextToken: String
   ): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  # Community feed – all signed-in users (Fans + Besties)
   closetFeed(
     sort: ClosetFeedSort
     limit: Int
@@ -53,33 +76,61 @@ type Query {
 
   # Episodes / early access
   isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess!
+    @aws_cognito_user_pools
 
-  # Fan episode unlocks
+  # Fan/Bestie episode unlocks
   myUnlockedEpisodes: [EpisodeUnlock!]!
+    @aws_cognito_user_pools
 
   # Game / leaderboard
   topXP(limit: Int = 50, season: String): [LeaderboardEntry!]!
+    @aws_cognito_user_pools
+
   topCoins(limit: Int = 50, season: String): [LeaderboardEntry!]!
+    @aws_cognito_user_pools
 
   # Polls
   getPoll(pollId: ID!): Poll
+    @aws_cognito_user_pools
 
   # Game profile
   getMyProfile: GameProfile!
+    @aws_cognito_user_pools
 
   # Bestie status
   meBestieStatus: BestieStatus!
+    @aws_cognito_user_pools
 
   # Creator / livestream & monetisation
   getCreatorLivestreamInfo: CreatorLivestreamInfo!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   creatorRevenueSummary: CreatorRevenueSummary!
-  creatorAiSuggest(
-    text: String!
-    kind: CreatorAiKind!
-  ): CreatorAiSuggestionResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  # Creator filing cabinets (personal asset library)
+  creatorCabinets: [CreatorCabinet!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  creatorCabinet(id: ID!): CreatorCabinet
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  creatorCabinetAssets(
+    cabinetId: ID!
+    limit: Int
+    nextToken: String
+  ): CreatorAssetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
   # Game economy config / rules (admin)
   getGameEconomyConfig: GameEconomyConfig!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Episodes admin (admin-only)
   adminListEpisodes(
@@ -89,9 +140,13 @@ type Query {
     limit: Int = 20
     nextToken: String
   ): EpisodeAdminConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Admin Settings
   getAdminSettings: AdminSettings!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 }
 
 # ─────────────────────────────────────────
@@ -100,90 +155,230 @@ type Query {
 type Mutation {
   # Roles
   setUserRole(userId: ID!, role: String!): RoleResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
-  # Closet (fan/bestie core)
+  # Closet (Bestie+ core)
+  # Fans cannot own a closet; they can only engage with existing items.
   createClosetItem(input: CreateClosetItemInput!): ClosetItem!
-  requestClosetApproval(itemId: ID!): ClosetItem!
-  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
-  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
+  requestClosetApproval(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  # Fan & Bestie engagement
   likeClosetItem(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+
   commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
+    @aws_cognito_user_pools
+
+  # Pinned highlights & wishlist are Bestie+ (Fans have no persistent closet/profile)
   pinHighlight(itemId: ID!): GameProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   toggleWishlistItem(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
   # Bestie closet aliases (used by BestieCloset UI)
   bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   bestieDeleteClosetItem(id: ID!): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
   # Closet admin – argument names match React GQL
   adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminApproveItem(closetItemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminPublishClosetItem(closetItemId: ID!): ClosetItem
     @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN"])
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminSetClosetAudience(
     closetItemId: ID!
     audience: ClosetAudience!
   ): ClosetItem!
     @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN"])
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminUpdateClosetItem(
     input: AdminUpdateClosetItemInput!
   ): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Bestie membership / billing
   startBestieCheckout: BestieCheckoutSession!
+    @aws_cognito_user_pools
+
   claimBestieTrial: BestieStatus!
+    @aws_cognito_user_pools
+
   adminSetBestie(userId: ID!): BestieStatus!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminRevokeBestie(userId: ID!): BestieStatus!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminSetBestieByEmail(email: String!): BestieStatus!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminRevokeBestieByEmail(email: String!): BestieStatus!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Game engine
+  # (Fan vs Bestie persistence is enforced in Lambda by tier, not schema)
   logGameEvent(input: LogGameEventInput!): GameEventResult!
+    @aws_cognito_user_pools
 
-  # Spend coins to unlock an episode early
+  # Spend coins to unlock an episode early (Besties will actually have coins; Fans likely won't)
   unlockEpisode(episodeId: ID!): UnlockEpisodeResult!
+    @aws_cognito_user_pools
 
   # NOTE: aligned with lambda/game/gameplay.ts (expects input: { userId, coins, xp? })
   awardCoins(input: AwardCoinsInput!): GameProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Polls (aligned with lambda/game/polls.ts)
   createPoll(input: CreatePollInput!): Poll!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   votePoll(pollId: ID!, optionIndex: Int!): Poll!
+    @aws_cognito_user_pools
 
   # Game profile updates
   grantBadge(userId: ID!, badge: String!): GameProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # NOTE: aligned with lambda/game/profile.ts (event.arguments.displayName)
   setDisplayName(displayName: String!): GameProfile!
+    @aws_cognito_user_pools
 
   updateProfile(input: UpdateProfileInput!): GameProfile!
+    @aws_cognito_user_pools
 
   # Bestie workflow: background changes / stories / feed
   requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   createStory(input: CreateStoryInput!): Story!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   publishStory(storyId: ID!): Story!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   addClosetItemToCommunityFeed(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   removeClosetItemFromCommunityFeed(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
   shareClosetItemToPinterest(itemId: ID!): ShareResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
   # Creator livestream + commerce
   pinLivestreamHighlight(highlightId: ID, title: String): PinResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   recordAffiliateClick(itemId: ID!, source: String): AffiliateClickResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  # Creator AI (now as Mutation, with new enum / result type)
+  creatorAiSuggest(
+    text: String
+    kind: CreatorAiSuggestionKind
+  ): CreatorAiSuggestionResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  # Creator filing cabinets (mutations)
+  createCreatorCabinet(
+    input: CreateCreatorCabinetInput!
+  ): CreatorCabinet!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  updateCreatorCabinet(
+    input: UpdateCreatorCabinetInput!
+  ): CreatorCabinet!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  deleteCreatorCabinet(id: ID!): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Returns a one-time signed URL for uploading a photo/video into a cabinet,
+  plus the asset record that will represent it.
+  """
+  createCreatorAssetUpload(
+    input: CreateCreatorAssetUploadInput!
+  ): CreatorUploadUrl!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
   # Game economy config / rules (admin)
   updateGameEconomyConfig(input: UpdateGameEconomyConfigInput!): GameEconomyConfig!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Episodes admin (admin-only)
   adminCreateEpisode(input: AdminCreateEpisodeInput!): Episode!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   adminUpdateEpisode(episodeId: ID!, input: AdminUpdateEpisodeInput!): Episode!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Admin Settings
   updateAdminSettings(input: AdminSettingsInput!): AdminSettings!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 }
 
 # ─────────────────────────────────────────
@@ -736,7 +931,7 @@ input CreatePollInput {
 }
 
 # ─────────────────────────────────────────
-# Creator / Livestream / Commerce / AI
+# Creator / Livestream / Commerce / AI + Cabinets
 # ─────────────────────────────────────────
 
 type CreatorLivestreamInfo {
@@ -753,15 +948,97 @@ type CreatorRevenueSummary {
   totalOrders: Int!
 }
 
-enum CreatorAiKind {
-  STYLE_POST
-  EPISODE_CAPTION
-  EMAIL_SUBJECT
-  GENERIC
+# --- Creator AI -------------------------------------------------
+
+enum CreatorAiSuggestionKind {
+  CAPTION
+  HASHTAGS
+  OTHER
 }
 
 type CreatorAiSuggestionResult {
-  text: String!
+  suggestions: [String!]!
+}
+
+# --- Creator filing cabinets -----------------------------------
+
+enum CreatorAssetKind {
+  PHOTO
+  VIDEO
+  OTHER
+}
+
+"""
+High-level category for creator content.
+"""
+enum CreatorCabinetCategory {
+  OUTFIT_REFS        # inspiration / looks
+  EPISODE_BTS        # behind-the-scenes
+  STORYBOARD         # story beats / frames
+  BRIEF              # brand briefs / notes
+  SPONSOR_ASSETS     # brand logos, ad assets
+  THUMBNAILS         # thumbnails / cover art
+  OTHER
+}
+
+type CreatorCabinet {
+  id: ID!
+  ownerSub: ID!
+  name: String!
+  description: String
+  defaultCategory: CreatorCabinetCategory
+  assetCount: Int!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorAsset {
+  id: ID!
+  cabinetId: ID!
+  ownerSub: ID!
+  kind: CreatorAssetKind!
+  category: CreatorCabinetCategory
+  title: String
+  notes: String
+  tags: [String!]
+  s3Key: String!
+  contentType: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorAssetConnection {
+  items: [CreatorAsset!]!
+  nextToken: String
+}
+
+type CreatorUploadUrl {
+  uploadUrl: AWSURL!
+  asset: CreatorAsset!
+}
+
+input CreateCreatorCabinetInput {
+  name: String!
+  description: String
+  defaultCategory: CreatorCabinetCategory
+}
+
+input UpdateCreatorCabinetInput {
+  id: ID!
+  name: String
+  description: String
+  defaultCategory: CreatorCabinetCategory
+}
+
+input CreateCreatorAssetUploadInput {
+  cabinetId: ID!
+  fileName: String!
+  contentType: String!
+  kind: CreatorAssetKind!
+  category: CreatorCabinetCategory
+  title: String
+  notes: String
+  tags: [String!]
 }
 
 type PinResult {

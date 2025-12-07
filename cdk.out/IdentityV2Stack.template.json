@@ -20,6 +20,14 @@
     ],
     "EmailVerificationMessage": "The verification code to your new account is {####}",
     "EmailVerificationSubject": "Verify your new account",
+    "LambdaConfig": {
+     "PreTokenGeneration": {
+      "Fn::GetAtt": [
+       "PreTokenGenerationFnAE0DA59F",
+       "Arn"
+      ]
+     }
+    },
     "Policies": {
      "PasswordPolicy": {
       "MinimumLength": 8,
@@ -58,11 +66,93 @@
     "aws:cdk:path": "IdentityV2Stack/UserPool/Resource"
    }
   },
+  "UserPoolUserPoolDomain9F01E991": {
+   "Type": "AWS::Cognito::UserPoolDomain",
+   "Properties": {
+    "Domain": "sa2-dev-637423256673",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/UserPool/UserPoolDomain/Resource"
+   }
+  },
+  "UserPoolPreTokenGenerationCognito84D0CADA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "PreTokenGenerationFnAE0DA59F",
+      "Arn"
+     ]
+    },
+    "Principal": "cognito-idp.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "UserPool6BA7E5F2",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/UserPool/PreTokenGenerationCognito"
+   }
+  },
+  "FanGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Default free fan tier",
+    "GroupName": "FAN",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "DependsOn": [
+    "AdminGroup"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/FanGroup"
+   }
+  },
+  "BestieGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Paid bestie tier with perks",
+    "GroupName": "BESTIE",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "DependsOn": [
+    "AdminGroup"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/BestieGroup"
+   }
+  },
+  "CollabGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Collaborators / brand partners",
+    "GroupName": "COLLAB",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "DependsOn": [
+    "AdminGroup"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/CollabGroup"
+   }
+  },
   "AdminGroup": {
    "Type": "AWS::Cognito::UserPoolGroup",
    "Properties": {
     "Description": "Platform admins",
-    "GroupName": "admin",
+    "GroupName": "ADMIN",
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
@@ -75,7 +165,7 @@
    "Type": "AWS::Cognito::UserPoolGroup",
    "Properties": {
     "Description": "Pro creators with access to creator tools",
-    "GroupName": "creator",
+    "GroupName": "CREATOR",
     "UserPoolId": {
      "Ref": "UserPool6BA7E5F2"
     }
@@ -85,6 +175,160 @@
    ],
    "Metadata": {
     "aws:cdk:path": "IdentityV2Stack/CreatorGroup"
+   }
+  },
+  "PrimeGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "Description": "Prime Studios / internal prod",
+    "GroupName": "PRIME",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "DependsOn": [
+    "AdminGroup"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/PrimeGroup"
+   }
+  },
+  "PreTokenGenerationFnServiceRole5BC76271": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/PreTokenGenerationFn/ServiceRole/Resource"
+   }
+  },
+  "PreTokenGenerationFnServiceRoleDefaultPolicy2600C3F9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PreTokenGenerationFnServiceRoleDefaultPolicy2600C3F9",
+    "Roles": [
+     {
+      "Ref": "PreTokenGenerationFnServiceRole5BC76271"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/PreTokenGenerationFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PreTokenGenerationFnAE0DA59F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "a2b81f5f8da32a2db0eeea9a303b29112fca2221d812a337cd75268a2859e70f.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "PreTokenGenerationFnServiceRole5BC76271",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "PreTokenGenerationFnServiceRoleDefaultPolicy2600C3F9",
+    "PreTokenGenerationFnServiceRole5BC76271"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/PreTokenGenerationFn/Resource",
+    "aws:asset:path": "asset.a2b81f5f8da32a2db0eeea9a303b29112fca2221d812a337cd75268a2859e70f",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
    }
   },
   "UserPoolClient2F5918F7": {
@@ -140,10 +384,309 @@
     "aws:cdk:path": "IdentityV2Stack/UserPoolClient/Resource"
    }
   },
+  "SeedAdminFnServiceRole609DDA24": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/SeedAdminFn/ServiceRole/Resource"
+   }
+  },
+  "SeedAdminFnServiceRoleDefaultPolicyA869BB2F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "cognito-idp:ListUsers",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminUpdateUserAttributes",
+        "cognito-idp:AdminAddUserToGroup"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "UserPool6BA7E5F2",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SeedAdminFnServiceRoleDefaultPolicyA869BB2F",
+    "Roles": [
+     {
+      "Ref": "SeedAdminFnServiceRole609DDA24"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/SeedAdminFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SeedAdminFn71928945": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "d661390eccc684eb98c59a6f95e12ec093f990449e32ce955352ab318a77232c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "USER_POOL_ID": {
+       "Ref": "UserPool6BA7E5F2"
+      },
+      "ADMIN_SEED_EMAILS": "evonifoster@yahoo.com",
+      "ADMIN_SEED_GROUPS": "ADMIN"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SeedAdminFnServiceRole609DDA24",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "SeedAdminFnServiceRoleDefaultPolicyA869BB2F",
+    "SeedAdminFnServiceRole609DDA24"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/SeedAdminFn/Resource",
+    "aws:asset:path": "asset.d661390eccc684eb98c59a6f95e12ec093f990449e32ce955352ab318a77232c",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SeedAdminCustomResource3FEFD784": {
+   "Type": "Custom::AWS",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "AWS679f53fac002430cb0da5b7982bd22872D164C4C",
+      "Arn"
+     ]
+    },
+    "Create": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"service\":\"Lambda\",\"action\":\"invoke\",\"parameters\":{\"FunctionName\":\"",
+       {
+        "Ref": "SeedAdminFn71928945"
+       },
+       "\",\"InvocationType\":\"Event\",\"Payload\":\"{\\\"RequestType\\\":\\\"Create\\\"}\"},\"physicalResourceId\":{\"id\":\"SeedAdmin-dev-Create\"}}"
+      ]
+     ]
+    },
+    "Update": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"service\":\"Lambda\",\"action\":\"invoke\",\"parameters\":{\"FunctionName\":\"",
+       {
+        "Ref": "SeedAdminFn71928945"
+       },
+       "\",\"InvocationType\":\"Event\",\"Payload\":\"{\\\"RequestType\\\":\\\"Update\\\"}\"},\"physicalResourceId\":{\"id\":\"SeedAdmin-dev-Update\"}}"
+      ]
+     ]
+    },
+    "InstallLatestAwsSdk": true
+   },
+   "DependsOn": [
+    "AdminGroup",
+    "BestieGroup",
+    "CollabGroup",
+    "CreatorGroup",
+    "FanGroup",
+    "PrimeGroup",
+    "SeedAdminCustomResourceCustomResourcePolicyCE7D2B1B",
+    "UserPoolPreTokenGenerationCognito84D0CADA",
+    "UserPool6BA7E5F2",
+    "UserPoolUserPoolDomain9F01E991"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/SeedAdminCustomResource/Resource/Default"
+   }
+  },
+  "SeedAdminCustomResourceCustomResourcePolicyCE7D2B1B": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "SeedAdminFn71928945",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SeedAdminCustomResourceCustomResourcePolicyCE7D2B1B",
+    "Roles": [
+     {
+      "Ref": "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminGroup",
+    "BestieGroup",
+    "CollabGroup",
+    "CreatorGroup",
+    "FanGroup",
+    "PrimeGroup",
+    "UserPoolPreTokenGenerationCognito84D0CADA",
+    "UserPool6BA7E5F2",
+    "UserPoolUserPoolDomain9F01E991"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/SeedAdminCustomResource/CustomResourcePolicy/Resource"
+   }
+  },
+  "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource"
+   }
+  },
+  "AWS679f53fac002430cb0da5b7982bd22872D164C4C": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "8d5e97812d0036272ba1fd5bb8772ff51f4712e58c75507e4a0db242bf680f1d.zip"
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 120
+   },
+   "DependsOn": [
+    "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IdentityV2Stack/AWS679f53fac002430cb0da5b7982bd2287/Resource",
+    "aws:asset:path": "asset.8d5e97812d0036272ba1fd5bb8772ff51f4712e58c75507e4a0db242bf680f1d",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzIy1jNQTCwv1k1OydbNyUzSqw4uSUzO1kksL45Pzk/PyyzJ16sOLU4tCsjPz9FxTsvDxnYvyi8t0IHxnHMyU/NKkOUhIrUgIf/SkoLSklqdvPyUVL2sYv0yIwM9Q0s9E8Ws4sxM3aLSvJLM3FS9IAgNAAkQ15igAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WOQW+DMAyFf0vvqdfBLju2TN1tQ6CdURoCMiRxhZOhCfHfJ2AwtJ3e5/fsJ0cQRTGcDrLnoyrbo8EbDLmXqhWy52JQVDv0BMMH6y4lMiKp3MYrvJCV6PbRf+e1o3DfLhKD2vl9vjijMNLeSglDUrlUdxaZkeaia3DKT5yjq4329OussF4XjkrdMLzNsq2htDBkZPRUN2tKBtXXNC40Co4Lyaw9w3kSwTFcgmq1v0jWo8g0U+iUFnOae1mjq4UK7MkW3U/IcO45mb1t/+9YuT2/B38PfhTT39Dww2d0gsdneDo0jHjsgvNoNWSLfgM0+6l3tAEAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "IdentityV2Stack/CDKMetadata/Default"

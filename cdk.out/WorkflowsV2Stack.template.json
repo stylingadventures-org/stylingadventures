@@ -184,10 +184,414 @@
     "aws:cdk:path": "WorkflowsV2Stack/StoryPublishStateMachine/Resource"
    }
   },
+  "CompleteApprovalFnServiceRole699167D1": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/CompleteApprovalFn/ServiceRole/Resource"
+   }
+  },
+  "CompleteApprovalFnServiceRoleDefaultPolicy55DBC62F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CompleteApprovalFnServiceRoleDefaultPolicy55DBC62F",
+    "Roles": [
+     {
+      "Ref": "CompleteApprovalFnServiceRole699167D1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/CompleteApprovalFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CompleteApprovalFn8C071B55": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "12b7efeff4371d3095b15d077954d6f157e4df161512a2890896890b2bba693b.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CompleteApprovalFnServiceRole699167D1",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "CompleteApprovalFnServiceRoleDefaultPolicy55DBC62F",
+    "CompleteApprovalFnServiceRole699167D1"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/CompleteApprovalFn/Resource",
+    "aws:asset:path": "asset.12b7efeff4371d3095b15d077954d6f157e4df161512a2890896890b2bba693b",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AdminApprovalApi02AA5079": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Name": "stylingadventures-admin-approval",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Resource"
+   }
+  },
+  "AdminApprovalApiCloudWatchRole4D3B8FEA": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/CloudWatchRole/Resource"
+   }
+  },
+  "AdminApprovalApiAccount1D0D6E0E": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "AdminApprovalApiCloudWatchRole4D3B8FEA",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "AdminApprovalApi02AA5079"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Account"
+   }
+  },
+  "AdminApprovalApiDeployment50ABF1120f201bbc6374851b7bda7f082d2df10a": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "Automatically created by the RestApi construct",
+    "RestApiId": {
+     "Ref": "AdminApprovalApi02AA5079"
+    }
+   },
+   "DependsOn": [
+    "AdminApprovalApiapprovalsPOSTF8188D0F",
+    "AdminApprovalApiapprovals187E4E7E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Deployment/Resource",
+    "aws:cdk:do-not-refactor": true
+   }
+  },
+  "AdminApprovalApiDeploymentStagev15E0A9F93": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "AdminApprovalApiDeployment50ABF1120f201bbc6374851b7bda7f082d2df10a"
+    },
+    "RestApiId": {
+     "Ref": "AdminApprovalApi02AA5079"
+    },
+    "StageName": "v1",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "AdminApprovalApiAccount1D0D6E0E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/DeploymentStage.v1/Resource"
+   }
+  },
+  "AdminApprovalApiapprovals187E4E7E": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "AdminApprovalApi02AA5079",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "approvals",
+    "RestApiId": {
+     "Ref": "AdminApprovalApi02AA5079"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Default/approvals/Resource"
+   }
+  },
+  "AdminApprovalApiapprovalsPOSTApiPermissionWorkflowsV2StackAdminApprovalApi5211F9FEPOSTapprovals9ABBCB9B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CompleteApprovalFn8C071B55",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "AdminApprovalApi02AA5079"
+       },
+       "/",
+       {
+        "Ref": "AdminApprovalApiDeploymentStagev15E0A9F93"
+       },
+       "/POST/approvals"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Default/approvals/POST/ApiPermission.WorkflowsV2StackAdminApprovalApi5211F9FE.POST..approvals"
+   }
+  },
+  "AdminApprovalApiapprovalsPOSTApiPermissionTestWorkflowsV2StackAdminApprovalApi5211F9FEPOSTapprovals27207611": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CompleteApprovalFn8C071B55",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "AdminApprovalApi02AA5079"
+       },
+       "/test-invoke-stage/POST/approvals"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Default/approvals/POST/ApiPermission.Test.WorkflowsV2StackAdminApprovalApi5211F9FE.POST..approvals"
+   }
+  },
+  "AdminApprovalApiapprovalsPOSTF8188D0F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CompleteApprovalFn8C071B55",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "AdminApprovalApiapprovals187E4E7E"
+    },
+    "RestApiId": {
+     "Ref": "AdminApprovalApi02AA5079"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/AdminApprovalApi/Default/approvals/POST/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02Juw7CMAwAv6V7YkpgYWZGoPQDKpOmwn0kVe3QIcq/I8rCdLo7A8acoK5wY+26UU/0hNwIulHhxm1m8UufghOKgSE/kFk1guJv6F4UvLr24d+LIpwh2zjt68tSlPUc0+r2dE+yJCkqxM7DwIe3qeF4gXM1MJFeUxCaPdgfP8p2tIefAAAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy27CQAz8Fu6LS0MvPQYqbrQofEBkNiY4JLsR9jaKovx7tQm09DQzfow9CSTJGlYL7GRpi+uy5hMMR0V7NdhJPohSew7OKnsnMBxQxBwVlfZoL+zIbM/uWY+GsYEh8/XUmvDga7Z9lDMbTY3NqcDc+YIqgc8JdvcrRtY5ipAKpBGMrGET7JV0g0L3VRi2Z/e7EZ3p1rAIezcabLlEpQ57GDISTVuefvmjqbU+ODUf1Na+b8hprD6po2L5yFaSyUh8uFmaPniIu+fM96QXX8TSzMbx39xX0DaomQJFS3blaGJ8qOTlO1nB6zu8LSphXt6CU24Ishl/AANvo7ahAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "WorkflowsV2Stack/CDKMetadata/Default"
@@ -210,12 +614,26 @@
     "Ref": "StoryPublishStateMachine3539E2DC"
    }
   },
-  "ExportsOutputRefApprovalStateMachine767589AACD522D74": {
+  "AdminApprovalApiEndpointC5939ED2": {
    "Value": {
-    "Ref": "ApprovalStateMachine767589AA"
-   },
-   "Export": {
-    "Name": "WorkflowsV2Stack:ExportsOutputRefApprovalStateMachine767589AACD522D74"
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "AdminApprovalApi02AA5079"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "AdminApprovalApiDeploymentStagev15E0A9F93"
+      },
+      "/"
+     ]
+    ]
    }
   }
  },

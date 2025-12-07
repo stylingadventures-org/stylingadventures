@@ -5,14 +5,15 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { graphql } from "../../lib/sa"; // optional: only used if your backend is ready
+import CreatorAssetPicker from "../../ui/CreatorAssetPicker.jsx";
+import { graphql, getSA } from "../../lib/sa"; // optional: only used if your backend is ready
 
 /**
  * Community.jsx
  * Social-style hub:
  * - Page-style header (cover + avatar, like FB/TikTok profile)
  * - Center feed with posts (announcements, polls, fan outfits)
- * - Right sidebar with events & quick links
+ * - Right sidebar with events, stories & quick links
  */
 
 const demoAnnouncements = [
@@ -66,11 +67,31 @@ const demoShowcase = [
   { id: "s3", by: "Jae", caption: "Sporty luxe day-out", xp: 38 },
 ];
 
+// Demo stories rail for the community sidebar / top strip
+const demoStories = [
+  {
+    id: "st1",
+    title: "Holiday Glam Closet Story",
+    when: "New",
+  },
+  {
+    id: "st2",
+    title: "Cozy Street Capsule",
+    when: "This week",
+  },
+  {
+    id: "st3",
+    title: "Sporty Luxe Weekend",
+    when: "Earlier",
+  },
+];
+
 export default function Community() {
   const [announcements, setAnnouncements] = useState(demoAnnouncements);
   const [polls, setPolls] = useState(demoPolls);
   const [events, setEvents] = useState(demoEvents);
   const [showcase, setShowcase] = useState(demoShowcase);
+  const [stories, setStories] = useState(demoStories);
 
   const [votes, setVotes] = useState({}); // { [pollId]: optionIndex }
   const [loading, setLoading] = useState(false);
@@ -80,11 +101,15 @@ export default function Community() {
   const [composerText, setComposerText] = useState("");
   const [fanPosts, setFanPosts] = useState([]);
 
+  // role + cabinet picker
+  const [role, setRole] = useState("FAN");
+  const [showPicker, setShowPicker] = useState(false);
+
   const canGraphQL =
     typeof window !== "undefined" &&
     !!(window.sa?.graphql || window.__cfg?.appsyncUrl);
 
-  // Optional: fetch from backend if available (placeholder)
+  // Optional: fetch from backend if available (placeholder + stories rail)
   const loadFromBackend = useCallback(async () => {
     if (!canGraphQL) return false;
     try {
@@ -99,6 +124,7 @@ export default function Community() {
       //       polls { id q options }
       //       events { id title when desc }
       //       showcase { id by caption xp }
+      //       stories { id title when }
       //     }
       //   }
       // `);
@@ -107,6 +133,39 @@ export default function Community() {
       // setPolls(c.polls ?? demoPolls);
       // setEvents(c.events ?? demoEvents);
       // setShowcase(c.showcase ?? demoShowcase);
+      // setStories(c.stories ?? demoStories);
+
+      // Minimal "wired" example just for the stories rail.
+      // If this query doesn't exist yet, it'll just fall back to demoStories via the catch.
+      try {
+        const storyData = await graphql(`
+          query CommunityStories {
+            stories(limit: 6) {
+              items {
+                id
+                title
+                createdAt
+              }
+            }
+          }
+        `);
+
+        const items =
+          storyData?.stories?.items?.map((s) => ({
+            id: s.id,
+            title: s.title || "Style story",
+            when: s.createdAt
+              ? new Date(s.createdAt).toLocaleDateString()
+              : "New",
+          })) ?? [];
+
+        if (items.length) {
+          setStories(items);
+        }
+      } catch (e) {
+        // story fetch is best-effort; keep demoStories on failure
+        console.warn("Community stories fetch failed", e);
+      }
 
       return true;
     } catch (e) {
@@ -120,6 +179,19 @@ export default function Community() {
   useEffect(() => {
     loadFromBackend().catch(() => {});
   }, [loadFromBackend]);
+
+  // 🔑 Load role from SA helper (FAN / BESTIE / CREATOR / etc)
+  useEffect(() => {
+    (async () => {
+      try {
+        const sa = await getSA();
+        const r = sa?.getRole?.() || "FAN";
+        setRole(r);
+      } catch {
+        setRole("FAN");
+      }
+    })();
+  }, []);
 
   const onVote = async (pollId, optionIdx) => {
     try {
@@ -197,6 +269,11 @@ export default function Community() {
     return posts;
   }, [fanPosts, announcements, polls, showcase]);
 
+  const storyCtaHref =
+    role === "BESTIE" || role === "CREATOR" || role === "ADMIN"
+      ? "/bestie/content"
+      : "/fan/closet-feed";
+
   return (
     <div className="comm-page">
       {/* PAGE HEADER – like a Facebook / TikTok profile page */}
@@ -262,6 +339,66 @@ export default function Community() {
       <main className="comm-main">
         {/* CENTER FEED COLUMN */}
         <section className="comm-main-left">
+          {/* TOP STORIES STRIP – like Facebook "stories" */}
+          {stories.length > 0 && (
+            <section className="comm-card comm-stories-card">
+              <div className="comm-stories-head">
+                <h2 className="comm-stories-title">Stories</h2>
+                <span className="comm-stories-sub">
+                  Quick snapshots from Lala & Besties
+                </span>
+              </div>
+              <div className="comm-stories-rail">
+                {/* Your story / Bestie story entry point */}
+                <a href={storyCtaHref} className="comm-story-chip">
+                  <div className="comm-story-chip-thumb comm-story-chip-thumb--add">
+                    <span className="comm-story-chip-plus">+</span>
+                  </div>
+                  <div className="comm-story-chip-label">
+                    Your story
+                    {(role === "BESTIE" ||
+                      role === "CREATOR" ||
+                      role === "ADMIN") && (
+                      <span className="comm-story-chip-sub">
+                        Bestie & creator tools
+                      </span>
+                    )}
+                  </div>
+                </a>
+
+                {stories.map((s) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    className="comm-story-chip"
+                    onClick={() => {
+                      // For now route to closet feed; later this can deep-link to story viewer
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/fan/closet-feed";
+                      }
+                    }}
+                  >
+                    <div className="comm-story-chip-thumb">
+                      <span className="comm-story-chip-initial">
+                        {s.title?.[0]?.toUpperCase?.() || "S"}
+                      </span>
+                    </div>
+                    <div className="comm-story-chip-label">
+                      <span className="comm-story-chip-title">
+                        {s.title}
+                      </span>
+                      {s.when && (
+                        <span className="comm-story-chip-sub">
+                          {s.when}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Composer – like FB "What's on your mind?" */}
           <section className="comm-card comm-composer">
             <div className="comm-composer-head">
@@ -276,10 +413,7 @@ export default function Community() {
               </div>
             </div>
 
-            <form
-              onSubmit={handlePost}
-              className="comm-composer-body"
-            >
+            <form onSubmit={handlePost} className="comm-composer-body">
               <textarea
                 className="comm-input"
                 value={composerText}
@@ -294,9 +428,7 @@ export default function Community() {
                     className="comm-chip-btn"
                     onClick={() =>
                       setComposerText((t) =>
-                        t
-                          ? t + " #episodeThoughts"
-                          : "#episodeThoughts ",
+                        t ? t + " #episodeThoughts" : "#episodeThoughts ",
                       )
                     }
                   >
@@ -324,6 +456,16 @@ export default function Community() {
                   >
                     💖 Bestie
                   </button>
+
+                  {role !== "FAN" && (
+                    <button
+                      type="button"
+                      className="comm-chip-btn"
+                      onClick={() => setShowPicker(true)}
+                    >
+                      📁 Attach from cabinet
+                    </button>
+                  )}
                 </div>
                 <button
                   type="submit"
@@ -341,9 +483,7 @@ export default function Community() {
             <div className="comm-feed-head">
               <h2 className="comm-feed-title">Community feed</h2>
               {loading && (
-                <span className="comm-pill comm-pill--tiny">
-                  Syncing…
-                </span>
+                <span className="comm-pill comm-pill--tiny">Syncing…</span>
               )}
               {!loading && canGraphQL && (
                 <button
@@ -361,26 +501,19 @@ export default function Community() {
                 if (item.type === "fanPost") {
                   const fp = item.data;
                   return (
-                    <article
-                      key={item.id}
-                      className="comm-post"
-                    >
+                    <article key={item.id} className="comm-post">
                       <div className="comm-post-head">
                         <div className="comm-post-avatar comm-post-avatar--user">
                           U
                         </div>
                         <div className="comm-post-meta">
-                          <div className="comm-post-author">
-                            You
-                          </div>
+                          <div className="comm-post-author">You</div>
                           <div className="comm-post-subline">
                             Fan post
                             <span className="comm-dot">•</span>
                             <span className="comm-post-time">
                               {fp.createdAt
-                                ? new Date(
-                                    fp.createdAt,
-                                  ).toLocaleString()
+                                ? new Date(fp.createdAt).toLocaleString()
                                 : "Just now"}
                             </span>
                           </div>
@@ -408,10 +541,7 @@ export default function Community() {
                 if (item.type === "announcement") {
                   const a = item.data;
                   return (
-                    <article
-                      key={item.id}
-                      className="comm-post"
-                    >
+                    <article key={item.id} className="comm-post">
                       <div className="comm-post-head">
                         <div className="comm-post-avatar">L</div>
                         <div className="comm-post-meta">
@@ -423,21 +553,15 @@ export default function Community() {
                             {a.tag && (
                               <>
                                 <span className="comm-dot">•</span>
-                                <span className="comm-tag-pill">
-                                  {a.tag}
-                                </span>
+                                <span className="comm-tag-pill">{a.tag}</span>
                               </>
                             )}
                             <span className="comm-dot">•</span>
-                            <span className="comm-post-time">
-                              {a.when}
-                            </span>
+                            <span className="comm-post-time">{a.when}</span>
                           </div>
                         </div>
                       </div>
-                      <h3 className="comm-post-title">
-                        {a.title}
-                      </h3>
+                      <h3 className="comm-post-title">{a.title}</h3>
                       <p className="comm-post-text">{a.body}</p>
                       <div className="comm-post-footer">
                         <button
@@ -461,10 +585,7 @@ export default function Community() {
                   const p = item.data;
                   const choice = votes[p.id];
                   return (
-                    <article
-                      key={item.id}
-                      className="comm-post"
-                    >
+                    <article key={item.id} className="comm-post">
                       <div className="comm-post-head">
                         <div className="comm-post-avatar">📊</div>
                         <div className="comm-post-meta">
@@ -492,9 +613,7 @@ export default function Community() {
                             type="button"
                             className={
                               "comm-chip" +
-                              (choice === i
-                                ? " comm-chip--picked"
-                                : "")
+                              (choice === i ? " comm-chip--picked" : "")
                             }
                             onClick={() => onVote(p.id, i)}
                             aria-pressed={choice === i}
@@ -516,27 +635,20 @@ export default function Community() {
                 if (item.type === "showcase") {
                   const s = item.data;
                   return (
-                    <article
-                      key={item.id}
-                      className="comm-post"
-                    >
+                    <article key={item.id} className="comm-post">
                       <div className="comm-post-head">
                         <div className="comm-post-avatar comm-post-avatar--fit">
                           👗
                         </div>
                         <div className="comm-post-meta">
-                          <div className="comm-post-author">
-                            {s.by}
-                          </div>
+                          <div className="comm-post-author">{s.by}</div>
                           <div className="comm-post-subline">
                             Fan fit • {s.xp} XP
                           </div>
                         </div>
                       </div>
                       <div className="comm-fit-thumb" />
-                      <p className="comm-post-text">
-                        {s.caption}
-                      </p>
+                      <p className="comm-post-text">{s.caption}</p>
                       <div className="comm-post-footer">
                         <button
                           type="button"
@@ -561,7 +673,7 @@ export default function Community() {
           </section>
         </section>
 
-        {/* RIGHT SIDEBAR – events, trending fits, quick links */}
+        {/* RIGHT SIDEBAR – events, stories, trending fits, quick links */}
         <aside className="comm-main-right">
           {/* Events (sticky-ish) */}
           <section className="comm-card comm-card-sticky">
@@ -572,12 +684,8 @@ export default function Community() {
               {events.map((e) => (
                 <li key={e.id} className="comm-event-row">
                   <div className="comm-event-main">
-                    <div className="comm-event-title">
-                      {e.title}
-                    </div>
-                    <div className="comm-event-desc">
-                      {e.desc}
-                    </div>
+                    <div className="comm-event-title">{e.title}</div>
+                    <div className="comm-event-desc">{e.desc}</div>
                   </div>
                   <div className="comm-event-meta">
                     <span className="comm-pill comm-pill--tiny">
@@ -591,9 +699,7 @@ export default function Community() {
               <button
                 type="button"
                 className="comm-btn comm-btn-primary comm-btn-full"
-                onClick={() =>
-                  alert("Add to calendar coming soon!")
-                }
+                onClick={() => alert("Add to calendar coming soon!")}
               >
                 Add to my calendar
               </button>
@@ -607,6 +713,40 @@ export default function Community() {
             </div>
           </section>
 
+          {/* Style stories rail */}
+          <section className="comm-card">
+            <div className="comm-card-head">
+              <h2 className="comm-card-title">Style stories</h2>
+              <span className="comm-card-sub">
+                Quick hits from Lala&apos;s looks
+              </span>
+            </div>
+            <ul className="comm-story-list">
+              {stories.map((s) => (
+                <li key={s.id} className="comm-story-row">
+                  <div className="comm-story-dot" />
+                  <div className="comm-story-main">
+                    <div className="comm-story-title">{s.title}</div>
+                    {s.when && (
+                      <div className="comm-story-meta">{s.when}</div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="comm-btn comm-btn-ghost comm-btn-full"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/fan/closet-feed";
+                }
+              }}
+            >
+              View more fits & stories
+            </button>
+          </section>
+
           {/* Trending outfits / favorites rail */}
           <section className="comm-card">
             <div className="comm-card-head">
@@ -617,22 +757,13 @@ export default function Community() {
             </div>
             <div className="comm-trending-fits">
               {showcase.map((s) => (
-                <div
-                  key={s.id}
-                  className="comm-trend-card"
-                >
+                <div key={s.id} className="comm-trend-card">
                   <div className="comm-trend-thumb" />
                   <div className="comm-trend-meta">
-                    <div className="comm-trend-caption">
-                      {s.caption}
-                    </div>
+                    <div className="comm-trend-caption">{s.caption}</div>
                     <div className="comm-trend-bottom">
-                      <span className="comm-trend-by">
-                        by {s.by}
-                      </span>
-                      <span className="comm-trend-xp">
-                        {s.xp} XP
-                      </span>
+                      <span className="comm-trend-by">by {s.by}</span>
+                      <span className="comm-trend-xp">{s.xp} XP</span>
                     </div>
                   </div>
                 </div>
@@ -649,12 +780,9 @@ export default function Community() {
               <h2 className="comm-card-title">Episode chat</h2>
             </div>
             <p className="comm-episode-text">
-              Watch the latest Styling Adventures episode, then
-              drop your thoughts here with{" "}
-              <span className="comm-tag-inline">
-                #episodeThoughts
-              </span>
-              .
+              Watch the latest Styling Adventures episode, then drop your
+              thoughts here with{" "}
+              <span className="comm-tag-inline">#episodeThoughts</span>.
             </p>
             <a
               href="/fan/episodes"
@@ -665,6 +793,19 @@ export default function Community() {
           </section>
         </aside>
       </main>
+
+      {showPicker && (
+        <CreatorAssetPicker
+          onPick={(asset) => {
+            setComposerText((t) =>
+              t
+                ? `${t}\n[Attached: ${asset.title || asset.mediaKey}]`
+                : `[Attached: ${asset.title || asset.mediaKey}]`,
+            );
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
 
       <style>{styles}</style>
     </div>
@@ -872,6 +1013,116 @@ const styles = `
 .comm-card-sub {
   font-size:0.8rem;
   color:#9ca3af;
+}
+
+/* TOP STORIES STRIP (like FB) ---------------------------- */
+
+.comm-stories-card {
+  padding-bottom:10px;
+}
+
+.comm-stories-head {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin-bottom:6px;
+}
+.comm-stories-title {
+  margin:0;
+  font-size:0.96rem;
+  font-weight:600;
+}
+.comm-stories-sub {
+  font-size:0.8rem;
+  color:#6b7280;
+}
+
+.comm-stories-rail {
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding-bottom:4px;
+  margin:0 -6px;
+  padding-left:6px;
+  padding-right:6px;
+}
+.comm-stories-rail::-webkit-scrollbar {
+  height:4px;
+}
+.comm-stories-rail::-webkit-scrollbar-thumb {
+  border-radius:999px;
+  background:#e5e7eb;
+}
+
+.comm-story-chip {
+  flex:0 0 auto;
+  width:120px;
+  border-radius:16px;
+  border:none;
+  padding:6px 6px 8px;
+  background:linear-gradient(135deg,#f9fafb,#eef2ff);
+  box-shadow:0 8px 18px rgba(148,163,184,0.4);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-start;
+  cursor:pointer;
+  text-align:left;
+  text-decoration:none;
+  color:inherit;
+}
+.comm-story-chip:hover {
+  background:linear-gradient(135deg,#eef2ff,#e0e7ff);
+}
+
+.comm-story-chip-thumb {
+  width:100%;
+  aspect-ratio:3/4;
+  border-radius:12px;
+  background:linear-gradient(135deg,#6366f1,#ec4899);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+.comm-story-chip-thumb--add {
+  background:linear-gradient(135deg,#e0e7ff,#f9a8d4);
+}
+.comm-story-chip-plus {
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  background:#ffffff;
+  border:2px solid #6366f1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:1rem;
+  color:#4f46e5;
+}
+.comm-story-chip-initial {
+  font-size:1.1rem;
+  font-weight:700;
+  color:#f9fafb;
+}
+
+.comm-story-chip-label {
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  max-width:100%;
+}
+.comm-story-chip-title {
+  font-size:0.8rem;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.comm-story-chip-sub {
+  font-size:0.72rem;
+  color:#6b7280;
 }
 
 /* COMPOSER ----------------------------------------------- */
@@ -1154,6 +1405,53 @@ const styles = `
   gap:6px;
 }
 
+/* STORIES RAIL (SIDEBAR) --------------------------------- */
+
+.comm-story-list {
+  list-style:none;
+  padding:0;
+  margin:6px 0 8px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.comm-story-row {
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:6px 4px;
+  border-radius:9px;
+}
+.comm-story-row:hover {
+  background:#f9fafb;
+}
+.comm-story-dot {
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  margin-top:6px;
+  background:linear-gradient(135deg,#6366f1,#ec4899);
+  flex-shrink:0;
+}
+.comm-story-main {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.comm-story-title {
+  font-size:0.88rem;
+  font-weight:600;
+  color:#111827;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  overflow:hidden;
+}
+.comm-story-meta {
+  font-size:0.78rem;
+  color:#6b7280;
+}
+
 /* Trending fits rail ------------------------------------- */
 
 .comm-trending-fits {
@@ -1327,5 +1625,3 @@ const styles = `
   }
 }
 `;
-
-

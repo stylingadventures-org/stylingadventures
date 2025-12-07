@@ -7,6 +7,7 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface ApiStackProps extends StackProps {
@@ -20,7 +21,6 @@ export interface ApiStackProps extends StackProps {
 
   /** Optional: Creator / Pro features */
   livestreamFn?: lambda.IFunction; // from LivestreamStack
-  creatorAiFn?: lambda.IFunction; // from CreatorToolsStack
   commerceFn?: lambda.IFunction; // from CommerceStack
 
   /** Optional: centralized admin moderation lambda (from AdminStack) */
@@ -30,7 +30,7 @@ export interface ApiStackProps extends StackProps {
 // Static names used in Cognito groups
 // NOTE: your Cognito group is literally named "ADMIN"
 const ADMIN_GROUP_NAME = "ADMIN";
-const CREATOR_GROUP_NAME = "creator";
+const CREATOR_GROUP_NAME = "CREATOR";
 
 // Optional: shared CDN base for raw uploads / previews
 // (kept in Lambda env so resolvers can emit fully-qualified URLs if needed)
@@ -52,17 +52,26 @@ export class ApiStack extends Stack {
       backgroundChangeSm,
       storyPublishSm,
       livestreamFn,
-      creatorAiFn,
       commerceFn,
       adminModerationFn, // currently unused but available for future wiring
     } = props;
+
+    // Derive env name (shared convention with DatabaseStack)
+    const envName =
+      this.node.tryGetContext("env") ||
+      process.env.ENVIRONMENT ||
+      "dev";
+
+    // Web origin for browser uploads to S3 (adjust per env)
+    const webOrigin =
+      process.env.WEB_ORIGIN ?? "http://localhost:5173";
 
     // Shared DynamoDB env for all Lambdas using the single-table design.
     const DDB_ENV = {
       TABLE_NAME: table.tableName,
       PK_NAME: "pk",
       SK_NAME: "sk",
-      STATUS_GSI: "gsi1", // status/index for closet items & stories
+      STATUS_GSI: "gsi1", // gsi1: closet status + creator tools (cabinets/assets)
     };
 
     // ────────────────────────────────────────────────────────────
@@ -80,6 +89,24 @@ export class ApiStack extends Stack {
         },
       },
       xrayEnabled: true,
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // CREATOR MEDIA BUCKET (for cabinets / creator assets)
+    // ────────────────────────────────────────────────────────────
+    const creatorMediaBucket = new s3.Bucket(this, "CreatorMediaBucket", {
+      bucketName: `sa2-${envName}-creator-media`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      cors: [
+        {
+          allowedOrigins: [webOrigin],
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
+          allowedHeaders: ["*"],
+          exposedHeaders: ["ETag"],
+          maxAge: 3600,
+        },
+      ],
     });
 
     // ────────────────────────────────────────────────────────────
@@ -678,7 +705,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // CREATOR / LIVESTREAM / AI / COMMERCE
+    // CREATOR / LIVESTREAM / AI / COMMERCE / CABINETS
     // ────────────────────────────────────────────────────────────
     if (livestreamFn) {
       const creatorLiveDs = this.api.addLambdaDataSource(
@@ -697,17 +724,86 @@ export class ApiStack extends Stack {
       });
     }
 
-    if (creatorAiFn) {
-      const creatorAiDs = this.api.addLambdaDataSource(
-        "CreatorAiDs",
-        creatorAiFn,
-      );
+    // 🔹 Creator Tools Lambda (AI + cabinets) lives INSIDE ApiStack now.
+    const creatorToolsFn = new NodejsFunction(this, "CreatorToolsFn", {
+      entry: "lambda/creator/ai.ts", // extended to handle creator cabinets + AI
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        CREATOR_MEDIA_BUCKET: creatorMediaBucket.bucketName,
+        STORY_SCHEDULER_ARN: storyPublishSm.stateMachineArn,
+        PUBLIC_UPLOADS_CDN,
+        NODE_OPTIONS: "--enable-source-maps",
+        BEDROCK_MODEL_ID:
+          "anthropic.claude-3-5-sonnet-20240620-v1:0",
+      },
+      timeout: Duration.seconds(20),
+      memorySize: 512,
+    });
 
-      creatorAiDs.createResolver("CreatorAiSuggestResolver", {
-        typeName: "Query",
-        fieldName: "creatorAiSuggest",
-      });
-    }
+    // Access to Dynamo single-table for cabinets + assets
+    table.grantReadWriteData(creatorToolsFn);
+
+    // Access to S3 for uploads / search / thumbnails
+    creatorMediaBucket.grantReadWrite(creatorToolsFn);
+
+    // Bedrock Claude 3.5 Sonnet permissions
+    creatorToolsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0`,
+        ],
+      }),
+    );
+
+    const creatorAiDs = this.api.addLambdaDataSource(
+      "CreatorAiDs",
+      creatorToolsFn,
+    );
+
+    // Creator AI now lives on Mutation with CreatorAiSuggestionKind
+    creatorAiDs.createResolver("CreatorAiSuggestResolver", {
+      typeName: "Mutation",
+      fieldName: "creatorAiSuggest",
+    });
+
+    // Creator cabinets (same CreatorTools lambda)
+    creatorAiDs.createResolver("CreatorCabinetsResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinets",
+    });
+
+    creatorAiDs.createResolver("CreatorCabinetResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinet",
+    });
+
+    creatorAiDs.createResolver("CreatorCabinetAssetsResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinetAssets",
+    });
+
+    creatorAiDs.createResolver("CreateCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorCabinet",
+    });
+
+    creatorAiDs.createResolver("UpdateCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "updateCreatorCabinet",
+    });
+
+    creatorAiDs.createResolver("DeleteCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorCabinet",
+    });
+
+    creatorAiDs.createResolver("CreateCreatorAssetUploadResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorAssetUpload",
+    });
 
     if (commerceFn) {
       const commerceDs = this.api.addLambdaDataSource(
@@ -731,5 +827,8 @@ export class ApiStack extends Stack {
     // ────────────────────────────────────────────────────────────
     new CfnOutput(this, "GraphQlApiUrl", { value: this.api.graphqlUrl });
     new CfnOutput(this, "GraphQlApiId", { value: this.api.apiId });
+    new CfnOutput(this, "CreatorMediaBucketName", {
+      value: creatorMediaBucket.bucketName,
+    });
   }
 }

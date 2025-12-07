@@ -8,6 +8,8 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as sns from "aws-cdk-lib/aws-sns";
+import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
 
@@ -89,6 +91,12 @@ export class BestiesClosetStack extends cdk.Stack {
       }),
     );
 
+    // SNS topic for closet upload approvals (to carry task tokens, etc)
+    const closetApprovalTopic = new sns.Topic(this, "ClosetApprovalTopic", {
+      displayName: "Bestie Closet Upload Approvals",
+      topicName: `sa-${cdk.Stack.of(this).stackName}-closet-approval`,
+    });
+
     // ---- ClosetUploadApproval state machine ----
 
     const moderationTask = new tasks.LambdaInvoke(this, "ModerateImage", {
@@ -150,9 +158,6 @@ export class BestiesClosetStack extends cdk.Stack {
     // this.closetUploadStateMachine.grantTaskResponse(notifyAdminFn);
     // because that creates a circular dependency (Lambda role <-> SM ARN).
 
-    // (If you still want CloudWatch / EventBridge events wired to a Lambda,
-    // you can add a rule here that targets some other function or SNS/etc.)
-
     // =====================================================
     // 2) BACKGROUND CHANGE APPROVAL (SNS + WAIT_FOR_TASK_TOKEN)
     // =====================================================
@@ -190,22 +195,18 @@ export class BestiesClosetStack extends cdk.Stack {
     table.grantReadWriteData(moderateBgFn);
     uploadsBucket.grantRead(moderateBgFn);
 
-    const applyBgFn = new lambdaNode.NodejsFunction(
-      this,
-      "ApplyBgChangeFn",
-      {
-        entry: path.join(
-          process.cwd(),
-          "lambda/closet/apply-background-change.ts",
-        ),
-        bundling: {
-          format: lambdaNode.OutputFormat.CJS,
-          minify: true,
-          sourceMap: true,
-        },
-        environment: ENV,
+    const applyBgFn = new lambdaNode.NodejsFunction(this, "ApplyBgChangeFn", {
+      entry: path.join(
+        process.cwd(),
+        "lambda/closet/apply-background-change.ts",
+      ),
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
       },
-    );
+      environment: ENV,
+    });
     table.grantReadWriteData(applyBgFn);
 
     // SNS topic + EventBridge for admin review notifications
@@ -304,5 +305,43 @@ export class BestiesClosetStack extends cdk.Stack {
         tracingEnabled: true,
       },
     );
+
+    // =====================================================
+    // 3) Save-approval-token Lambda wired to both SNS topics
+    // =====================================================
+
+    const saveApprovalTokenFn = new lambdaNode.NodejsFunction(
+      this,
+      "SaveApprovalTokenFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          process.cwd(),
+          "lambda/workflows/save-approval-token.ts",
+        ),
+        handler: "handler",
+        environment: {
+          TABLE_NAME: table.tableName,
+          PK_NAME: "pk",
+          SK_NAME: "sk",
+        },
+      },
+    );
+
+    // Let it read/write approval tokens in the same app table
+    table.grantReadWriteData(saveApprovalTokenFn);
+
+    // Subscribe Lambda to BOTH approval topics
+    closetApprovalTopic.addSubscription(
+      new subs.LambdaSubscription(saveApprovalTokenFn),
+    );
+    bgApprovalTopic.addSubscription(
+      new subs.LambdaSubscription(saveApprovalTokenFn),
+    );
+
+    // NOTE:
+    // In your Step Functions definitions, you can now publish
+    // WAIT_FOR_TASK_TOKEN messages to closetApprovalTopic and/or bgApprovalTopic
+    // and SaveApprovalTokenFn will persist the taskToken + payload for the admin UI.
   }
 }

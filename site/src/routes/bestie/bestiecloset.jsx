@@ -645,17 +645,18 @@ export default function BestieCloset() {
             </p>
 
             <div className="bc-mood-actions">
-              <button
-                type="button"
-                className="bc-btn bc-btn-primary"
-                onClick={() => setUploadOpen(true)}
-              >
-                + Add a new piece
-              </button>
-              <Link to="/bestie/content" className="bc-btn bc-btn-ghost">
-                Plan outfits as content →
-              </Link>
-            </div>
+  <button
+    type="button"
+    className="bc-btn bc-btn-primary"
+    onClick={() => setUploadOpen(true)}
+  >
+    + Add a new piece
+  </button>
+  <Link to="/bestie/content" className="bc-btn bc-btn-ghost">
+    Plan outfits & Bestie stories →
+  </Link>
+</div>
+
 
             <div className="bc-mood-stats">
               <div className="bc-mood-stat">

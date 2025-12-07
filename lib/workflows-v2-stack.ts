@@ -3,9 +3,14 @@ import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as apigw from "aws-cdk-lib/aws-apigateway";
+import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as path from "path";
 
 export interface WorkflowsV2StackProps extends StackProps {
-  table: dynamodb.ITable; // kept for future use, even if unused today
+  table: dynamodb.ITable; // now actually used for approval token storage
 }
 
 /**
@@ -16,9 +21,8 @@ export interface WorkflowsV2StackProps extends StackProps {
  * - Background change requests
  * - Story publish flows
  *
- * These are currently simple one-step Pass workflows that you can
- * expand later. They’re passed into ApiStack via props — no more
- * Fn.importValue / cross-stack export drama.
+ * Also exposes a tiny admin REST API:
+ * - POST /approvals  -> completeApprovalFn (calls SendTaskSuccess/Failure)
  */
 export class WorkflowsV2Stack extends Stack {
   // primary state machines
@@ -34,6 +38,7 @@ export class WorkflowsV2Stack extends Stack {
   constructor(scope: Construct, id: string, props: WorkflowsV2StackProps) {
     super(scope, id, props);
 
+    const { table } = props;
     const envName = this.node.tryGetContext("env") ?? "dev";
 
     //
@@ -111,5 +116,56 @@ export class WorkflowsV2Stack extends Stack {
     new CfnOutput(this, "StoryPublishStateMachineArn", {
       value: this.storyPublishStateMachine.stateMachineArn,
     });
+
+    //
+    // 4) Tiny admin REST API for approvals (out-of-band from fan app)
+    //
+
+    const completeApprovalFn = new lambdaNode.NodejsFunction(
+      this,
+      "CompleteApprovalFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../lambda/workflows/complete-approval.ts",
+        ),
+        handler: "handler",
+        environment: {
+          TABLE_NAME: table.tableName,
+          PK_NAME: "pk",
+          SK_NAME: "sk",
+        },
+      },
+    );
+
+    // DDB read/write for approval tokens + lookup
+    table.grantReadWriteData(completeApprovalFn);
+
+    // Allow this function to complete SFN tasks (SendTaskSuccess/Failure)
+    completeApprovalFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
+        resources: ["*"], // you can tighten to specific SM ARNs later
+      }),
+    );
+
+    const adminApi = new apigw.RestApi(this, "AdminApprovalApi", {
+      restApiName: "stylingadventures-admin-approval",
+      deployOptions: {
+        stageName: "v1",
+      },
+    });
+
+    const approvals = adminApi.root.addResource("approvals");
+
+    approvals.addMethod(
+      "POST",
+      new apigw.LambdaIntegration(completeApprovalFn),
+      {
+        // TODO: add auth later (IAM / Cognito / API key)
+      },
+    );
   }
 }
+

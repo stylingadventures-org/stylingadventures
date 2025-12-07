@@ -35,6 +35,15 @@ import BestiePerks from "./routes/bestie/Perks.jsx";
 import BestieContent from "./routes/bestie/Content.jsx";
 import BestieCloset from "./routes/bestie/BestieCloset.jsx";
 
+// 🔹 Creator section
+// Creator section
+import CreatorLayout from "./routes/creator/Layout.jsx";
+import CreatorDashboard from "./routes/creator/Dashboard.jsx";
+import CreatorTools from "./routes/creator/Tools.jsx";
+import CreatorLibrary from "./routes/creator/Library.jsx";
+import CreatorStories from "./routes/creator/Stories.jsx";
+import CreatorEarnings from "./routes/creator/Earnings.jsx";
+
 // Admin section
 import AdminLayout from "./routes/admin/AdminLayout.jsx";
 import AdminHome from "./routes/admin/AdminHome.jsx";
@@ -104,6 +113,19 @@ const router = createBrowserRouter([
           { path: "closet", element: <BestieCloset /> },
           { path: "content", element: <BestieContent /> },
           { path: "perks", element: <BestiePerks /> },
+        ],
+      },
+
+            // ---------- CREATOR section ----------
+      {
+        path: "creator",
+        element: <CreatorLayout />,
+        children: [
+          { index: true, element: <CreatorDashboard /> },
+          { path: "tools", element: <CreatorTools /> },
+          { path: "library", element: <CreatorLibrary /> },
+          { path: "stories", element: <CreatorStories /> },
+          { path: "earnings", element: <CreatorEarnings /> },
         ],
       },
 
