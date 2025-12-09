@@ -403,6 +403,16 @@ type Mutation {
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
   """
+  Remember the last active tab in the Creator Library UI.
+  Used purely for UX; backed by a lightweight user preference row.
+  """
+  setCreatorLibraryTab(
+    input: SetCreatorLibraryTabInput!
+  ): SetCreatorLibraryTabPayload!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
   Update the creator’s goal compass for planning + focus.
   """
   updateCreatorGoalCompass(
@@ -1146,6 +1156,28 @@ enum CreatorAssetKind {
 }
 
 """
+Tabs in the Creator Library UI.
+"""
+enum CreatorLibraryTab {
+  LIBRARY
+  TOOLS
+  STORIES
+  STUDIO
+}
+
+"""
+Payload returned when updating the creator's active library tab.
+"""
+type SetCreatorLibraryTabPayload {
+  ok: Boolean!
+  tab: CreatorLibraryTab!
+}
+
+input SetCreatorLibraryTabInput {
+  tab: CreatorLibraryTab!
+}
+
+"""
 Creator goal-setting compass for planning content & business focus.
 Backed by string codes for flexibility.
 """
@@ -1157,6 +1189,47 @@ type CreatorGoalCompass {
   riskTolerance: String!
   notes: String
   updatedAt: AWSDateTime
+
+  """
+  Target mix of content % by theme (e.g. 30/30/20/20).
+  Stored as simple integers; they don't have to sum to 100 but usually will.
+  """
+  contentMixTarget: CreatorContentMix
+
+  """
+  Actual mix observed over the last window (e.g. last 7–14 days).
+  Updated by the Emotional PR Engine analytics workflow.
+  """
+  contentMixActual: CreatorContentMix
+
+  """
+  High-level weekly path status based on goal + actual mix.
+  Examples: "ON_PATH", "SLIGHTLY_OFF", "OFF_PATH", "REST_WEEK".
+  """
+  weeklyPathStatus: String
+
+  """
+  When the Emotional PR Engine last updated the weekly path check.
+  """
+  lastWeeklyCheckAt: AWSDateTime
+}
+
+"""
+Simple % buckets for content mix.
+Keys map to the 4 compass pillars.
+"""
+type CreatorContentMix {
+  personality: Int
+  nurture: Int
+  authority: Int
+  conversion: Int
+}
+
+input CreatorContentMixInput {
+  personality: Int
+  nurture: Int
+  authority: Int
+  conversion: Int
 }
 
 input UpdateCreatorGoalCompassInput {
@@ -1165,6 +1238,43 @@ input UpdateCreatorGoalCompassInput {
   weeklyCapacity: Int!
   focusAreas: [String!]!
   riskTolerance: String!
+  notes: String
+  contentMixTarget: CreatorContentMixInput
+}
+
+# ─────────────────────────────────────────
+# Creator Social OS – weekly schedule
+# ─────────────────────────────────────────
+
+type CreatorScheduleSlot {
+  id: ID!
+  creatorSub: ID!
+  weekOf: AWSDate!        # Monday of the week
+  day: String!            # "Mon"..."Sun"
+  timeOfDay: String!      # "AM" | "PM" | "EVENING" (UI free-form)
+  platformHint: String
+  focusHint: String
+  status: String!         # PLANNED, FILMED, POSTED, SKIPPED
+  notes: String
+  directorShootId: ID
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorScheduleWeek {
+  weekOf: AWSDate!
+  slots: [CreatorScheduleSlot!]!
+}
+
+input UpsertCreatorScheduleSlotInput {
+  id: ID
+  weekOf: AWSDate!
+  day: String!
+  timeOfDay: String!
+  platformHint: String
+  focusHint: String
+  status: String
+  directorShootId: ID
   notes: String
 }
 
@@ -1376,18 +1486,9 @@ type CreatorRevenueByPlatformResult {
 # is left as-is to avoid breaking clients. You can later change its return type to
 # CreatorRevenueByPlatformResult! once the frontend is migrated.
 
-# --- Director Suite shoot plans ---
+# --- Director Suite types ---
 
-input DirectorSceneInput {
-  id: ID!
-  title: String!
-  shotType: String
-  location: String
-  mood: String
-  beats: String
-}
-
-type DirectorScene {
+type DirectorShootScene {
   id: ID!
   title: String!
   shotType: String
@@ -1398,38 +1499,281 @@ type DirectorScene {
 
 type DirectorShootPlan {
   id: ID!
-  creatorId: ID!
-  shootName: String!
-  primaryPlatform: String!
-  objective: String!
-  scenes: [DirectorScene!]!
+  shootName: String
+  primaryPlatform: String
+  objective: String
+  scenes: [DirectorShootScene!]!
+  updatedAt: AWSDateTime
+}
+
+input DirectorShootSceneInput {
+  id: ID
+  title: String!
+  shotType: String
+  location: String
+  mood: String
+  beats: String
+}
+
+input SaveDirectorShootPlanInput {
+  id: ID!
+  shootName: String
+  primaryPlatform: String
+  objective: String
+  scenes: [DirectorShootSceneInput!]!
+}
+
+# ---------- Director Suite: Emotion preview ----------
+
+type ContentMix {
+  personality: Int!
+  nurture: Int!
+  authority: Int!
+  conversion: Int!
+}
+
+enum WeeklyPathStatus {
+  ON_PATH
+  SLIGHTLY_OFF
+  OFF_PATH
+}
+
+type CreatorEmotionPreview {
+  target: ContentMix!
+  actual: ContentMix!
+  weeklyPathStatus: WeeklyPathStatus!
+  lastWeeklyCheckAt: AWSDateTime
+}
+
+# ─────────────────────────────────────────
+# Creator PR & Content Studio (Planner board) + Social Pulse
+# ─────────────────────────────────────────
+
+"""
+Planner board for PR, content, and emotional planning.
+UI name: "Creator PR & Content Studio".
+"""
+type CreatorPrBoard {
+  id: ID!
+  creatorId: ID!          # Cognito sub (ownerSub)
+  title: String!
+  description: String
+  goalCompassSnapshot: CreatorGoalCompassSnapshot
+  timeHorizonFrom: AWSDateTime
+  timeHorizonTo: AWSDateTime
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
 }
 
-input SaveDirectorShootPlanInput {
-  id: ID
-  shootName: String!
-  primaryPlatform: String!
-  objective: String!
-  scenes: [DirectorSceneInput!]!
+"""
+Light snapshot of the Goal Compass at the time this board was created/updated.
+Avoids breaking if the main compass evolves.
+"""
+type CreatorGoalCompassSnapshot {
+  primaryGoal: String
+  timeHorizon: String
+  weeklyCapacity: Int
+  focusAreas: [String!]
+  riskTolerance: String
+  contentMixTarget: CreatorContentMix
 }
 
-type DirectorShootPlanConnection {
-  items: [DirectorShootPlan!]!
-  nextToken: String
+"""
+Single planned content piece inside Creator PR & Content Studio.
+"""
+type CreatorPrItem {
+  id: ID!
+  boardId: ID!
+  creatorId: ID!
+  title: String!
+  platform: String!
+  status: CreatorPrItemStatus!
+
+  notes: String
+
+  # Where this idea came from
+  pulseId: ID
+  contentIdeaId: ID
+
+  # Emotional PR Engine fields (V1-friendly)
+  emotionalToneLabels: [String!]
+  audienceResponseLabel: String
+  brandAlignmentScore: Int
+  prRiskLevel: String
+  lastEmotionalReviewAt: AWSDateTime
+
+  # Linking out
+  directorShootPlanId: ID
+  directorAssetIds: [ID!]
+  scheduleSlotId: ID
+
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+enum CreatorPrItemStatus {
+  IDEA
+  DRAFT
+  READY
+  SCHEDULED
+  POSTED
+  SKIPPED
+}
+
+"""
+Trend brief + content ideas generated for a creator.
+These feed the Creator PR & Content Studio.
+"""
+type CreatorSocialPulse {
+  id: ID!
+  creatorId: ID!
+  niche: String
+  platforms: [String!]!
+  trendBriefs: [CreatorTrendBrief!]!
+  contentIdeas: [CreatorContentIdea!]!
+  createdAt: AWSDateTime!
+}
+
+type CreatorTrendBrief {
+  label: String!
+  description: String!
+  exampleHashtags: [String!]
+  riskLevel: String
+}
+
+type CreatorContentIdea {
+  id: ID!
+  title: String!
+  hook: String
+  outline: [String!]
+  recommendedPlatform: String
+  recommendedLengthSec: Int
+}
+
+"""
+Create a new Creator PR & Content Studio board.
+"""
+input CreateCreatorPrBoardInput {
+  title: String!
+  description: String
+  timeHorizonFrom: AWSDateTime
+  timeHorizonTo: AWSDateTime
+}
+
+input AddContentIdeaToBoardInput {
+  boardId: ID!
+  pulseId: ID!
+  contentIdeaId: ID!
+
+  # Optional overrides from the UI
+  platform: String
+  status: CreatorPrItemStatus
+  notes: String
+}
+
+input GenerateSocialPulseInput {
+  """
+  Optional niche override, e.g. "soft_boss_beauty".
+  If omitted, backend can infer from Brand Identity Builder later.
+  """
+  nicheOverride: String
+  """
+  Target platforms for this pulse, e.g. ["TIKTOK", "INSTAGRAM"].
+  """
+  platforms: [String!]
 }
 
 extend type Query {
+  """
+  List Creator PR & Content Studio boards for the current creator.
+  """
+  creatorPrBoards: [CreatorPrBoard!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  List items for a given Creator PR board.
+  """
+  creatorPrItemsByBoard(boardId: ID!): [CreatorPrItem!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Social Pulse runs for current creator (trend briefs + content ideas).
+  """
+  creatorSocialPulses(limit: Int, nextToken: String): [CreatorSocialPulse!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   getDirectorShootPlan(id: ID!): DirectorShootPlan
-  listDirectorShootPlans(
-    limit: Int
-    nextToken: String
-  ): DirectorShootPlanConnection!
 }
 
 extend type Mutation {
-  saveDirectorShootPlan(
-    input: SaveDirectorShootPlanInput!
-  ): DirectorShootPlan!
+  """
+  Create a new Creator PR & Content Studio board.
+  """
+  createCreatorPrBoard(
+    input: CreateCreatorPrBoardInput!
+  ): CreatorPrBoard!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Add a content idea from Social Pulse into a PR & Content Studio board.
+  """
+  addContentIdeaToBoard(
+    input: AddContentIdeaToBoardInput!
+  ): CreatorPrItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Generate a fresh Creator Social Pulse (trend briefs + content ideas)
+  for the current creator, backed by the Social Pulse Express Step Function.
+  """
+  generateSocialPulse(
+    input: GenerateSocialPulseInput
+  ): CreatorSocialPulse!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  saveDirectorShootPlan(input: SaveDirectorShootPlanInput!): DirectorShootPlan!
+
+  # Run a quick emotion/content mix check vs the creator's Goal Compass
+  runCreatorEmotionPreview: CreatorEmotionPreview!
+}
+
+# ─────────────────────────────────────────
+# Creator Social OS – Weekly Schedule (operations)
+# ─────────────────────────────────────────
+
+extend type Query {
+  """
+  Weekly schedule for Creator Social OS.
+  weekOf should be the Monday of the desired week (AWSDate).
+  """
+  creatorScheduleWeek(weekOf: AWSDate!): CreatorScheduleWeek!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+}
+
+extend type Mutation {
+  """
+  Create or update a single schedule slot (id is optional on create).
+  """
+  upsertCreatorScheduleSlot(
+    input: UpsertCreatorScheduleSlotInput!
+  ): CreatorScheduleSlot!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Delete a scheduled slot by id + owning week.
+  """
+  deleteCreatorScheduleSlot(
+    id: ID!
+    weekOf: AWSDate!
+  ): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 }

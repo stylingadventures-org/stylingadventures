@@ -1,3 +1,4 @@
+// main.js
 import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
@@ -86,7 +87,6 @@ import BestieTools from "./routes/admin/BestieTools.jsx";
 import ClosetUpload from "./routes/admin/ClosetUpload.jsx";
 import Users from "./routes/admin/Users.jsx";
 import ClosetLibrary from "./routes/admin/ClosetLibrary.jsx";
-// ⬇️ removed AdminBestieCloset import
 import AdminSettings from "./routes/admin/AdminSettings.jsx";
 import BadgeRuleEditor from "./routes/admin/BadgeRuleEditor.jsx";
 
@@ -247,7 +247,6 @@ const router = createBrowserRouter([
           { path: "bestie", element: <BestieTools /> },
           { path: "closet-upload", element: <ClosetUpload /> },
           { path: "closet-library", element: <ClosetLibrary /> },
-          // ⬇️ removed /admin/closet-library/bestie route
 
           // Creator uploads moderation
           { path: "creator-assets", element: <CreatorAssetsAdmin /> },
@@ -259,7 +258,7 @@ const router = createBrowserRouter([
 
           { path: "users", element: <Users /> },
           { path: "settings", element: <AdminSettings /> },
-          { path: "badges", element: <BadgeRuleEditor /> }, // ✅ route for /admin/badges
+          { path: "badges", element: <BadgeRuleEditor /> },
         ],
       },
     ],

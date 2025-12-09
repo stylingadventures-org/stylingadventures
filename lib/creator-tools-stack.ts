@@ -6,6 +6,7 @@ import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export interface CreatorToolsStackProps extends StackProps {
   /**
@@ -23,6 +24,11 @@ export interface CreatorToolsStackProps extends StackProps {
    * used for any scheduling / story-publish helpers.
    */
   storyPublishStateMachine: sfn.IStateMachine;
+
+  /**
+   * Social Pulse Express state machine for creator Social Pulse generation.
+   */
+  socialPulseStateMachine: sfn.IStateMachine;
 }
 
 /**
@@ -34,7 +40,9 @@ export interface CreatorToolsStackProps extends StackProps {
  *      * cabinets
  *      * folders
  *      * assets
- *      * simple AI suggest stub
+ *      * creator goal compass (planning)
+ *      * creator AI suggest stub
+ *      * Creator PR & Content Studio + Social Pulse wiring
  */
 export class CreatorToolsStack extends Stack {
   public readonly creatorToolsFn: lambda.Function;
@@ -43,7 +51,12 @@ export class CreatorToolsStack extends Stack {
   constructor(scope: Construct, id: string, props: CreatorToolsStackProps) {
     super(scope, id, props);
 
-    const { envName, table, storyPublishStateMachine } = props;
+    const {
+      envName,
+      table,
+      storyPublishStateMachine,
+      socialPulseStateMachine,
+    } = props;
 
     // 1) S3 bucket for creator media uploads (used by createCreatorAssetUpload)
     this.creatorMediaBucket = new s3.Bucket(this, "CreatorMediaBucket", {
@@ -70,14 +83,16 @@ export class CreatorToolsStack extends Stack {
     // 2) Lambda that implements the GraphQL fields
     //
     // Handles:
-    //   Query.creatorCabinets
-    //   Query.creatorCabinet
-    //   Query.creatorCabinetFolders
-    //   Query.creatorCabinetAssets
-    //   Mutation.createCreatorCabinet / update / delete
-    //   Mutation.createCreatorFolder / rename / delete
-    //   Mutation.createCreatorAssetUpload / update / delete / move
+    //   Query.creatorCabinets / creatorCabinet / creatorCabinetFolders / creatorCabinetAssets
+    //   Query.creatorGoalCompass
+    //   Query.creatorPrBoards / creatorPrItemsByBoard / creatorSocialPulses
+    //   Mutation.create/update/deleteCreatorCabinet
+    //   Mutation.create/rename/deleteCreatorFolder
+    //   Mutation.create/update/delete/moveCreatorAsset
+    //   Mutation.importClosetItemToCabinet
     //   Mutation.creatorAiSuggest
+    //   Mutation.updateCreatorGoalCompass
+    //   Mutation.createCreatorPrBoard / addContentIdeaToBoard / generateSocialPulse
     this.creatorToolsFn = new NodejsFunction(this, "CreatorToolsFn", {
       entry: "lambda/creator-tools/index.ts", // <-- handler file
       handler: "handler",
@@ -102,6 +117,9 @@ export class CreatorToolsStack extends Stack {
         // Story publish / workflow helpers (reserved for future use)
         STORY_PUBLISH_SM_ARN: storyPublishStateMachine.stateMachineArn,
 
+        // Social Pulse Express state machine ARN (used by generateSocialPulse)
+        SOCIAL_PULSE_SFN_ARN: socialPulseStateMachine.stateMachineArn,
+
         // Better stack traces in Node 20
         NODE_OPTIONS: "--enable-source-maps",
       },
@@ -117,5 +135,15 @@ export class CreatorToolsStack extends Stack {
 
     // Allow Lambda to start the story publish state machine
     storyPublishStateMachine.grantStartExecution(this.creatorToolsFn);
+
+    // Allow Lambda to start the Social Pulse Express state machine
+    // (Express sync execution needs states:StartSyncExecution)
+    socialPulseStateMachine.grantStartExecution(this.creatorToolsFn);
+    this.creatorToolsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["states:StartSyncExecution"],
+        resources: [socialPulseStateMachine.stateMachineArn],
+      }),
+    );
   }
 }
