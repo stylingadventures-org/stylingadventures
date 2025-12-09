@@ -133,6 +133,16 @@ export default function AdminLayout() {
               <span>Closet library</span>
             </NavLink>
 
+            {/* Creator moderation section */}
+            <div className="section-sidebar-label" style={{ marginTop: 16 }}>
+              Creator
+            </div>
+
+            <NavLink to="/admin/creator-assets" className={navClass}>
+              <span className="section-nav-pill-icon">🎨</span>
+              <span>Creator uploads</span>
+            </NavLink>
+
             {/* Episodes & game section with Game overview link */}
             <div className="section-sidebar-label" style={{ marginTop: 16 }}>
               Episodes & game

@@ -122,6 +122,26 @@ type Query {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
+  """
+  Monetization HQ: earnings broken down by platform and time window.
+  """
+  creatorRevenueByPlatform(
+    window: CreatorRevenueWindow!
+  ): CreatorRevenueByPlatform
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Creator goal-setting & focus compass for the current creator.
+  Values are simple string codes like:
+    primaryGoal: "GROWTH" | "BALANCE" | "BUSINESS_FIRST"
+    timeHorizon: "30_DAYS" | "90_DAYS" | "YEAR"
+    riskTolerance: "LOW" | "MEDIUM" | "HIGH"
+  """
+  creatorGoalCompass: CreatorGoalCompass
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   # Creator filing cabinets (personal asset library)
   creatorCabinets: [CreatorCabinet!]!
     @aws_cognito_user_pools
@@ -131,7 +151,8 @@ type Query {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
-  creatorFolders(cabinetId: ID!): [CreatorFolder!]!
+  # Folders for a given cabinet
+  creatorCabinetFolders(cabinetId: ID!): [CreatorFolder!]!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
@@ -146,6 +167,33 @@ type Query {
   ): CreatorAssetConnection!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Admin: List all creator assets for a given user (ownerSub).
+  Optionally filter by cabinet, folder or moderationStatus.
+  includeSoftDeleted=true lets admin see SOFT_DELETED items as well.
+  """
+  adminListCreatorAssetsByUser(
+    ownerSub: ID!
+    cabinetId: ID
+    folderId: ID
+    moderationStatus: CreatorAssetModerationStatus
+    includeSoftDeleted: Boolean = true
+    limit: Int = 50
+    nextToken: String
+  ): CreatorAssetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Get a single creator asset by cabinet + id.
+  """
+  adminGetCreatorAsset(
+    cabinetId: ID!
+    id: ID!
+  ): CreatorAsset
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Game economy config / rules (admin)
   getGameEconomyConfig: GameEconomyConfig!
@@ -354,6 +402,15 @@ type Mutation {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
 
+  """
+  Update the creator’s goal compass for planning + focus.
+  """
+  updateCreatorGoalCompass(
+    input: UpdateCreatorGoalCompassInput!
+  ): CreatorGoalCompass!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
   # Creator filing cabinets (mutations)
   createCreatorCabinet(
     input: CreateCreatorCabinetInput!
@@ -418,6 +475,53 @@ type Mutation {
   ): CreatorAsset!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Import an existing Bestie closet item as a creator asset.
+  Does not modify the original closet item.
+  """
+  importClosetItemToCabinet(
+    input: ImportClosetItemToCabinetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "ADMIN", "PRIME"])
+
+  """
+  Hard moderation: set status to ACTIVE / REJECTED / INAPPROPRIATE / SOFT_DELETED
+  and optionally attach a reason + extra tags.
+  """
+  adminModerateCreatorAsset(
+    input: AdminModerateCreatorAssetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Convenience: mark asset as SOFT_DELETED but keep record around.
+  """
+  adminSoftDeleteCreatorAsset(
+    input: AdminSoftDeleteCreatorAssetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Convenience: flip SOFT_DELETED → ACTIVE again.
+  """
+  adminRestoreCreatorAsset(
+    input: AdminRestoreCreatorAssetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Convenience wrapper: tag as REJECTED with reason/tags.
+  """
+  adminRejectCreatorAsset(
+    input: AdminRejectCreatorAssetInput!
+  ): CreatorAsset!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   # Game economy config / rules (admin)
   updateGameEconomyConfig(input: UpdateGameEconomyConfigInput!): GameEconomyConfig!
@@ -999,6 +1103,32 @@ type CreatorRevenueSummary {
   totalOrders: Int!
 }
 
+enum CreatorRevenueWindow {
+  LAST_7_DAYS
+  LAST_30_DAYS
+  LAST_90_DAYS
+}
+
+type CreatorPlatformRevenue {
+  platform: String!
+  label: String
+  currency: String!
+  amount: Float!
+  lastPayoutAt: AWSDateTime
+}
+
+type CreatorRevenueTimeseriesPoint {
+  date: AWSDate!
+  totalRevenue: Float!
+}
+
+type CreatorRevenueByPlatform {
+  currency: String!
+  totalRevenue: Float!
+  platforms: [CreatorPlatformRevenue!]!
+  timeseries: [CreatorRevenueTimeseriesPoint!]!
+}
+
 enum CreatorAiSuggestionKind {
   CAPTION
   HASHTAGS
@@ -1013,6 +1143,39 @@ enum CreatorAssetKind {
   PHOTO
   VIDEO
   OTHER
+}
+
+"""
+Creator goal-setting compass for planning content & business focus.
+Backed by string codes for flexibility.
+"""
+type CreatorGoalCompass {
+  primaryGoal: String!
+  timeHorizon: String!
+  weeklyCapacity: Int!
+  focusAreas: [String!]!
+  riskTolerance: String!
+  notes: String
+  updatedAt: AWSDateTime
+}
+
+input UpdateCreatorGoalCompassInput {
+  primaryGoal: String!
+  timeHorizon: String!
+  weeklyCapacity: Int!
+  focusAreas: [String!]!
+  riskTolerance: String!
+  notes: String
+}
+
+"""
+Admin moderation state for creator assets.
+"""
+enum CreatorAssetModerationStatus {
+  ACTIVE
+  REJECTED
+  INAPPROPRIATE
+  SOFT_DELETED
 }
 
 """
@@ -1063,6 +1226,15 @@ type CreatorAsset {
   contentType: String
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
+
+  # NEW moderation/admin fields:
+  moderationStatus: CreatorAssetModerationStatus!   # default ACTIVE
+  moderationReason: String
+  moderatedBy: String
+  moderatedAt: AWSDateTime
+
+  # If this asset was imported from a Bestie closet item
+  sourceClosetItemId: ID
 }
 
 type CreatorAssetConnection {
@@ -1129,10 +1301,135 @@ input MoveCreatorAssetInput {
   destinationFolderId: ID
 }
 
+input ImportClosetItemToCabinetInput {
+  closetItemId: ID!
+  cabinetId: ID!
+  folderId: ID
+  kind: CreatorAssetKind
+  title: String
+  notes: String
+  tags: [String!]
+}
+
+input AdminModerateCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  moderationStatus: CreatorAssetModerationStatus!
+  moderationReason: String
+  tags: [String!]
+}
+
+input AdminSoftDeleteCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  reason: String
+}
+
+input AdminRestoreCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+}
+
+input AdminRejectCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  moderationReason: String
+  tags: [String!]
+}
+
 type PinResult {
   ok: Boolean!
 }
 
 type AffiliateClickResult {
   ok: Boolean!
+}
+
+# ─────────────────────────────────────────
+# Monetization HQ v2 + Director Suite (additive)
+# ─────────────────────────────────────────
+
+"""
+Bucket of revenue for a single platform in Monetization HQ (v2).
+This is kept separate from CreatorPlatformRevenue for flexibility.
+"""
+type CreatorRevenuePlatformBucket {
+  platform: String!
+  label: String!
+  currency: String!
+  amount: Float!
+  lastPayoutAt: AWSDateTime
+}
+
+"""
+Monetization HQ v2 result wrapper.
+Shape mirrors CreatorRevenueByPlatform but uses CreatorRevenuePlatformBucket.
+"""
+type CreatorRevenueByPlatformResult {
+  currency: String!
+  totalRevenue: Float!
+  platforms: [CreatorRevenuePlatformBucket!]!
+  timeseries: [CreatorRevenueTimeseriesPoint!]!
+}
+
+# Note: existing Query.creatorRevenueByPlatform(window: CreatorRevenueWindow!): CreatorRevenueByPlatform
+# is left as-is to avoid breaking clients. You can later change its return type to
+# CreatorRevenueByPlatformResult! once the frontend is migrated.
+
+# --- Director Suite shoot plans ---
+
+input DirectorSceneInput {
+  id: ID!
+  title: String!
+  shotType: String
+  location: String
+  mood: String
+  beats: String
+}
+
+type DirectorScene {
+  id: ID!
+  title: String!
+  shotType: String
+  location: String
+  mood: String
+  beats: String
+}
+
+type DirectorShootPlan {
+  id: ID!
+  creatorId: ID!
+  shootName: String!
+  primaryPlatform: String!
+  objective: String!
+  scenes: [DirectorScene!]!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input SaveDirectorShootPlanInput {
+  id: ID
+  shootName: String!
+  primaryPlatform: String!
+  objective: String!
+  scenes: [DirectorSceneInput!]!
+}
+
+type DirectorShootPlanConnection {
+  items: [DirectorShootPlan!]!
+  nextToken: String
+}
+
+extend type Query {
+  getDirectorShootPlan(id: ID!): DirectorShootPlan
+  listDirectorShootPlans(
+    limit: Int
+    nextToken: String
+  ): DirectorShootPlanConnection!
+}
+
+extend type Mutation {
+  saveDirectorShootPlan(
+    input: SaveDirectorShootPlanInput!
+  ): DirectorShootPlan!
 }

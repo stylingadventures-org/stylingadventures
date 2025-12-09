@@ -1,9 +1,0 @@
-/* --- roles ui --- */
-.sa-role-row{
-  display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;
-}
-.sa-me-pre{ margin-top:.75rem; }
-
-/* --- upload list thumbnails --- */
-.thumb-sm{ height:40px; border-radius:6px; display:none; }
-.thumb-sm.show{ display:inline-block; }

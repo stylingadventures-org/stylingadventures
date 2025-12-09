@@ -1,5 +1,6 @@
 // site/src/routes/admin/Users.jsx
 import React, { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 
 const GQL = {
   list: /* GraphQL */ `
@@ -41,6 +42,9 @@ export default function Users() {
       setLoading(true);
       setErr("");
       try {
+        if (window.sa?.ready) {
+          await window.sa.ready().catch(() => {});
+        }
         const d = await window.sa.graphql(GQL.list, {
           search: q || null,
           limit: 25,
@@ -53,14 +57,11 @@ export default function Users() {
         setLoading(false);
       }
     },
-    [q]
+    [q],
   );
 
   useEffect(() => {
     (async () => {
-      if (window.sa?.ready) {
-        await window.sa.ready().catch(() => {});
-      }
       await fetchUsers(null);
     })();
   }, [fetchUsers]);
@@ -80,7 +81,7 @@ export default function Users() {
     try {
       await window.sa.graphql(
         active ? GQL.grantBestie : GQL.revokeBestie,
-        { email }
+        { email },
       );
       await fetchUsers(null);
     } catch (e) {
@@ -226,7 +227,7 @@ export default function Users() {
                   </div>
                 </div>
 
-                {/* Bottom section: controls */}
+                {/* Bottom section: controls + creator uploads link */}
                 <div className="admin-user-card__bottom">
                   {/* Role + tier controls */}
                   <div className="admin-user-card__controls">
@@ -265,28 +266,40 @@ export default function Users() {
                     </div>
                   </div>
 
-                  {/* Bestie actions */}
-                  <div className="admin-user-card__bestieRow">
-                    <span className="admin-user-card__bestieHint">
-                      Bestie grants perks and access on top of their role.
-                    </span>
-                    <div className="admin-user-card__bestieActions">
-                      <button
-                        className="btn btn-primary btn-sm"
-                        type="button"
-                        onClick={() => bestie(u.email, true)}
-                        disabled={loading}
+                  {/* Bestie actions + creator uploads link */}
+                  <div className="admin-user-card__bottomRow">
+                    <div className="admin-user-card__bestieRow">
+                      <span className="admin-user-card__bestieHint">
+                        Bestie grants perks and access on top of their role.
+                      </span>
+                      <div className="admin-user-card__bestieActions">
+                        <button
+                          className="btn btn-primary btn-sm"
+                          type="button"
+                          onClick={() => bestie(u.email, true)}
+                          disabled={loading}
+                        >
+                          Grant Bestie
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => bestie(u.email, false)}
+                          disabled={loading}
+                        >
+                          Revoke Bestie
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* NEW: Creator uploads deep link */}
+                    <div className="admin-user-card__creatorUploads">
+                      <Link
+                        to={`/admin/users/${u.id}/assets`}
+                        className="admin-users__creatorLink"
                       >
-                        Grant Bestie
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => bestie(u.email, false)}
-                        disabled={loading}
-                      >
-                        Revoke Bestie
-                      </button>
+                        View creator uploads →
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -607,12 +620,19 @@ const styles = `
   box-shadow:0 0 0 1px rgba(79,70,229,0.2);
 }
 
-.admin-user-card__bestieRow {
+.admin-user-card__bottomRow {
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  gap:8px;
+  align-items:flex-start;
+  gap:12px;
   flex-wrap:wrap;
+}
+
+.admin-user-card__bestieRow {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  max-width:420px;
 }
 .admin-user-card__bestieHint {
   font-size:0.75rem;
@@ -622,6 +642,27 @@ const styles = `
   display:flex;
   flex-wrap:wrap;
   gap:6px;
+}
+
+/* NEW: creator uploads link */
+.admin-user-card__creatorUploads {
+  display:flex;
+  align-items:flex-end;
+}
+
+.admin-users__creatorLink {
+  font-size:0.8rem;
+  text-decoration:none;
+  color:#4f46e5;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#f9fafb;
+  white-space:nowrap;
+}
+.admin-users__creatorLink:hover {
+  background:#eef2ff;
+  border-color:#c7d2fe;
 }
 
 /* footer */
@@ -678,3 +719,4 @@ const styles = `
   color:#374151;
 }
 `;
+

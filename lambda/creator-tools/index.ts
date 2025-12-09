@@ -25,6 +25,183 @@ function now() {
 }
 
 // ─────────────────────────────────────────────
+// Monetization HQ – earnings by platform (mocked, windowed)
+// ─────────────────────────────────────────────
+
+type CreatorRevenueWindow = "LAST_7_DAYS" | "LAST_30_DAYS" | "LAST_90_DAYS";
+
+async function creatorRevenueByPlatformResolver(event: any) {
+  const window: CreatorRevenueWindow =
+    event.arguments?.window || "LAST_30_DAYS";
+
+  const days =
+    window === "LAST_7_DAYS"
+      ? 7
+      : window === "LAST_90_DAYS"
+      ? 90
+      : 30;
+
+  // Simple sample fake data; you can swap this for real pipelines later.
+  const currency = "USD";
+
+  const platforms = [
+    {
+      platform: "tiktok",
+      label: "TikTok / Reels",
+      currency,
+      amount: 420.5,
+      lastPayoutAt: new Date().toISOString(),
+    },
+    {
+      platform: "youtube",
+      label: "YouTube",
+      currency,
+      amount: 310.2,
+      lastPayoutAt: new Date(
+        Date.now() - 3 * 86400000,
+      ).toISOString(),
+    },
+    {
+      platform: "instagram",
+      label: "Instagram",
+      currency,
+      amount: 165.0,
+      lastPayoutAt: null,
+    },
+  ];
+
+  const platformTotal = platforms.reduce(
+    (sum, p) => sum + p.amount,
+    0,
+  );
+
+  // Generate a simple upward trend timeseries
+  const today = new Date();
+  const timeseries = Array.from({ length: days }).map((_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (days - 1 - i));
+
+    const base = platformTotal / days;
+    const variance =
+      (i / (days - 1 || 1)) * 0.4 + 0.8; // ~0.8x to 1.2x
+
+    return {
+      date: d.toISOString().slice(0, 10), // YYYY-MM-DD
+      totalRevenue: Math.round(base * variance * 100) / 100,
+    };
+  });
+
+  const totalRevenue = timeseries.reduce(
+    (sum, p) => sum + p.totalRevenue,
+    0,
+  );
+
+  return {
+    currency,
+    totalRevenue,
+    platforms,
+    timeseries,
+  };
+}
+
+// ─────────────────────────────────────────────
+// Director Suite – shoot plans (Dynamo persistence)
+// ─────────────────────────────────────────────
+
+async function getDirectorShootPlan(sub: string, id: string) {
+  if (!sub) throw new Error("Not authenticated");
+  if (!id) throw new Error("id is required");
+
+  const pk = `CREATOR#${sub}`;
+  const sk = `DIRECTOR_SHOOT#${id}`;
+
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { [PK]: pk, [SK]: sk },
+    }),
+  );
+
+  if (!res.Item) return null;
+
+  const item = res.Item as any;
+
+  return {
+    id: item.id,
+    creatorId: sub,
+    shootName: item.shootName,
+    primaryPlatform: item.primaryPlatform,
+    objective: item.objective,
+    scenes: item.scenes || [],
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+interface DirectorSceneInput {
+  id: string;
+  title: string;
+  shotType?: string | null;
+  location?: string | null;
+  mood?: string | null;
+  beats?: string | null;
+}
+
+interface SaveDirectorShootPlanInput {
+  id?: string | null;
+  shootName: string;
+  primaryPlatform: string;
+  objective: string;
+  scenes: DirectorSceneInput[];
+}
+
+async function saveDirectorShootPlan(
+  sub: string,
+  input: SaveDirectorShootPlanInput,
+) {
+  if (!sub) throw new Error("Not authenticated");
+  if (!input) throw new Error("input is required");
+
+  const id = input.id || "default";
+  const nowIso = now();
+
+  const pk = `CREATOR#${sub}`;
+  const sk = `DIRECTOR_SHOOT#${id}`;
+
+  const item = {
+    [PK]: pk,
+    [SK]: sk,
+    id,
+    creatorId: sub,
+    shootName: input.shootName,
+    primaryPlatform: input.primaryPlatform,
+    objective: input.objective,
+    scenes: input.scenes || [],
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    type: "DIRECTOR_SHOOT_PLAN",
+  };
+
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+    }),
+  );
+
+  return {
+    id,
+    creatorId: sub,
+    shootName: item.shootName,
+    primaryPlatform: item.primaryPlatform,
+    objective: item.objective,
+    scenes: item.scenes,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+// ─────────────────────────────────────────────
 // GraphQL handler – router
 // ─────────────────────────────────────────────
 export const handler = async (event: any) => {
@@ -33,42 +210,83 @@ export const handler = async (event: any) => {
     event.identity?.sub ||
     event.identity?.claims?.sub ||
     "anonymous";
+  const args = event.arguments || {};
 
   switch (field) {
     // CABINETS
     case "creatorCabinets":
       return listCabinets(sub);
     case "creatorCabinet":
-      return getCabinet(sub, event.arguments?.id);
+      return getCabinet(sub, args.id);
     case "createCreatorCabinet":
-      return createCabinet(sub, event.arguments?.input);
+      return createCabinet(sub, args.input);
     case "updateCreatorCabinet":
-      // schema: updateCreatorCabinet(input: UpdateCreatorCabinetInput!)
-      return updateCabinet(sub, event.arguments?.input);
+      return updateCabinet(sub, args.input);
     case "deleteCreatorCabinet":
-      return deleteCabinet(sub, event.arguments?.id);
+      return deleteCabinet(sub, args.id);
 
     // FOLDERS
-    case "creatorFolders":
-      return listFolders(sub, event.arguments?.cabinetId);
-    case "createCreatorFolder":
-      return createFolder(sub, event.arguments?.input);
-    case "renameCreatorFolder":
-      return renameFolder(sub, event.arguments?.input);
-    case "deleteCreatorFolder":
-      return deleteFolder(sub, event.arguments?.id, event.arguments?.cabinetId);
+    case "creatorCabinetFolders":
+      return listFolders(sub, args.cabinetId);
 
-    // ASSETS
+    // Back-compat alias
+    case "creatorFolders":
+      return listFolders(sub, args.cabinetId);
+
+    case "createCreatorFolder":
+      return createFolder(sub, args.input);
+    case "renameCreatorFolder":
+      return renameFolder(sub, args.input);
+    case "deleteCreatorFolder":
+      return deleteFolder(
+        sub,
+        args.id,
+        args.cabinetId,
+      );
+
+    // ASSETS – creator-facing
     case "creatorCabinetAssets":
-      return listAssets(sub, event.arguments);
+      return listAssets(sub, args);
     case "createCreatorAssetUpload":
-      return createAssetUpload(sub, event.arguments?.input);
+      return createAssetUpload(sub, args.input);
     case "updateCreatorAsset":
-      return updateAsset(sub, event.arguments?.input);
+      return updateAsset(sub, args.input);
     case "deleteCreatorAsset":
-      return deleteAsset(sub, event.arguments?.id, event.arguments?.cabinetId);
+      return deleteAsset(sub, args.id, args.cabinetId);
     case "moveCreatorAsset":
-      return moveAsset(sub, event.arguments?.input);
+      return moveAsset(sub, args.input);
+    case "importClosetItemToCabinet":
+      return importClosetItemToCabinet(sub, args.input);
+
+    // ADMIN moderation / listing
+    case "adminListCreatorAssetsByUser":
+      return adminListCreatorAssetsByUser(args);
+    case "adminGetCreatorAsset":
+      return adminGetCreatorAsset(args);
+    case "adminModerateCreatorAsset":
+      return adminModerateCreatorAsset(sub, args.input);
+    case "adminSoftDeleteCreatorAsset":
+      return adminSoftDeleteCreatorAsset(sub, args.input);
+    case "adminRestoreCreatorAsset":
+      return adminRestoreCreatorAsset(sub, args.input);
+    case "adminRejectCreatorAsset":
+      return adminRejectCreatorAsset(sub, args.input);
+
+    // Monetization HQ – earnings by platform (mocked)
+    case "creatorRevenueByPlatform":
+      return creatorRevenueByPlatformResolver(event);
+
+    // Goal compass (creator alignment)
+    case "creatorGoalCompass":
+      return getCreatorGoalCompass(sub);
+    case "updateCreatorGoalCompass":
+      return updateCreatorGoalCompass(sub, args.input);
+
+    // Director Suite – shoot plans
+    case "getDirectorShootPlan":
+      return getDirectorShootPlan(sub, args.id);
+    case "saveDirectorShootPlan":
+      return saveDirectorShootPlan(sub, args.input);
 
     // AI
     case "creatorAiSuggest":
@@ -127,6 +345,12 @@ function mapAsset(item: any) {
     contentType: item.contentType ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+
+    // moderation defaults
+    moderationStatus: item.moderationStatus ?? "ACTIVE",
+    moderationReason: item.moderationReason ?? null,
+    moderatedBy: item.moderatedBy ?? null,
+    moderatedAt: item.moderatedAt ?? null,
   };
 }
 
@@ -151,7 +375,14 @@ async function listCabinets(sub: string) {
     }),
   );
 
-  const items = res.Items ?? [];
+  let items = res.Items ?? [];
+
+  // If this creator has no cabinets yet, auto-create a starter one.
+  if (items.length === 0) {
+    const starter = await createDefaultCabinetForCreator(sub);
+    items = [starter];
+  }
+
   return items.map(mapCabinet);
 }
 
@@ -174,6 +405,42 @@ async function getCabinet(sub: string, id: string) {
   }
 
   return mapCabinet(res.Item);
+}
+
+async function createDefaultCabinetForCreator(sub: string) {
+  const nowIso = now();
+  const id = uuid();
+
+  const item = {
+    [PK]: `CAB#${id}`,
+    [SK]: "META",
+    type: "CABINET",
+    id,
+    ownerSub: sub,
+    name: "From my closet",
+    description:
+      "Imported looks and outfit references from your Bestie closet",
+    defaultCategory: "OUTFIT_REFS",
+    tags: ["closet-import"],
+    assetCount: 0,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    gsi1pk: `CREATOR#${sub}`,
+    gsi1sk: `CAB#${nowIso}#${id}`,
+  };
+
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+      ConditionExpression: "attribute_not_exists(#pk)",
+      ExpressionAttributeNames: {
+        "#pk": PK,
+      },
+    }),
+  );
+
+  return item;
 }
 
 async function createCabinet(sub: string, input: any) {
@@ -455,7 +722,6 @@ async function deleteFolder(sub: string, id: string, cabinetId: string) {
       TableName: TABLE_NAME,
       KeyConditionExpression:
         "#pk = :pk AND begins_with(#sk, :prefix)",
-      FilterExpression: "#folderId = :folderId",
       ExpressionAttributeNames: {
         "#pk": PK,
         "#sk": SK,
@@ -466,6 +732,7 @@ async function deleteFolder(sub: string, id: string, cabinetId: string) {
         ":prefix": "ASSET#",
         ":folderId": id,
       },
+      FilterExpression: "#folderId = :folderId",
     }),
   );
 
@@ -495,7 +762,7 @@ async function deleteFolder(sub: string, id: string, cabinetId: string) {
 }
 
 // ─────────────────────────────────────────────
-// ASSETS
+// ASSETS – creator-facing
 // ─────────────────────────────────────────────
 
 async function listAssets(sub: string, args: any) {
@@ -544,6 +811,12 @@ async function listAssets(sub: string, args: any) {
 
   const res = await ddb.send(new QueryCommand(queryInput));
   let items = (res.Items ?? []).filter((it) => it.type === "ASSET");
+
+  // Hide moderated assets for the creator UI:
+  items = items.filter((it) => {
+    const status = String(it.moderationStatus ?? "ACTIVE").toUpperCase();
+    return status === "ACTIVE";
+  });
 
   // In-memory filters
   if (folderId !== undefined && folderId !== null) {
@@ -617,28 +890,40 @@ async function createAssetUpload(sub: string, input: any) {
   const nowIso = now();
   const assetKind = kind ?? "OTHER";
 
+  const item = {
+    [PK]: `CAB#${cabinetId}`,
+    [SK]: `ASSET#${assetId}`,
+    type: "ASSET",
+    id: assetId,
+    cabinetId,
+    folderId: folderId ?? null,
+    ownerSub: sub,
+    kind: assetKind,
+    category: category ?? null,
+    title: title ?? null,
+    notes: notes ?? null,
+    tags,
+    s3Key,
+    contentType,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+
+    // moderation defaults
+    moderationStatus: "ACTIVE" as const,
+    moderationReason: null,
+    moderatedBy: null,
+    moderatedAt: null,
+
+    // GSI for admin listing by user
+    gsi1pk: `CREATOR#${sub}`,
+    gsi1sk: `CAB_ASSET#${cabinetId}#${nowIso}#${assetId}`,
+  };
+
   // 1) create ASSET row in Dynamo (pending upload)
   await ddb.send(
     new PutCommand({
       TableName: TABLE_NAME,
-      Item: {
-        [PK]: `CAB#${cabinetId}`,
-        [SK]: `ASSET#${assetId}`,
-        type: "ASSET",
-        id: assetId,
-        cabinetId,
-        folderId: folderId ?? null,
-        ownerSub: sub,
-        kind: assetKind,
-        category: category ?? null,
-        title: title ?? null,
-        notes: notes ?? null,
-        tags,
-        s3Key,
-        contentType,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      },
+      Item: item,
     }),
   );
 
@@ -675,21 +960,7 @@ async function createAssetUpload(sub: string, input: any) {
 
   return {
     uploadUrl,
-    asset: {
-      id: assetId,
-      cabinetId,
-      folderId,
-      ownerSub: sub,
-      kind: assetKind,
-      category,
-      title,
-      notes,
-      tags,
-      s3Key,
-      contentType,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    },
+    asset: mapAsset(item),
   };
 }
 
@@ -845,6 +1116,454 @@ async function moveAsset(sub: string, input: any) {
   );
 
   return mapAsset(res.Attributes);
+}
+
+// ─────────────────────────────────────────────
+// ASSETS – admin listing / moderation
+// ─────────────────────────────────────────────
+
+async function adminListCreatorAssetsByUser(args: any) {
+  const {
+    ownerSub,
+    cabinetId,
+    folderId,
+    moderationStatus,
+    includeSoftDeleted = true,
+    limit = 50,
+    // nextToken planned later
+  } = args || {};
+
+  if (!ownerSub) throw new Error("ownerSub is required");
+
+  const res = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: STATUS_GSI,
+      KeyConditionExpression:
+        "#gpk = :gpk AND begins_with(#gsk, :prefix)",
+      ExpressionAttributeNames: {
+        "#gpk": "gsi1pk",
+        "#gsk": "gsi1sk",
+      },
+      ExpressionAttributeValues: {
+        ":gpk": `CREATOR#${ownerSub}`,
+        ":prefix": "CAB_ASSET#",
+      },
+      Limit: limit,
+    }),
+  );
+
+  let items = (res.Items ?? []).filter((it) => it.type === "ASSET");
+
+  if (cabinetId) {
+    items = items.filter((it) => it.cabinetId === cabinetId);
+  }
+  if (folderId !== undefined && folderId !== null) {
+    items = items.filter((it) => it.folderId === folderId);
+  }
+
+  if (moderationStatus) {
+    const wanted = String(moderationStatus).toUpperCase();
+    items = items.filter(
+      (it) =>
+        String(it.moderationStatus ?? "ACTIVE").toUpperCase() === wanted,
+    );
+  }
+
+  if (!includeSoftDeleted) {
+    items = items.filter(
+      (it) =>
+        String(it.moderationStatus ?? "ACTIVE").toUpperCase() !==
+        "SOFT_DELETED",
+    );
+  }
+
+  return {
+    items: items.map(mapAsset),
+    nextToken: null, // simple for now; can add JSON-encoded LastEvaluatedKey later
+  };
+}
+
+async function adminGetCreatorAsset(args: any) {
+  const { cabinetId, id } = args || {};
+  if (!cabinetId) throw new Error("cabinetId is required");
+  if (!id) throw new Error("id is required");
+
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CAB#${cabinetId}`,
+        [SK]: `ASSET#${id}`,
+      },
+    }),
+  );
+
+  if (!res.Item || res.Item.type !== "ASSET") {
+    return null;
+  }
+
+  return mapAsset(res.Item);
+}
+
+async function adminModerateCreatorAsset(adminSub: string, input: any) {
+  const { cabinetId, id, moderationStatus, moderationReason, tags } =
+    input || {};
+  if (!cabinetId) throw new Error("cabinetId is required");
+  if (!id) throw new Error("id is required");
+  if (!moderationStatus) throw new Error("moderationStatus is required");
+
+  const nowIso = now();
+
+  const names: Record<string, string> = {
+    "#moderationStatus": "moderationStatus",
+    "#updatedAt": "updatedAt",
+    "#moderatedAt": "moderatedAt",
+    "#moderatedBy": "moderatedBy",
+  };
+  const values: Record<string, any> = {
+    ":moderationStatus": moderationStatus,
+    ":updatedAt": nowIso,
+    ":moderatedAt": nowIso,
+    ":moderatedBy": adminSub,
+  };
+  const sets: string[] = [
+    "#moderationStatus = :moderationStatus",
+    "#updatedAt = :updatedAt",
+    "#moderatedAt = :moderatedAt",
+    "#moderatedBy = :moderatedBy",
+  ];
+
+  if (Object.prototype.hasOwnProperty.call(input, "moderationReason")) {
+    names["#moderationReason"] = "moderationReason";
+    values[":moderationReason"] = moderationReason ?? null;
+    sets.push("#moderationReason = :moderationReason");
+  }
+
+  if (Array.isArray(tags)) {
+    names["#tags"] = "tags";
+    values[":tags"] = tags;
+    sets.push("#tags = :tags");
+  }
+
+  const res = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CAB#${cabinetId}`,
+        [SK]: `ASSET#${id}`,
+      },
+      UpdateExpression: "SET " + sets.join(", "),
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  return mapAsset(res.Attributes);
+}
+
+async function adminRejectCreatorAsset(adminSub: string, input: any) {
+  if (!input) throw new Error("input is required");
+  const { cabinetId, id, moderationReason, tags } = input;
+
+  return adminModerateCreatorAsset(adminSub, {
+    cabinetId,
+    id,
+    moderationStatus: "REJECTED",
+    moderationReason,
+    tags,
+  });
+}
+
+async function adminSoftDeleteCreatorAsset(adminSub: string, input: any) {
+  const { cabinetId, id, reason } = input || {};
+  if (!cabinetId) throw new Error("cabinetId is required");
+  if (!id) throw new Error("id is required");
+
+  const nowIso = now();
+
+  const res = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CAB#${cabinetId}`,
+        [SK]: `ASSET#${id}`,
+      },
+      UpdateExpression:
+        "SET #moderationStatus = :status, #moderationReason = :reason, #moderatedBy = :moderatedBy, #moderatedAt = :moderatedAt, #updatedAt = :updatedAt",
+      ExpressionAttributeNames: {
+        "#moderationStatus": "moderationStatus",
+        "#moderationReason": "moderationReason",
+        "#moderatedBy": "moderatedBy",
+        "#moderatedAt": "moderatedAt",
+        "#updatedAt": "updatedAt",
+      },
+      ExpressionAttributeValues: {
+        ":status": "SOFT_DELETED",
+        ":reason": reason ?? null,
+        ":moderatedBy": adminSub,
+        ":moderatedAt": nowIso,
+        ":updatedAt": nowIso,
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  return mapAsset(res.Attributes);
+}
+
+async function adminRestoreCreatorAsset(adminSub: string, input: any) {
+  const { cabinetId, id } = input || {};
+  if (!cabinetId) throw new Error("cabinetId is required");
+  if (!id) throw new Error("id is required");
+
+  const nowIso = now();
+
+  const res = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CAB#${cabinetId}`,
+        [SK]: `ASSET#${id}`,
+      },
+      UpdateExpression:
+        "SET #moderationStatus = :status, #moderationReason = :reason, #moderatedBy = :moderatedBy, #moderatedAt = :moderatedAt, #updatedAt = :updatedAt",
+      ExpressionAttributeNames: {
+        "#moderationStatus": "moderationStatus",
+        "#moderationReason": "moderationReason",
+        "#moderatedBy": "moderatedBy",
+        "#moderatedAt": "moderatedAt",
+        "#updatedAt": "updatedAt",
+      },
+      ExpressionAttributeValues: {
+        ":status": "ACTIVE",
+        ":reason": null,
+        ":moderatedBy": adminSub,
+        ":moderatedAt": nowIso,
+        ":updatedAt": nowIso,
+      },
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  return mapAsset(res.Attributes);
+}
+
+// ─────────────────────────────────────────────
+// CREATOR GOAL COMPASS
+// ─────────────────────────────────────────────
+
+function defaultGoalCompass() {
+  return {
+    primaryGoal: "GROWTH",
+    timeHorizon: "90_DAYS",
+    weeklyCapacity: 5,
+    focusAreas: ["PERSONALITY", "NURTURE"],
+    riskTolerance: "MEDIUM",
+    notes: null,
+    updatedAt: null,
+  };
+}
+
+async function getCreatorGoalCompass(sub: string) {
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CREATOR#${sub}`,
+        [SK]: "GOAL_COMPASS",
+      },
+    }),
+  );
+
+  if (!res.Item) {
+    // no record yet -> return defaults (client can still save)
+    return defaultGoalCompass();
+  }
+
+  const it = res.Item;
+
+  return {
+    primaryGoal: it.primaryGoal ?? "GROWTH",
+    timeHorizon: it.timeHorizon ?? "90_DAYS",
+    weeklyCapacity:
+      typeof it.weeklyCapacity === "number" ? it.weeklyCapacity : 5,
+    focusAreas:
+      Array.isArray(it.focusAreas) && it.focusAreas.length
+        ? it.focusAreas
+        : ["PERSONALITY", "NURTURE"],
+    riskTolerance: it.riskTolerance ?? "MEDIUM",
+    notes: it.notes ?? null,
+    updatedAt: it.updatedAt ?? null,
+  };
+}
+
+async function updateCreatorGoalCompass(sub: string, input: any) {
+  if (!input) throw new Error("input is required");
+
+  const nowIso = now();
+
+  // We treat this as an upsert that overwrites the current compass.
+  const item = {
+    [PK]: `CREATOR#${sub}`,
+    [SK]: "GOAL_COMPASS",
+    type: "CREATOR_GOAL_COMPASS",
+
+    primaryGoal: input.primaryGoal ?? "GROWTH",
+    timeHorizon: input.timeHorizon ?? "90_DAYS",
+    weeklyCapacity:
+      typeof input.weeklyCapacity === "number"
+        ? input.weeklyCapacity
+        : 5,
+    focusAreas:
+      Array.isArray(input.focusAreas) && input.focusAreas.length
+        ? input.focusAreas
+        : ["PERSONALITY", "NURTURE"],
+    riskTolerance: input.riskTolerance ?? "MEDIUM",
+    notes: input.notes ?? null,
+    updatedAt: nowIso,
+  };
+
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+    }),
+  );
+
+  return {
+    primaryGoal: item.primaryGoal,
+    timeHorizon: item.timeHorizon,
+    weeklyCapacity: item.weeklyCapacity,
+    focusAreas: item.focusAreas,
+    riskTolerance: item.riskTolerance,
+    notes: item.notes,
+    updatedAt: item.updatedAt,
+  };
+}
+
+// ─────────────────────────────────────────────
+// IMPORT FROM CLOSET → CABINET
+// ─────────────────────────────────────────────
+
+async function importClosetItemToCabinet(sub: string, input: any) {
+  const {
+    closetItemId,
+    cabinetId,
+    folderId,
+    kind,
+    title,
+    notes,
+    tags = [],
+  } = input || {};
+
+  if (!closetItemId) throw new Error("closetItemId is required");
+  if (!cabinetId) throw new Error("cabinetId is required");
+
+  // 1) Ensure target cabinet belongs to this user
+  const cabinet = await getCabinet(sub, cabinetId);
+  if (!cabinet) {
+    throw new Error("Cabinet not found");
+  }
+
+  // 2) Look up the closet item.
+  //
+  // NOTE: This assumes closet items are keyed by:
+  //   pk = `CLOSET#${sub}`
+  //   sk = `ITEM#${closetItemId}`
+  //
+  // If your actual pattern is different, adjust PK/SK accordingly.
+  const closetRes = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CLOSET#${sub}`,
+        [SK]: `ITEM#${closetItemId}`,
+      },
+    }),
+  );
+
+  const closetItem = closetRes.Item;
+  if (!closetItem || closetItem.ownerSub !== sub) {
+    throw new Error("Closet item not found");
+  }
+
+  const assetId = uuid();
+  const nowIso = now();
+
+  // Reuse the existing closet media key if possible.
+  const s3Key =
+    (closetItem as any).mediaKey ||
+    (closetItem as any).rawMediaKey ||
+    (() => {
+      throw new Error("Closet item has no media key");
+    })();
+
+  const assetKind = kind ?? "PHOTO";
+  const finalTitle = title ?? (closetItem as any).title ?? null;
+  const finalNotes = notes ?? (closetItem as any).notes ?? null;
+  const finalTags =
+    tags.length ? tags : (closetItem as any).colorTags ?? [];
+
+  const item = {
+    [PK]: `CAB#${cabinetId}`,
+    [SK]: `ASSET#${assetId}`,
+    type: "ASSET",
+    id: assetId,
+    cabinetId,
+    folderId: folderId ?? null,
+    ownerSub: sub,
+    kind: assetKind,
+    category: "OUTFIT_REFS",
+    title: finalTitle,
+    notes: finalNotes,
+    tags: finalTags,
+    s3Key,
+    contentType: (closetItem as any).contentType ?? "image/jpeg",
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    sourceClosetItemId: closetItemId,
+
+    // moderation defaults
+    moderationStatus: "ACTIVE" as const,
+    moderationReason: null,
+    moderatedBy: null,
+    moderatedAt: null,
+
+    // GSI for admin listing by user
+    gsi1pk: `CREATOR#${sub}`,
+    gsi1sk: `CAB_ASSET#${cabinetId}#${nowIso}#${assetId}`,
+  };
+
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+    }),
+  );
+
+  // Best-effort bump cabinet assetCount
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        [PK]: `CAB#${cabinetId}`,
+        [SK]: "META",
+      },
+      UpdateExpression:
+        "SET #assetCount = if_not_exists(#assetCount, :zero) + :one, #updatedAt = :updatedAt",
+      ExpressionAttributeNames: {
+        "#assetCount": "assetCount",
+        "#updatedAt": "updatedAt",
+      },
+      ExpressionAttributeValues: {
+        ":zero": 0,
+        ":one": 1,
+        ":updatedAt": nowIso,
+      },
+    }),
+  );
+
+  return mapAsset(item);
 }
 
 // ─────────────────────────────────────────────

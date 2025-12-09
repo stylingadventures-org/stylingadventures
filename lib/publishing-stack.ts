@@ -40,7 +40,12 @@ export class PublishingStack extends Stack {
     this.validateEpisodeFn = new NodejsFunction(this, "ValidateEpisodeFn", {
       entry: "lambda/prime/validate-episode.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: ["aws-sdk"], // standard for Lambda
+      },
       timeout: Duration.seconds(10),
       memorySize: 512,
       environment: {
@@ -53,7 +58,12 @@ export class PublishingStack extends Stack {
     this.publishEpisodeFn = new NodejsFunction(this, "PublishEpisodeFn", {
       entry: "lambda/prime/publish-episode.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: ["aws-sdk"],
+      },
       timeout: Duration.seconds(15),
       memorySize: 512,
       environment: {
@@ -66,7 +76,12 @@ export class PublishingStack extends Stack {
     this.failEpisodeFn = new NodejsFunction(this, "FailEpisodeFn", {
       entry: "lambda/prime/fail-episode.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: ["aws-sdk"],
+      },
       timeout: Duration.seconds(5),
       memorySize: 256,
       environment: {
@@ -96,15 +111,14 @@ export class PublishingStack extends Stack {
       payloadResponseOnly: true,
     });
 
-    const definition = validateEpisode
-      .next(
-        new sfn.Choice(this, "LayoutOk?")
-          .when(
-            sfn.Condition.booleanEquals("$.layoutValid", true),
-            layoutChecklist.next(publish),
-          )
-          .otherwise(fail),
-      );
+    const definition = validateEpisode.next(
+      new sfn.Choice(this, "LayoutOk?")
+        .when(
+          sfn.Condition.booleanEquals("$.layoutValid", true),
+          layoutChecklist.next(publish),
+        )
+        .otherwise(fail),
+    );
 
     this.episodePublishingSm = new sfn.StateMachine(
       this,
@@ -121,3 +135,4 @@ export class PublishingStack extends Stack {
     });
   }
 }
+

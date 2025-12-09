@@ -1,4 +1,3 @@
-// site/src/main.jsx
 import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
@@ -37,12 +36,48 @@ import BestieCloset from "./routes/bestie/BestieCloset.jsx";
 
 // 🔹 Creator section
 import CreatorLayout from "./routes/creator/Layout.jsx";
-import CreatorDashboard from "./routes/creator/Dashboard.jsx";
-import CreatorTools from "./routes/creator/Tools.jsx";
+import CreatorDashboard from "./routes/creator/Dashboard.jsx"; // Creator Home (overview)
+import CreatorTools from "./routes/creator/Tools.jsx"; // legacy AI tools (optional)
+
+// Asset Library (existing)
 import CreatorLibrary from "./routes/creator/Library.jsx"; // list of cabinets + search
-import CreatorCabinetView from "./routes/creator/CabinetView.jsx"; // single cabinet view
+import CreatorCabinetView from "./routes/creator/Library/CabinetView.jsx"; // single cabinet view
+
+// Legacy story/earnings (kept for backwards compat)
 import CreatorStories from "./routes/creator/Stories.jsx";
 import CreatorEarnings from "./routes/creator/Earnings.jsx";
+
+// NEW Creator HQ sub-pages
+
+// CREATE
+import DirectorSuite from "./routes/creator/create/DirectorSuite.jsx";
+import ScenePacks from "./routes/creator/create/ScenePacks.jsx";
+import NicheDirectors from "./routes/creator/create/NicheDirectors.jsx";
+import OnSetAssistant from "./routes/creator/create/OnSetAssistant.jsx";
+
+// ALIGN
+import GoalCompass from "./routes/creator/align/GoalCompass.jsx";
+
+// IMPROVE
+import BusinessContentFixer from "./routes/creator/improve/BusinessContentFixer.jsx";
+import AestheticBrandStudio from "./routes/creator/improve/AestheticBrandStudio.jsx";
+
+// GROW
+import SocialPulse from "./routes/creator/grow/SocialPulse.jsx";
+import SocialOS from "./routes/creator/grow/SocialOS.jsx";
+
+// STORY & CONTENT STUDIO
+import StoryProfile from "./routes/creator/story/StoryProfile.jsx";
+import ErasSeasons from "./routes/creator/story/ErasSeasons.jsx";
+import ShowsSeries from "./routes/creator/story/ShowsSeries.jsx";
+import ContentPlannerCalendar from "./routes/creator/story/ContentPlannerCalendar.jsx";
+
+// MONETIZATION HQ
+import RevenueOverview from "./routes/creator/monetization/RevenueOverview.jsx";
+import SocialMonetization from "./routes/creator/monetization/SocialMonetization.jsx";
+import BrandDeals from "./routes/creator/monetization/BrandDeals.jsx";
+import ProductSales from "./routes/creator/monetization/ProductSales.jsx";
+import Affiliate from "./routes/creator/monetization/Affiliate.jsx";
 
 // Admin section
 import AdminLayout from "./routes/admin/AdminLayout.jsx";
@@ -59,6 +94,7 @@ import BadgeRuleEditor from "./routes/admin/BadgeRuleEditor.jsx";
 import AdminEpisodeStudio from "./routes/admin/AdminEpisodeStudio.jsx";
 import AdminGameRules from "./routes/admin/AdminGameRules.jsx";
 import AdminGameOverview from "./routes/admin/AdminGameOverview.jsx";
+import CreatorAssetsAdmin from "./routes/admin/CreatorAssetsAdmin.jsx";
 
 import LandingRedirect from "./routes/util/LandingRedirect.jsx";
 
@@ -121,15 +157,82 @@ const router = createBrowserRouter([
         path: "creator",
         element: <CreatorLayout />,
         children: [
+          // Home
           { index: true, element: <CreatorDashboard /> },
+
+          // Legacy AI tools (kept for now; not in new nav)
           { path: "tools", element: <CreatorTools /> },
 
-          // Filing cabinets (all cabinets)
+          // CREATE – Director Suite
+          { path: "create/director-suite", element: <DirectorSuite /> },
+          { path: "create/scene-packs", element: <ScenePacks /> },
+          { path: "create/niche-directors", element: <NicheDirectors /> },
+          { path: "create/on-set-assistant", element: <OnSetAssistant /> },
+
+          // ALIGN – Goal Compass
+          { path: "align/goal-compass", element: <GoalCompass /> },
+
+          // IMPROVE – Content & Aesthetic
+          {
+            path: "improve/business-content-fixer",
+            element: <BusinessContentFixer />,
+          },
+          {
+            path: "improve/aesthetic-brand-studio",
+            element: <AestheticBrandStudio />,
+          },
+
+          // GROW – Social Pulse & OS
+          { path: "grow/social-pulse", element: <SocialPulse /> },
+          { path: "grow/social-os", element: <SocialOS /> },
+
+          // STORY & CONTENT STUDIO
+          { path: "story/profile", element: <StoryProfile /> },
+          { path: "story/eras-seasons", element: <ErasSeasons /> },
+          { path: "story/shows-series", element: <ShowsSeries /> },
+          {
+            path: "story/planner-calendar",
+            element: <ContentPlannerCalendar />,
+          },
+
+          // MONETIZATION HQ
+          {
+            path: "monetization/overview",
+            element: <RevenueOverview />,
+          },
+          {
+            path: "monetization/social",
+            element: <SocialMonetization />,
+          },
+          {
+            path: "monetization/brand-deals",
+            element: <BrandDeals />,
+          },
+          {
+            path: "monetization/product-sales",
+            element: <ProductSales />,
+          },
+          {
+            path: "monetization/affiliate",
+            element: <Affiliate />,
+          },
+
+          // Asset Library (cabinets)
           { path: "library", element: <CreatorLibrary /> },
 
-          // Single cabinet view
-          { path: "library/:cabinetId", element: <CreatorCabinetView /> },
+          // Single cabinet view – canonical route
+          {
+            path: "library/cabinet/:cabinetId",
+            element: <CreatorCabinetView />,
+          },
 
+          // Backwards-compat route for older links (/creator/library/:cabinetId)
+          {
+            path: "library/:cabinetId",
+            element: <CreatorCabinetView />,
+          },
+
+          // Legacy Story & Earnings routes (backwards compat)
           { path: "stories", element: <CreatorStories /> },
           { path: "earnings", element: <CreatorEarnings /> },
         ],
@@ -145,6 +248,9 @@ const router = createBrowserRouter([
           { path: "closet-upload", element: <ClosetUpload /> },
           { path: "closet-library", element: <ClosetLibrary /> },
           // ⬇️ removed /admin/closet-library/bestie route
+
+          // Creator uploads moderation
+          { path: "creator-assets", element: <CreatorAssetsAdmin /> },
 
           // 🔹 Game overview + Episode studio + game rules admin
           { path: "game-overview", element: <AdminGameOverview /> },

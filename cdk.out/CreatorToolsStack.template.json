@@ -14,6 +14,27 @@
      ]
     },
     "BucketName": "sa-dev-creator-media",
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "GET",
+        "PUT",
+        "HEAD"
+       ],
+       "AllowedOrigins": [
+        "*"
+       ],
+       "ExposedHeaders": [
+        "ETag"
+       ],
+       "MaxAge": 300
+      }
+     ]
+    },
     "PublicAccessBlockConfiguration": {
      "BlockPublicAcls": true,
      "BlockPublicPolicy": true,
@@ -182,7 +203,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "75b5a3a6812abff406b178a9c5a92db35ade7f053b5cb24412ae3f48aa097d48.zip"
+     "S3Key": "4164ff4a84aa95ccde7b35bde4af1bec4294a9d2f89660909a2a7b04f1c294b6.zip"
     },
     "Environment": {
      "Variables": {
@@ -228,7 +249,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CreatorToolsStack/CreatorToolsFn/Resource",
-    "aws:asset:path": "asset.75b5a3a6812abff406b178a9c5a92db35ade7f053b5cb24412ae3f48aa097d48",
+    "aws:asset:path": "asset.4164ff4a84aa95ccde7b35bde4af1bec4294a9d2f89660909a2a7b04f1c294b6",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
