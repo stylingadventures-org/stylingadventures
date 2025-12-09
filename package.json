@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && cd site && npm run build",
     "plan": "npx cdk synth && npx cdk diff",
     "deploy": "npm run build && npx cdk deploy --concurrency 1 --require-approval never",
     "destroy": "npx cdk destroy --force",
@@ -51,3 +51,4 @@
     "typescript": "^5.9.3"
   }
 }
+

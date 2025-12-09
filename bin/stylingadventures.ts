@@ -133,11 +133,11 @@ const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
   description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
 });
 
-// 4) Core Workflows (approval / background / story publish)
+// 4) Core Workflows (approval / background / story publish / Social Pulse)
 const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
   env,
   table: data.table,
-  description: `Closet & story workflow state machines - ${envName}`,
+  description: `Closet, story, and creator workflow state machines - ${envName}`,
 });
 
 // 5) Uploads API
@@ -194,6 +194,8 @@ const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
   table: data.table,
   // still using BestiesStories for now; Prime Studios can hook in later if desired
   storyPublishStateMachine: bestiesStories.storyPublishStateMachine,
+  // NEW: Social Pulse Express state machine from WorkflowsV2
+  socialPulseStateMachine: workflows.socialPulseStateMachine,
   description: `Creator scheduling + AI helpers - ${envName}`,
 });
 

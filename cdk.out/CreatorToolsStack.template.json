@@ -183,6 +183,20 @@
        "Resource": {
         "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
        }
+      },
+      {
+       "Action": "states:StartExecution",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083"
+       }
+      },
+      {
+       "Action": "states:StartSyncExecution",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083"
+       }
       }
      ],
      "Version": "2012-10-17"
@@ -203,7 +217,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "4164ff4a84aa95ccde7b35bde4af1bec4294a9d2f89660909a2a7b04f1c294b6.zip"
+     "S3Key": "a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64.zip"
     },
     "Environment": {
      "Variables": {
@@ -218,6 +232,9 @@
       },
       "STORY_PUBLISH_SM_ARN": {
        "Fn::ImportValue": "BestiesStoriesStack:ExportsOutputRefStoryPublishSMAF8A41480C93DC91"
+      },
+      "SOCIAL_PULSE_SFN_ARN": {
+       "Fn::ImportValue": "WorkflowsV2Stack:ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083"
       },
       "NODE_OPTIONS": "--enable-source-maps"
      }
@@ -249,7 +266,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CreatorToolsStack/CreatorToolsFn/Resource",
-    "aws:asset:path": "asset.4164ff4a84aa95ccde7b35bde4af1bec4294a9d2f89660909a2a7b04f1c294b6",
+    "aws:asset:path": "asset.a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

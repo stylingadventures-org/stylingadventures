@@ -75,6 +75,39 @@ const SAVE_DIRECTOR_SHOOT_PLAN = `
   }
 `;
 
+// 🔹 Emotional PR Engine – text-only preview for current plan
+const EMOTION_CHECK_MUTATION = `
+  mutation RunCreatorEmotionCheck($input: CreatorEmotionAnalysisInput!) {
+    runCreatorEmotionCheck(input: $input) {
+      id
+      emotionalToneLabels
+      audienceResponseLabel
+      brandAlignmentScore
+      prRiskLevel
+      createdAt
+    }
+  }
+`;
+
+// 🔹 Emotional PR Engine – weekly content mix preview
+// NOTE: If your schema exposes contentMixActual as top-level fields (not nested),
+// drop the inner { ... } block and just select the scalar fields directly.
+const RUN_CREATOR_EMOTION_CHECK = `
+  mutation RunCreatorEmotionCheck {
+    runCreatorEmotionCheck {
+      ok
+      weeklyPathStatus
+      lastWeeklyCheckAt
+      contentMixActual {
+        personality
+        nurture
+        authority
+        conversion
+      }
+    }
+  }
+`;
+
 // Real GraphQL loader using your client
 async function loadCreatorGoalCompass() {
   const res = await runGraphQL(CREATOR_GOAL_COMPASS_QUERY, {});
@@ -211,6 +244,31 @@ function computeOptimizationAdvice(compass, scenes) {
   };
 }
 
+function describeWeeklyStatus(status) {
+  switch (status) {
+    case "ON_PATH":
+      return {
+        label: "On path",
+        copy: "Your emotional mix is roughly matching your Goal Compass targets this week.",
+      };
+    case "SLIGHTLY_OFF":
+      return {
+        label: "Slightly off",
+        copy: "You’re leaning a bit too hard into one pillar. Consider balancing your next few posts.",
+      };
+    case "OFF_PATH":
+      return {
+        label: "Off path",
+        copy: "This week’s content is drifting from your plan. Use upcoming shoots to rebalance your mix.",
+      };
+    default:
+      return {
+        label: "No data yet",
+        copy: "Run a check to see how your recent content compares to your Goal Compass.",
+      };
+  }
+}
+
 const SHOOT_PLAN_ID = "default";
 
 export default function DirectorSuite() {
@@ -233,6 +291,16 @@ export default function DirectorSuite() {
   const [compassError, setCompassError] = useState(null);
 
   const [initialPlanLoaded, setInitialPlanLoaded] = useState(false);
+
+  // 🔹 Emotion insight state (per-plan, text-only preview)
+  const [emotionInsightLoading, setEmotionInsightLoading] = useState(false);
+  const [emotionInsightError, setEmotionInsightError] = useState(null);
+  const [emotionResult, setEmotionResult] = useState(null);
+
+  // 🔹 Weekly emotion preview state (Emotional PR Engine – content mix / Goal Compass)
+  const [emotionPreview, setEmotionPreview] = useState(null);
+  const [emotionLoading, setEmotionLoading] = useState(false);
+  const [emotionError, setEmotionError] = useState(null);
 
   // Load Goal Compass
   useEffect(() => {
@@ -379,6 +447,94 @@ export default function DirectorSuite() {
     if (!window.confirm("Remove this scene from the shot list?")) return;
     setScenes((prev) => prev.filter((s) => s.id !== id));
   }
+
+  // 🔹 Emotion preview handler (per-plan, text input to Emotional PR Engine)
+  async function handleEmotionPreview() {
+    setEmotionInsightLoading(true);
+    setEmotionInsightError(null);
+    setEmotionResult(null);
+
+    try {
+      const firstScene = scenes[0];
+      const textPieces = [
+        shootName,
+        goal,
+        firstScene?.title,
+        firstScene?.beats,
+      ].filter(Boolean);
+
+      const text = textPieces.join(" • ");
+
+      const res = await runGraphQL(EMOTION_CHECK_MUTATION, {
+        input: {
+          text,
+          platform,
+          purpose: "DIRECTOR_SUITE_PREVIEW",
+        },
+      });
+
+      const insight =
+        (res && res.data && res.data.runCreatorEmotionCheck) ||
+        (res && res.runCreatorEmotionCheck) ||
+        null;
+
+      setEmotionResult(insight);
+    } catch (err) {
+      console.error("Emotion preview failed", err);
+      setEmotionInsightError("Couldn’t read the vibe yet.");
+    } finally {
+      setEmotionInsightLoading(false);
+    }
+  }
+
+  // 🔹 Weekly emotion preview handler (Goal Compass vs actual content mix)
+  async function runEmotionPreviewCheck() {
+    setEmotionLoading(true);
+    setEmotionError(null);
+
+    try {
+      const res = await runGraphQL(RUN_CREATOR_EMOTION_CHECK, {});
+      const payload =
+        (res && res.data && res.data.runCreatorEmotionCheck) ||
+        (res && res.runCreatorEmotionCheck) ||
+        null;
+
+      if (!payload || !payload.ok) {
+        setEmotionError("Couldn’t refresh emotion preview yet.");
+        setEmotionPreview(null);
+      } else {
+        setEmotionPreview(payload);
+      }
+    } catch (err) {
+      console.error("Failed to runCreatorEmotionCheck", err);
+      setEmotionError("Something went wrong running the emotion check.");
+      setEmotionPreview(null);
+    } finally {
+      setEmotionLoading(false);
+    }
+  }
+
+  // Auto-run weekly check once when Goal Compass exists
+  useEffect(() => {
+    if (compass && !emotionPreview && !emotionLoading && !emotionError) {
+      runEmotionPreviewCheck();
+    }
+  }, [compass, emotionPreview, emotionLoading, emotionError]);
+
+  const emotionTone =
+    emotionResult?.emotionalToneLabels &&
+    emotionResult.emotionalToneLabels.length > 0
+      ? emotionResult.emotionalToneLabels.join(", ")
+      : null;
+  const emotionRisk = emotionResult?.prRiskLevel || "LOW";
+  const emotionScore = emotionResult?.brandAlignmentScore;
+
+  const riskChipStyle =
+    emotionRisk === "HIGH"
+      ? { background: "#FEF2F2", borderColor: "#FECACA", color: "#B91C1C" }
+      : emotionRisk === "MEDIUM"
+      ? { background: "#FFFBEB", borderColor: "#FDE68A", color: "#92400E" }
+      : { background: "#ECFDF3", borderColor: "#BBF7D0", color: "#166534" };
 
   return (
     <section className="creator-page">
@@ -556,7 +712,7 @@ export default function DirectorSuite() {
                     className="creator-btn creator-btn--primary"
                     onClick={() =>
                       navigate("/creator/align/goal-compass")
-                    } // adjust to your actual route
+                    }
                     style={{ marginTop: 8 }}
                   >
                     Open Lala Goal Compass
@@ -613,18 +769,49 @@ export default function DirectorSuite() {
                         compass ? "" : " (default)"
                       }`}
                   </span>
-                  {compassLoading && (
-                    <span
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    {compassLoading && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6B7280",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        loading…
+                      </span>
+                    )}
+
+                    {/* 🔹 Per-plan emotion preview chip */}
+                    <button
+                      type="button"
+                      className="creator-pill"
+                      onClick={handleEmotionPreview}
+                      disabled={emotionInsightLoading}
                       style={{
-                        fontSize: "0.75rem",
-                        color: "#6B7280",
-                        fontStyle: "italic",
+                        cursor: emotionInsightLoading
+                          ? "default"
+                          : "pointer",
+                        opacity: emotionInsightLoading ? 0.7 : 1,
+                        borderStyle: "dashed",
                       }}
                     >
-                      loading…
-                    </span>
-                  )}
+                      {emotionInsightLoading
+                        ? "Reading vibe…"
+                        : "💗 Emotion preview"}
+                    </button>
+                  </div>
                 </div>
+
                 <p
                   style={{
                     fontSize: "0.8rem",
@@ -634,6 +821,55 @@ export default function DirectorSuite() {
                 >
                   {optimization.summary}
                 </p>
+
+                {/* Emotion result chip */}
+                {(emotionResult || emotionInsightError) && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 6,
+                    }}
+                  >
+                    {emotionResult && (
+                      <span
+                        className="creator-pill"
+                        style={riskChipStyle}
+                        title={
+                          emotionResult.audienceResponseLabel ||
+                          "How this plan might land with your audience."
+                        }
+                      >
+                        {emotionScore != null && (
+                          <strong style={{ marginRight: 4 }}>
+                            {emotionScore} / 100
+                          </strong>
+                        )}
+                        {emotionTone || "Neutral tone"} ·{" "}
+                        {emotionRisk === "HIGH"
+                          ? "High PR risk"
+                          : emotionRisk === "MEDIUM"
+                          ? "Some PR risk"
+                          : "Low PR risk"}
+                      </span>
+                    )}
+
+                    {emotionInsightError && !emotionResult && (
+                      <span
+                        className="creator-pill"
+                        style={{
+                          background: "#FEF2F2",
+                          borderColor: "#FECACA",
+                          color: "#B91C1C",
+                        }}
+                      >
+                        {emotionInsightError}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <ul
                   style={{
                     margin: "6px 0 0",
@@ -649,6 +885,101 @@ export default function DirectorSuite() {
                     <li key={idx}>{b}</li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Emotion preview chip (Emotional PR Engine – weekly content mix) */}
+              <div
+                style={{
+                  marginTop: -4,
+                  marginBottom: 10,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: "0.78rem",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.76rem",
+                        fontWeight: 600,
+                        color: "#4B5563",
+                      }}
+                    >
+                      🧭 Emotion preview
+                    </span>
+                    {emotionLoading && (
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#9CA3AF",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        checking…
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "0.74rem",
+                      color: emotionError ? "#B91C1C" : "#6B7280",
+                    }}
+                  >
+                    {emotionError
+                      ? emotionError
+                      : (() => {
+                          const desc = describeWeeklyStatus(
+                            emotionPreview?.weeklyPathStatus,
+                          );
+                          return desc.copy;
+                        })()}
+                  </span>
+                  {emotionPreview?.contentMixActual && (
+                    <span
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "#9CA3AF",
+                      }}
+                    >
+                      Mix this week:{" "}
+                      <strong>
+                        P{emotionPreview.contentMixActual.personality}% · N
+                        {emotionPreview.contentMixActual.nurture}% · A
+                        {emotionPreview.contentMixActual.authority}% · C
+                        {emotionPreview.contentMixActual.conversion}%
+                      </strong>
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="creator-btn creator-btn--ghost"
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "0.72rem",
+                    whiteSpace: "nowrap",
+                  }}
+                  onClick={runEmotionPreviewCheck}
+                  disabled={emotionLoading}
+                >
+                  {emotionPreview ? "Refresh check" : "Run check"}
+                </button>
               </div>
 
               {/* Existing scenes */}

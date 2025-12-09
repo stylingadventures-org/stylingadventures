@@ -532,7 +532,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/f5950295d12cb2cf1ca7a1be0f41a912c50af54a8e9e117e6db8ba34ad8c4cd6.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/abb4da8f20569746fad89085414101526fa1afe08c430cc1f6c7146d74e86bba.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -600,6 +600,126 @@
             "data": "StoryPublishStateMachine3539E2DC"
           }
         ],
+        "/WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseLoadGoalCompassFnServiceRoleE4878467"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseLoadGoalCompassFnServiceRoleDefaultPolicyABE6B740"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseLoadGoalCompassFn2AC9F9FF"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseFetchTrendsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseFetchTrendsFnServiceRoleF6A18CC6"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseFetchTrendsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseFetchTrendsFnBA4D9FDB"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseGenerateIdeasFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseGenerateIdeasFnServiceRoleE206E9D7"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseGenerateIdeasFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseGenerateIdeasFnServiceRoleDefaultPolicy72895EBA"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseGenerateIdeasFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseGenerateIdeasFnC5C411E0"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulsePersistFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulsePersistFnServiceRole389FD43D"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulsePersistFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulsePersistFnServiceRoleDefaultPolicy1CDAB9C3"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulsePersistFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulsePersistFnB5620F49"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseExpressStateMachine/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseExpressStateMachineRole0E82D593"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseExpressStateMachine/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseExpressStateMachineRoleDefaultPolicy778E99B2"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseExpressStateMachine/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseExpressStateMachine66F63342"
+          }
+        ],
+        "/WorkflowsV2Stack/GoalCompassAnalyticsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoalCompassAnalyticsFnServiceRole83FBBC63"
+          }
+        ],
+        "/WorkflowsV2Stack/GoalCompassAnalyticsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoalCompassAnalyticsFnServiceRoleDefaultPolicy46111CC9"
+          }
+        ],
+        "/WorkflowsV2Stack/GoalCompassAnalyticsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoalCompassAnalyticsFn1F2F8E7F"
+          }
+        ],
+        "/WorkflowsV2Stack/EmotionalPrEngineStateMachine/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EmotionalPrEngineStateMachineRole46BAA50F"
+          }
+        ],
+        "/WorkflowsV2Stack/EmotionalPrEngineStateMachine/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EmotionalPrEngineStateMachineRoleDefaultPolicyB98A98A9"
+          }
+        ],
+        "/WorkflowsV2Stack/EmotionalPrEngineStateMachine/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EmotionalPrEngineStateMachineB6CF2668"
+          }
+        ],
         "/WorkflowsV2Stack/ApprovalStateMachineArn": [
           {
             "type": "aws:cdk:logicalId",
@@ -616,6 +736,18 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StoryPublishStateMachineArn"
+          }
+        ],
+        "/WorkflowsV2Stack/SocialPulseStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SocialPulseStateMachineArn"
+          }
+        ],
+        "/WorkflowsV2Stack/EmotionalPrEngineStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EmotionalPrEngineStateMachineArn"
           }
         ],
         "/WorkflowsV2Stack/CompleteApprovalFn/ServiceRole/Resource": [
@@ -700,6 +832,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CDKMetadata"
+          }
+        ],
+        "/WorkflowsV2Stack/Exports/Output{\"Ref\":\"SocialPulseExpressStateMachine66F63342\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083"
           }
         ],
         "/WorkflowsV2Stack/BootstrapVersion": [
@@ -1781,7 +1919,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fa2c6e27600c4258541d470b9378361c4dbbbe8800d1822423b0beec0b143a9d.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/8f2daaa195e6404a1c198ae1f6e06cd89f69517c76ce949a67e8628fa5a2a8e7.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1796,6 +1934,7 @@
       "dependencies": [
         "DataStack",
         "BestiesStoriesStack",
+        "WorkflowsV2Stack",
         "CreatorToolsStack.assets"
       ],
       "metadata": {
@@ -2021,7 +2160,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new AnalyticsStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\analytics-stack.ts:48:21)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:210:19)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:212:19)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -2604,7 +2743,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new PublishingStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\publishing-stack.ts:40:30)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:235:20)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:237:20)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -2790,7 +2929,7 @@
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "nodeFn (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\collaborator-stack.ts:104:7)",
               "new CollaboratorStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\collaborator-stack.ts:121:27)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:244:23)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:246:23)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3061,7 +3200,7 @@
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "nodeFn (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\promo-kit-stack.ts:60:7)",
               "new PromoKitStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\promo-kit-stack.ts:78:23)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:254:18)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:256:18)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3253,7 +3392,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new AdminStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\admin-stack.ts:60:25)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:265:15)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:267:15)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3413,7 +3552,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/01f7a30ab7d0ac965f7e067610ec2ce85157e1c2da6b6966d674134d7439de70.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fbd2a9709608d0d13ee46572129d1469f40218535b68dfa8831c96f1964a70fc.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

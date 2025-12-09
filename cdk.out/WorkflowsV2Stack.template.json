@@ -1,5 +1,5 @@
 {
- "Description": "Closet & story workflow state machines - dev",
+ "Description": "Closet, story, and creator workflow state machines - dev",
  "Resources": {
   "ApprovalStateMachineRoleE1EEC7A5": {
    "Type": "AWS::IAM::Role",
@@ -182,6 +182,992 @@
    "DeletionPolicy": "Delete",
    "Metadata": {
     "aws:cdk:path": "WorkflowsV2Stack/StoryPublishStateMachine/Resource"
+   }
+  },
+  "SocialPulseLoadGoalCompassFnServiceRoleE4878467": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/ServiceRole/Resource"
+   }
+  },
+  "SocialPulseLoadGoalCompassFnServiceRoleDefaultPolicyABE6B740": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SocialPulseLoadGoalCompassFnServiceRoleDefaultPolicyABE6B740",
+    "Roles": [
+     {
+      "Ref": "SocialPulseLoadGoalCompassFnServiceRoleE4878467"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SocialPulseLoadGoalCompassFn2AC9F9FF": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "c55bde3aa5d08cbba5f1fc254d1c36a2b5d815cf617637fb9fb3a932df93abc0.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SocialPulseLoadGoalCompassFnServiceRoleE4878467",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "SocialPulseLoadGoalCompassFnServiceRoleDefaultPolicyABE6B740",
+    "SocialPulseLoadGoalCompassFnServiceRoleE4878467"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/Resource",
+    "aws:asset:path": "asset.c55bde3aa5d08cbba5f1fc254d1c36a2b5d815cf617637fb9fb3a932df93abc0",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SocialPulseFetchTrendsFnServiceRoleF6A18CC6": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseFetchTrendsFn/ServiceRole/Resource"
+   }
+  },
+  "SocialPulseFetchTrendsFnBA4D9FDB": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "b2a765865ed9bf5082f05eec3febb231c8967b63ffccf9a9bf46373cacab4a64.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SocialPulseFetchTrendsFnServiceRoleF6A18CC6",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "SocialPulseFetchTrendsFnServiceRoleF6A18CC6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseFetchTrendsFn/Resource",
+    "aws:asset:path": "asset.b2a765865ed9bf5082f05eec3febb231c8967b63ffccf9a9bf46373cacab4a64",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SocialPulseGenerateIdeasFnServiceRoleE206E9D7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseGenerateIdeasFn/ServiceRole/Resource"
+   }
+  },
+  "SocialPulseGenerateIdeasFnServiceRoleDefaultPolicy72895EBA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SocialPulseGenerateIdeasFnServiceRoleDefaultPolicy72895EBA",
+    "Roles": [
+     {
+      "Ref": "SocialPulseGenerateIdeasFnServiceRoleE206E9D7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseGenerateIdeasFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SocialPulseGenerateIdeasFnC5C411E0": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "9e69ee569718655d49489501c097be2b7d2e7e19d00f0788d38e0f7493d57918.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SocialPulseGenerateIdeasFnServiceRoleE206E9D7",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "SocialPulseGenerateIdeasFnServiceRoleDefaultPolicy72895EBA",
+    "SocialPulseGenerateIdeasFnServiceRoleE206E9D7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseGenerateIdeasFn/Resource",
+    "aws:asset:path": "asset.9e69ee569718655d49489501c097be2b7d2e7e19d00f0788d38e0f7493d57918",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SocialPulsePersistFnServiceRole389FD43D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulsePersistFn/ServiceRole/Resource"
+   }
+  },
+  "SocialPulsePersistFnServiceRoleDefaultPolicy1CDAB9C3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SocialPulsePersistFnServiceRoleDefaultPolicy1CDAB9C3",
+    "Roles": [
+     {
+      "Ref": "SocialPulsePersistFnServiceRole389FD43D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulsePersistFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SocialPulsePersistFnB5620F49": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "855c7710f7d2330d35fd79459dc1eb7e0351c38f1b9b006afdb93a5c6168543c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SocialPulsePersistFnServiceRole389FD43D",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "SocialPulsePersistFnServiceRoleDefaultPolicy1CDAB9C3",
+    "SocialPulsePersistFnServiceRole389FD43D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulsePersistFn/Resource",
+    "aws:asset:path": "asset.855c7710f7d2330d35fd79459dc1eb7e0351c38f1b9b006afdb93a5c6168543c",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SocialPulseExpressStateMachineRole0E82D593": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseExpressStateMachine/Role/Resource"
+   }
+  },
+  "SocialPulseExpressStateMachineRoleDefaultPolicy778E99B2": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SocialPulseLoadGoalCompassFn2AC9F9FF",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SocialPulseLoadGoalCompassFn2AC9F9FF",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SocialPulseFetchTrendsFnBA4D9FDB",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SocialPulseFetchTrendsFnBA4D9FDB",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SocialPulseGenerateIdeasFnC5C411E0",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SocialPulseGenerateIdeasFnC5C411E0",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SocialPulsePersistFnB5620F49",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SocialPulsePersistFnB5620F49",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SocialPulseExpressStateMachineRoleDefaultPolicy778E99B2",
+    "Roles": [
+     {
+      "Ref": "SocialPulseExpressStateMachineRole0E82D593"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseExpressStateMachine/Role/DefaultPolicy/Resource"
+   }
+  },
+  "SocialPulseExpressStateMachine66F63342": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"SP_LoadGoalCompass\",\"States\":{\"SP_LoadGoalCompass\":{\"Next\":\"SP_FetchExternalTrends\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "SocialPulseLoadGoalCompassFn2AC9F9FF",
+         "Arn"
+        ]
+       },
+       "\"},\"SP_FetchExternalTrends\":{\"Next\":\"SP_GenerateContentIdeas\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "SocialPulseFetchTrendsFnBA4D9FDB",
+         "Arn"
+        ]
+       },
+       "\"},\"SP_GenerateContentIdeas\":{\"Next\":\"SP_PersistPulse\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "SocialPulseGenerateIdeasFnC5C411E0",
+         "Arn"
+        ]
+       },
+       "\"},\"SP_PersistPulse\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "SocialPulsePersistFnB5620F49",
+         "Arn"
+        ]
+       },
+       "\"}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "SocialPulseExpressStateMachineRole0E82D593",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA2-SocialPulse-dev",
+    "StateMachineType": "EXPRESS",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "SocialPulseExpressStateMachineRoleDefaultPolicy778E99B2",
+    "SocialPulseExpressStateMachineRole0E82D593"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/SocialPulseExpressStateMachine/Resource"
+   }
+  },
+  "GoalCompassAnalyticsFnServiceRole83FBBC63": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/GoalCompassAnalyticsFn/ServiceRole/Resource"
+   }
+  },
+  "GoalCompassAnalyticsFnServiceRoleDefaultPolicy46111CC9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "GoalCompassAnalyticsFnServiceRoleDefaultPolicy46111CC9",
+    "Roles": [
+     {
+      "Ref": "GoalCompassAnalyticsFnServiceRole83FBBC63"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/GoalCompassAnalyticsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "GoalCompassAnalyticsFn1F2F8E7F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "e2da3e1204ad7815c069c10730a5e803e5f67a8c4f93e8b82095145d7d99d768.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "GoalCompassAnalyticsFnServiceRole83FBBC63",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 20
+   },
+   "DependsOn": [
+    "GoalCompassAnalyticsFnServiceRoleDefaultPolicy46111CC9",
+    "GoalCompassAnalyticsFnServiceRole83FBBC63"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/GoalCompassAnalyticsFn/Resource",
+    "aws:asset:path": "asset.e2da3e1204ad7815c069c10730a5e803e5f67a8c4f93e8b82095145d7d99d768",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "EmotionalPrEngineStateMachineRole46BAA50F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/EmotionalPrEngineStateMachine/Role/Resource"
+   }
+  },
+  "EmotionalPrEngineStateMachineRoleDefaultPolicyB98A98A9": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "GoalCompassAnalyticsFn1F2F8E7F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "GoalCompassAnalyticsFn1F2F8E7F",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "EmotionalPrEngineStateMachineRoleDefaultPolicyB98A98A9",
+    "Roles": [
+     {
+      "Ref": "EmotionalPrEngineStateMachineRole46BAA50F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/EmotionalPrEngineStateMachine/Role/DefaultPolicy/Resource"
+   }
+  },
+  "EmotionalPrEngineStateMachineB6CF2668": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"EPR_ForEachCreator\",\"States\":{\"EPR_ForEachCreator\":{\"Type\":\"Map\",\"End\":true,\"Parameters\":{\"creatorId.$\":\"$$.Map.Item.Value\"},\"ItemsPath\":\"$.creatorIds\",\"Iterator\":{\"StartAt\":\"EPR_UpdateGoalCompassMix\",\"States\":{\"EPR_UpdateGoalCompassMix\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "GoalCompassAnalyticsFn1F2F8E7F",
+         "Arn"
+        ]
+       },
+       "\"}}}}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "EmotionalPrEngineStateMachineRole46BAA50F",
+      "Arn"
+     ]
+    },
+    "StateMachineName": "SA2-EmotionalPrEngine-dev",
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "EmotionalPrEngineStateMachineRoleDefaultPolicyB98A98A9",
+    "EmotionalPrEngineStateMachineRole46BAA50F"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "WorkflowsV2Stack/EmotionalPrEngineStateMachine/Resource"
    }
   },
   "CompleteApprovalFnServiceRole699167D1": {
@@ -591,7 +1577,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy27CQAz8Fu6LS0MvPQYqbrQofEBkNiY4JLsR9jaKovx7tQm09DQzfow9CSTJGlYL7GRpi+uy5hMMR0V7NdhJPohSew7OKnsnMBxQxBwVlfZoL+zIbM/uWY+GsYEh8/XUmvDga7Z9lDMbTY3NqcDc+YIqgc8JdvcrRtY5ipAKpBGMrGET7JV0g0L3VRi2Z/e7EZ3p1rAIezcabLlEpQ57GDISTVuefvmjqbU+ODUf1Na+b8hprD6po2L5yFaSyUh8uFmaPniIu+fM96QXX8TSzMbx39xX0DaomQJFS3blaGJ8qOTlO1nB6zu8LSphXt6CU24Ishl/AANvo7ahAQAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VQ0W7CMAz8Ft6Dx8pe9ghMkyaNDZUPqExqimmbVNgBoar/PiWFsT3dnWOfL84gy+Ywm+BFpraspw3voN8q2trgRYpelLp9cFbZO4F+gyJmq6i0RntgR2a1d//0GrvBMLbQ575Jzwk3vmF7jXJkg2mw3ZVYOF/SUeArwfttk5F5gSKkAosIRuawDLYmXaLQbRT61d79TkRnOrUswt4N5l/uQlFqgc809uHOviaDHVeodMEr9DmJLjpOYR90Ya0PTs0bdY2/tuQ0Vv+orWJ1P0BFJifx4WQpRbyLm+fI16QHX8bSyIbh0Zf+GY3YVbHjO2gXdDDxPnCUp3M2g+dXeJkchXl6Ck65JchH/AEWFxioxgEAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "WorkflowsV2Stack/CDKMetadata/Default"
@@ -614,6 +1600,16 @@
     "Ref": "StoryPublishStateMachine3539E2DC"
    }
   },
+  "SocialPulseStateMachineArn": {
+   "Value": {
+    "Ref": "SocialPulseExpressStateMachine66F63342"
+   }
+  },
+  "EmotionalPrEngineStateMachineArn": {
+   "Value": {
+    "Ref": "EmotionalPrEngineStateMachineB6CF2668"
+   }
+  },
   "AdminApprovalApiEndpointC5939ED2": {
    "Value": {
     "Fn::Join": [
@@ -634,6 +1630,14 @@
       "/"
      ]
     ]
+   }
+  },
+  "ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083": {
+   "Value": {
+    "Ref": "SocialPulseExpressStateMachine66F63342"
+   },
+   "Export": {
+    "Name": "WorkflowsV2Stack:ExportsOutputRefSocialPulseExpressStateMachine66F63342FAC49083"
    }
   }
  },
