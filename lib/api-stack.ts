@@ -793,9 +793,11 @@ export class ApiStack extends Stack {
     });
 
     // 🔹 New: folders + richer asset ops
-    creatorAiDs.createResolver("CreatorFoldersResolver", {
+
+    // NOTE: fieldName now matches creatorCabinetFolders in schema
+    creatorAiDs.createResolver("CreatorCabinetFoldersResolver", {
       typeName: "Query",
-      fieldName: "creatorFolders",
+      fieldName: "creatorCabinetFolders",
     });
 
     creatorAiDs.createResolver("CreateCreatorFolderResolver", {

@@ -244,7 +244,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "5a17ce46c02826bde2b21b3f3ec783014f7213f1f761e7cc7018158aac95d076.zip"
+     "S3Key": "3cb9dae9ae8c83336b5da7fc9ed10bf8c585206bd6c9f7596b97ae400793c229.zip"
     },
     "Environment": {
      "Variables": {
@@ -284,7 +284,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "PublishingStack/PublishEpisodeFn/Resource",
-    "aws:asset:path": "asset.5a17ce46c02826bde2b21b3f3ec783014f7213f1f761e7cc7018158aac95d076",
+    "aws:asset:path": "asset.3cb9dae9ae8c83336b5da7fc9ed10bf8c585206bd6c9f7596b97ae400793c229",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

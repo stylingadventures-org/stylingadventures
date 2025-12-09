@@ -1781,7 +1781,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/54d2d0bc28ec12d156b38cca521917b3d1ccd3d7bef80f8d20a971195932c7ba.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fa2c6e27600c4258541d470b9378361c4dbbbe8800d1822423b0beec0b143a9d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2575,7 +2575,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/2328cb6d0d6ed36ac9664d250634608a0fd91024bf038c52c88ecd645ebcc1ec.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/09055a9e39bf78d738bbbaff61bb0916a4728fb0a9b35faaf69b70878592de7d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2594,6 +2594,36 @@
       ],
       "metadata": {
         "/PublishingStack": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "If you are relying on AWS SDK v2 to be present in the Lambda environment already, please explicitly configure a NodeJS runtime of Node 16 or lower. [ack: @aws-cdk/aws-lambda-nodejs:sdkV2NotInRuntime]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:2066)",
+              "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:984)",
+              "new Bundling (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:4190)",
+              "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
+              "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
+              "new PublishingStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\publishing-stack.ts:40:30)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:235:20)",
+              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
+              "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
+              "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
+              "Object.require.extensions.<computed> [as .ts] (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1621:12)",
+              "Module.load (node:internal/modules/cjs/loader:1275:32)",
+              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
+              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
+              "phase4 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:649:14)",
+              "bootstrap (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:95:10)",
+              "main (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:55:10)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:800:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
+              "Object.Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
+              "Module.load (node:internal/modules/cjs/loader:1275:32)",
+              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
+              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
+              "node:internal/main/run_main_module:28:49"
+            ]
+          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -3383,7 +3413,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/4923f979f855ec3db9cce6c67fcab020869d6cdf550a26b44e024e97886342d1.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/01f7a30ab7d0ac965f7e067610ec2ce85157e1c2da6b6966d674134d7439de70.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4103,10 +4133,10 @@
             "data": "StylingApiCreateCreatorAssetUploadResolver3D0687D3"
           }
         ],
-        "/ApiStack/StylingApi/CreatorFoldersResolver/Resource": [
+        "/ApiStack/StylingApi/CreatorCabinetFoldersResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorFoldersResolverA71CB6A9"
+            "data": "StylingApiCreatorCabinetFoldersResolver288B7EC3"
           }
         ],
         "/ApiStack/StylingApi/CreateCreatorFolderResolver/Resource": [

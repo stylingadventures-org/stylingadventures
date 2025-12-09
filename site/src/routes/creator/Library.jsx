@@ -3,28 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { graphql } from "../../lib/sa";
 
-/**
- * Backed by:
- *
- *   query {
- *     creatorCabinets {
- *       id
- *       name
- *       assetCount
- *       updatedAt
- *     }
- *   }
- *
- *   mutation CreateCreatorCabinet($name: String!) {
- *     createCreatorCabinet(input: { name: $name }) {
- *       id
- *       name
- *       assetCount
- *       updatedAt
- *     }
- *   }
- */
-
 const LIST_QUERY = `
   query CreatorCabinets {
     creatorCabinets {
@@ -49,14 +27,23 @@ const CREATE_MUTATION = `
 
 function normaliseCount(cabinet) {
   if (!cabinet) return 0;
-  // assetCount is the field your schema definitely has;
-  // totalAssets / assets are safety fallbacks.
   return (
     cabinet.assetCount ??
     cabinet.totalAssets ??
     cabinet.assets ??
     0
   );
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "Never updated";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Updated recently";
+  return `Updated ${d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
 }
 
 export default function CreatorLibrary() {
@@ -100,35 +87,33 @@ export default function CreatorLibrary() {
     const term = search.trim().toLowerCase();
     if (!term) return cabinets;
     return cabinets.filter((c) =>
-      (c.name || "").toLowerCase().includes(term),
+      (c.name || "").toLowerCase().includes(term)
     );
   }, [cabinets, search]);
 
   const totalAssets = useMemo(
-    () => cabinets.reduce((sum, c) => sum + normaliseCount(c), 0),
-    [cabinets],
+    () => filteredCabinets.reduce((sum, c) => sum + normaliseCount(c), 0),
+    [filteredCabinets]
   );
 
   // ----- Actions -----
   async function handleCreate(e) {
     e.preventDefault();
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-
+    const name = newName.trim();
+    if (!name || creating) return;
     setCreating(true);
     setError("");
 
     try {
-      const data = await graphql(CREATE_MUTATION, { name: trimmed });
+      const data = await graphql(CREATE_MUTATION, { name });
       const created = data?.createCreatorCabinet;
       if (created) {
-        // Prepend so the new one is visible at the top
         setCabinets((prev) => [created, ...prev]);
         setNewName("");
       }
     } catch (e) {
       console.error("[CreatorLibrary] create error", e);
-      setError("Couldn’t create that cabinet. Please try again.");
+      setError("We couldn’t create that cabinet. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -141,126 +126,107 @@ export default function CreatorLibrary() {
 
   // ----- Render -----
   return (
-    <section className="section section-tight">
-      <header className="section-header">
-        <h2 className="section-title">Filing cabinets</h2>
-        <p className="section-subtitle">
-          Organize your reference photos, finished looks, and episode assets.
-          Later this will connect directly to S3 + search.
-        </p>
+    <section className="creator-library">
+      <style>{styles}</style>
+
+      <header className="lib-header">
+        <div>
+          <h2 className="lib-title">Filing cabinets</h2>
+          <p className="lib-sub">
+            Organize your reference photos, finished looks, and episode assets.
+            Later this will connect directly to S3 + search.
+          </p>
+        </div>
       </header>
 
-      {/* New cabinet + stats + search bar */}
-      <div
-        className="creator-library-bar"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "1rem",
-          alignItems: "flex-end",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <form
-          onSubmit={handleCreate}
-          style={{ display: "flex", gap: "0.5rem", flexGrow: 1, maxWidth: 420 }}
-        >
-          <div style={{ flexGrow: 1 }}>
-            <label
-              htmlFor="new-cabinet-name"
-              className="field-label"
-              style={{ display: "block", marginBottom: 4 }}
-            >
-              New cabinet name
-            </label>
+      {/* Top bar: create + stats + search */}
+      <div className="lib-top-row">
+        <form className="lib-new" onSubmit={handleCreate}>
+          <label className="lib-label" htmlFor="new-cabinet-name">
+            Create new cabinet
+          </label>
+          <div className="lib-new-row">
             <input
               id="new-cabinet-name"
               type="text"
-              className="input"
-              placeholder="Winter street style"
+              className="lib-input"
+              placeholder="e.g. Winter street style"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
+            <button
+              type="submit"
+              className="lib-btn lib-btn-primary"
+              disabled={creating || !newName.trim()}
+            >
+              {creating ? "Creating…" : "Create"}
+            </button>
           </div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={creating || !newName.trim()}
-            style={{ marginBottom: 0 }}
-          >
-            {creating ? "Creating…" : "Create"}
-          </button>
         </form>
 
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            minWidth: 260,
-          }}
-        >
-          <div className="muted">
-            {cabinets.length} cabinets • {totalAssets} assets
+        <div className="lib-meta">
+          <div className="lib-stat">
+            <div className="lib-stat-label">Cabinets</div>
+            <div className="lib-stat-value">{filteredCabinets.length}</div>
           </div>
-          <input
-            type="search"
-            className="input"
-            placeholder="Search cabinets…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="lib-stat">
+            <div className="lib-stat-label">Assets</div>
+            <div className="lib-stat-value">{totalAssets}</div>
+          </div>
+          <div className="lib-search-wrap">
+            <label htmlFor="cabinet-search" className="lib-label">
+              Search
+            </label>
+            <input
+              id="cabinet-search"
+              type="search"
+              className="lib-input"
+              placeholder="Search cabinets by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      {error && (
-        <div className="notice notice-error" style={{ marginBottom: "1rem" }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="lib-alert-error">{error}</div>}
 
-      {/* List / empty state */}
       {loading ? (
-        <p className="muted">Loading cabinets…</p>
+        <div className="lib-empty">Loading your cabinets…</div>
       ) : filteredCabinets.length === 0 ? (
-        <div className="creator-library-empty">
-          <p className="muted">No cabinets yet.</p>
-          <p className="muted">
-            Create your first cabinet to organize episode assets.
+        <div className="lib-empty">
+          <h3>No cabinets yet</h3>
+          <p>
+            Start by creating your first cabinet. Use them to group reference
+            photos, closet looks, or assets by episode.
           </p>
         </div>
       ) : (
-        <ul className="creator-library-list">
+        <ul className="lib-grid">
           {filteredCabinets.map((cabinet) => {
             const count = normaliseCount(cabinet);
             return (
-              <li
-                key={cabinet.id}
-                className="creator-library-row card card-ghost"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.9rem 1.1rem",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                <div>
-                  <div className="creator-library-row-title">
+              <li key={cabinet.id} className="lib-card">
+                <div className="lib-card-main">
+                  <div className="lib-card-title">
                     {cabinet.name || "Untitled cabinet"}
                   </div>
-                  <div className="creator-library-row-meta muted">
+                  <div className="lib-card-meta">
                     {count} asset{count === 1 ? "" : "s"}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => handleOpen(cabinet.id)}
-                >
-                  Open
-                </button>
+                <div className="lib-card-footer">
+                  <div className="lib-card-updated">
+                    {formatUpdatedAt(cabinet.updatedAt)}
+                  </div>
+                  <button
+                    type="button"
+                    className="lib-btn lib-btn-secondary"
+                    onClick={() => handleOpen(cabinet.id)}
+                  >
+                    Open
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -271,116 +237,231 @@ export default function CreatorLibrary() {
 }
 
 const styles = `
-.creator-shell {
-  max-width: 1120px;
-  margin: 0 auto 40px;
-  padding: 10px 12px 32px;
+.creator-library {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.creator-header {
-  border-radius: 18px;
-  border: 1px solid #e5e7eb;
-  background: radial-gradient(circle at 0 0, #f9fafb, #f3f4f6 50%, #e5e7eb);
-  padding: 14px 16px 10px;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.15);
-}
+/* Header */
 
-.creator-header-main {
+.lib-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.creator-logo-block {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.creator-logo-pill {
-  border-radius: 999px;
-  padding: 8px 11px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: #111827;
-  color: #f9fafb;
-}
-
-.creator-logo-text h1 {
+.lib-title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 600;
-  letter-spacing: -0.03em;
   color: #0f172a;
 }
 
-.creator-logo-text p {
-  margin: 0;
-  margin-top: 2px;
-  font-size: 0.86rem;
+.lib-sub {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+  max-width: 540px;
+}
+
+/* Top row: create + stats + search */
+
+.lib-top-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+  .lib-top-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.lib-new {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lib-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: #6b7280;
 }
 
-.creator-header-meta {
+.lib-new-row {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  gap: 8px;
 }
 
-.creator-pill {
+.lib-input {
+  flex: 1;
   border-radius: 999px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: #111827;
+  background: #ffffff;
+}
+
+.lib-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Meta stats + search */
+
+.lib-meta {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1.4fr);
+  gap: 10px;
+  align-items: flex-end;
+}
+
+@media (max-width: 640px) {
+  .lib-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lib-stat {
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  color: #374151;
 }
 
-/* Nav */
+.lib-stat-label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
 
-.creator-nav {
-  margin-top: 10px;
-  padding-top: 6px;
+.lib-stat-value {
+  margin-top: 3px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.lib-search-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  border-top: 1px solid rgba(148, 163, 184, 0.4);
+  flex-direction: column;
+  gap: 4px;
 }
 
-.creator-nav-item {
+/* Buttons */
+
+.lib-btn {
   border-radius: 999px;
-  padding: 6px 12px;
+  border: none;
   font-size: 0.84rem;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #4b5563;
-  text-decoration: none;
+  padding: 7px 14px;
   cursor: pointer;
+  white-space: nowrap;
 }
-.creator-nav-item:hover {
-  background: rgba(17, 24, 39, 0.04);
-}
-.creator-nav-item--active {
+
+.lib-btn-primary {
   background: #111827;
   color: #f9fafb;
-  border-color: #111827;
 }
 
-/* Main */
-
-.creator-main {
-  margin-top: 14px;
+.lib-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
 
-/* Responsive */
+.lib-btn-secondary {
+  background: #f9fafb;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
 
-@media (max-width: 720px) {
-  .creator-header-main {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+/* States */
+
+.lib-alert-error {
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.lib-empty {
+  border-radius: 16px;
+  border: 1px dashed #d1d5db;
+  padding: 18px 16px;
+  background: #f9fafb;
+  text-align: left;
+}
+
+.lib-empty h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.lib-empty p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+}
+
+/* Grid of cabinet cards */
+
+.lib-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.lib-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 12px 13px 10px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lib-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lib-card-title {
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.lib-card-meta {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+.lib-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lib-card-updated {
+  font-size: 0.78rem;
+  color: #9ca3af;
 }
 `;
