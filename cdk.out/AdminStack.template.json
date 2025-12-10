@@ -133,7 +133,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "1bcc27d0bbac6a45b828beadbaa16f2958b39de1d88f2ff69405e97197cdf66e.zip"
     },
     "Environment": {
@@ -323,7 +325,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "ae55446d23282f8060d19f35165c17bd544314683a41fdb8a2f8d8b96e2347ee.zip"
     },
     "Environment": {
@@ -516,7 +520,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "5a594f587f750bfd7b8695100dd21d29239acacd29d9a1742fba1187d1878714.zip"
     },
     "Environment": {
@@ -719,7 +725,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "6abc6aba3a17aacf0d26bfd74d7a2491168c90e12753b34070571ce47b884017.zip"
     },
     "Environment": {
@@ -789,15 +797,6 @@
     "aws:asset:path": "asset.6abc6aba3a17aacf0d26bfd74d7a2491168c90e12753b34070571ce47b884017",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2OTU/DMAxAf8vurhktF450YkeEOu6Vl3qT++GgOdmEovx3lFZwes8+PLvGum5wv6OHVW6YqlnOmE6B3AT0sD7NtJwH6tUPPBp+rDhGdUG8gtCCqfMzw+GiKz/9LO6njJtlsKYnMw6GbwVgDbbRTRxaMoYtj4eL/kf5zhoM03thG63E/jyDqWH68t/iyn6VnKFj8/HmGNYbp0BX0WuG8jWO9nSv9/j8ii+70USqW9QgC2O38RflrtmiAgEAAA=="
-   },
-   "Metadata": {
-    "aws:cdk:path": "AdminStack/CDKMetadata/Default"
    }
   }
  },

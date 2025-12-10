@@ -8,11 +8,11 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-edec5807": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-a97edac6": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "1bcc27d0bbac6a45b828beadbaa16f2958b39de1d88f2ff69405e97197cdf66e.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
@@ -23,11 +23,11 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-dba94180": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-af6961bd": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "ae55446d23282f8060d19f35165c17bd544314683a41fdb8a2f8d8b96e2347ee.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
@@ -38,11 +38,11 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-437d6575": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-2a753ab4": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "5a594f587f750bfd7b8695100dd21d29239acacd29d9a1742fba1187d1878714.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
@@ -53,26 +53,26 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-ce196fd1": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-5ba5e03f": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "6abc6aba3a17aacf0d26bfd74d7a2491168c90e12753b34070571ce47b884017.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
-    "87868733ef23ccb4e1aa7515901a31d5bcbd0beee3c947171d03caa9be1103e3": {
+    "480cb0b74a9546954812fb0dfdd0bab53ca2eaf4d49c3c66a4241907c515d1e0": {
       "displayName": "AdminStack Template",
       "source": {
         "path": "AdminStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-def3fd71": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "87868733ef23ccb4e1aa7515901a31d5bcbd0beee3c947171d03caa9be1103e3.json",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        "current_account-y-2adca7bb": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
+          "objectKey": "480cb0b74a9546954812fb0dfdd0bab53ca2eaf4d49c3c66a4241907c515d1e0.json",
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     }

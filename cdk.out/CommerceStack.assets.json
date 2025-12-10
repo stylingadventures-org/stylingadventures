@@ -8,26 +8,26 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-2ff6c229": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-7c588271": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "98474d296eb7d87c802cf5405b7b926f9b4bf2a6479eb85c8bb822e4870228a1.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
-    "9ba5a837a9b9084f204528ebfcb99e0c40edd965cffd124acc904ff1aca63fdf": {
+    "d2b71adc3fda12c4dd4923dd39bd4c68bf13f9bb3bdf52787595a6856a767460": {
       "displayName": "CommerceStack Template",
       "source": {
         "path": "CommerceStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-7ae0b79b": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "9ba5a837a9b9084f204528ebfcb99e0c40edd965cffd124acc904ff1aca63fdf.json",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        "current_account-y-58991898": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
+          "objectKey": "d2b71adc3fda12c4dd4923dd39bd4c68bf13f9bb3bdf52787595a6856a767460.json",
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     }

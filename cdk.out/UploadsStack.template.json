@@ -169,7 +169,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
     },
     "Timeout": 900,
@@ -181,7 +183,7 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs22.x",
+    "Runtime": "nodejs18.x",
     "Description": {
      "Fn::Join": [
       "",
@@ -308,7 +310,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "5f995b7b53292763f5dcba8e9b6ca0e27790093e091814353f2e4326936d2237.zip"
     },
     "Environment": {
@@ -432,7 +436,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04Cd75a0206d7f9f939ebfbac2326b899ea": {
+  "UploadsApiDeployment4A67E04Cb2b87a382562162643ab69aa08254734": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -458,7 +462,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04Cd75a0206d7f9f939ebfbac2326b899ea"
+     "Ref": "UploadsApiDeployment4A67E04Cb2b87a382562162643ab69aa08254734"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -640,7 +644,11 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:637423256673:",
+       ":execute-api:y:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
        {
         "Ref": "UploadsApiF6E592E7"
        },
@@ -676,7 +684,11 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:637423256673:",
+       ":execute-api:y:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
        {
         "Ref": "UploadsApiF6E592E7"
        },
@@ -705,7 +717,7 @@
         {
          "Ref": "AWS::Partition"
         },
-        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        ":apigateway:y:lambda:path/2015-03-31/functions/",
         {
          "Fn::GetAtt": [
           "UploadApiFn7FE3717E",
@@ -824,7 +836,11 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:637423256673:",
+       ":execute-api:y:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
        {
         "Ref": "UploadsApiF6E592E7"
        },
@@ -860,7 +876,11 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:637423256673:",
+       ":execute-api:y:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
        {
         "Ref": "UploadsApiF6E592E7"
        },
@@ -889,7 +909,7 @@
         {
          "Ref": "AWS::Partition"
         },
-        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        ":apigateway:y:lambda:path/2015-03-31/functions/",
         {
          "Fn::GetAtt": [
           "UploadApiFn7FE3717E",
@@ -911,15 +931,6 @@
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/get/POST/Resource"
    }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Qy27CMBD8Fu5mS0MvPUIqbm1R+IDIOEu6edhRdg2Kovx7ZSeFquppZnfsGY8TSJItbFb6xmtT1OuGzjCeRJta6RvnI29h3HtTo6j0Yhc2w9E1ZIbHepnnYa8ZJ9Xo9lzo3LoCK4aPCAdvjZCzinQLY+YaDBYRH44zmxRvc82MwrALsBjCmF7s3Sccx74lZnJ2UrqjUgve9ABjhiy7jmLAg+6Mcd6KesOucUOLNnb7NZ1El/FVM8mQne8Nhk7qHeXLFUFc2I+6hEQ+TSr1LK79T/wjHXt3pQL76B5bhlSyZbjz6aXzcs+YVPhKqPjpmmzg+RVeVhUTrXtvhVqEbMZv/t4Vp9UBAAA="
-   },
-   "Metadata": {
-    "aws:cdk:path": "UploadsStack/CDKMetadata/Default"
-   }
   }
  },
  "Outputs": {
@@ -940,7 +951,7 @@
       {
        "Ref": "UploadsApiF6E592E7"
       },
-      ".execute-api.us-east-1.",
+      ".execute-api.y.",
       {
        "Ref": "AWS::URLSuffix"
       },
@@ -962,7 +973,7 @@
       {
        "Ref": "UploadsApiF6E592E7"
       },
-      ".execute-api.us-east-1.",
+      ".execute-api.y.",
       {
        "Ref": "AWS::URLSuffix"
       },

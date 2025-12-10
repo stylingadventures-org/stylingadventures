@@ -1,67 +1,40 @@
-// lambda/closet/removeBg.ts
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import fetch from "node-fetch";
 
 const s3 = new S3Client({});
-const REMOVE_BG_API = "https://api.remove.bg/v1.0/removebg";
 
 type RemoveBgParams = {
   bucket: string;
   key: string;
-  /**
-   * Prefix under which we should write the cutout.
-   * Example: "closet/315ba046-...-98adcac22520"
-   */
   destKeyPrefix: string;
 };
 
-/**
- * Download the original S3 object, send it to remove.bg, and write
- * the cutout image back to S3. Returns the final S3 key to store as mediaKey.
- */
 export async function removeBackgroundForS3Object({
   bucket,
   key,
   destKeyPrefix,
 }: RemoveBgParams): Promise<string> {
-  const apiKey = process.env.REMOVE_BG_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing REMOVE_BG_API_KEY env var");
-  }
+  const rembgUrl = "https://your-lakechain-endpoint.amazonaws.com/segment";
 
-  // 1) Get the original image from S3
-  const orig = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    })
-  );
-
+  // Step 1: Fetch image from S3
+  const orig = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   const body = await streamToBuffer(orig.Body as any);
 
-  // 2) Call remove.bg
-  const form = new FormData();
-  form.append("image_file", new Blob([body]), "source.png");
-  form.append("size", "auto");
-
-  const resp = await fetch(REMOVE_BG_API, {
+  // Step 2: Call Lakechain RemBG
+  const response = await fetch(rembgUrl, {
     method: "POST",
-    headers: {
-      "X-Api-Key": apiKey,
-    },
-    body: form as any,
+    headers: { "Content-Type": "application/octet-stream" },
+    body,
   });
 
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => "");
-    throw new Error(`remove.bg failed (${resp.status}): ${txt}`);
+  if (!response.ok) {
+    const txt = await response.text().catch(() => "");
+    throw new Error(`RemBG API failed (${response.status}): ${txt}`);
   }
 
-  const cutout = Buffer.from(await resp.arrayBuffer());
+  const cutout = Buffer.from(await response.arrayBuffer());
 
-  // 3) Save the cutout back to S3
-  // We keep it in the same general "closet/..." namespace so the
-  // front-end can just use mediaKey directly.
+  // Step 3: Upload back to S3
   const destKey = `${destKeyPrefix}-cutout.png`;
 
   await s3.send(
@@ -76,7 +49,6 @@ export async function removeBackgroundForS3Object({
   return destKey;
 }
 
-// helper to read Node stream -> Buffer
 function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -85,4 +57,3 @@ function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
     stream.on("end", () => resolve(Buffer.concat(chunks)));
   });
 }
-

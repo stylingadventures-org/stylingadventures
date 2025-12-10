@@ -101,7 +101,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "f096ebb0671c1a4714848b734e38ea738a751f25c10a3049d479fa3a114e42b5.zip"
     },
     "Environment": {
@@ -243,7 +245,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "687d475964c135b338c41aa9cf93fb2c72cc61cd79367783cb6428f667e7a86f.zip"
     },
     "Environment": {
@@ -554,15 +558,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "BestiesStoriesStack/StoryPublishRule/AllowEventRuleBestiesStoriesStackPublishStoryFn0121DBB3"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/12Q3WqEQAyFn2XvY7rV3vSySguFtiz6ADI7Rjf+zBQz41IG372MLkvp1ZdDOOeQpJimGR4P6iqJboZk5DOGyik9gLpKHUY1nRtVG9tQL/i14c0b7dgaYDVhKO1IULRm48mOrH+i3KcVJKuVCDnBlwiQDHOvB3K5EoI9HkPRmntqNNM8sQhbswItZJxgeI3MvcT9fS79rdyPtII4+m5vMVI7JYNg+Ngq3s1iB4LdOHPT0cm7Tck/H4biYlkTVE45+lT6wmbr+KvXFUoS62dNsN1VOdWx6VaIn8JeHpb0iI/P+HTohTmZvXE8EZY7fwEn/lmjdgEAAA=="
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesStoriesStack/CDKMetadata/Default"
    }
   }
  },

@@ -216,7 +216,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64.zip"
     },
     "Environment": {
@@ -269,15 +271,6 @@
     "aws:asset:path": "asset.a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zXNTQqDMBAF4LO4j1Mbu+myCl2WogeQMUaJPwk4SaWE3L1E7ep7AzNvOHCeQ5bgRqnopnRWLfjaopgYbtR4ysEXTkzSsrLXZzookGRgMy5th402nRwJXjtPp4VVRjOFC/jKzDIe777NrMQ3jkcKjPIGiaQleETOQih7/a8JrJJk3Cok21dqi4PSQ2DxKYx0+fAMrne4JSMpla5OW7VIqA5/p0aePOIAAAA="
-   },
-   "Metadata": {
-    "aws:cdk:path": "CreatorToolsStack/CDKMetadata/Default"
    }
   }
  },
