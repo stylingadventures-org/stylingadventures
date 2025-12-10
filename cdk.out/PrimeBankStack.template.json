@@ -239,7 +239,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "3d8748af8af9e39c04f47be81b9531de7a04cdf1b51469524fb6e55e55b4af11.zip"
     },
     "Environment": {
@@ -417,7 +419,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "9ca99a8d040986e2f0a6c81ba00e51fcd0189000f1a7f50ff14375e1843a1e6e.zip"
     },
     "Environment": {
@@ -595,7 +599,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "c83ac07014f7a5ab27a06cddbce9700ea7d22947d669f78314b75f27c9baf69f.zip"
     },
     "Environment": {
@@ -773,7 +779,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "76802ec6922875b39ff8108d0071ae19c4bde542a13c049119804957eca7b370.zip"
     },
     "Environment": {
@@ -815,15 +823,6 @@
     "aws:asset:path": "asset.76802ec6922875b39ff8108d0071ae19c4bde542a13c049119804957eca7b370",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zWOTQ+CMBBEf4v3ZUXw4lFIPKoB72RpCykfrWFbCSH8dwPo6c0c5mUijKIYwwONHAjZBp0ucc4diRZo5GKWk6HeyhLnF5WdgrQyW1igo76UVBgrVcN433DzRjhtDWjqcc7sPtj4tJ0W01r3tADHBTErx3hdARxj4kWrXEKsfnpMK/OXLpAptn4QCrZB7qjWpl6VD+/e3i2wnsGGj58oxNMFz4eGtQ4Gb5zuFWY7v1QVnGTzAAAA"
-   },
-   "Metadata": {
-    "aws:cdk:path": "PrimeBankStack/CDKMetadata/Default"
    }
   }
  },

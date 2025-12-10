@@ -101,7 +101,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "bd4439fe74776cf5d4880361ada1ab8baed03d44f001a11b02adafdd0913dfd7.zip"
     },
     "Environment": {
@@ -249,7 +251,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "98867a0fee8f663e0632ec7773363bb74c77f74a2747b0d97839badf27a51732.zip"
     },
     "Environment": {
@@ -397,7 +401,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "79aca047b8d7812cc5cae2a2292f0de8810d57bd4ed01cad0492eaeb9292bf67.zip"
     },
     "Environment": {
@@ -545,7 +551,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "151cb289d6ad59f4b737d41d50123a02965ff83919353a2c4b181eaaa6193f18.zip"
     },
     "Environment": {
@@ -693,7 +701,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "5f6db37f384f0acf4a06be25df7aaf8760f524015704e3ed8df310cd4bf54aba.zip"
     },
     "Environment": {
@@ -841,7 +851,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "f73301f398fa28e900a663f07912cadb2590dbc46eba3237e645e3571e7c58b4.zip"
     },
     "Environment": {
@@ -989,7 +1001,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "41877a33cb3b78c6ca6ad84b2c8ea209275cccdb90801732231a55956b21844d.zip"
     },
     "Environment": {
@@ -1226,15 +1240,6 @@
    "DeletionPolicy": "Delete",
    "Metadata": {
     "aws:cdk:path": "PrimeStudiosStack/EpisodeProductionStateMachine/Resource"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WPUWvCQBCEf4vvl61NfOljFQqCrRJ/QFgvG91ccifuniIh/73kUkr79O3AMDuTQ54XsFzgQzJbu6zjEwxHResMPqQaOuxPNVY+1NQKfCV8RG+VgzeMPQxl6MhsGp94CB3b5yTnazRSVChCKvA+wUgB62gd6RqFzBwPm8b/horStfkRUimKE9gl29bfg6P/hlRW6RPthX3q8VePoylJQrxZMun9UfHM/jz59lGvUUczTYNWXu75El7fYLVohTm7Ra/cE5QzvwF7bW9bJwEAAA=="
-   },
-   "Metadata": {
-    "aws:cdk:path": "PrimeStudiosStack/CDKMetadata/Default"
    }
   }
  },

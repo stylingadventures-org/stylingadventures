@@ -123,7 +123,9 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
+     },
      "S3Key": "dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da.zip"
     },
     "Environment": {
@@ -176,15 +178,6 @@
     "aws:asset:path": "asset.dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "CDKMetadata": {
-   "Type": "AWS::CDK::Metadata",
-   "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zWOQW7CQAxFz8LecSFh02WJxJKicIDITAw4mXgqPAOqoty9mlBW73vx33eJZVnhekVPK1w3FF7OOJ0iuQHoae0kD8P6ovWNVNmDp/HcUauh497wsGCf1EUJCkIjTk3wDPVFFx6DF/ebz1eawaqWzDgafmWAVbhLbuC4I+N/fR58S2do2EK6O4alcIp0Fb1m5XeKPynOkJ/B3j4e5Ro3n7hd9SZS3JNGGRmbF/8A2J0XTOgAAAA="
-   },
-   "Metadata": {
-    "aws:cdk:path": "LivestreamStack/CDKMetadata/Default"
    }
   }
  },

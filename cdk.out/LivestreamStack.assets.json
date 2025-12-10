@@ -8,26 +8,26 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-66b21cce": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-64a92ca0": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "dd8b939a03297bf47fade54f74b81953bea4f9848b6d5c74e382ba746b79a0da.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
-    "36f0074baebb82e46f56722abb2118d82277b12bd8bd5fd44bcd69d61931b97e": {
+    "750ee992295944221ae230769f2cab300bf1585d86a6ce27a38631ec6c16e154": {
       "displayName": "LivestreamStack Template",
       "source": {
         "path": "LivestreamStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-afe349ae": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "36f0074baebb82e46f56722abb2118d82277b12bd8bd5fd44bcd69d61931b97e.json",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        "current_account-y-7d761a5b": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
+          "objectKey": "750ee992295944221ae230769f2cab300bf1585d86a6ce27a38631ec6c16e154.json",
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     }

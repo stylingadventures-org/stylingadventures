@@ -8,26 +8,26 @@
         "packaging": "zip"
       },
       "destinations": {
-        "637423256673-us-east-1-b07d8532": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+        "current_account-y-8c30cf4e": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
           "objectKey": "338a900c324786bb1bfc42d3d46004d041c331bf2a09a4be011d3dedb627b6e6.zip",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     },
-    "7bc428d72eba7ca60022a0e09128b00d08fd14bd7f9e7cc3a320dccd372c5fbc": {
+    "1245c297f7b4d7926acd5c1808583fb59748bc30a6ed92f9b8bfaaf802c17473": {
       "displayName": "BestiesEngagementStack Template",
       "source": {
         "path": "BestiesEngagementStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-1675bcc4": {
-          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "7bc428d72eba7ca60022a0e09128b00d08fd14bd7f9e7cc3a320dccd372c5fbc.json",
-          "region": "us-east-1",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        "current_account-y-317e32bd": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
+          "objectKey": "1245c297f7b4d7926acd5c1808583fb59748bc30a6ed92f9b8bfaaf802c17473.json",
+          "region": "y",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
         }
       }
     }
