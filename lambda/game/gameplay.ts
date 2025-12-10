@@ -7,11 +7,18 @@ import {
   GetCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { AppSyncIdentityCognito } from "aws-lambda";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { TABLE_NAME } from "../_shared/env";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
+
+// Prime Bank award Lambda (name passed via env from ApiStack)
+const AWARD_PRIME_COINS_FN_NAME =
+  process.env.AWARD_PRIME_COINS_FN_NAME || "";
+
+const lambdaClient = new LambdaClient({});
 
 // AppSync sometimes sends groups: null – accept null|undefined.
 type SAIdentity =
@@ -138,6 +145,42 @@ function isYesterdayUtc(aIso: string, bIso: string) {
   );
 }
 
+// ─────────────────────────────────────────────
+// Prime Bank helper – fire-and-forget award
+// ─────────────────────────────────────────────
+
+async function awardPrimeBankCoins(
+  userId: string,
+  amount: number,
+  source: string,
+  description: string,
+) {
+  if (!AWARD_PRIME_COINS_FN_NAME) {
+    // Prime Bank not wired for this env, just skip.
+    return;
+  }
+
+  const payload = {
+    action: "awardCoins", // adjust if your PrimeBank Lambda expects a different verb
+    userId,
+    amount,
+    source,
+    description,
+  };
+
+  try {
+    await lambdaClient.send(
+      new InvokeCommand({
+        FunctionName: AWARD_PRIME_COINS_FN_NAME,
+        InvocationType: "Event", // async, we don't block gameplay
+        Payload: Buffer.from(JSON.stringify(payload)),
+      }),
+    );
+  } catch (err) {
+    console.error("Failed to invoke Prime Bank awardCoins", err);
+  }
+}
+
 export const handler = async (event: AppSyncEvent) => {
   const { fieldName } = event.info;
   const identity = event.identity;
@@ -218,6 +261,18 @@ export const handler = async (event: AppSyncEvent) => {
       // reward scales mildly with streak
       xpInc = streak > 0 ? 10 + Math.min(5, streak) : 0;
       coinInc = streak > 0 ? 1 : 0;
+
+      // 🔹 Also award Prime Bank coins for daily login
+      // NOTE: `tier` type does not include "FREE", so we only gate on coinInc > 0.
+      if (coinInc > 0) {
+        await awardPrimeBankCoins(
+          userId,
+          coinInc,
+          "dailyLogin",
+    `      Daily login streak=${streak}`,
+        );
+      }
+
 
       const upd = await ddb.send(
         new UpdateCommand({
@@ -415,4 +470,3 @@ export const handler = async (event: AppSyncEvent) => {
 
   throw new Error(`Unknown field ${fieldName}`);
 };
-

@@ -1,6 +1,207 @@
 {
   "version": "48.0.0",
   "artifacts": {
+    "ShoppingStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "ShoppingStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "ShoppingStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://637423256673/us-east-1",
+      "properties": {
+        "templateFile": "ShoppingStack.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "App": "stylingadventures",
+          "Env": "dev"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3c77ee0a3b05cc844edeabe711cbefb9041281525511b45571e88ca88ab0f2db.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "ShoppingStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-lookup-role-637423256673-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "ShoppingStack.assets"
+      ],
+      "metadata": {
+        "/ShoppingStack": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "App",
+                "Value": "stylingadventures"
+              },
+              {
+                "Key": "Env",
+                "Value": "dev"
+              }
+            ]
+          }
+        ],
+        "/ShoppingStack/ProductTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ProductTableB8D4E9ED"
+            }
+          }
+        ],
+        "/ShoppingStack/ProductTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProductTableB8D4E9ED"
+          }
+        ],
+        "/ShoppingStack/AffiliateLinkTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AffiliateLinkTableB945AB49"
+            }
+          }
+        ],
+        "/ShoppingStack/AffiliateLinkTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AffiliateLinkTableB945AB49"
+          }
+        ],
+        "/ShoppingStack/ClosetItemProductMapTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ClosetItemProductMapTableC136F238"
+            }
+          }
+        ],
+        "/ShoppingStack/ClosetItemProductMapTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetItemProductMapTableC136F238"
+          }
+        ],
+        "/ShoppingStack/SceneProductMapTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "SceneProductMapTableC93D0F2E"
+            }
+          }
+        ],
+        "/ShoppingStack/SceneProductMapTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SceneProductMapTableC93D0F2E"
+          }
+        ],
+        "/ShoppingStack/GetShopLalasLookFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopLalasLookFnServiceRole4797B05E"
+          }
+        ],
+        "/ShoppingStack/GetShopLalasLookFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopLalasLookFnServiceRoleDefaultPolicy1AEFEDB0"
+          }
+        ],
+        "/ShoppingStack/GetShopLalasLookFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopLalasLookFn7E8D636F"
+          }
+        ],
+        "/ShoppingStack/GetShopThisSceneFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopThisSceneFnServiceRole79189C36"
+          }
+        ],
+        "/ShoppingStack/GetShopThisSceneFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopThisSceneFnServiceRoleDefaultPolicy8099EAA8"
+          }
+        ],
+        "/ShoppingStack/GetShopThisSceneFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetShopThisSceneFnB567D613"
+          }
+        ],
+        "/ShoppingStack/LinkClosetItemToProductFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LinkClosetItemToProductFnServiceRole4CEC6541"
+          }
+        ],
+        "/ShoppingStack/LinkClosetItemToProductFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LinkClosetItemToProductFnServiceRoleDefaultPolicy59E27F86"
+          }
+        ],
+        "/ShoppingStack/LinkClosetItemToProductFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LinkClosetItemToProductFnBF5E4B26"
+          }
+        ],
+        "/ShoppingStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"GetShopLalasLookFn7E8D636F\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttGetShopLalasLookFn7E8D636FArnC5A5CB60"
+          }
+        ],
+        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"GetShopThisSceneFnB567D613\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttGetShopThisSceneFnB567D613ArnC745B8AA"
+          }
+        ],
+        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"LinkClosetItemToProductFnBF5E4B26\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttLinkClosetItemToProductFnBF5E4B26ArnA1C06ED9"
+          }
+        ],
+        "/ShoppingStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/ShoppingStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "ShoppingStack"
+    },
     "WebStack.assets": {
       "type": "cdk:asset-manifest",
       "properties": {
@@ -405,7 +606,7 @@
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\custom-resources\\lib\\aws-custom-resource\\aws-custom-resource.js:1:7936)",
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\prop-injectable.js:1:681)",
               "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:187:37)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:127:18)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:134:18)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -532,7 +733,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/abb4da8f20569746fad89085414101526fa1afe08c430cc1f6c7146d74e86bba.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a35f025d7d4c909f01e8ce51acd37e0a9bb2c1fd195f7d44077d2b1288ff7c20.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1130,7 +1331,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/660076c3f9ac11914345964bcbd3f832fa9fbe623dc1ee7df96387d7f4a2f49a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3a6a229b2cb013207ea348d1b5f2f089695ef8a4fb3450f3fdf833b60a532ae8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1159,7 +1360,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new BestiesClosetStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\besties-closet-stack.ts:41:26)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:157:23)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:164:23)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -1487,7 +1688,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7dfeca7f01eeafae6e0a56b162e4bfed1550be0a495e10d9f47754e56b8bd246.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a437d24af1c4802303d61f743ed261f388d78518cf778125b715e2ed9051516f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1515,7 +1716,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new BestiesStoriesStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\besties-stories-stack.ts:29:23)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:165:24)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:172:24)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -1669,7 +1870,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/0203b7cb9eb80683943aa3795d069811558681bb998f917fa2e089b71a004bee.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7bc428d72eba7ca60022a0e09128b00d08fd14bd7f9e7cc3a320dccd372c5fbc.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1697,7 +1898,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new BestiesEngagementStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\besties-engagement-stack.ts:17:26)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:172:27)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:179:27)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -2132,7 +2333,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/4a746ea20dc86f02c9bf5b39991c0699fb268af705a82bffffd9fb769c2c021f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/da77102cb470579771d70da3ce5b01399d56146f55d0772c3b38856ebf7fad7e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2160,7 +2361,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new AnalyticsStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\analytics-stack.ts:48:21)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:212:19)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:219:19)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -2693,6 +2894,203 @@
       },
       "displayName": "PrimeStudiosStack"
     },
+    "PrimeBankStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "PrimeBankStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "PrimeBankStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://637423256673/us-east-1",
+      "properties": {
+        "templateFile": "PrimeBankStack.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "App": "stylingadventures",
+          "Env": "dev"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7173b7c44ee56437583f96067b1ffd7aa12bbfaa18919c9ae7362cb5f79fb50b.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "PrimeBankStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-lookup-role-637423256673-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "PrimeBankStack.assets"
+      ],
+      "metadata": {
+        "/PrimeBankStack": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "App",
+                "Value": "stylingadventures"
+              },
+              {
+                "Key": "Env",
+                "Value": "dev"
+              }
+            ]
+          }
+        ],
+        "/PrimeBankStack/PrimeBankAccountTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "PrimeBankAccountTable32D613E1"
+            }
+          }
+        ],
+        "/PrimeBankStack/PrimeBankAccountTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PrimeBankAccountTable32D613E1"
+          }
+        ],
+        "/PrimeBankStack/PrimeBankTransactionTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "PrimeBankTransactionTableCB2A4A5D"
+            }
+          }
+        ],
+        "/PrimeBankStack/PrimeBankTransactionTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PrimeBankTransactionTableCB2A4A5D"
+          }
+        ],
+        "/PrimeBankStack/AwardPrimeCoinsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardPrimeCoinsFnServiceRole4FDA7E71"
+          }
+        ],
+        "/PrimeBankStack/AwardPrimeCoinsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardPrimeCoinsFnServiceRoleDefaultPolicy7F21CD22"
+          }
+        ],
+        "/PrimeBankStack/AwardPrimeCoinsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardPrimeCoinsFn73EEE891"
+          }
+        ],
+        "/PrimeBankStack/AwardCreatorCreditsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardCreatorCreditsFnServiceRoleCAC26578"
+          }
+        ],
+        "/PrimeBankStack/AwardCreatorCreditsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardCreatorCreditsFnServiceRoleDefaultPolicy23AB6F6B"
+          }
+        ],
+        "/PrimeBankStack/AwardCreatorCreditsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AwardCreatorCreditsFn93939F81"
+          }
+        ],
+        "/PrimeBankStack/CalculateBankMeterFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CalculateBankMeterFnServiceRole4D66D080"
+          }
+        ],
+        "/PrimeBankStack/CalculateBankMeterFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CalculateBankMeterFnServiceRoleDefaultPolicy9EDD64F1"
+          }
+        ],
+        "/PrimeBankStack/CalculateBankMeterFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CalculateBankMeterFnE91A050D"
+          }
+        ],
+        "/PrimeBankStack/EnforceEarningCapsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EnforceEarningCapsFnServiceRole238C17C7"
+          }
+        ],
+        "/PrimeBankStack/EnforceEarningCapsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EnforceEarningCapsFnServiceRoleDefaultPolicy49E87F0A"
+          }
+        ],
+        "/PrimeBankStack/EnforceEarningCapsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EnforceEarningCapsFnB62C50CE"
+          }
+        ],
+        "/PrimeBankStack/PrimeBankAccountTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PrimeBankAccountTableName"
+          }
+        ],
+        "/PrimeBankStack/PrimeBankTransactionTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PrimeBankTransactionTableName"
+          }
+        ],
+        "/PrimeBankStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/PrimeBankStack/Exports/Output{\"Fn::GetAtt\":[\"AwardPrimeCoinsFn73EEE891\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2"
+          }
+        ],
+        "/PrimeBankStack/Exports/Output{\"Ref\":\"AwardPrimeCoinsFn73EEE891\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233"
+          }
+        ],
+        "/PrimeBankStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/PrimeBankStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "PrimeBankStack"
+    },
     "PublishingStack.assets": {
       "type": "cdk:asset-manifest",
       "properties": {
@@ -2714,7 +3112,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/09055a9e39bf78d738bbbaff61bb0916a4728fb0a9b35faaf69b70878592de7d.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ee247ef55f9260091de0a5282041c7d81774b7e6b2ba9b9771ee033691268688.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2743,7 +3141,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new PublishingStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\publishing-stack.ts:40:30)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:237:20)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:251:20)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -2897,7 +3295,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/6452e352ffb48878b15920fa545109d81e64e3e1621045f75df33dda615b58ba.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ae5a6cec0f869f4c7fdc11da96300a84c4d1ce432ac0d8d3e22e5883ef8e6576.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2929,7 +3327,7 @@
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "nodeFn (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\collaborator-stack.ts:104:7)",
               "new CollaboratorStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\collaborator-stack.ts:121:27)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:246:23)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:260:23)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3167,7 +3565,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/de9385c906356b7ab9ae3f7b5ed40c06b3a93f0448060aa9e3ed5aa30745dd56.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/99cf99e89de27165c95d3915814e65df47eb62e2620ac0f5bb0b90e7be352812.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3200,7 +3598,7 @@
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "nodeFn (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\promo-kit-stack.ts:60:7)",
               "new PromoKitStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\promo-kit-stack.ts:78:23)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:256:18)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:270:18)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3392,7 +3790,7 @@
               "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
               "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
               "new AdminStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\admin-stack.ts:60:25)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:267:15)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:281:15)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
               "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
@@ -3552,7 +3950,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fbd2a9709608d0d13ee46572129d1469f40218535b68dfa8831c96f1964a70fc.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/f8ce38fe88c410a1179949357ea2e7dda61d166aec7249c2f62873eb1bd58cf8.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3566,10 +3964,12 @@
       },
       "dependencies": [
         "IdentityV2Stack",
+        "ShoppingStack",
         "LivestreamStack",
         "DataStack",
         "BestiesClosetStack",
         "BestiesStoriesStack",
+        "PrimeBankStack",
         "ApiStack.assets"
       ],
       "metadata": {
@@ -4174,6 +4574,90 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiUpdateGameEconomyConfigResolver1450DE68"
+          }
+        ],
+        "/ApiStack/StylingApi/GetPrimeBankAccountResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiGetPrimeBankAccountResolver99BAF195"
+          }
+        ],
+        "/ApiStack/StylingApi/DailyLoginResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiDailyLoginResolver5E5CAA70"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopLalasLookDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopLalasLookDataSourceServiceRole0E7FCA6E"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopLalasLookDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopLalasLookDataSourceServiceRoleDefaultPolicy6752D949"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopLalasLookDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopLalasLookDataSource21726806"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopThisSceneDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopThisSceneDataSourceServiceRoleDE112DBD"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopThisSceneDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopThisSceneDataSourceServiceRoleDefaultPolicy8DA62DE3"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopThisSceneDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopThisSceneDataSourceE1DE73BD"
+          }
+        ],
+        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLinkClosetItemToProductDataSourceServiceRoleF7011663"
+          }
+        ],
+        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLinkClosetItemToProductDataSourceServiceRoleDefaultPolicyFF224FF1"
+          }
+        ],
+        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLinkClosetItemToProductDataSourceAC48B843"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopLalasLookResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopLalasLookResolverA5D57BCA"
+          }
+        ],
+        "/ApiStack/StylingApi/ShopThisSceneResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiShopThisSceneResolver38564249"
+          }
+        ],
+        "/ApiStack/StylingApi/LinkClosetItemToProductResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiLinkClosetItemToProductResolverBA5FDEE1"
           }
         ],
         "/ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/Resource": [

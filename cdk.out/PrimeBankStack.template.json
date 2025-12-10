@@ -1,0 +1,895 @@
+{
+ "Description": "Prime Bank balances and transactions - dev",
+ "Resources": {
+  "PrimeBankAccountTable32D613E1": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "userId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "userId",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "sa-dev-prime-bank-account",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/PrimeBankAccountTable/Resource"
+   }
+  },
+  "PrimeBankTransactionTableCB2A4A5D": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "userId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "timestamp",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "currency",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "currency-timestamp-index",
+      "KeySchema": [
+       {
+        "AttributeName": "currency",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "userId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "timestamp",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "sa-dev-prime-bank-txn",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/PrimeBankTransactionTable/Resource"
+   }
+  },
+  "AwardPrimeCoinsFnServiceRole4FDA7E71": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardPrimeCoinsFn/ServiceRole/Resource"
+   }
+  },
+  "AwardPrimeCoinsFnServiceRoleDefaultPolicy7F21CD22": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankAccountTable32D613E1",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankTransactionTableCB2A4A5D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PrimeBankTransactionTableCB2A4A5D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AwardPrimeCoinsFnServiceRoleDefaultPolicy7F21CD22",
+    "Roles": [
+     {
+      "Ref": "AwardPrimeCoinsFnServiceRole4FDA7E71"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardPrimeCoinsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AwardPrimeCoinsFn73EEE891": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "3d8748af8af9e39c04f47be81b9531de7a04cdf1b51469524fb6e55e55b4af11.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRIME_BANK_ACCOUNT_TABLE_NAME": {
+       "Ref": "PrimeBankAccountTable32D613E1"
+      },
+      "PRIME_BANK_TRANSACTION_TABLE_NAME": {
+       "Ref": "PrimeBankTransactionTableCB2A4A5D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AwardPrimeCoinsFnServiceRole4FDA7E71",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "AwardPrimeCoinsFnServiceRoleDefaultPolicy7F21CD22",
+    "AwardPrimeCoinsFnServiceRole4FDA7E71"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardPrimeCoinsFn/Resource",
+    "aws:asset:path": "asset.3d8748af8af9e39c04f47be81b9531de7a04cdf1b51469524fb6e55e55b4af11",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AwardCreatorCreditsFnServiceRoleCAC26578": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardCreatorCreditsFn/ServiceRole/Resource"
+   }
+  },
+  "AwardCreatorCreditsFnServiceRoleDefaultPolicy23AB6F6B": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankAccountTable32D613E1",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankTransactionTableCB2A4A5D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PrimeBankTransactionTableCB2A4A5D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AwardCreatorCreditsFnServiceRoleDefaultPolicy23AB6F6B",
+    "Roles": [
+     {
+      "Ref": "AwardCreatorCreditsFnServiceRoleCAC26578"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardCreatorCreditsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AwardCreatorCreditsFn93939F81": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "9ca99a8d040986e2f0a6c81ba00e51fcd0189000f1a7f50ff14375e1843a1e6e.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRIME_BANK_ACCOUNT_TABLE_NAME": {
+       "Ref": "PrimeBankAccountTable32D613E1"
+      },
+      "PRIME_BANK_TRANSACTION_TABLE_NAME": {
+       "Ref": "PrimeBankTransactionTableCB2A4A5D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AwardCreatorCreditsFnServiceRoleCAC26578",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "AwardCreatorCreditsFnServiceRoleDefaultPolicy23AB6F6B",
+    "AwardCreatorCreditsFnServiceRoleCAC26578"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/AwardCreatorCreditsFn/Resource",
+    "aws:asset:path": "asset.9ca99a8d040986e2f0a6c81ba00e51fcd0189000f1a7f50ff14375e1843a1e6e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CalculateBankMeterFnServiceRole4D66D080": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/CalculateBankMeterFn/ServiceRole/Resource"
+   }
+  },
+  "CalculateBankMeterFnServiceRoleDefaultPolicy9EDD64F1": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankAccountTable32D613E1",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankTransactionTableCB2A4A5D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PrimeBankTransactionTableCB2A4A5D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CalculateBankMeterFnServiceRoleDefaultPolicy9EDD64F1",
+    "Roles": [
+     {
+      "Ref": "CalculateBankMeterFnServiceRole4D66D080"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/CalculateBankMeterFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CalculateBankMeterFnE91A050D": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "c83ac07014f7a5ab27a06cddbce9700ea7d22947d669f78314b75f27c9baf69f.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRIME_BANK_ACCOUNT_TABLE_NAME": {
+       "Ref": "PrimeBankAccountTable32D613E1"
+      },
+      "PRIME_BANK_TRANSACTION_TABLE_NAME": {
+       "Ref": "PrimeBankTransactionTableCB2A4A5D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CalculateBankMeterFnServiceRole4D66D080",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "CalculateBankMeterFnServiceRoleDefaultPolicy9EDD64F1",
+    "CalculateBankMeterFnServiceRole4D66D080"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/CalculateBankMeterFn/Resource",
+    "aws:asset:path": "asset.c83ac07014f7a5ab27a06cddbce9700ea7d22947d669f78314b75f27c9baf69f",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "EnforceEarningCapsFnServiceRole238C17C7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/EnforceEarningCapsFn/ServiceRole/Resource"
+   }
+  },
+  "EnforceEarningCapsFnServiceRoleDefaultPolicy49E87F0A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankAccountTable32D613E1",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PrimeBankTransactionTableCB2A4A5D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PrimeBankTransactionTableCB2A4A5D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "EnforceEarningCapsFnServiceRoleDefaultPolicy49E87F0A",
+    "Roles": [
+     {
+      "Ref": "EnforceEarningCapsFnServiceRole238C17C7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/EnforceEarningCapsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "EnforceEarningCapsFnB62C50CE": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "76802ec6922875b39ff8108d0071ae19c4bde542a13c049119804957eca7b370.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRIME_BANK_ACCOUNT_TABLE_NAME": {
+       "Ref": "PrimeBankAccountTable32D613E1"
+      },
+      "PRIME_BANK_TRANSACTION_TABLE_NAME": {
+       "Ref": "PrimeBankTransactionTableCB2A4A5D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "EnforceEarningCapsFnServiceRole238C17C7",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "EnforceEarningCapsFnServiceRoleDefaultPolicy49E87F0A",
+    "EnforceEarningCapsFnServiceRole238C17C7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/EnforceEarningCapsFn/Resource",
+    "aws:asset:path": "asset.76802ec6922875b39ff8108d0071ae19c4bde542a13c049119804957eca7b370",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zWOTQ+CMBBEf4v3ZUXw4lFIPKoB72RpCykfrWFbCSH8dwPo6c0c5mUijKIYwwONHAjZBp0ucc4diRZo5GKWk6HeyhLnF5WdgrQyW1igo76UVBgrVcN433DzRjhtDWjqcc7sPtj4tJ0W01r3tADHBTErx3hdARxj4kWrXEKsfnpMK/OXLpAptn4QCrZB7qjWpl6VD+/e3i2wnsGGj58oxNMFz4eGtQ4Gb5zuFWY7v1QVnGTzAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "PrimeBankStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "PrimeBankAccountTableName": {
+   "Value": {
+    "Ref": "PrimeBankAccountTable32D613E1"
+   }
+  },
+  "PrimeBankTransactionTableName": {
+   "Value": {
+    "Ref": "PrimeBankTransactionTableCB2A4A5D"
+   }
+  },
+  "ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2": {
+   "Value": {
+    "Fn::GetAtt": [
+     "AwardPrimeCoinsFn73EEE891",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "PrimeBankStack:ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2"
+   }
+  },
+  "ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233": {
+   "Value": {
+    "Ref": "AwardPrimeCoinsFn73EEE891"
+   },
+   "Export": {
+    "Name": "PrimeBankStack:ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

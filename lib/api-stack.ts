@@ -1,3 +1,4 @@
+// lib/api-stack.ts
 import * as path from "path";
 import { Stack, StackProps, CfnOutput, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -25,6 +26,14 @@ export interface ApiStackProps extends StackProps {
 
   /** Optional: centralized admin moderation lambda (from AdminStack) */
   adminModerationFn?: lambda.IFunction;
+
+  // 🔹 Prime Bank – AwardPrimeCoins Lambda (from PrimeBankStack)
+  primeBankAwardCoinsFn: lambda.IFunction;
+
+  // 🛍 Shopping – Lamba functions from ShoppingStack
+  getShopLalasLookFn: lambda.IFunction;
+  getShopThisSceneFn: lambda.IFunction;
+  linkClosetItemToProductFn: lambda.IFunction;
 }
 
 // Static names used in Cognito groups
@@ -54,17 +63,29 @@ export class ApiStack extends Stack {
       livestreamFn,
       commerceFn,
       adminModerationFn, // currently unused but available for future wiring
+      primeBankAwardCoinsFn,
+      // 🛍 Shopping lambdas from ShoppingStack
+      getShopLalasLookFn,
+      getShopThisSceneFn,
+      linkClosetItemToProductFn,
     } = props;
 
     // Derive env name (shared convention with DatabaseStack)
     const envName =
-      this.node.tryGetContext("env") ||
-      process.env.ENVIRONMENT ||
-      "dev";
+      this.node.tryGetContext("env") || process.env.ENVIRONMENT || "dev";
+
+    // 🔹 Prime Bank account table name (follows your naming convention)
+    const primeBankAccountTableName = `sa-${envName}-prime-bank-account`;
+
+    // Import PrimeBankAccount table by name so we can grant IAM to lambdas
+    const primeBankAccountTable = dynamodb.Table.fromTableName(
+      this,
+      "PrimeBankAccountImported",
+      primeBankAccountTableName,
+    );
 
     // Web origin for browser uploads to S3 (adjust per env)
-    const webOrigin =
-      process.env.WEB_ORIGIN ?? "http://localhost:5173";
+    const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
 
     // Shared DynamoDB env for all Lambdas using the single-table design.
     const DDB_ENV = {
@@ -570,7 +591,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // GAME RESOLVERS
+    // GAME / ECONOMY / PRIME BANK RESOLVERS
     // ────────────────────────────────────────────────────────────
     const gameEnv = {
       ...DDB_ENV,
@@ -584,6 +605,8 @@ export class ApiStack extends Stack {
       environment: {
         ...gameEnv,
         ADMIN_GROUP_NAME, // e.g. awardCoins can be admin-only
+        // ⬇️ NEW
+        AWARD_PRIME_COINS_FN_NAME: primeBankAwardCoinsFn.functionName,
       },
     });
 
@@ -600,7 +623,7 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: {
         ...gameEnv,
-        ADMIN_GROUP_NAME, // createPoll can be restricted to admins
+        ADMIN_GROUP_NAME,
       },
     });
 
@@ -610,25 +633,38 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: {
         ...gameEnv,
-        ADMIN_GROUP_NAME, // grantBadge etc can be admin-only
+        ADMIN_GROUP_NAME,
       },
     });
 
-    const economyFn = new NodejsFunction(this, "GameEconomyFn", {
-      entry: "lambda/game/economy.ts",
+    // Prime Bank-aware Economy Fn
+    const gameEconomyFn = new NodejsFunction(this, "GameEconomyFn", {
+      entry: "lambda/api/game-economy.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: {
         ...gameEnv,
         ADMIN_GROUP_NAME,
+        AWARD_PRIME_COINS_FN_NAME: primeBankAwardCoinsFn.functionName,
+        PRIME_BANK_ACCOUNT_TABLE_NAME: primeBankAccountTableName,
       },
     });
 
+    // Dynamo permissions
     table.grantReadWriteData(gameplayFn);
     table.grantReadData(leaderboardFn);
     table.grantReadWriteData(pollsFn);
     table.grantReadWriteData(profileFn);
-    table.grantReadWriteData(economyFn);
+    table.grantReadWriteData(gameEconomyFn);
+
+    // Prime Bank permissions
+    primeBankAccountTable.grantReadWriteData(gameEconomyFn);
+
+    // already had this:
+    primeBankAwardCoinsFn.grantInvoke(gameEconomyFn);
+
+    // ⬇️ NEW — gameplay can also invoke AwardPrimeCoinsFn
+    primeBankAwardCoinsFn.grantInvoke(gameplayFn);
 
     const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
     const leaderboardDs = this.api.addLambdaDataSource(
@@ -637,7 +673,10 @@ export class ApiStack extends Stack {
     );
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
-    const economyDs = this.api.addLambdaDataSource("GameEconomyDs", economyFn);
+    const gameEconomyDs = this.api.addLambdaDataSource(
+      "GameEconomyDs",
+      gameEconomyFn,
+    );
 
     gameplayDs.createResolver("LogGameEventResolver", {
       typeName: "Mutation",
@@ -694,15 +733,64 @@ export class ApiStack extends Stack {
       fieldName: "getMyProfile",
     });
 
-    economyDs.createResolver("GetGameEconomyConfigResolver", {
+    // Existing Game Economy resolvers (config lives in GameEconomyFn now)
+    gameEconomyDs.createResolver("GetGameEconomyConfigResolver", {
       typeName: "Query",
       fieldName: "getGameEconomyConfig",
     });
 
-    economyDs.createResolver("UpdateGameEconomyConfigResolver", {
+    gameEconomyDs.createResolver("UpdateGameEconomyConfigResolver", {
       typeName: "Mutation",
       fieldName: "updateGameEconomyConfig",
     });
+
+    // 🔹 NEW: Prime Bank resolvers (implemented inside GameEconomyFn)
+    gameEconomyDs.createResolver("GetPrimeBankAccountResolver", {
+      typeName: "Query",
+      fieldName: "getPrimeBankAccount",
+    });
+
+    gameEconomyDs.createResolver("DailyLoginResolver", {
+      typeName: "Mutation",
+      fieldName: "dailyLogin",
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // 🛍 SHOPPING (Shop Lala's Look, Shop This Scene, Link Closet Item)
+    // ────────────────────────────────────────────────────────────
+    const shopLalasLookDs = this.api.addLambdaDataSource(
+      "ShopLalasLookDataSource",
+      getShopLalasLookFn,
+    );
+
+    const shopThisSceneDs = this.api.addLambdaDataSource(
+      "ShopThisSceneDataSource",
+      getShopThisSceneFn,
+    );
+
+    const linkClosetItemToProductDs = this.api.addLambdaDataSource(
+      "LinkClosetItemToProductDataSource",
+      linkClosetItemToProductFn,
+    );
+
+    // 🛍 Resolvers
+    shopLalasLookDs.createResolver("ShopLalasLookResolver", {
+      typeName: "Query",
+      fieldName: "shopLalasLook",
+    });
+
+    shopThisSceneDs.createResolver("ShopThisSceneResolver", {
+      typeName: "Query",
+      fieldName: "shopThisScene",
+    });
+
+    linkClosetItemToProductDs.createResolver(
+      "LinkClosetItemToProductResolver",
+      {
+        typeName: "Mutation",
+        fieldName: "linkClosetItemToProduct",
+      },
+    );
 
     // ────────────────────────────────────────────────────────────
     // CREATOR / LIVESTREAM / AI / COMMERCE / CABINETS
@@ -793,8 +881,6 @@ export class ApiStack extends Stack {
     });
 
     // 🔹 New: folders + richer asset ops
-
-    // NOTE: fieldName now matches creatorCabinetFolders in schema
     creatorAiDs.createResolver("CreatorCabinetFoldersResolver", {
       typeName: "Query",
       fieldName: "creatorCabinetFolders",
@@ -840,3 +926,4 @@ export class ApiStack extends Stack {
     });
   }
 }
+

@@ -1,9 +1,8 @@
-// site/src/routes/fan/ClosetFeed.jsx
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getSignedGetUrl } from "../../lib/sa";
 import { hydrateClosetItems } from "../../lib/closetMedia";
 import { hasLiked, toggleLikeLocal } from "../../lib/closetLikes";
+import { shopLalasLook } from "../../api/shopping";
 
 // Full query – tries viewerHasFaved when available, using ClosetConnection
 const GQL_FEED_FULL = /* GraphQL */ `
@@ -143,6 +142,174 @@ function ClosetCardSkeleton() {
   );
 }
 
+/**
+ * Single closet card, now with "Shop Lala's Look" button + results.
+ */
+function ClosetItemCard({ item, highlightId, busyId, onToggleFavorite }) {
+  const [shopResults, setShopResults] = useState([]);
+  const [shopLoading, setShopLoading] = useState(false);
+
+  const isHighlight = highlightId && item.id === highlightId;
+  const liked = !!item.viewerHasFaved;
+  const favCount = item.favoriteCount ?? 0;
+  const { label: audienceLabel, className: audienceClass } = audienceChip(item);
+
+  let socialLine = "";
+  if (favCount === 0) {
+    socialLine = "Heart this if you’d wear it 💗";
+  } else if (liked && favCount === 1) {
+    socialLine = "You love this look";
+  } else if (liked && favCount > 1) {
+    const others = favCount - 1;
+    socialLine = `You and ${others} other${others === 1 ? "" : "s"} love this look`;
+  } else {
+    socialLine = `${favCount} fan${favCount === 1 ? "" : "s"} love this look`;
+  }
+
+  const onShopClick = async () => {
+    setShopLoading(true);
+    try {
+      // GraphQL: shopLalasLook(closetItemId: ID!): [ShopProduct!]!
+      const products = await shopLalasLook(item.id);
+      setShopResults(products || []);
+    } catch (e) {
+      console.warn("[ClosetFeed] shopLalasLook failed", e);
+      setShopResults([]);
+    } finally {
+      setShopLoading(false);
+    }
+  };
+
+  return (
+    <article
+      key={item.id}
+      data-closet-id={item.id}
+      className={"closet-item" + (isHighlight ? " closet-item--highlight" : "")}
+    >
+      <div className="closet-item__thumbWrap">
+        {item.mediaUrl ? (
+          <img
+            src={item.mediaUrl}
+            alt={item.title || "Closet item"}
+            className="closet-item__thumb"
+            loading="lazy"
+          />
+        ) : (
+          <div className="closet-item__thumb closet-item__thumb--empty">
+            Look coming soon…
+          </div>
+        )}
+
+        <button
+          type="button"
+          className={liked ? "closet-heart closet-heart--active" : "closet-heart"}
+          aria-label={liked ? "Un-heart this look" : "Heart this look"}
+          onClick={() => onToggleFavorite(item)}
+          disabled={busyId === item.id}
+        >
+          <span className="closet-heart__icon">{liked ? "❤" : "♡"}</span>
+        </button>
+
+        <div className="closet-heartCount">{favCount}</div>
+      </div>
+
+      <div className="closet-item__body">
+        <div className="closet-item__title">
+          {item.title || "Untitled look"}
+        </div>
+        <div className="closet-item__meta">
+          <div className="closet-item__meta-left">
+            <span className="closet-chip">Closet look</span>
+            <span className={audienceClass}>{audienceLabel}</span>
+            {item.pinned && (
+              <span className="closet-chip closet-chip--lala">
+                Lala&apos;s pick
+              </span>
+            )}
+          </div>
+          <span className="closet-meta-text">
+            Added{" "}
+            {item.createdAt
+              ? new Date(item.createdAt).toLocaleDateString()
+              : "recently"}
+          </span>
+        </div>
+
+        {/* Fan-visible coin value */}
+        {item.coinValue != null && item.coinValue !== 0 && (
+          <div className="fan-coin-pill">
+            🪙 Worth {item.coinValue} coin
+            {item.coinValue === 1 ? "" : "s"}
+          </div>
+        )}
+
+        {/* category / subcategory chips */}
+        {(item.category || item.subcategory) && (
+          <div className="fan-closet-tags">
+            {item.category && (
+              <span className="fan-closet-tag">{item.category}</span>
+            )}
+            {item.subcategory && (
+              <span className="fan-closet-tag fan-closet-tag--soft">
+                {item.subcategory}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="closet-item__social">{socialLine}</div>
+
+        {/* 🛍 Shop Lala's Look button */}
+        <button
+          type="button"
+          className="closet-shop-btn"
+          onClick={onShopClick}
+          disabled={shopLoading}
+        >
+          {shopLoading ? "Finding Lala’s look..." : "Shop Lala’s Look"}
+        </button>
+
+        {/* 🛍 Results list */}
+        {shopResults.length > 0 && (
+          <div className="shop-results">
+            {shopResults.map((p) => {
+              const links = p.affiliateLinks || [];
+              return (
+                <div key={p.productId} className="shop-product">
+                  {p.imageUrl && (
+                    <img src={p.imageUrl} alt={p.name || "Product"} />
+                  )}
+                  <div className="shop-product__info">
+                    <div className="shop-product__name">
+                      {p.name || "Product"}
+                    </div>
+                    {p.price != null && (
+                      <div className="shop-product__price">${p.price}</div>
+                    )}
+
+                    <div className="shop-product__links">
+                      {links.map((link) => (
+                        <a
+                          key={link.affiliateLinkId}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Buy on {link.retailerName}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function ClosetFeed() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,9 +372,6 @@ export default function ClosetFeed() {
               lastError = inner;
             }
           } else {
-            // Any other GraphQL error from closetFeed (including
-            // non-null items / ClosetConnection issues) – don't crash,
-            // just note it and fall back to admin list.
             console.warn(
               "[ClosetFeed] closetFeed query failed – will rely on admin fallback",
               e,
@@ -247,12 +411,9 @@ export default function ClosetFeed() {
           throw lastError;
         }
 
-        // Visibility filter – ONLY PUBLISHED items,
-        // and hide obvious non-fan states and admin-only/hide audiences.
+        // Visibility filter – ONLY PUBLISHED items
         const visible = raw.filter((it) => {
           const status = (it.status || "").toUpperCase();
-
-          // enforce published-only feed
           if (status !== "PUBLISHED") return false;
 
           const audience = (it.audience || "").toUpperCase();
@@ -264,7 +425,6 @@ export default function ClosetFeed() {
         });
 
         const withKeys = visible.map((it) => {
-          // Local cache of likes (for snappy UX / offline-ish)
           const localLiked = hasLiked(it.id);
           const apiLiked =
             typeof it.viewerHasFaved === "boolean" ? it.viewerHasFaved : false;
@@ -279,14 +439,12 @@ export default function ClosetFeed() {
           };
         });
 
-        // Hydrate S3 / CDN URLs with a robust fallback (shared helper)
         const hydrated = await hydrateClosetItems(withKeys, {
           preferRaw: false,
           urlField: "mediaUrl",
           debugTag: "ClosetFeed",
         });
 
-        // Sort client-side as a fallback (backend already gives NEWEST / MOST_LOVED)
         hydrated.sort((a, b) => {
           const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
           const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
@@ -306,9 +464,6 @@ export default function ClosetFeed() {
           return bTime - aTime;
         });
 
-        // Tab-specific filters:
-        // - LALAS_PICK: Lala's editorial picks (pinned === true)
-        // - MY_FAVES: viewerHasFaved === true
         let next = hydrated;
         if (sort === "LALAS_PICK") {
           next = hydrated.filter((it) => !!it.pinned);
@@ -338,9 +493,7 @@ export default function ClosetFeed() {
   // Scroll highlight into view on first render
   useEffect(() => {
     if (!highlightId) return;
-    const el = document.querySelector(
-      `[data-closet-id="${highlightId}"]`,
-    );
+    const el = document.querySelector(`[data-closet-id="${highlightId}"]`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -363,11 +516,9 @@ export default function ClosetFeed() {
   );
 
   // ----- hearts -----
-
   async function toggleFavoriteToBackend(item) {
     const id = item.id;
 
-    // instant local toggle (no flicker)
     const localLiked = toggleLikeLocal(id);
     setItems((prev) =>
       prev.map((it) => {
@@ -589,132 +740,15 @@ export default function ClosetFeed() {
           {!err && visibleItems.length > 0 && (
             <>
               <div className="closet-grid">
-                {visibleItems.map((it) => {
-                  const isHighlight = highlightId && it.id === highlightId;
-                  const liked = !!it.viewerHasFaved;
-                  const favCount = it.favoriteCount ?? 0;
-                  const {
-                    label: audienceLabel,
-                    className: audienceClass,
-                  } = audienceChip(it);
-
-                  let socialLine = "";
-                  if (favCount === 0) {
-                    socialLine = "Heart this if you’d wear it 💗";
-                  } else if (liked && favCount === 1) {
-                    socialLine = "You love this look";
-                  } else if (liked && favCount > 1) {
-                    const others = favCount - 1;
-                    socialLine = `You and ${others} other${
-                      others === 1 ? "" : "s"
-                    } love this look`;
-                  } else {
-                    socialLine = `${favCount} fan${
-                      favCount === 1 ? "" : "s"
-                    } love this look`;
-                  }
-
-                  return (
-                    <article
-                      key={it.id}
-                      data-closet-id={it.id}
-                      className={
-                        "closet-item" +
-                        (isHighlight ? " closet-item--highlight" : "")
-                      }
-                    >
-                      <div className="closet-item__thumbWrap">
-                        {it.mediaUrl ? (
-                          <img
-                            src={it.mediaUrl}
-                            alt={it.title || "Closet item"}
-                            className="closet-item__thumb"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="closet-item__thumb closet-item__thumb--empty">
-                            Look coming soon…
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          className={
-                            liked
-                              ? "closet-heart closet-heart--active"
-                              : "closet-heart"
-                          }
-                          aria-label={
-                            liked
-                              ? "Un-heart this look"
-                              : "Heart this look"
-                          }
-                          onClick={() => toggleFavoriteToBackend(it)}
-                          disabled={busyId === it.id}
-                        >
-                          <span className="closet-heart__icon">
-                            {liked ? "❤" : "♡"}
-                          </span>
-                        </button>
-
-                        <div className="closet-heartCount">{favCount}</div>
-                      </div>
-
-                      <div className="closet-item__body">
-                        <div className="closet-item__title">
-                          {it.title || "Untitled look"}
-                        </div>
-                        <div className="closet-item__meta">
-                          <div className="closet-item__meta-left">
-                            <span className="closet-chip">Closet look</span>
-                            <span className={audienceClass}>
-                              {audienceLabel}
-                            </span>
-                            {it.pinned && (
-                              <span className="closet-chip closet-chip--lala">
-                                Lala&apos;s pick
-                              </span>
-                            )}
-                          </div>
-                          <span className="closet-meta-text">
-                            Added{" "}
-                            {it.createdAt
-                              ? new Date(it.createdAt).toLocaleDateString()
-                              : "recently"}
-                          </span>
-                        </div>
-
-                        {/* Fan-visible coin value */}
-                        {it.coinValue != null && it.coinValue !== 0 && (
-                          <div className="fan-coin-pill">
-                            🪙 Worth {it.coinValue} coin
-                            {it.coinValue === 1 ? "" : "s"}
-                          </div>
-                        )}
-
-                        {/* category / subcategory chips */}
-                        {(it.category || it.subcategory) && (
-                          <div className="fan-closet-tags">
-                            {it.category && (
-                              <span className="fan-closet-tag">
-                                {it.category}
-                              </span>
-                            )}
-                            {it.subcategory && (
-                              <span className="fan-closet-tag fan-closet-tag--soft">
-                                {it.subcategory}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="closet-item__social">
-                          {socialLine}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                {visibleItems.map((it) => (
+                  <ClosetItemCard
+                    key={it.id}
+                    item={it}
+                    highlightId={highlightId}
+                    busyId={busyId}
+                    onToggleFavorite={toggleFavoriteToBackend}
+                  />
+                ))}
               </div>
 
               {hasMore && (
@@ -1058,7 +1092,7 @@ const styles = `
     radial-gradient(circle at top left, #fdf2ff, #fee2f2),
     #fee2f2;
   height: 240px;
-  padding: 8px;  /* was 14px – gives more room for the image */
+  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1074,7 +1108,7 @@ const styles = `
 .closet-item__thumb {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* change to "cover" if you prefer cropping */
+  object-fit: contain;
   display: block;
 }
 
@@ -1290,4 +1324,87 @@ const styles = `
   background: #f9fafb;
   color: #6b7280;
 }
+
+/* 🛍 Shop results styles */
+.closet-shop-btn {
+  margin-top: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.closet-shop-btn:hover:enabled {
+  background: #f3e8ff;
+  border-color: #d8b4fe;
+}
+.closet-shop-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.shop-results {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shop-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.shop-product img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.shop-product__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shop-product__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.shop-product__price {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.shop-product__confidence {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.shop-product__links a {
+  font-size: 0.75rem;
+  color: #2563eb;
+  text-decoration: underline;
+  margin-right: 6px;
+}
+
+.closet-pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
 `;
+

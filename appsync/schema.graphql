@@ -200,6 +200,17 @@ type Query {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
+  # Prime Bank – fetch current account/balance
+  getPrimeBankAccount: PrimeBankAccount
+    @aws_cognito_user_pools
+
+  # 🛍 Shopping
+  shopLalasLook(closetItemId: ID!): [ShopProduct!]!
+    @aws_cognito_user_pools
+
+  shopThisScene(sceneId: ID!): [ShopProduct!]!
+    @aws_cognito_user_pools
+
   # Episodes admin (admin-only)
   adminListEpisodes(
     status: EpisodeStatus
@@ -241,6 +252,16 @@ type Mutation {
     @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
   updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  # 🛍 Link a closet item/photo to a product
+  linkClosetItemToProduct(
+    closetItemId: ID!
+    productId: ID!
+    matchConfidence: Int
+    source: String
+  ): Boolean!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
@@ -339,6 +360,10 @@ type Mutation {
   awardCoins(input: AwardCoinsInput!): GameProfile!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  # Prime Bank – daily login + streak rewards
+  dailyLogin: DailyLoginResult!
+    @aws_cognito_user_pools
 
   # Polls (aligned with lambda/game/polls.ts)
   createPoll(input: CreatePollInput!): Poll!
@@ -727,6 +752,29 @@ type ClosetConnection {
 }
 
 # ─────────────────────────────────────────
+# Shopping / Affiliate types
+# ─────────────────────────────────────────
+
+type AffiliateLink {
+  affiliateLinkId: ID!
+  retailerName: String!
+  url: String!
+  commissionRate: Float
+}
+
+type ShopProduct {
+  productId: ID!
+  name: String!
+  brand: String
+  imageUrl: String
+  category: String
+  price: Float
+  color: String
+  sizeOptions: [String]
+  affiliateLinks: [AffiliateLink!]!
+}
+
+# ─────────────────────────────────────────
 # Closet inputs – fan / bestie
 # ─────────────────────────────────────────
 
@@ -1075,6 +1123,26 @@ input UpdateProfileInput {
   displayName: String
   avatarUrl: String
   bio: String
+}
+
+# ─────────────────────────────────────────
+# Prime Bank – balances + daily login
+# ─────────────────────────────────────────
+
+type PrimeBankAccount {
+  userId: ID!
+  totalCoins: Int!
+  availableCoins: Int!
+  pendingCoins: Int!
+  lastUpdatedAt: AWSDateTime
+}
+
+type DailyLoginResult {
+  success: Boolean!
+  message: String
+  streak: Int!
+  awardedCoins: Int!
+  newBalance: Int
 }
 
 # ─────────────────────────────────────────
