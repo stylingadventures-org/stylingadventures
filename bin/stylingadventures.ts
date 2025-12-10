@@ -16,6 +16,7 @@ import { WebStack } from "../lib/web-stack";
 import { BestiesClosetStack } from "../lib/besties-closet-stack";
 import { BestiesStoriesStack } from "../lib/besties-stories-stack";
 import { BestiesEngagementStack } from "../lib/besties-engagement-stack";
+import { ShoppingStack } from "../lib/shopping-stack";
 
 // Creator / Pro stacks
 import { LivestreamStack } from "../lib/livestream-stack";
@@ -34,6 +35,9 @@ import { AdminStack } from "../lib/admin-stack";
 import { LayoutEngineStack } from "../lib/layout-engine-stack";
 import { PrimeStudiosStack } from "../lib/prime-studios-stack";
 import { PublishingStack } from "../lib/publishing-stack";
+
+// 🆕 Prime Bank stack
+import { PrimeBankStack } from "../lib/prime-bank-stack";
 
 // ---- tiny config loader ----
 type Cfg = { webOrigin?: string };
@@ -176,7 +180,7 @@ const bestiesEngagement = new BestiesEngagementStack(
     env,
     table: data.table,
     description: `Besties engagement fan-out workflows - ${envName}`,
-  },
+  }
 );
 
 // 9) Pro Creators — livestream infra
@@ -197,6 +201,11 @@ const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
   // NEW: Social Pulse Express state machine from WorkflowsV2
   socialPulseStateMachine: workflows.socialPulseStateMachine,
   description: `Creator scheduling + AI helpers - ${envName}`,
+});
+
+// 10.5) Shopping — product & scene mapping
+const shopping = new ShoppingStack(app, "ShoppingStack", {
+  env,
 });
 
 // 11) Commerce
@@ -231,6 +240,13 @@ const primeStudios = new PrimeStudiosStack(app, "PrimeStudiosStack", {
   userPool: identity.userPool,
   layoutValidatorFn: layoutEngine.layoutValidatorFn,
   description: `Prime Studios episode production + support systems - ${envName}`,
+});
+
+// 14.5) Prime Bank — balances, transactions, caps
+const primeBank = new PrimeBankStack(app, "PrimeBankStack", {
+  env,
+  envName,
+  description: `Prime Bank balances and transactions - ${envName}`,
 });
 
 // 15) Publishing — episode publishing pipeline
@@ -290,6 +306,14 @@ const api = new ApiStack(app, "ApiStack", {
   commerceFn: commerce.commerceFn,
 
   adminModerationFn: admin.moderationFn,
+
+  // 🔹 Wire Prime Bank into API so game economy can award Prime Coins
+  primeBankAwardCoinsFn: primeBank.awardPrimeCoinsFn,
+
+  // 🛍 New shopping Lambdas
+  getShopLalasLookFn: shopping.getShopLalasLookFn,
+  getShopThisSceneFn: shopping.getShopThisSceneFn,
+  linkClosetItemToProductFn: shopping.linkClosetItemToProductFn,
 });
 
 // ---- Tags ----

@@ -10,12 +10,13 @@
     "plan:dev": "npx cdk synth && npx cdk diff --all"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.913.0",
+    "@aws-sdk/client-dynamodb": "^3.948.0",
     "@aws-sdk/client-eventbridge": "^3.913.0",
+    "@aws-sdk/client-lambda": "^3.948.0",
     "@aws-sdk/client-s3": "^3.943.0",
     "@aws-sdk/client-sfn": "^3.911.0",
     "@aws-sdk/client-sqs": "^3.906.0",
-    "@aws-sdk/lib-dynamodb": "^3.913.0",
+    "@aws-sdk/lib-dynamodb": "^3.948.0",
     "@aws-sdk/s3-request-presigner": "^3.943.0",
     "@aws-sdk/util-dynamodb": "^3.913.0",
     "@emotion/react": "^11.14.0",
@@ -51,4 +52,3 @@
     "typescript": "^5.9.3"
   }
 }
-

@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node bin/stylingadventures.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/aws-lala.ts",
   "context": {
     "/sa/dev/cognito/domainprefix": "sa-dev-637423256673",
     "/sa/dev/web/callbackUrl": "https://d1682i07dc1r3k.cloudfront.net/callback/index.html",
