@@ -4065,7 +4065,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "8dd00c89a280c6944c02cac8c643bee930f498c718e1e0aa70fbf9218677084d.zip"
+     "S3Key": "1b14f314e4d8b3bf786b098e2ed4e1bc5e957eebd68493b1ed5d76e43c6e045c.zip"
     },
     "Environment": {
      "Variables": {
@@ -4110,7 +4110,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetAdminFn/Resource",
-    "aws:asset:path": "asset.8dd00c89a280c6944c02cac8c643bee930f498c718e1e0aa70fbf9218677084d",
+    "aws:asset:path": "asset.1b14f314e4d8b3bf786b098e2ed4e1bc5e957eebd68493b1ed5d76e43c6e045c",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
