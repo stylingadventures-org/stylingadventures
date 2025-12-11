@@ -323,7 +323,7 @@ export default function Layout() {
       <footer className="site">
         <div className="container foot-inner">
           <div>© Styling Adventures</div>
-          <div className="hide-sm">Made with ❤️ and good style days.</div>
+          <div className="hide-sm">Made for Play.Organizing.Getting this muphuken money.❤️</div>
         </div>
       </footer>
     </>

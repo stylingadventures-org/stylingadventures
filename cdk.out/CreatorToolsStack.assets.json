@@ -8,26 +8,26 @@
         "packaging": "zip"
       },
       "destinations": {
-        "current_account-y-a31afecb": {
-          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
+        "637423256673-us-east-1-6a0178f3": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
           "objectKey": "a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64.zip",
-          "region": "y",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }
       }
     },
-    "e77b3b28c07b514b77effa095415cf339ef9ebe647e49307c33cf1516b100487": {
+    "8f2daaa195e6404a1c198ae1f6e06cd89f69517c76ce949a67e8628fa5a2a8e7": {
       "displayName": "CreatorToolsStack Template",
       "source": {
         "path": "CreatorToolsStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "current_account-y-5ace1dcf": {
-          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-y",
-          "objectKey": "e77b3b28c07b514b77effa095415cf339ef9ebe647e49307c33cf1516b100487.json",
-          "region": "y",
-          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-y"
+        "637423256673-us-east-1-c46d4f74": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "8f2daaa195e6404a1c198ae1f6e06cd89f69517c76ce949a67e8628fa5a2a8e7.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }
       }
     }

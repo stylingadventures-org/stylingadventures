@@ -1,3 +1,4 @@
+// site/src/routes/fan/ClosetFeed.jsx
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { hydrateClosetItems } from "../../lib/closetMedia";
@@ -442,7 +443,7 @@ export default function ClosetFeed() {
         const hydrated = await hydrateClosetItems(withKeys, {
           preferRaw: false,
           urlField: "mediaUrl",
-          debugTag: "ClosetFeed",
+          logPrefix: "[ClosetFeed]",
         });
 
         hydrated.sort((a, b) => {
@@ -1407,4 +1408,3 @@ const styles = `
   justify-content: center;
 }
 `;
-

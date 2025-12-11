@@ -27,6 +27,46 @@ export class BestiesClosetStack extends cdk.Stack {
 
     const { table, uploadsBucket } = props;
 
+    // =====================================================
+    // 0) Container-based image segmentation Lambda (Docker)
+    // =====================================================
+
+    const imageSegmentationFn = new lambda.DockerImageFunction(
+      this,
+      "ImageSegmentationFn",
+      {
+        code: lambda.DockerImageCode.fromImageAsset(
+          path.join(process.cwd(), "image-segmentation-lambda"),
+        ),
+        // Max allowed for your account/region
+        memorySize: 3008,
+        timeout: cdk.Duration.seconds(60),
+        ephemeralStorageSize: cdk.Size.mebibytes(4096),
+        environment: {
+          UPLOADS_BUCKET_NAME: uploadsBucket.bucketName,
+          PROCESSED_PREFIX: "closet/processed",
+        },
+      },
+    );
+
+    // Least-privilege S3 access: read closet/*, write closet/processed/*
+    uploadsBucket.grantRead(imageSegmentationFn);
+    uploadsBucket.grantWrite(imageSegmentationFn);
+
+    imageSegmentationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [uploadsBucket.arnForObjects("closet/*")],
+      }),
+    );
+
+    imageSegmentationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject"],
+        resources: [uploadsBucket.arnForObjects("closet/processed/*")],
+      }),
+    );
+
     // Reusable environment for background-change Lambdas
     const ENV = {
       TABLE_NAME: table.tableName,
@@ -79,7 +119,6 @@ export class BestiesClosetStack extends cdk.Stack {
     uploadsBucket.grantReadWrite(publishClosetItemFn);
 
     // Allow NotifyAdminFn to send task responses back to ANY Step Functions
-    // (avoids a direct dependency on ClosetUploadApprovalSM's ARN)
     notifyAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -91,13 +130,23 @@ export class BestiesClosetStack extends cdk.Stack {
       }),
     );
 
-    // SNS topic for closet upload approvals (to carry task tokens, etc)
+    // SNS topic for closet upload approvals (for future SNS-based flows)
     const closetApprovalTopic = new sns.Topic(this, "ClosetApprovalTopic", {
       displayName: "Bestie Closet Upload Approvals",
       topicName: `sa-${cdk.Stack.of(this).stackName}-closet-approval`,
     });
 
     // ---- ClosetUploadApproval state machine ----
+
+    const segmentOutfitTask = new tasks.LambdaInvoke(this, "SegmentOutfit", {
+      lambdaFunction: imageSegmentationFn,
+      payload: sfn.TaskInput.fromObject({
+        item: {
+          "s3Key.$": "$.item.s3Key",
+        },
+      }),
+      resultPath: "$.segmentation",
+    });
 
     const moderationTask = new tasks.LambdaInvoke(this, "ModerateImage", {
       lambdaFunction: moderationFn,
@@ -118,6 +167,9 @@ export class BestiesClosetStack extends cdk.Stack {
         payload: sfn.TaskInput.fromObject({
           token: sfn.JsonPath.taskToken,
           item: sfn.JsonPath.stringAt("$.item"),
+          processedImageKey: sfn.JsonPath.stringAt(
+            "$.segmentation.Payload.outputKey",
+          ),
         }),
       },
     );
@@ -138,7 +190,8 @@ export class BestiesClosetStack extends cdk.Stack {
       .when(sfn.Condition.stringEquals("$.decision", "REJECT"), rejected)
       .otherwise(rejected);
 
-    const definition = moderationTask
+    const definition = segmentOutfitTask
+      .next(moderationTask)
       .next(piiTask)
       .next(notifyAdminTask)
       .next(waitForAdminChoice);
@@ -147,16 +200,11 @@ export class BestiesClosetStack extends cdk.Stack {
       this,
       "ClosetUploadApprovalSM",
       {
-        // use modern API to avoid deprecation warnings
         definitionBody: sfn.DefinitionBody.fromChainable(definition),
         stateMachineType: sfn.StateMachineType.STANDARD,
         tracingEnabled: true,
       },
     );
-
-    // IMPORTANT: we intentionally DO NOT call:
-    // this.closetUploadStateMachine.grantTaskResponse(notifyAdminFn);
-    // because that creates a circular dependency (Lambda role <-> SM ARN).
 
     // =====================================================
     // 2) BACKGROUND CHANGE APPROVAL (SNS + WAIT_FOR_TASK_TOKEN)
@@ -209,7 +257,6 @@ export class BestiesClosetStack extends cdk.Stack {
     });
     table.grantReadWriteData(applyBgFn);
 
-    // SNS topic + EventBridge for admin review notifications
     const bgApprovalTopic = new sns.Topic(
       this,
       "BestieBackgroundApprovalTopic",
@@ -248,14 +295,26 @@ export class BestiesClosetStack extends cdk.Stack {
       targets: [new targets.SnsTopic(bgApprovalTopic)],
     });
 
-    // Step Functions: BackgroundChangeApproval
-
     const validateTask = new tasks.LambdaInvoke(
       this,
       "ValidateBackgroundChange",
       {
         lambdaFunction: validateBgFn,
         payloadResponseOnly: true,
+      },
+    );
+
+    const segmentBgTask = new tasks.LambdaInvoke(
+      this,
+      "SegmentOutfitForBgChange",
+      {
+        lambdaFunction: imageSegmentationFn,
+        payload: sfn.TaskInput.fromObject({
+          item: {
+            "s3Key.$": "$.item.s3Key",
+          },
+        }),
+        resultPath: "$.segmentationBg",
       },
     );
 
@@ -270,6 +329,9 @@ export class BestiesClosetStack extends cdk.Stack {
         type: "BESTIE_BACKGROUND_CHANGE",
         detail: sfn.JsonPath.entirePayload,
         taskToken: sfn.JsonPath.taskToken,
+        processedImageKey: sfn.JsonPath.stringAt(
+          "$.segmentationBg.Payload.outputKey",
+        ),
       }),
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
       resultPath: "$.approval",
@@ -281,6 +343,7 @@ export class BestiesClosetStack extends cdk.Stack {
     });
 
     const bgDefinition = validateTask
+      .next(segmentBgTask)
       .next(moderateTask)
       .next(waitForAdmin)
       .next(
@@ -328,10 +391,8 @@ export class BestiesClosetStack extends cdk.Stack {
       },
     );
 
-    // Let it read/write approval tokens in the same app table
     table.grantReadWriteData(saveApprovalTokenFn);
 
-    // Subscribe Lambda to BOTH approval topics
     closetApprovalTopic.addSubscription(
       new subs.LambdaSubscription(saveApprovalTokenFn),
     );
@@ -339,9 +400,8 @@ export class BestiesClosetStack extends cdk.Stack {
       new subs.LambdaSubscription(saveApprovalTokenFn),
     );
 
-    // NOTE:
-    // In your Step Functions definitions, you can now publish
-    // WAIT_FOR_TASK_TOKEN messages to closetApprovalTopic and/or bgApprovalTopic
-    // and SaveApprovalTokenFn will persist the taskToken + payload for the admin UI.
+    // =====================================================
+    // 4) (reserved) Additional workflows can hook into segmentation
+    // =====================================================
   }
 }

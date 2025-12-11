@@ -15,6 +15,14 @@ function isNew(createdAt) {
   return Date.now() - t < ONE_DAY_MS;
 }
 
+// Heuristic: only treat mediaKey as a *true* cutout if it looks like a removed-bg asset.
+function isCutoutMediaKey(mediaKey) {
+  if (!mediaKey) return false;
+  const mk = String(mediaKey);
+  // Typical pattern from the bg worker: ".../removed-bg.png"
+  return /removed-bg\.(png|jpe?g|webp)$/i.test(mk);
+}
+
 const GQL = {
   create: /* GraphQL */ `
     mutation AdminCreateClosetItem($input: AdminCreateClosetItemInput!) {
@@ -161,9 +169,9 @@ const SUBCATEGORY_BY_CATEGORY = {
   Beauty: ["Perfume", "Body mist", "Lip product", "Face", "Eyes"],
 };
 
-// NOTE: prefer rawMediaKey first (matches ClosetLibrary)
+// Prefer processed cutout (mediaKey) when present, otherwise fall back to rawMediaKey.
 function effectiveKey(item) {
-  const k = item.rawMediaKey || item.mediaKey || null;
+  const k = item.mediaKey || item.rawMediaKey || null;
   if (!k) return null;
   return String(k).replace(/^\/+/, "");
 }
@@ -213,7 +221,7 @@ async function hydrateItems(items) {
 
 function humanStatusLabel(item) {
   const status = item.status || "UNKNOWN";
-  const hasCutout = !!item.mediaKey;
+  const hasCutout = isCutoutMediaKey(item.mediaKey);
   const hasAnyImage = !!(item.mediaKey || item.rawMediaKey);
 
   // If we're pending but *no* image key yet, treat as still processing
@@ -1074,14 +1082,25 @@ export default function ClosetUpload() {
 
               <div className="closet-grid closet-grid--review">
                 {reviewList.map((item) => {
-                  const readyForReview = !!(
-                    item.mediaKey || item.rawMediaKey
-                  );
-                  const hasCutout = !!item.mediaKey;
                   const hasAnyImage = !!(item.mediaKey || item.rawMediaKey);
+                  const hasCutout = isCutoutMediaKey(item.mediaKey);
+                  const readyForReview = hasAnyImage;
                   const isBusy = busyId === item.id;
 
+                  const stage =
+                    !hasAnyImage ? 0 : hasAnyImage && !hasCutout ? 0.5 : 1;
+                  const progressPct = stage * 100;
+
                   const audienceVal = item.audience || "PUBLIC";
+
+                  // Debug helper if you need it:
+                  console.log("[ClosetReview] item", item.id, {
+                    mediaKey: item.mediaKey,
+                    rawMediaKey: item.rawMediaKey,
+                    hasAnyImage,
+                    hasCutout,
+                    stage,
+                  });
 
                   return (
                     <article
@@ -1116,6 +1135,21 @@ export default function ClosetUpload() {
                               Cutout ready
                             </span>
                           )}
+                        </div>
+
+                        <div className="closet-review-progress">
+                          <div className="closet-review-progress-track">
+                            <div
+                              className="closet-review-progress-fill"
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                          <span className="closet-review-progress-label">
+                            {stage === 0 && "Queued for background removal…"}
+                            {stage === 0.5 &&
+                              "Waiting on background removal…"}
+                            {stage === 1 && "Background removed 🎉"}
+                          </span>
                         </div>
                       </div>
 
@@ -1207,9 +1241,8 @@ export default function ClosetUpload() {
   );
 }
 
-const closetUploadStyles = /* css */ `
-  ${/* your existing CSS unchanged – kept exactly as you pasted */""}
-` + `
+const closetUploadStyles =
+ `
 .closet-admin-page {
   max-width: 1120px;
   margin: 0 auto;
@@ -2011,6 +2044,34 @@ const closetUploadStyles = /* css */ `
   color:#9ca3af;
 }
 
+.closet-review-progress {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.closet-review-progress-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.closet-review-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+  transition: width 0.3s ease;
+}
+
+.closet-review-progress-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 .closet-review-actions {
   margin-top:8px;
   display:flex;
@@ -2060,4 +2121,3 @@ const closetUploadStyles = /* css */ `
   cursor:pointer;
 }
 `;
-

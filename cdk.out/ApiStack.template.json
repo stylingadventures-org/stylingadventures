@@ -16,7 +16,7 @@
      }
     ],
     "UserPoolConfig": {
-     "AwsRegion": "y",
+     "AwsRegion": "us-east-1",
      "DefaultAction": "ALLOW",
      "UserPoolId": {
       "Fn::ImportValue": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
@@ -3703,9 +3703,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "dba505f53767a9e6657cdeba0a1fe85822984a28978face5a785b36aa3fb4af7.zip"
     },
     "Environment": {
@@ -3868,10 +3866,8 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
-     "S3Key": "8f53df331f60521a5ffb78692e755d9f90a5af52b8f9a594123ed4ba42a190d4.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "31578c2bc039261d085133c3cb4ce4c8e9ad6eca7cc186a0c937aada0f696ebe.zip"
     },
     "Environment": {
      "Variables": {
@@ -3921,7 +3917,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.8f53df331f60521a5ffb78692e755d9f90a5af52b8f9a594123ed4ba42a190d4",
+    "aws:asset:path": "asset.31578c2bc039261d085133c3cb4ce4c8e9ad6eca7cc186a0c937aada0f696ebe",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -4068,9 +4064,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "8dd00c89a280c6944c02cac8c643bee930f498c718e1e0aa70fbf9218677084d.zip"
     },
     "Environment": {
@@ -4221,9 +4215,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "01bd14018cc2be7d317d0b85d160a20ddbd22404bbfbc5a83dc0200358e301cd.zip"
     },
     "Environment": {
@@ -4379,9 +4371,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "b211d32f723d4d7af080211fb2ae6ad48756144f7dc536d1a3818a0318dd7f55.zip"
     },
     "Environment": {
@@ -4534,9 +4524,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "48128dbb79eb55a283895ff3048eaf0669b2ea4ef3d10a13178687673f0956ff.zip"
     },
     "Environment": {
@@ -4680,9 +4668,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "88db5b30b4f243822c1697a1fd7cf7f7a29d24b1c8f88643b01b351ee3b50e00.zip"
     },
     "Environment": {
@@ -4847,9 +4833,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "c8466029f41e236b8655f13d46aa0e140268a5d1d861452a14019b6f683b3a10.zip"
     },
     "Environment": {
@@ -4993,9 +4977,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "2574b286b87caff4a9192c79cc9035f37f253b110a14daaf28c11fd42a547594.zip"
     },
     "Environment": {
@@ -5139,9 +5121,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "386a833341c27d595993116d36b29eaec9a23292d68b8ee4316bcaad6fa1c9b8.zip"
     },
     "Environment": {
@@ -5286,9 +5266,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "51234e9f7a0abbcbc0ad639b91ffb6eb8a9902cfe3f4b29c71d0c9190797bcac.zip"
     },
     "Environment": {
@@ -5440,11 +5418,7 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":dynamodb:y:",
-           {
-            "Ref": "AWS::AccountId"
-           },
-           ":table/sa-dev-prime-bank-account"
+           ":dynamodb:us-east-1:637423256673:table/sa-dev-prime-bank-account"
           ]
          ]
         },
@@ -5491,9 +5465,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "0b7b032a4160d1c51eaacda8b48b009fb38035b44f23585aec51dfd54fda6b76.zip"
     },
     "Environment": {
@@ -5679,9 +5651,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64.zip"
     },
     "Environment": {
@@ -5729,6 +5699,15 @@
     "aws:asset:path": "asset.a2bf8b5928938532a67dfd8014312eb958b295a2e7148d19dedbc172aa8c1b64",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WOwU7DMBBEv6V3dykpF44tCC5VgYR7tHG2rRPHDlm7VWTl35GdQuE0M6s3q8kgy9awWuCFl7Jul1pVEAqHshV44TLUo8HO1hV8YqVpi0wC+55HIyG8DtifvvSmV+LpYFL62P1PhTxRh2KHXVXjMzosrB8kReJPyomtPtMQz79+bw3dmEko7CDkVqdy0nerlRxjnN0keA1h62VLLl6vbpY4fRI6DYHw4o10ypqI/fhYL5GZHMMmypUuja2pYdgnudFxaZqf4MLhUZljfPjmXe/dJGIPGr47Zyu4f4SHRcNKLQdvnOoI8lm/ARrQbySBAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ApiStack/CDKMetadata/Default"
    }
   }
  },
