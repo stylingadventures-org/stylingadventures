@@ -150,6 +150,9 @@ interface ClosetItem {
   // Bestie: pending background change
   pendingBackgroundKey?: string | null;
 
+  // 👇 NEW: background-processing status from bg-worker / workflows
+  backgroundStatus?: string | null;
+
   // Community feed flag (Lala’s Closet front page)
   inCommunityFeed?: boolean;
 
@@ -310,6 +313,10 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
     storyVibes: item.storyVibes,
     pinned: item.pinned,
     pendingBackgroundKey: item.pendingBackgroundKey,
+
+    // 👇 NEW: surface this so the UI can show progress / DONE / FAILED
+    backgroundStatus: item.backgroundStatus ?? null,
+
     inCommunityFeed: item.inCommunityFeed,
     favoriteCount: item.favoriteCount,
     likeCount: item.likeCount,
@@ -449,6 +456,9 @@ async function handleCreateClosetItem(
     category: input.category ?? null,
     subcategory: input.subcategory ?? null,
     audience: input.audience ?? "PRIVATE",
+
+    // 👇 NEW
+    backgroundStatus: input.rawMediaKey ? "PROCESSING" : null,
   };
 
   await ddb.send(
@@ -1340,7 +1350,7 @@ async function handleToggleFavoriteClosetItem(
 
   try {
     await ddb.send(
-      new PutItemCommand({
+    new PutItemCommand({
         TableName: TABLE_NAME,
         Item: ddbMarshal(favoriteItem),
         // de-dupe per viewer

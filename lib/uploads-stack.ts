@@ -6,6 +6,7 @@ import {
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ddb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -124,5 +125,37 @@ export class UploadsStack extends Stack {
       value: api.url,
       exportName: `SA-UploadsApiUrl-${envName}`,
     });
+
+    //
+    // 4) Closet background worker (lambda/closet/bg-worker.ts)
+    //
+    const closetBgWorkerFn = new NodejsFunction(this, "ClosetBgWorkerFn", {
+      entry: "lambda/closet/bg-worker.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        // used by bg-worker.ts
+        TABLE_NAME: props.table.tableName,
+        RAW_MEDIA_GSI_NAME: "rawMediaKeyIndex", // matches the GSI name in the closet table
+        OUTPUT_BUCKET: this.uploadsBucket.bucketName,
+      },
+    });
+
+    // Permissions: S3 read/write + DDB read/write
+    this.uploadsBucket.grantReadWrite(closetBgWorkerFn);
+    props.table.grantReadWriteData(closetBgWorkerFn);
+
+    // S3 trigger: whenever a new closet object is uploaded, run bg-worker
+    this.uploadsBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(closetBgWorkerFn),
+      {
+        prefix: "closet/", // only run on closet uploads
+      },
+    );
   }
 }

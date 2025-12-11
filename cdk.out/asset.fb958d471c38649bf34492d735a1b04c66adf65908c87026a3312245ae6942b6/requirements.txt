@@ -1,0 +1,4 @@
+rembg==2.0.69
+Pillow==10.4.0
+# Pin numpy to a version that has manylinux wheels for Python 3.11
+numpy==1.26.4

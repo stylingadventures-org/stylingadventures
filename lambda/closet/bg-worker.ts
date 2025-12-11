@@ -5,6 +5,7 @@ import {
   DynamoDBClient,
   QueryCommand,
   UpdateItemCommand,
+  ScanCommand, // 👈 NEW
 } from "@aws-sdk/client-dynamodb";
 import {
   S3Client,
@@ -24,7 +25,6 @@ const {
 } = process.env;
 
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
-if (!RAW_MEDIA_GSI_NAME) throw new Error("Missing env: RAW_MEDIA_GSI_NAME");
 
 const REMOVE_BG_URL = "https://api.remove.bg/v1.0/removebg";
 
@@ -122,6 +122,7 @@ async function callRemoveBgOrStub(imageB64: string): Promise<{
 
 /**
  * Try to find a closet item by rawMediaKey, being tolerant of small key differences.
+ * Uses a GSI when present, falls back to Scan when the index is missing.
  */
 async function findClosetItemByRawKey(rawKey: string) {
   // Try several common variants:
@@ -142,28 +143,75 @@ async function findClosetItemByRawKey(rawKey: string) {
   console.log("[bg-worker] Looking up closet item by rawMediaKey", {
     rawKey,
     candidates,
+    table: TABLE_NAME,
+    gsi: RAW_MEDIA_GSI_NAME,
   });
 
   for (const candidate of candidates) {
-    const q = await ddb.send(
-      new QueryCommand({
+    // 1) Try the configured GSI
+    if (RAW_MEDIA_GSI_NAME) {
+      try {
+        const q = await ddb.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: RAW_MEDIA_GSI_NAME,
+            KeyConditionExpression: "rawMediaKey = :k",
+            ExpressionAttributeValues: { ":k": S(candidate) },
+            Limit: 1,
+          })
+        );
+
+        const item = q.Items?.[0];
+        if (item) {
+          console.log("[bg-worker] Found item via GSI", {
+            candidate,
+            pk: item.pk?.S,
+            sk: item.sk?.S,
+            id: item.id?.S,
+          });
+          return item;
+        }
+      } catch (err: any) {
+        const msg = String(err?.message || err);
+        if (
+          err?.name === "ValidationException" &&
+          msg.includes("The table does not have the specified index")
+        ) {
+          console.warn(
+            "[bg-worker] RAW_MEDIA_GSI_NAME missing, will fall back to Scan",
+            { RAW_MEDIA_GSI_NAME }
+          );
+        } else {
+          console.error(
+            "[bg-worker] Query via GSI failed (not index-missing)",
+            msg
+          );
+          throw err;
+        }
+      }
+    }
+
+    // 2) Fallback: Scan the table for a matching rawMediaKey
+    console.log("[bg-worker] Scanning table for rawMediaKey candidate", {
+      candidate,
+    });
+    const scan = await ddb.send(
+      new ScanCommand({
         TableName: TABLE_NAME,
-        IndexName: RAW_MEDIA_GSI_NAME,
-        KeyConditionExpression: "rawMediaKey = :k",
-        ExpressionAttributeValues: { ":k": S(candidate) },
         Limit: 1,
+        FilterExpression: "rawMediaKey = :k",
+        ExpressionAttributeValues: { ":k": S(candidate) },
       })
     );
-
-    const item = q.Items?.[0];
-    if (item) {
-      console.log("[bg-worker] Found closet item for candidate key", {
+    const itemFromScan = scan.Items?.[0];
+    if (itemFromScan) {
+      console.log("[bg-worker] Found item via Scan", {
         candidate,
-        pk: item.pk?.S,
-        sk: item.sk?.S,
-        id: item.id?.S,
+        pk: itemFromScan.pk?.S,
+        sk: itemFromScan.sk?.S,
+        id: itemFromScan.id?.S,
       });
-      return item;
+      return itemFromScan;
     }
   }
 

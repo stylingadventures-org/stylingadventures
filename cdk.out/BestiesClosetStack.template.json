@@ -1,6 +1,201 @@
 {
  "Description": "Besties closet + background change workflows - dev",
  "Resources": {
+  "ImageSegmentationFnServiceRoleCA334768": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/ServiceRole/Resource"
+   }
+  },
+  "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "s3:GetObject",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "s3:PutObject",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/processed/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA",
+    "Roles": [
+     {
+      "Ref": "ImageSegmentationFnServiceRoleCA334768"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ImageSegmentationFn0414CF98": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "ImageUri": {
+      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:0c37c9cdab99e8e6b6893199562654938c41cdb7661c9b5471c6a7c3c3a3680c"
+     }
+    },
+    "Environment": {
+     "Variables": {
+      "UPLOADS_BUCKET_NAME": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "PROCESSED_PREFIX": "closet/processed"
+     }
+    },
+    "EphemeralStorage": {
+     "Size": 4096
+    },
+    "MemorySize": 3008,
+    "PackageType": "Image",
+    "Role": {
+     "Fn::GetAtt": [
+      "ImageSegmentationFnServiceRoleCA334768",
+      "Arn"
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA",
+    "ImageSegmentationFnServiceRoleCA334768"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/Resource",
+    "aws:asset:path": "asset.0c37c9cdab99e8e6b6893199562654938c41cdb7661c9b5471c6a7c3c3a3680c",
+    "aws:asset:dockerfile-path": "Dockerfile",
+    "aws:asset:property": "Code.ImageUri"
+   }
+  },
   "ModerationFnServiceRoleBF6ED484": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -132,9 +327,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "04bac1e0c422ed6aede14dd7bb57182f0292f4c8fa3ceba5862cdadb8c050bff.zip"
     },
     "Environment": {
@@ -278,9 +471,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "766afd677f7428b144d1d6909f75cb666bcab663974d7e3f06c4796203b98d84.zip"
     },
     "Environment": {
@@ -452,9 +643,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "fea5a6ff2cd4c4887afea8687d9ffd6488623ad8f4e1ce48eefa967df941ddf7.zip"
     },
     "Environment": {
@@ -575,9 +764,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "e78556db2333377fbf093172446d391a474860d6d16ccd35534389d447ab40ee.zip"
     },
     "Environment": {
@@ -670,6 +857,32 @@
    "Properties": {
     "PolicyDocument": {
      "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ImageSegmentationFn0414CF98",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ImageSegmentationFn0414CF98",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
       {
        "Action": "lambda:InvokeFunction",
        "Effect": "Allow",
@@ -805,7 +1018,18 @@
      "Fn::Join": [
       "",
       [
-       "{\"StartAt\":\"ModerateImage\",\"States\":{\"ModerateImage\":{\"Next\":\"CheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
+       "{\"StartAt\":\"SegmentOutfit\",\"States\":{\"SegmentOutfit\":{\"Next\":\"ModerateImage\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentation\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "ImageSegmentationFn0414CF98",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\"}}}},\"ModerateImage\":{\"Next\":\"CheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
        {
         "Ref": "AWS::Partition"
        },
@@ -838,7 +1062,7 @@
          "Arn"
         ]
        },
-       "\",\"Payload\":{\"token.$\":\"$$.Task.Token\",\"item.$\":\"$.item\"}}},\"AdminApproved?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.decision\",\"StringEquals\":\"APPROVE\",\"Next\":\"PublishClosetItem\"},{\"Variable\":\"$.decision\",\"StringEquals\":\"REJECT\",\"Next\":\"Rejected\"}],\"Default\":\"Rejected\"},\"Rejected\":{\"Type\":\"Fail\",\"Cause\":\"RejectedByAdmin\"},\"PublishClosetItem\":{\"Next\":\"Published\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
+       "\",\"Payload\":{\"token.$\":\"$$.Task.Token\",\"item.$\":\"$.item\",\"processedImageKey.$\":\"$.segmentation.Payload.outputKey\"}}},\"AdminApproved?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.decision\",\"StringEquals\":\"APPROVE\",\"Next\":\"PublishClosetItem\"},{\"Variable\":\"$.decision\",\"StringEquals\":\"REJECT\",\"Next\":\"Rejected\"}],\"Default\":\"Rejected\"},\"Rejected\":{\"Type\":\"Fail\",\"Cause\":\"RejectedByAdmin\"},\"PublishClosetItem\":{\"Next\":\"Published\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
        {
         "Ref": "AWS::Partition"
        },
@@ -984,9 +1208,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "747c8b56a542c8c793d144d82a5d2e732230958c7beb96fe84efe4d8b105e204.zip"
     },
     "Environment": {
@@ -1155,9 +1377,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "5ca245031610985bf8d9820d169d4b2a39d406e6f44ec6685cf1ab11f7f2d014.zip"
     },
     "Environment": {
@@ -1302,9 +1522,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "ef3599b979d995ae5a2a3e8669f60471f1ed33c233ee1b72a8e34d311d8ee0b9.zip"
     },
     "Environment": {
@@ -1559,6 +1777,32 @@
        "Resource": [
         {
          "Fn::GetAtt": [
+          "ImageSegmentationFn0414CF98",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ImageSegmentationFn0414CF98",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
           "ModerateBgFn9078832F",
           "Arn"
          ]
@@ -1643,14 +1887,25 @@
      "Fn::Join": [
       "",
       [
-       "{\"StartAt\":\"ValidateBackgroundChange\",\"States\":{\"ValidateBackgroundChange\":{\"Next\":\"ModerateBackground\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "{\"StartAt\":\"ValidateBackgroundChange\",\"States\":{\"ValidateBackgroundChange\":{\"Next\":\"SegmentOutfitForBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ValidateBgChangeFn419727A4",
          "Arn"
         ]
        },
-       "\"},\"ModerateBackground\":{\"Next\":\"NotifyAdminBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "\"},\"SegmentOutfitForBgChange\":{\"Next\":\"ModerateBackground\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentationBg\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "ImageSegmentationFn0414CF98",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\"}}}},\"ModerateBackground\":{\"Next\":\"NotifyAdminBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ModerateBgFn9078832F",
@@ -1665,7 +1920,7 @@
        {
         "Ref": "BestieBackgroundApprovalTopic895968C0"
        },
-       "\",\"Message\":{\"type\":\"BESTIE_BACKGROUND_CHANGE\",\"detail.$\":\"$\",\"taskToken.$\":\"$$.Task.Token\"}}},\"AdminApprovedBgChange?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.approval.approved\",\"BooleanEquals\":true,\"Next\":\"ApplyBackgroundChange\"}],\"Default\":\"BackgroundChangeRejected\"},\"BackgroundChangeRejected\":{\"Type\":\"Pass\",\"Result\":{\"status\":\"REJECTED\"},\"End\":true},\"ApplyBackgroundChange\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "\",\"Message\":{\"type\":\"BESTIE_BACKGROUND_CHANGE\",\"detail.$\":\"$\",\"taskToken.$\":\"$$.Task.Token\",\"processedImageKey.$\":\"$.segmentationBg.Payload.outputKey\"}}},\"AdminApprovedBgChange?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.approval.approved\",\"BooleanEquals\":true,\"Next\":\"ApplyBackgroundChange\"}],\"Default\":\"BackgroundChangeRejected\"},\"BackgroundChangeRejected\":{\"Type\":\"Pass\",\"Result\":{\"status\":\"REJECTED\"},\"End\":true},\"ApplyBackgroundChange\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ApplyBgChangeFn6D1C78C3",
@@ -1807,9 +2062,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "193a25b2fc06146354e9e5db8f227d96865ec02a3549934f5b17aec73c82fa5a.zip"
     },
     "Environment": {
@@ -1923,6 +2176,15 @@
    },
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/BestieBackgroundApprovalTopic/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11Qy27CMBD8lt7NloZeeiy0SEhtFSW9RxuzwJLEjrI2CFn59yoO0LQXz8y+PQkkyQLmD3iWmd5Ws5pLCLlDXSk8SxFqbMotQnizuqJu0+Ce1t5ox9ao1c5MeUpdwyJsTa8YGwiZrWlIRExtzfoS6yLrFemuQBFyApPpr0NkyEFGrRV2trssUUiNlxTGbuko8BXhvl4Wt1Fjvyxg6XVFLraKEQjftmU97B9JfH+Pmsrcl6I7bm8fm+peiaN2d90rhUOpBMJHPG5jTrYilRtJfVmzHP5VQ1gj1yr3WhNt1epgWZPKHTr6RH1gE+36o1MU6RWdyDiB8D7g0stQdueZv9rsa+p7lZFY32lS0Ync4Z7NvleDb3CUx1Myh6cXeH44CvOs88ZxQ5CN+AMzyTehDgIAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/CDKMetadata/Default"
    }
   }
  },

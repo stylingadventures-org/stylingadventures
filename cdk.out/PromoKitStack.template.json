@@ -139,9 +139,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "32b5a07390fe83a4b6fe58ce300f0173e61114f145c2136d2cbbf1fcb0035a13.zip"
     },
     "Environment": {
@@ -392,9 +390,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "368924f707c03a79811cf1fc8ea7592b9a3494efbf3c13b19f6be3927e945b34.zip"
     },
     "Environment": {
@@ -551,9 +547,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "ecff882c4d1720bd0437386ae5e75ebb5b3c2bcc4aa8fd2a5c91e6110790b252.zip"
     },
     "Environment": {
@@ -611,6 +605,15 @@
     "aws:asset:path": "asset.ecff882c4d1720bd0437386ae5e75ebb5b3c2bcc4aa8fd2a5c91e6110790b252",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2OwW7CMAyGn4W760HLheNA4rhN5QGqkBrkNk2m2gGhKO+O0k47fb9l+ftdY103uN2Yp1S2HyvHV0wXNXYE85QuOTNde9P50NMg+LXgHL1VDh7YTJja4AhON7/wJzi2rzKuKYM0nREhFfwsAGnwGO1IejRCsOoxnW7+31qOaZ5YhIPPQA/yKpja+NcTHeUMLUmIsyVYtBc1d/b3sv+O+hs1Q3kZB/l41FvcHXC/GYS5mqNXngjblW8ytseI/wAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "PromoKitStack/CDKMetadata/Default"
    }
   }
  },

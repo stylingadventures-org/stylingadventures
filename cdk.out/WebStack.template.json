@@ -206,9 +206,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-y"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
      "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
     },
     "Timeout": 900,
@@ -220,7 +218,7 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs18.x",
+    "Runtime": "nodejs22.x",
     "Description": {
      "Fn::Join": [
       "",
@@ -306,6 +304,15 @@
    },
    "Metadata": {
     "aws:cdk:path": "WebStack/WebDistribution/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WMwQ6CMBBEv8V7WRW9eESMiSeNfIAp7UpWsDXdrcQQ/t0gJurB08zszpsU0nQBs4luOTG2ThoqoStEm1rplk8dL6BbR1OjqPzs3m6Ug2/IPD7nMffKND7ac/BOoNsQS6AyCnmn9oEqcpkxyLyz6ITkhecDsB2Af43vmb5XeWTx1yOyj8HgUPj4n9ch+DtZDGvNqDJmlEJ0Ra4amH2UW5ReOW8RLjy9pzOYr2A5uTBREqITuiIcR30CFgZxsygBAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebStack/CDKMetadata/Default"
    }
   }
  },
