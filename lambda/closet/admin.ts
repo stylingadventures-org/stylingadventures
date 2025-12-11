@@ -12,6 +12,7 @@ import {
   SFNClient,
   SendTaskFailureCommand,
   SendTaskSuccessCommand,
+  StartExecutionCommand,
 } from "@aws-sdk/client-sfn";
 
 const ddb = new DynamoDBClient({});
@@ -22,6 +23,8 @@ const {
   ADMIN_GROUP_NAME: ADMIN_GROUP_NAME_RAW = "admin",
   CREATOR_GROUP_NAME: CREATOR_GROUP_NAME_RAW = "creator",
 } = process.env;
+
+const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN || "";
 
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
 
@@ -519,6 +522,39 @@ export const adminCreateClosetItem = async (
       },
     }),
   );
+
+  // 🔁 Kick off the ClosetUploadApproval state machine so the worker
+  // can remove the background / moderate / publish.
+  if (APPROVAL_SM_ARN) {
+    try {
+      await sfn.send(
+        new StartExecutionCommand({
+          stateMachineArn: APPROVAL_SM_ARN,
+          input: JSON.stringify({
+            // The state machine expects $.item.s3Key for SegmentOutfit,
+            // but we can send extra fields along for later steps.
+            item: {
+              id,
+              userId: sub,
+              ownerSub: sub,
+              s3Key: rawKey,
+            },
+          }),
+        }),
+      );
+    } catch (err) {
+      console.error(
+        "Failed to start ClosetUploadApproval Step Function",
+        err,
+      );
+      // We *don’t* throw here so the upload still succeeds; it will just
+      // stay in PENDING with no cutout if the SM fails to start.
+    }
+  } else {
+    console.warn(
+      "APPROVAL_SM_ARN is not set; uploads will not trigger background removal.",
+    );
+  }
 
   return {
     id,

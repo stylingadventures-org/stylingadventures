@@ -151,7 +151,7 @@
    "Properties": {
     "Code": {
      "ImageUri": {
-      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:0c37c9cdab99e8e6b6893199562654938c41cdb7661c9b5471c6a7c3c3a3680c"
+      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:96467386944303574e64a4961fc4563c111559ad24d2d1cdc72a9e561bdb1af1"
      }
     },
     "Environment": {
@@ -191,7 +191,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/Resource",
-    "aws:asset:path": "asset.0c37c9cdab99e8e6b6893199562654938c41cdb7661c9b5471c6a7c3c3a3680c",
+    "aws:asset:path": "asset.96467386944303574e64a4961fc4563c111559ad24d2d1cdc72a9e561bdb1af1",
     "aws:asset:dockerfile-path": "Dockerfile",
     "aws:asset:property": "Code.ImageUri"
    }
