@@ -3,7 +3,6 @@ import io
 import json
 import uuid
 import logging
-import urllib.parse
 from typing import Any, Dict, Optional, Tuple
 
 import boto3
@@ -30,16 +29,16 @@ def _first_env(*names: str) -> Optional[str]:
 
 def _extract_bucket_key(event: Dict[str, Any]) -> Tuple[str, str]:
     """
-    Supports:
+    Accepts shapes like:
       - { "bucket": "...", "key": "closet/..." }
       - { "bucket": "...", "s3Key": "closet/..." }
       - { "item": { "bucket": "...", "key": "..." } }
-      - { "item": { "s3Key": "closet/..." } }   (your StepFn payload)
+      - { "item": { "s3Key": "closet/..." } }   <-- your current StepFn payload
       - { "Records": [S3 event...] }
 
-    Bucket fallback (env):
+    Bucket fallback envs:
       - UPLOADS_BUCKET_NAME (your CDK)
-      - UPLOADS_BUCKET / CLOSET_BUCKET / S3_BUCKET / BUCKET (legacy)
+      - UPLOADS_BUCKET / CLOSET_BUCKET / S3_BUCKET / BUCKET
     """
     bucket = None
     key = None
@@ -61,7 +60,7 @@ def _extract_bucket_key(event: Dict[str, Any]) -> Tuple[str, str]:
         bucket = bucket or item.get("bucket") or item.get("Bucket")
         key = key or item.get("key") or item.get("Key") or item.get("s3Key")
 
-    # Env fallback for bucket
+    # Final fallback bucket from env
     bucket = bucket or _first_env(
         "UPLOADS_BUCKET_NAME",
         "UPLOADS_BUCKET",
@@ -72,12 +71,9 @@ def _extract_bucket_key(event: Dict[str, Any]) -> Tuple[str, str]:
 
     if not bucket or not key:
         raise ValueError(
-            f"Unable to determine bucket/key from event. "
+            "Unable to determine bucket/key from event. "
             f"bucket={bucket!r}, key={key!r}, keys_in_event={list(event.keys())}"
         )
-
-    # S3 event keys are URL-encoded sometimes
-    key = urllib.parse.unquote_plus(key)
 
     return bucket, key
 
@@ -91,7 +87,10 @@ def _download_s3_object(bucket: str, key: str) -> bytes:
         err = e.response.get("Error", {})
         logger.error(
             "S3 download failed bucket=%s key=%s code=%s message=%s",
-            bucket, key, err.get("Code"), err.get("Message")
+            bucket,
+            key,
+            err.get("Code"),
+            err.get("Message"),
         )
         raise
 
@@ -102,7 +101,7 @@ def _upload_s3_object(bucket: str, key: str, body: bytes, content_type: str = "i
 
 def _segment_background(image_bytes: bytes) -> bytes:
     """
-    Uses rembg if available. Returns PNG bytes with alpha.
+    Uses rembg if available. Returns a PNG with alpha.
     """
     try:
         from rembg import remove  # type: ignore
@@ -117,31 +116,28 @@ def _segment_background(image_bytes: bytes) -> bytes:
     if isinstance(out, (bytes, bytearray)):
         return bytes(out)
 
-    # Fallback if rembg returns a PIL image object
+    # Fallback if rembg returns a PIL Image-like object
     try:
         buf = io.BytesIO()
-        out.save(buf, format="PNG")  # type: ignore[attr-defined]
-        return buf.getvalue()
-    except Exception as e:
-        raise RuntimeError("Unexpected output type from rembg.remove()") from e
+        if hasattr(out, "save"):
+            out.save(buf, format="PNG")
+            return buf.getvalue()
+    except Exception:
+        pass
+
+    raise RuntimeError(f"Unexpected output type from rembg.remove(): {type(out)}")
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    StepFn typically calls Lambda with payload like:
-      { "item": { "s3Key": "closet/....jpg", "bucket": "..." } }
-
-    We return:
-      { "ok": true, "bucket": "...", "inputKey": "...", "outputKey": "..." }
-    """
     logger.info("event=%s", json.dumps(event)[:2000])
 
     bucket, input_key = _extract_bucket_key(event)
+    logger.info("segment request bucket=%s key=%s", bucket, input_key)
 
-    processed_prefix = os.getenv("PROCESSED_PREFIX", "closet/processed").strip("/")
+    out_prefix = os.getenv("PROCESSED_PREFIX") or os.getenv("OUTPUT_PREFIX") or "closet/processed"
     base = os.path.basename(input_key)
     stem = os.path.splitext(base)[0]
-    out_key = f"{processed_prefix}/{stem}-{uuid.uuid4().hex}.png"
+    out_key = f"{out_prefix}/{stem}-{uuid.uuid4().hex}.png"
 
     original_bytes = _download_s3_object(bucket, input_key)
     segmented_png = _segment_background(original_bytes)

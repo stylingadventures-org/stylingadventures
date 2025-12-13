@@ -1380,7 +1380,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/35aa9d87a842f0223ee7b34b3c004a43bf5b6985aa140751b00bda0fc0ae38fd.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5b9a18b357018aa33c745e6012adb2bca49aa0779cec7a9797a5f50b071f2783.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1399,36 +1399,6 @@
       ],
       "metadata": {
         "/BestiesClosetStack": [
-          {
-            "type": "aws:cdk:warning",
-            "data": "Be aware that the NodeJS runtime of Node 16 will be deprecated by Lambda on June 12, 2024. Lambda runtimes Node 18 and higher include SDKv3 and not SDKv2. Updating your Lambda runtime will require bundling the SDK, or updating all SDK calls in your handler code to use SDKv3 (which is not a trivial update). Please account for this added complexity and update as soon as possible. [ack: aws-cdk-lib/aws-lambda-nodejs:runtimeUpdateSdkV2Breakage]",
-            "trace": [
-              "Annotations.addMessage (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:2066)",
-              "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:984)",
-              "new Bundling (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:3351)",
-              "Function.bundle (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\bundling.js:1:1141)",
-              "new NodejsFunction (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\aws-lambda-nodejs\\lib\\function.js:1:2443)",
-              "new BestiesClosetStack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\besties-closet-stack.ts:81:26)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\aws-lala.ts:164:23)",
-              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
-              "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
-              "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
-              "Object.require.extensions.<computed> [as .ts] (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1621:12)",
-              "Module.load (node:internal/modules/cjs/loader:1275:32)",
-              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
-              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
-              "phase4 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:649:14)",
-              "bootstrap (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:95:10)",
-              "main (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:55:10)",
-              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:800:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
-              "Object.Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
-              "Module.load (node:internal/modules/cjs/loader:1275:32)",
-              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
-              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
-              "node:internal/main/run_main_module:28:49"
-            ]
-          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -1531,12 +1501,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "NotifyAdminFnFDB24FD6"
-          }
-        ],
-        "/BestiesClosetStack/ClosetApprovalTopic/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetApprovalTopic3451AB0B"
           }
         ],
         "/BestiesClosetStack/ClosetUploadApprovalSM/Role/Resource": [
@@ -1677,18 +1641,6 @@
             "data": "SaveApprovalTokenFnBF4550C6"
           }
         ],
-        "/BestiesClosetStack/SaveApprovalTokenFn/AllowInvoke:BestiesClosetStackClosetApprovalTopic05F7598A": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SaveApprovalTokenFnAllowInvokeBestiesClosetStackClosetApprovalTopic05F7598AC218FDBF"
-          }
-        ],
-        "/BestiesClosetStack/SaveApprovalTokenFn/ClosetApprovalTopic/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SaveApprovalTokenFnClosetApprovalTopic03E393F3"
-          }
-        ],
         "/BestiesClosetStack/SaveApprovalTokenFn/AllowInvoke:BestiesClosetStackBestieBackgroundApprovalTopic94BA1983": [
           {
             "type": "aws:cdk:logicalId",
@@ -1699,6 +1651,60 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "SaveApprovalTokenFnBestieBackgroundApprovalTopic6BA6BE2B"
+          }
+        ],
+        "/BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApproveClosetUploadFnServiceRole6FCD1BF1"
+          }
+        ],
+        "/BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A"
+          }
+        ],
+        "/BestiesClosetStack/ApproveClosetUploadFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApproveClosetUploadFnC4D99774"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiD443FA75"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/DefaultStage/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiDefaultStage477978A2"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegrationPermissionC159ADDA"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminclosetapproveC2CD6284"
+          }
+        ],
+        "/BestiesClosetStack/AdminApiUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminApiUrl"
           }
         ],
         "/BestiesClosetStack/CDKMetadata/Default": [

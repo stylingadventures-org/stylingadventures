@@ -3,7 +3,6 @@ import io
 import json
 import uuid
 import logging
-import urllib.parse
 from typing import Any, Dict, Optional, Tuple
 
 import boto3
@@ -30,16 +29,14 @@ def _first_env(*names: str) -> Optional[str]:
 
 def _extract_bucket_key(event: Dict[str, Any]) -> Tuple[str, str]:
     """
-    Supports:
+    Accepts a bunch of shapes:
       - { "bucket": "...", "key": "closet/..." }
       - { "bucket": "...", "s3Key": "closet/..." }
       - { "item": { "bucket": "...", "key": "..." } }
-      - { "item": { "s3Key": "closet/..." } }   (your StepFn payload)
+      - { "item": { "s3Key": "closet/..." } }   <-- YOUR CURRENT StepFn payload
       - { "Records": [S3 event...] }
-
-    Bucket fallback (env):
-      - UPLOADS_BUCKET_NAME (your CDK)
-      - UPLOADS_BUCKET / CLOSET_BUCKET / S3_BUCKET / BUCKET (legacy)
+    Bucket fallback:
+      - env UPLOADS_BUCKET / CLOSET_BUCKET / S3_BUCKET / BUCKET
     """
     bucket = None
     key = None
@@ -61,23 +58,14 @@ def _extract_bucket_key(event: Dict[str, Any]) -> Tuple[str, str]:
         bucket = bucket or item.get("bucket") or item.get("Bucket")
         key = key or item.get("key") or item.get("Key") or item.get("s3Key")
 
-    # Env fallback for bucket
-    bucket = bucket or _first_env(
-        "UPLOADS_BUCKET_NAME",
-        "UPLOADS_BUCKET",
-        "CLOSET_BUCKET",
-        "S3_BUCKET",
-        "BUCKET",
-    )
+    # Final fallback for bucket from env (your StepFn currently doesn't pass bucket)
+    bucket = bucket or _first_env("UPLOADS_BUCKET", "CLOSET_BUCKET", "S3_BUCKET", "BUCKET")
 
     if not bucket or not key:
         raise ValueError(
             f"Unable to determine bucket/key from event. "
             f"bucket={bucket!r}, key={key!r}, keys_in_event={list(event.keys())}"
         )
-
-    # S3 event keys are URL-encoded sometimes
-    key = urllib.parse.unquote_plus(key)
 
     return bucket, key
 
@@ -88,11 +76,10 @@ def _download_s3_object(bucket: str, key: str) -> bytes:
         s3.download_fileobj(bucket, key, buf)
         return buf.getvalue()
     except ClientError as e:
-        err = e.response.get("Error", {})
-        logger.error(
-            "S3 download failed bucket=%s key=%s code=%s message=%s",
-            bucket, key, err.get("Code"), err.get("Message")
-        )
+        code = e.response.get("Error", {}).get("Code")
+        msg = e.response.get("Error", {}).get("Message")
+        # Make 404/NoSuchKey super obvious in logs
+        logger.error("S3 download failed bucket=%s key=%s code=%s message=%s", bucket, key, code, msg)
         raise
 
 
@@ -102,9 +89,11 @@ def _upload_s3_object(bucket: str, key: str, body: bytes, content_type: str = "i
 
 def _segment_background(image_bytes: bytes) -> bytes:
     """
-    Uses rembg if available. Returns PNG bytes with alpha.
+    Uses rembg if available. Returns a PNG with alpha.
+    If rembg isn't installed for some reason, raises with a clear error.
     """
     try:
+        # Import lazily to reduce cold-start + init overhead
         from rembg import remove  # type: ignore
     except Exception as e:
         raise RuntimeError(
@@ -112,24 +101,30 @@ def _segment_background(image_bytes: bytes) -> bytes:
             "Ensure it is installed in requirements.txt and baked into the image."
         ) from e
 
+    # rembg.remove returns bytes (png) when input is bytes
     out = remove(image_bytes)
+    if not isinstance(out, (bytes, bytearray)):
+        # Some rembg versions may return PIL Image depending on usage
+        try:
+            from PIL import Image  # type: ignore
+            buf = io.BytesIO()
+            if hasattr(out, "save"):
+                out.save(buf, format="PNG")
+                return buf.getvalue()
+        except Exception:
+            pass
+        raise RuntimeError("Unexpected output type from rembg.remove()")
 
-    if isinstance(out, (bytes, bytearray)):
-        return bytes(out)
-
-    # Fallback if rembg returns a PIL image object
-    try:
-        buf = io.BytesIO()
-        out.save(buf, format="PNG")  # type: ignore[attr-defined]
-        return buf.getvalue()
-    except Exception as e:
-        raise RuntimeError("Unexpected output type from rembg.remove()") from e
+    return bytes(out)
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    StepFn typically calls Lambda with payload like:
-      { "item": { "s3Key": "closet/....jpg", "bucket": "..." } }
+    Expected Step Functions usage:
+      ResultPath: "$.segmentation"
+      Resource: arn:aws:states:::lambda:invoke
+    So Step Functions will store:
+      $.segmentation.Payload.outputKey
 
     We return:
       { "ok": true, "bucket": "...", "inputKey": "...", "outputKey": "..." }
@@ -138,13 +133,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     bucket, input_key = _extract_bucket_key(event)
 
-    processed_prefix = os.getenv("PROCESSED_PREFIX", "closet/processed").strip("/")
+    # Where to write output
+    out_prefix = os.getenv("OUTPUT_PREFIX", "closet/processed")
+    # Keep output near original but unique
     base = os.path.basename(input_key)
     stem = os.path.splitext(base)[0]
-    out_key = f"{processed_prefix}/{stem}-{uuid.uuid4().hex}.png"
+    out_key = f"{out_prefix}/{stem}-{uuid.uuid4().hex}.png"
 
+    # Download
     original_bytes = _download_s3_object(bucket, input_key)
+
+    # Segment
     segmented_png = _segment_background(original_bytes)
+
+    # Upload
     _upload_s3_object(bucket, out_key, segmented_png, content_type="image/png")
 
     result = {

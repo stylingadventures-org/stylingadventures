@@ -68,7 +68,7 @@
            {
             "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
            },
-           "/*"
+           "/closet/*"
           ]
          ]
         }
@@ -96,41 +96,11 @@
            {
             "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
            },
-           "/*"
+           "/closet/processed/*"
           ]
          ]
         }
        ]
-      },
-      {
-       "Action": "s3:GetObject",
-       "Effect": "Allow",
-       "Resource": {
-        "Fn::Join": [
-         "",
-         [
-          {
-           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-          },
-          "/closet/*"
-         ]
-        ]
-       }
-      },
-      {
-       "Action": "s3:PutObject",
-       "Effect": "Allow",
-       "Resource": {
-        "Fn::Join": [
-         "",
-         [
-          {
-           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-          },
-          "/closet/processed/*"
-         ]
-        ]
-       }
       }
      ],
      "Version": "2012-10-17"
@@ -151,7 +121,7 @@
    "Properties": {
     "Code": {
      "ImageUri": {
-      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:96467386944303574e64a4961fc4563c111559ad24d2d1cdc72a9e561bdb1af1"
+      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:9f03a0707686d9f612e0ee101baf0eafbf5b523a41fef1d674b875568b98151a"
      }
     },
     "Environment": {
@@ -183,7 +153,7 @@
       "Value": "dev"
      }
     ],
-    "Timeout": 60
+    "Timeout": 120
    },
    "DependsOn": [
     "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA",
@@ -191,7 +161,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/Resource",
-    "aws:asset:path": "asset.96467386944303574e64a4961fc4563c111559ad24d2d1cdc72a9e561bdb1af1",
+    "aws:asset:path": "asset.9f03a0707686d9f612e0ee101baf0eafbf5b523a41fef1d674b875568b98151a",
     "aws:asset:dockerfile-path": "Dockerfile",
     "aws:asset:property": "Code.ImageUri"
    }
@@ -328,7 +298,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "04bac1e0c422ed6aede14dd7bb57182f0292f4c8fa3ceba5862cdadb8c050bff.zip"
+     "S3Key": "c2920f16056fa2c537644143b6b83ed743129b90534bfd802dc05235ab2ccaed.zip"
     },
     "Environment": {
      "Variables": {
@@ -338,17 +308,18 @@
       "BUCKET_NAME": {
        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
       },
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "ModerationFnServiceRoleBF6ED484",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -358,7 +329,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 30
    },
    "DependsOn": [
     "ModerationFnServiceRoleDefaultPolicy9C9AC1C0",
@@ -366,7 +338,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ModerationFn/Resource",
-    "aws:asset:path": "asset.04bac1e0c422ed6aede14dd7bb57182f0292f4c8fa3ceba5862cdadb8c050bff",
+    "aws:asset:path": "asset.c2920f16056fa2c537644143b6b83ed743129b90534bfd802dc05235ab2ccaed",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -472,24 +444,25 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "766afd677f7428b144d1d6909f75cb666bcab663974d7e3f06c4796203b98d84.zip"
+     "S3Key": "3bde3e9d95b60e7b775f5d71ce73b9b0b1971b69e5bbabca8e918ff4b7333ff8.zip"
     },
     "Environment": {
      "Variables": {
       "TABLE_NAME": {
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "PiiCheckFnServiceRole84F31904",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -499,7 +472,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 30
    },
    "DependsOn": [
     "PiiCheckFnServiceRoleDefaultPolicy5209AB8F",
@@ -507,7 +481,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/PiiCheckFn/Resource",
-    "aws:asset:path": "asset.766afd677f7428b144d1d6909f75cb666bcab663974d7e3f06c4796203b98d84",
+    "aws:asset:path": "asset.3bde3e9d95b60e7b775f5d71ce73b9b0b1971b69e5bbabca8e918ff4b7333ff8",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -655,17 +629,18 @@
        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
       },
       "PUBLISHED_PREFIX": "published",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 1024,
     "Role": {
      "Fn::GetAtt": [
       "PublishClosetItemFnServiceRole9997268D",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -675,7 +650,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 60
    },
    "DependsOn": [
     "PublishClosetItemFnServiceRoleDefaultPolicy4282ADC3",
@@ -739,12 +715,36 @@
      "Statement": [
       {
        "Action": [
-        "states:SendTaskSuccess",
-        "states:SendTaskFailure",
-        "states:SendTaskHeartbeat"
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
        ],
        "Effect": "Allow",
-       "Resource": "*"
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
       }
      ],
      "Version": "2012-10-17"
@@ -765,47 +765,27 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "e78556db2333377fbf093172446d391a474860d6d16ccd35534389d447ab40ee.zip"
+     "S3Key": "dfa17ea5df9f26bad484f0a879b75a9a4eb72f591e7fe4c239596df509591501.zip"
     },
     "Environment": {
      "Variables": {
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "NotifyAdminFnServiceRole14F33905",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ]
-   },
-   "DependsOn": [
-    "NotifyAdminFnServiceRoleDefaultPolicyBA423BD5",
-    "NotifyAdminFnServiceRole14F33905"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/NotifyAdminFn/Resource",
-    "aws:asset:path": "asset.e78556db2333377fbf093172446d391a474860d6d16ccd35534389d447ab40ee",
-    "aws:asset:is-bundled": true,
-    "aws:asset:property": "Code"
-   }
-  },
-  "ClosetApprovalTopic3451AB0B": {
-   "Type": "AWS::SNS::Topic",
-   "Properties": {
-    "DisplayName": "Bestie Closet Upload Approvals",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -816,10 +796,17 @@
       "Value": "dev"
      }
     ],
-    "TopicName": "sa-BestiesClosetStack-closet-approval"
+    "Timeout": 30
    },
+   "DependsOn": [
+    "NotifyAdminFnServiceRoleDefaultPolicyBA423BD5",
+    "NotifyAdminFnServiceRole14F33905"
+   ],
    "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/ClosetApprovalTopic/Resource"
+    "aws:cdk:path": "BestiesClosetStack/NotifyAdminFn/Resource",
+    "aws:asset:path": "asset.dfa17ea5df9f26bad484f0a879b75a9a4eb72f591e7fe4c239596df509591501",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
    }
   },
   "ClosetUploadApprovalSMRole38D45F6B": {
@@ -1018,40 +1005,32 @@
      "Fn::Join": [
       "",
       [
-       "{\"StartAt\":\"SegmentOutfit\",\"States\":{\"SegmentOutfit\":{\"Next\":\"ModerateImage\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentation\",\"Resource\":\"arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       "{\"StartAt\":\"SegmentOutfit\",\"States\":{\"SegmentOutfit\":{\"Next\":\"ModerateImage\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentation\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ImageSegmentationFn0414CF98",
          "Arn"
         ]
        },
-       "\",\"Payload\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\"}}}},\"ModerateImage\":{\"Next\":\"CheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
+       "\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\",\"bucket\":\"",
        {
-        "Ref": "AWS::Partition"
+        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
        },
-       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       "\"}}},\"ModerateImage\":{\"Next\":\"CheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.moderation\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ModerationFn7E78A67D",
          "Arn"
         ]
        },
-       "\",\"Payload.$\":\"$\"}},\"CheckPII\":{\"Next\":\"NotifyAdminForApproval\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       "\",\"Parameters\":\"$\"},\"CheckPII\":{\"Next\":\"NotifyAdminForApproval\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.pii\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "PiiCheckFnF52DF218",
          "Arn"
         ]
        },
-       "\",\"Payload.$\":\"$\"}},\"NotifyAdminForApproval\":{\"Next\":\"AdminApproved?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"arn:",
+       "\",\"Parameters\":\"$\"},\"NotifyAdminForApproval\":{\"Next\":\"AdminApproved?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"TimeoutSeconds\":86400,\"ResultPath\":\"$.admin\",\"ResultSelector\":{\"decision.$\":\"$.decision\",\"reason.$\":\"$.reason\"},\"Resource\":\"arn:",
        {
         "Ref": "AWS::Partition"
        },
@@ -1062,18 +1041,14 @@
          "Arn"
         ]
        },
-       "\",\"Payload\":{\"token.$\":\"$$.Task.Token\",\"item.$\":\"$.item\",\"processedImageKey.$\":\"$.segmentation.Payload.outputKey\"}}},\"AdminApproved?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.decision\",\"StringEquals\":\"APPROVE\",\"Next\":\"PublishClosetItem\"},{\"Variable\":\"$.decision\",\"StringEquals\":\"REJECT\",\"Next\":\"Rejected\"}],\"Default\":\"Rejected\"},\"Rejected\":{\"Type\":\"Fail\",\"Cause\":\"RejectedByAdmin\"},\"PublishClosetItem\":{\"Next\":\"Published\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       "\",\"Payload\":{\"token.$\":\"$$.Task.Token\",\"item.$\":\"$.item\",\"processedImageKey.$\":\"$.segmentation.outputKey\",\"moderation.$\":\"$.moderation\",\"pii.$\":\"$.pii\"}}},\"AdminApproved?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.admin.decision\",\"StringEquals\":\"APPROVE\",\"Next\":\"PublishClosetItem\"},{\"Variable\":\"$.admin.decision\",\"StringEquals\":\"REJECT\",\"Next\":\"Rejected\"}],\"Default\":\"Rejected\"},\"Rejected\":{\"Type\":\"Fail\",\"Cause\":\"RejectedByAdmin\"},\"PublishClosetItem\":{\"Next\":\"Published\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.published\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "PublishClosetItemFn8BF46E04",
          "Arn"
         ]
        },
-       "\",\"Payload.$\":\"$\"}},\"Published\":{\"Type\":\"Succeed\"}}}"
+       "\",\"Parameters\":\"$\"},\"Published\":{\"Type\":\"Succeed\"}}}"
       ]
      ]
     },
@@ -1220,17 +1195,19 @@
        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
       },
       "NODE_OPTIONS": "--enable-source-maps",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "ValidateBgChangeFnServiceRoleA475219F",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -1240,7 +1217,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 30
    },
    "DependsOn": [
     "ValidateBgChangeFnServiceRoleDefaultPolicyF44C3E36",
@@ -1389,17 +1367,19 @@
        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
       },
       "NODE_OPTIONS": "--enable-source-maps",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "ModerateBgFnServiceRoleA8662475",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -1409,7 +1389,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 30
    },
    "DependsOn": [
     "ModerateBgFnServiceRoleDefaultPolicy75CA2E9C",
@@ -1523,7 +1504,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "ef3599b979d995ae5a2a3e8669f60471f1ed33c233ee1b72a8e34d311d8ee0b9.zip"
+     "S3Key": "862c0fa7572dc63eac883051febde85b44650e42bd7b9ef4538264aeef176b22.zip"
     },
     "Environment": {
      "Variables": {
@@ -1534,17 +1515,19 @@
        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
       },
       "NODE_OPTIONS": "--enable-source-maps",
-      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
+      "PK_NAME": "pk",
+      "SK_NAME": "sk"
      }
     },
     "Handler": "index.handler",
+    "MemorySize": 1024,
     "Role": {
      "Fn::GetAtt": [
       "ApplyBgChangeFnServiceRole9AC3176A",
       "Arn"
      ]
     },
-    "Runtime": "nodejs16.x",
+    "Runtime": "nodejs20.x",
     "Tags": [
      {
       "Key": "App",
@@ -1554,7 +1537,8 @@
       "Key": "Env",
       "Value": "dev"
      }
-    ]
+    ],
+    "Timeout": 60
    },
    "DependsOn": [
     "ApplyBgChangeFnServiceRoleDefaultPolicyF1F3687F",
@@ -1562,7 +1546,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ApplyBgChangeFn/Resource",
-    "aws:asset:path": "asset.ef3599b979d995ae5a2a3e8669f60471f1ed33c233ee1b72a8e34d311d8ee0b9",
+    "aws:asset:path": "asset.862c0fa7572dc63eac883051febde85b44650e42bd7b9ef4538264aeef176b22",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1887,25 +1871,25 @@
      "Fn::Join": [
       "",
       [
-       "{\"StartAt\":\"ValidateBackgroundChange\",\"States\":{\"ValidateBackgroundChange\":{\"Next\":\"SegmentOutfitForBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "{\"StartAt\":\"ValidateBackgroundChange\",\"States\":{\"ValidateBackgroundChange\":{\"Next\":\"SegmentOutfitForBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.validation\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ValidateBgChangeFn419727A4",
          "Arn"
         ]
        },
-       "\"},\"SegmentOutfitForBgChange\":{\"Next\":\"ModerateBackground\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentationBg\",\"Resource\":\"arn:",
-       {
-        "Ref": "AWS::Partition"
-       },
-       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       "\"},\"SegmentOutfitForBgChange\":{\"Next\":\"ModerateBackground\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"TimeoutSeconds\":180,\"ResultPath\":\"$.segmentationBg\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ImageSegmentationFn0414CF98",
          "Arn"
         ]
        },
-       "\",\"Payload\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\"}}}},\"ModerateBackground\":{\"Next\":\"NotifyAdminBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\",\"bucket\":\"",
+       {
+        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+       },
+       "\"}}},\"ModerateBackground\":{\"Next\":\"NotifyAdminBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.moderationBg\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ModerateBgFn9078832F",
@@ -1920,7 +1904,7 @@
        {
         "Ref": "BestieBackgroundApprovalTopic895968C0"
        },
-       "\",\"Message\":{\"type\":\"BESTIE_BACKGROUND_CHANGE\",\"detail.$\":\"$\",\"taskToken.$\":\"$$.Task.Token\",\"processedImageKey.$\":\"$.segmentationBg.Payload.outputKey\"}}},\"AdminApprovedBgChange?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.approval.approved\",\"BooleanEquals\":true,\"Next\":\"ApplyBackgroundChange\"}],\"Default\":\"BackgroundChangeRejected\"},\"BackgroundChangeRejected\":{\"Type\":\"Pass\",\"Result\":{\"status\":\"REJECTED\"},\"End\":true},\"ApplyBackgroundChange\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"",
+       "\",\"Message\":{\"type\":\"BESTIE_BACKGROUND_CHANGE\",\"detail.$\":\"$\",\"taskToken.$\":\"$$.Task.Token\",\"processedImageKey.$\":\"$.segmentationBg.outputKey\"}}},\"AdminApprovedBgChange?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.approval.approved\",\"BooleanEquals\":true,\"Next\":\"ApplyBackgroundChange\"}],\"Default\":\"BackgroundChangeRejected\"},\"BackgroundChangeRejected\":{\"Type\":\"Pass\",\"Result\":{\"status\":\"REJECTED\"},\"End\":true},\"ApplyBackgroundChange\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.applied\",\"Resource\":\"",
        {
         "Fn::GetAtt": [
          "ApplyBgChangeFn6D1C78C3",
@@ -2071,7 +2055,8 @@
        "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
       },
       "PK_NAME": "pk",
-      "SK_NAME": "sk"
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
      }
     },
     "Handler": "index.handler",
@@ -2102,43 +2087,6 @@
     "aws:asset:path": "asset.193a25b2fc06146354e9e5db8f227d96865ec02a3549934f5b17aec73c82fa5a",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "SaveApprovalTokenFnAllowInvokeBestiesClosetStackClosetApprovalTopic05F7598AC218FDBF": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "SaveApprovalTokenFnBF4550C6",
-      "Arn"
-     ]
-    },
-    "Principal": "sns.amazonaws.com",
-    "SourceArn": {
-     "Ref": "ClosetApprovalTopic3451AB0B"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/AllowInvoke:BestiesClosetStackClosetApprovalTopic05F7598A"
-   }
-  },
-  "SaveApprovalTokenFnClosetApprovalTopic03E393F3": {
-   "Type": "AWS::SNS::Subscription",
-   "Properties": {
-    "Endpoint": {
-     "Fn::GetAtt": [
-      "SaveApprovalTokenFnBF4550C6",
-      "Arn"
-     ]
-    },
-    "Protocol": "lambda",
-    "TopicArn": {
-     "Ref": "ClosetApprovalTopic3451AB0B"
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/ClosetApprovalTopic/Resource"
    }
   },
   "SaveApprovalTokenFnAllowInvokeBestiesClosetStackBestieBackgroundApprovalTopic94BA1983DB3E4AFD": {
@@ -2178,10 +2126,267 @@
     "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/BestieBackgroundApprovalTopic/Resource"
    }
   },
+  "ApproveClosetUploadFnServiceRole6FCD1BF1": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/Resource"
+   }
+  },
+  "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A",
+    "Roles": [
+     {
+      "Ref": "ApproveClosetUploadFnServiceRole6FCD1BF1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApproveClosetUploadFnC4D99774": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "f2bb7d489c8db319e6661d4558f1bbc19932754d807189532370934809ec9548.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnServiceRole6FCD1BF1",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A",
+    "ApproveClosetUploadFnServiceRole6FCD1BF1"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/Resource",
+    "aws:asset:path": "asset.f2bb7d489c8db319e6661d4558f1bbc19932754d807189532370934809ec9548",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "BestiesAdminApiD443FA75": {
+   "Type": "AWS::ApiGatewayV2::Api",
+   "Properties": {
+    "Name": "sa-BestiesClosetStack-admin-api",
+    "ProtocolType": "HTTP",
+    "Tags": {
+     "App": "stylingadventures",
+     "Env": "dev"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/Resource"
+   }
+  },
+  "BestiesAdminApiDefaultStage477978A2": {
+   "Type": "AWS::ApiGatewayV2::Stage",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AutoDeploy": true,
+    "StageName": "$default",
+    "Tags": {
+     "App": "stylingadventures",
+     "Env": "dev"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/DefaultStage/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnC4D99774",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegrationPermissionC159ADDA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnC4D99774",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "BestiesAdminApiD443FA75"
+       },
+       "/*/*/admin/closet/approve"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration-Permission"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveC2CD6284": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "POST /admin/closet/approve",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11Qy27CMBD8lt7NloZeeiy0SEhtFSW9RxuzwJLEjrI2CFn59yoO0LQXz8y+PQkkyQLmD3iWmd5Ws5pLCLlDXSk8SxFqbMotQnizuqJu0+Ce1t5ox9ao1c5MeUpdwyJsTa8YGwiZrWlIRExtzfoS6yLrFemuQBFyApPpr0NkyEFGrRV2trssUUiNlxTGbuko8BXhvl4Wt1Fjvyxg6XVFLraKEQjftmU97B9JfH+Pmsrcl6I7bm8fm+peiaN2d90rhUOpBMJHPG5jTrYilRtJfVmzHP5VQ1gj1yr3WhNt1epgWZPKHTr6RH1gE+36o1MU6RWdyDiB8D7g0stQdueZv9rsa+p7lZFY32lS0Ync4Z7NvleDb3CUx1Myh6cXeH44CvOs88ZxQ5CN+AMzyTehDgIAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11RwW7bMAz9lt4VLnN26THpWjRAuwb27gGjsA5jWzJMKkFg6N8HyU2X9qL3HvlIUVQBRbGA+R2eZWb3zazlHYyVom0MnmU7ttjt9gjjb28bGtYd1vQUnFX2zjy8u1u+oaFjEfYuGsYOxtK3lBIZN75le8m+zKIhO2xRhFTgpvsyRVIOSuq9sPrhskIhM02ydX5PR4E/GT6vl8W11VQvC1gF25DmUlHq3z+sslWURmB8yf3W7uQbMpWTTdi1LIf41Q3jE3JrqmAt0d48HDxbMpWi0ivaA7v8wi96gyLRSKr963u2yTCRfP5fxK2swk7swP11mbc6GjqRU4HxMeEqSHJ88jJ8rDm0FA32XKPSGS+nAsZn1X7Zc0onSLJSrK9D15RDpQ86sbVTqge8TvFNZl+MpiTxYbBk8rJTH3Z1MrwF7YNGkz4JjvLjVMzh5z38ujsK82wITrkjKCf8BwvLRYB7AgAA"
    },
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/CDKMetadata/Default"
@@ -2189,6 +2394,24 @@
   }
  },
  "Outputs": {
+  "AdminApiUrl": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "BestiesAdminApiD443FA75"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
   "ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513": {
    "Value": {
     "Ref": "ClosetUploadApprovalSM46D354C9"
