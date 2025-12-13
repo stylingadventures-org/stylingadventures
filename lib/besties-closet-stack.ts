@@ -13,6 +13,10 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
 
+// HTTP API v2
+import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as apigwv2Integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
+
 export interface BestiesClosetStackProps extends cdk.StackProps {
   table: dynamodb.ITable;
   uploadsBucket: s3.IBucket;
@@ -31,163 +35,157 @@ export class BestiesClosetStack extends cdk.Stack {
     // 0) Container-based image segmentation Lambda (Docker)
     // =====================================================
 
-    const imageSegmentationFn = new lambda.DockerImageFunction(
-      this,
-      "ImageSegmentationFn",
-      {
-        code: lambda.DockerImageCode.fromImageAsset(
-          path.join(process.cwd(), "image-segmentation-lambda"),
-        ),
-        // Max allowed for your account/region
-        memorySize: 3008,
-        timeout: cdk.Duration.seconds(60),
-        ephemeralStorageSize: cdk.Size.mebibytes(4096),
-        environment: {
-          UPLOADS_BUCKET_NAME: uploadsBucket.bucketName,
-          PROCESSED_PREFIX: "closet/processed",
-        },
+    const imageSegmentationFn = new lambda.DockerImageFunction(this, "ImageSegmentationFn", {
+      code: lambda.DockerImageCode.fromImageAsset(
+        path.join(process.cwd(), "image-segmentation-lambda"),
+      ),
+      memorySize: 3008,
+      timeout: cdk.Duration.seconds(120),
+      ephemeralStorageSize: cdk.Size.mebibytes(4096),
+      environment: {
+        UPLOADS_BUCKET_NAME: uploadsBucket.bucketName,
+        PROCESSED_PREFIX: "closet/processed",
       },
-    );
+    });
 
-    // Least-privilege S3 access: read closet/*, write closet/processed/*
-    uploadsBucket.grantRead(imageSegmentationFn);
-    uploadsBucket.grantWrite(imageSegmentationFn);
+    uploadsBucket.grantRead(imageSegmentationFn, "closet/*");
+    uploadsBucket.grantWrite(imageSegmentationFn, "closet/processed/*");
 
-    imageSegmentationFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:GetObject"],
-        resources: [uploadsBucket.arnForObjects("closet/*")],
-      }),
-    );
-
-    imageSegmentationFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:PutObject"],
-        resources: [uploadsBucket.arnForObjects("closet/processed/*")],
-      }),
-    );
-
-    // Reusable environment for background-change Lambdas
     const ENV = {
       TABLE_NAME: table.tableName,
       UPLOADS_BUCKET: uploadsBucket.bucketName,
       NODE_OPTIONS: "--enable-source-maps",
+      PK_NAME: "pk",
+      SK_NAME: "sk",
     };
 
     // =====================================================
-    // 1) CLOSET UPLOAD APPROVAL
+    // 1) FAN CLOSET UPLOAD APPROVAL (WAIT_FOR_TASK_TOKEN)
     // =====================================================
 
     const moderationFn = new lambdaNode.NodejsFunction(this, "ModerationFn", {
-      entry: "lambda/closet/moderation.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      entry: path.join(process.cwd(), "lambda/closet/moderation.ts"),
       environment: {
         TABLE_NAME: table.tableName,
         BUCKET_NAME: uploadsBucket.bucketName,
+        NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
     const piiCheckFn = new lambdaNode.NodejsFunction(this, "PiiCheckFn", {
-      entry: "lambda/closet/pii-check.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      entry: path.join(process.cwd(), "lambda/closet/pii-check.ts"),
       environment: {
         TABLE_NAME: table.tableName,
+        NODE_OPTIONS: "--enable-source-maps",
       },
     });
 
-    const publishClosetItemFn = new lambdaNode.NodejsFunction(
-      this,
-      "PublishClosetItemFn",
-      {
-        entry: "lambda/closet/publish.ts",
-        environment: {
-          TABLE_NAME: table.tableName,
-          BUCKET_NAME: uploadsBucket.bucketName,
-          PUBLISHED_PREFIX: "published",
-        },
+    const publishClosetItemFn = new lambdaNode.NodejsFunction(this, "PublishClosetItemFn", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 1024,
+      entry: path.join(process.cwd(), "lambda/closet/publish.ts"),
+      environment: {
+        TABLE_NAME: table.tableName,
+        BUCKET_NAME: uploadsBucket.bucketName,
+        PUBLISHED_PREFIX: "published",
+        NODE_OPTIONS: "--enable-source-maps",
       },
-    );
+    });
 
     const notifyAdminFn = new lambdaNode.NodejsFunction(this, "NotifyAdminFn", {
-      entry: "lambda/closet/notify-admin.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      entry: path.join(process.cwd(), "lambda/closet/notify-admin.ts"),
+      environment: {
+        TABLE_NAME: table.tableName,
+        PK_NAME: "pk",
+        SK_NAME: "sk",
+        NODE_OPTIONS: "--enable-source-maps",
+      },
     });
 
-    // IAM – least privilege for DDB/S3
+    // IAM
     table.grantReadWriteData(moderationFn);
     table.grantReadWriteData(piiCheckFn);
     table.grantReadWriteData(publishClosetItemFn);
+    table.grantReadWriteData(notifyAdminFn);
 
     uploadsBucket.grantReadWrite(moderationFn);
     uploadsBucket.grantReadWrite(publishClosetItemFn);
 
-    // Allow NotifyAdminFn to send task responses back to ANY Step Functions
-    notifyAdminFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "states:SendTaskSuccess",
-          "states:SendTaskFailure",
-          "states:SendTaskHeartbeat",
-        ],
-        resources: ["*"],
-      }),
-    );
-
-    // SNS topic for closet upload approvals (for future SNS-based flows)
-    const closetApprovalTopic = new sns.Topic(this, "ClosetApprovalTopic", {
-      displayName: "Bestie Closet Upload Approvals",
-      topicName: `sa-${cdk.Stack.of(this).stackName}-closet-approval`,
-    });
-
-    // ---- ClosetUploadApproval state machine ----
+    // ---- Fan Closet approval state machine ----
 
     const segmentOutfitTask = new tasks.LambdaInvoke(this, "SegmentOutfit", {
       lambdaFunction: imageSegmentationFn,
       payload: sfn.TaskInput.fromObject({
         item: {
           "s3Key.$": "$.item.s3Key",
+          bucket: uploadsBucket.bucketName,
         },
       }),
+      payloadResponseOnly: true,
       resultPath: "$.segmentation",
     });
 
     const moderationTask = new tasks.LambdaInvoke(this, "ModerateImage", {
       lambdaFunction: moderationFn,
-      outputPath: "$.Payload",
+      payload: sfn.TaskInput.fromJsonPathAt("$"),
+      payloadResponseOnly: true,
+      resultPath: "$.moderation",
     });
 
     const piiTask = new tasks.LambdaInvoke(this, "CheckPII", {
       lambdaFunction: piiCheckFn,
-      outputPath: "$.Payload",
+      payload: sfn.TaskInput.fromJsonPathAt("$"),
+      payloadResponseOnly: true,
+      resultPath: "$.pii",
     });
 
-    const notifyAdminTask = new tasks.LambdaInvoke(
-      this,
-      "NotifyAdminForApproval",
-      {
-        lambdaFunction: notifyAdminFn,
-        integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
-        payload: sfn.TaskInput.fromObject({
-          token: sfn.JsonPath.taskToken,
-          item: sfn.JsonPath.stringAt("$.item"),
-          processedImageKey: sfn.JsonPath.stringAt(
-            "$.segmentation.Payload.outputKey",
-          ),
-        }),
+    // ✅ IMPORTANT FIX:
+    // Use "token: JsonPath.taskToken" (NOT "token.$": ...)
+    // CDK will generate the correct StepFn JSON: "token.$": "$$.Task.Token"
+    const notifyAdminTask = new tasks.LambdaInvoke(this, "NotifyAdminForApproval", {
+      lambdaFunction: notifyAdminFn,
+      integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+      taskTimeout: sfn.Timeout.duration(cdk.Duration.hours(24)),
+
+      payload: sfn.TaskInput.fromObject({
+        token: sfn.JsonPath.taskToken,
+        item: sfn.JsonPath.objectAt("$.item"),
+        processedImageKey: sfn.JsonPath.stringAt("$.segmentation.outputKey"),
+        moderation: sfn.JsonPath.objectAt("$.moderation"),
+        pii: sfn.JsonPath.objectAt("$.pii"),
+      }),
+
+      // Callback output is the task result
+      resultSelector: {
+        "decision.$": "$.decision",
+        "reason.$": "$.reason",
       },
-    );
+      resultPath: "$.admin",
+    });
 
     const publishTask = new tasks.LambdaInvoke(this, "PublishClosetItem", {
       lambdaFunction: publishClosetItemFn,
-      outputPath: "$.Payload",
+      payload: sfn.TaskInput.fromJsonPathAt("$"),
+      payloadResponseOnly: true,
+      resultPath: "$.published",
     });
 
-    const rejected = new sfn.Fail(this, "Rejected", {
-      cause: "RejectedByAdmin",
-    });
-
+    const rejected = new sfn.Fail(this, "Rejected", { cause: "RejectedByAdmin" });
     const approved = publishTask.next(new sfn.Succeed(this, "Published"));
 
     const waitForAdminChoice = new sfn.Choice(this, "AdminApproved?")
-      .when(sfn.Condition.stringEquals("$.decision", "APPROVE"), approved)
-      .when(sfn.Condition.stringEquals("$.decision", "REJECT"), rejected)
+      .when(sfn.Condition.stringEquals("$.admin.decision", "APPROVE"), approved)
+      .when(sfn.Condition.stringEquals("$.admin.decision", "REJECT"), rejected)
       .otherwise(rejected);
 
     const definition = segmentOutfitTask
@@ -196,74 +194,50 @@ export class BestiesClosetStack extends cdk.Stack {
       .next(notifyAdminTask)
       .next(waitForAdminChoice);
 
-    this.closetUploadStateMachine = new sfn.StateMachine(
-      this,
-      "ClosetUploadApprovalSM",
-      {
-        definitionBody: sfn.DefinitionBody.fromChainable(definition),
-        stateMachineType: sfn.StateMachineType.STANDARD,
-        tracingEnabled: true,
-      },
-    );
+    this.closetUploadStateMachine = new sfn.StateMachine(this, "ClosetUploadApprovalSM", {
+      definitionBody: sfn.DefinitionBody.fromChainable(definition),
+      stateMachineType: sfn.StateMachineType.STANDARD,
+      tracingEnabled: true,
+    });
 
     // =====================================================
     // 2) BACKGROUND CHANGE APPROVAL (SNS + WAIT_FOR_TASK_TOKEN)
     // =====================================================
 
-    const validateBgFn = new lambdaNode.NodejsFunction(
-      this,
-      "ValidateBgChangeFn",
-      {
-        entry: path.join(
-          process.cwd(),
-          "lambda/closet/validate-background-change.ts",
-        ),
-        bundling: {
-          format: lambdaNode.OutputFormat.CJS,
-          minify: true,
-          sourceMap: true,
-        },
-        environment: ENV,
-      },
-    );
+    const validateBgFn = new lambdaNode.NodejsFunction(this, "ValidateBgChangeFn", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      entry: path.join(process.cwd(), "lambda/closet/validate-background-change.ts"),
+      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: ENV,
+    });
     table.grantReadWriteData(validateBgFn);
 
     const moderateBgFn = new lambdaNode.NodejsFunction(this, "ModerateBgFn", {
-      entry: path.join(
-        process.cwd(),
-        "lambda/closet/moderate-background.ts",
-      ),
-      bundling: {
-        format: lambdaNode.OutputFormat.CJS,
-        minify: true,
-        sourceMap: true,
-      },
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      entry: path.join(process.cwd(), "lambda/closet/moderate-background.ts"),
+      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
       environment: ENV,
     });
     table.grantReadWriteData(moderateBgFn);
     uploadsBucket.grantRead(moderateBgFn);
 
     const applyBgFn = new lambdaNode.NodejsFunction(this, "ApplyBgChangeFn", {
-      entry: path.join(
-        process.cwd(),
-        "lambda/closet/apply-background-change.ts",
-      ),
-      bundling: {
-        format: lambdaNode.OutputFormat.CJS,
-        minify: true,
-        sourceMap: true,
-      },
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 1024,
+      entry: path.join(process.cwd(), "lambda/closet/apply-background-change.ts"),
+      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
       environment: ENV,
     });
     table.grantReadWriteData(applyBgFn);
 
-    const bgApprovalTopic = new sns.Topic(
-      this,
-      "BestieBackgroundApprovalTopic",
-      {
-        displayName: "Bestie Background Change Approvals",
-      },
-    );
+    const bgApprovalTopic = new sns.Topic(this, "BestieBackgroundApprovalTopic", {
+      displayName: "Bestie Background Change Approvals",
+    });
 
     const bus = new events.EventBus(this, "BestiesBus", {
       eventBusName: `sa-${cdk.Stack.of(this).stackName}-besties`,
@@ -295,43 +269,35 @@ export class BestiesClosetStack extends cdk.Stack {
       targets: [new targets.SnsTopic(bgApprovalTopic)],
     });
 
-    const validateTask = new tasks.LambdaInvoke(
-      this,
-      "ValidateBackgroundChange",
-      {
-        lambdaFunction: validateBgFn,
-        payloadResponseOnly: true,
-      },
-    );
+    const validateTask = new tasks.LambdaInvoke(this, "ValidateBackgroundChange", {
+      lambdaFunction: validateBgFn,
+      payloadResponseOnly: true,
+      resultPath: "$.validation",
+    });
 
-    const segmentBgTask = new tasks.LambdaInvoke(
-      this,
-      "SegmentOutfitForBgChange",
-      {
-        lambdaFunction: imageSegmentationFn,
-        payload: sfn.TaskInput.fromObject({
-          item: {
-            "s3Key.$": "$.item.s3Key",
-          },
-        }),
-        resultPath: "$.segmentationBg",
-      },
-    );
+    const segmentBgTask = new tasks.LambdaInvoke(this, "SegmentOutfitForBgChange", {
+      lambdaFunction: imageSegmentationFn,
+      payload: sfn.TaskInput.fromObject({
+        item: { "s3Key.$": "$.item.s3Key", bucket: uploadsBucket.bucketName },
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.segmentationBg",
+      timeout: cdk.Duration.seconds(180),
+    });
 
     const moderateTask = new tasks.LambdaInvoke(this, "ModerateBackground", {
       lambdaFunction: moderateBgFn,
       payloadResponseOnly: true,
+      resultPath: "$.moderationBg",
     });
 
     const waitForAdmin = new tasks.SnsPublish(this, "NotifyAdminBgChange", {
       topic: bgApprovalTopic,
       message: sfn.TaskInput.fromObject({
         type: "BESTIE_BACKGROUND_CHANGE",
-        detail: sfn.JsonPath.entirePayload,
+        "detail.$": "$",
         taskToken: sfn.JsonPath.taskToken,
-        processedImageKey: sfn.JsonPath.stringAt(
-          "$.segmentationBg.Payload.outputKey",
-        ),
+        processedImageKey: sfn.JsonPath.stringAt("$.segmentationBg.outputKey"),
       }),
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
       resultPath: "$.approval",
@@ -340,6 +306,7 @@ export class BestiesClosetStack extends cdk.Stack {
     const applyTask = new tasks.LambdaInvoke(this, "ApplyBackgroundChange", {
       lambdaFunction: applyBgFn,
       payloadResponseOnly: true,
+      resultPath: "$.applied",
     });
 
     const bgDefinition = validateTask
@@ -348,10 +315,7 @@ export class BestiesClosetStack extends cdk.Stack {
       .next(waitForAdmin)
       .next(
         new sfn.Choice(this, "AdminApprovedBgChange?")
-          .when(
-            sfn.Condition.booleanEquals("$.approval.approved", true),
-            applyTask,
-          )
+          .when(sfn.Condition.booleanEquals("$.approval.approved", true), applyTask)
           .otherwise(
             new sfn.Pass(this, "BackgroundChangeRejected", {
               result: sfn.Result.fromObject({ status: "REJECTED" }),
@@ -359,49 +323,69 @@ export class BestiesClosetStack extends cdk.Stack {
           ),
       );
 
-    this.backgroundChangeStateMachine = new sfn.StateMachine(
-      this,
-      "BackgroundChangeApprovalSM",
-      {
-        definitionBody: sfn.DefinitionBody.fromChainable(bgDefinition),
-        stateMachineType: sfn.StateMachineType.STANDARD,
-        tracingEnabled: true,
-      },
-    );
+    this.backgroundChangeStateMachine = new sfn.StateMachine(this, "BackgroundChangeApprovalSM", {
+      definitionBody: sfn.DefinitionBody.fromChainable(bgDefinition),
+      stateMachineType: sfn.StateMachineType.STANDARD,
+      tracingEnabled: true,
+    });
 
     // =====================================================
-    // 3) Save-approval-token Lambda wired to both SNS topics
+    // 3) Save-approval-token Lambda wired to SNS topic (BG flow)
     // =====================================================
 
-    const saveApprovalTokenFn = new lambdaNode.NodejsFunction(
-      this,
-      "SaveApprovalTokenFn",
-      {
-        runtime: lambda.Runtime.NODEJS_20_X,
-        entry: path.join(
-          process.cwd(),
-          "lambda/workflows/save-approval-token.ts",
-        ),
-        handler: "handler",
-        environment: {
-          TABLE_NAME: table.tableName,
-          PK_NAME: "pk",
-          SK_NAME: "sk",
-        },
+    const saveApprovalTokenFn = new lambdaNode.NodejsFunction(this, "SaveApprovalTokenFn", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(process.cwd(), "lambda/workflows/save-approval-token.ts"),
+      handler: "handler",
+      environment: {
+        TABLE_NAME: table.tableName,
+        PK_NAME: "pk",
+        SK_NAME: "sk",
+        NODE_OPTIONS: "--enable-source-maps",
       },
-    );
+    });
 
     table.grantReadWriteData(saveApprovalTokenFn);
-
-    closetApprovalTopic.addSubscription(
-      new subs.LambdaSubscription(saveApprovalTokenFn),
-    );
-    bgApprovalTopic.addSubscription(
-      new subs.LambdaSubscription(saveApprovalTokenFn),
-    );
+    bgApprovalTopic.addSubscription(new subs.LambdaSubscription(saveApprovalTokenFn));
 
     // =====================================================
-    // 4) (reserved) Additional workflows can hook into segmentation
+    // 4) Admin Approval API -> SendTaskSuccess using taskToken on ITEM#<id>/META
     // =====================================================
+
+    const approveClosetUploadFn = new lambdaNode.NodejsFunction(this, "ApproveClosetUploadFn", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(process.cwd(), "lambda/admin/approve-closet-upload.ts"),
+      handler: "handler",
+      environment: {
+        TABLE_NAME: table.tableName,
+        PK_NAME: "pk",
+        SK_NAME: "sk",
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+    });
+
+    table.grantReadWriteData(approveClosetUploadFn);
+
+    approveClosetUploadFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
+        resources: ["*"],
+      }),
+    );
+
+    const adminApi = new apigwv2.HttpApi(this, "BestiesAdminApi", {
+      apiName: `sa-${cdk.Stack.of(this).stackName}-admin-api`,
+    });
+
+    adminApi.addRoutes({
+      path: "/admin/closet/approve",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new apigwv2Integrations.HttpLambdaIntegration(
+        "ApproveClosetUploadIntegration",
+        approveClosetUploadFn,
+      ),
+    });
+
+    new cdk.CfnOutput(this, "AdminApiUrl", { value: adminApi.url ?? "" });
   }
 }

@@ -8,6 +8,31 @@ const GRID_PREVIEW_LIMIT = 6;
 // IMPORTANT: fallback public CDN for raw uploads (same as fan/admin library)
 const PUBLIC_UPLOADS_CDN = "https://d3fghr37bcpbig.cloudfront.net";
 
+// ✅ Approval callback API (REST) — used to resume StepFn WAIT_FOR_TASK_TOKEN
+// If you later put this in config, you can replace the fallback.
+const ADMIN_APPROVAL_API_BASE =
+  window?.sa?.config?.adminApiUrl ||
+  "https://asf706c16e.execute-api.us-east-1.amazonaws.com";
+
+async function sendWorkflowDecision({ approvalId, decision }) {
+  const res = await fetch(`${ADMIN_APPROVAL_API_BASE}/admin/closet/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approvalId, decision }),
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `Approval API failed: HTTP ${res.status}`);
+  }
+
+  try {
+    return text ? JSON.parse(text) : { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}
+
 function isNew(createdAt) {
   if (!createdAt) return false;
   const t = new Date(createdAt).getTime();
@@ -95,6 +120,7 @@ const GQL = {
       }
     }
   `,
+  // NOTE: still kept for legacy/manual flows
   approve: /* GraphQL */ `
     mutation Approve($closetItemId: ID!) {
       adminApproveItem(closetItemId: $closetItemId) {
@@ -215,7 +241,7 @@ async function hydrateItems(items) {
       }
 
       return { ...item, mediaUrl: url || null };
-    })
+    }),
   );
 }
 
@@ -240,9 +266,7 @@ function humanStatusLabel(item) {
 function randomId() {
   const g = window.crypto;
   if (g?.randomUUID) return g.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function ClosetUpload() {
@@ -302,7 +326,7 @@ export default function ClosetUpload() {
     setFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name + f.size));
       const unique = Array.from(newFiles).filter(
-        (f) => !existingNames.has(f.name + f.size)
+        (f) => !existingNames.has(f.name + f.size),
       );
       return [...prev, ...unique];
     });
@@ -400,21 +424,19 @@ export default function ClosetUpload() {
 
         if (created) {
           results.push(
-            `✔ Created “${created.title}” (status: ${
-              created.status
-            }) at ${new Date(created.createdAt).toLocaleString()}`
+            `✔ Created “${created.title}” (status: ${created.status}) at ${new Date(
+              created.createdAt,
+            ).toLocaleString()}`,
           );
         } else {
           results.push(
-            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`
+            `⚠ Created item for “${itemTitle}”, but GraphQL response was empty.`,
           );
         }
       }
 
       setUploadMsg(
-        `Finished uploading ${total} item${
-          total > 1 ? "s" : ""
-        }. Background removal will run shortly, then you can approve them from the Closet dashboard.`
+        `Finished uploading ${total} item${total > 1 ? "s" : ""}. Background removal will run shortly, then you can review + approve them from the Closet dashboard.`,
       );
       setUploadDetails(results);
 
@@ -464,12 +486,8 @@ export default function ClosetUpload() {
       }
 
       const byId = {};
-      for (const item of pending) {
-        byId[item.id] = { ...item };
-      }
-      for (const item of published) {
-        byId[item.id] = { ...byId[item.id], ...item };
-      }
+      for (const item of pending) byId[item.id] = { ...item };
+      for (const item of published) byId[item.id] = { ...byId[item.id], ...item };
 
       const merged = Object.values(byId).sort((a, b) => {
         const ta = new Date(a.createdAt || 0).getTime();
@@ -522,7 +540,7 @@ export default function ClosetUpload() {
         const q = search.trim().toLowerCase();
         return (item.title || "").toLowerCase().includes(q);
       }),
-    [items, search, statusFilter]
+    [items, search, statusFilter],
   );
 
   // For review mode: always pending-only, regardless of statusFilter
@@ -534,7 +552,7 @@ export default function ClosetUpload() {
         const q = search.trim().toLowerCase();
         return (item.title || "").toLowerCase().includes(q);
       }),
-    [items, search]
+    [items, search],
   );
 
   const itemCount = filteredItems.length;
@@ -544,13 +562,7 @@ export default function ClosetUpload() {
   // ------- Delete (soft delete via reject) -------
 
   async function handleDelete(id) {
-    if (
-      !window.confirm(
-        "Delete (reject) this closet item? This cannot be undone."
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm("Delete (reject) this closet item? This cannot be undone.")) return;
     try {
       await window.sa.graphql(GQL.rejectAsDelete, {
         closetItemId: id,
@@ -566,18 +578,13 @@ export default function ClosetUpload() {
   // ------- Review actions (approve / reject / audience) -------
 
   function updateLocalAudience(id, audience) {
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, audience } : it))
-    );
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, audience } : it)));
   }
 
   async function saveAudience(id, audience) {
     try {
       setBusyId(id);
-      await window.sa.graphql(GQL.setAudience, {
-        closetItemId: id,
-        audience,
-      });
+      await window.sa.graphql(GQL.setAudience, { closetItemId: id, audience });
       await loadItems();
     } catch (err) {
       console.error(err);
@@ -587,15 +594,28 @@ export default function ClosetUpload() {
     }
   }
 
+  /**
+   * ✅ APPROVE behavior you requested:
+   * - Approve does NOT publish
+   * - For PENDING (StepFn waiting): send REST decision to resume workflow
+   * - After workflow resumes, backend should mark APPROVED (not PUBLISHED)
+   */
   async function approveItem(item) {
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.approve, { closetItemId: item.id });
+
+      // StepFn PENDING → callback approve (does NOT publish; backend must reflect this)
+      if (item.status === "PENDING") {
+        await sendWorkflowDecision({ approvalId: item.id, decision: "APPROVE" });
+      } else {
+        // legacy/manual
+        await window.sa.graphql(GQL.approve, { closetItemId: item.id });
+      }
+
+      // keep audience saved
       const audience = item.audience || "PUBLIC";
-      await window.sa.graphql(GQL.setAudience, {
-        closetItemId: item.id,
-        audience,
-      });
+      await window.sa.graphql(GQL.setAudience, { closetItemId: item.id, audience });
+
       await loadItems();
     } catch (err) {
       console.error(err);
@@ -611,10 +631,15 @@ export default function ClosetUpload() {
 
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.reject, {
-        closetItemId: item.id,
-        reason,
-      });
+
+      // StepFn PENDING → callback reject
+      if (item.status === "PENDING") {
+        await sendWorkflowDecision({ approvalId: item.id, decision: "REJECT" });
+      } else {
+        // legacy/manual
+        await window.sa.graphql(GQL.reject, { closetItemId: item.id, reason });
+      }
+
       await loadItems();
     } catch (err) {
       console.error(err);
@@ -627,11 +652,7 @@ export default function ClosetUpload() {
   // ------- Render -------
 
   const autoLabel =
-    lastUpdatedAt == null
-      ? "—"
-      : secondsSinceUpdate < 2
-      ? "just now"
-      : `${secondsSinceUpdate}s ago`;
+    lastUpdatedAt == null ? "—" : secondsSinceUpdate < 2 ? "just now" : `${secondsSinceUpdate}s ago`;
 
   const isReviewMode = viewMode === "REVIEW";
   const reviewList = pendingItems;
@@ -645,9 +666,7 @@ export default function ClosetUpload() {
       {/* Header banner */}
       <header className="closet-admin-header">
         <div className="closet-admin-title-block">
-          <span className="closet-admin-kicker">
-            STYLING ADVENTURES WITH LALA
-          </span>
+          <span className="closet-admin-kicker">STYLING ADVENTURES WITH LALA</span>
           <h1>
             Admin Closet Studio{" "}
             <span className="closet-admin-emoji" role="img" aria-label="dress">
@@ -655,8 +674,7 @@ export default function ClosetUpload() {
             </span>
           </h1>
           <p>
-            Upload new looks, keep the closet tidy, and make the fan side feel
-            like a curated boutique.
+            Upload new looks, keep the closet tidy, and make the fan side feel like a curated boutique.
           </p>
         </div>
 
@@ -681,18 +699,15 @@ export default function ClosetUpload() {
             <div>
               <h2 className="closet-card-title">Upload new looks</h2>
               <p className="closet-card-sub">
-                Drag in outfit photos from your camera roll, add a title, and
-                send them into the background-removal queue.
+                Drag in outfit photos from your camera roll, add a title, and send them into the
+                background-removal queue.
               </p>
             </div>
           </header>
 
           {/* Dropzone */}
           <div
-            className={
-              "closet-dropzone" +
-              (isDragging ? " closet-dropzone--active" : "")
-            }
+            className={"closet-dropzone" + (isDragging ? " closet-dropzone--active" : "")}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -701,8 +716,7 @@ export default function ClosetUpload() {
             <div className="closet-drop-icon">⬆️</div>
             <div className="closet-drop-title">Drop outfit images here</div>
             <div className="closet-drop-text">
-              Or click to select from your computer. JPG / PNG, up to a few at
-              a time.
+              Or click to select from your computer. JPG / PNG, up to a few at a time.
             </div>
             <input
               ref={fileInputRef}
@@ -719,44 +733,30 @@ export default function ClosetUpload() {
             <div className="closet-file-summary">
               <div className="closet-file-summary-header">
                 <span>
-                  {files.length} file{files.length === 1 ? "" : "s"} ready to
-                  upload
+                  {files.length} file{files.length === 1 ? "" : "s"} ready to upload
                 </span>
-                <button
-                  type="button"
-                  className="sa-link"
-                  onClick={clearFiles}
-                  disabled={uploading}
-                >
+                <button type="button" className="sa-link" onClick={clearFiles} disabled={uploading}>
                   Clear
                 </button>
               </div>
               <ul className="closet-file-list">
                 {files.map((f) => (
                   <li key={f.name + f.size}>
-                    {f.name}{" "}
-                    <span className="sa-muted">
-                      ({Math.round(f.size / 1024)} KB)
-                    </span>
+                    {f.name} <span className="sa-muted">({Math.round(f.size / 1024)} KB)</span>
                   </li>
                 ))}
               </ul>
               <div className="closet-preview-row">
                 <div className="closet-preview-frame">
                   {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="closet-preview-img"
-                    />
+                    <img src={previewUrl} alt="Preview" className="closet-preview-img" />
                   ) : (
                     <span className="sa-muted">Preview</span>
                   )}
                 </div>
                 <p className="closet-preview-caption">
-                  The first image will be used for the thumbnail preview. You
-                  can upload multiple items in one batch – each file becomes its
-                  own closet item.
+                  The first image will be used for the thumbnail preview. You can upload multiple
+                  items in one batch – each file becomes its own closet item.
                 </p>
               </div>
             </div>
@@ -850,8 +850,7 @@ export default function ClosetUpload() {
                 onChange={(e) => setCoinValue(e.target.value)}
               />
               <div className="closet-field-hint">
-                Fans can earn + spend coins in Lala&apos;s world. Leave blank
-                for no coin value yet.
+                Fans can earn + spend coins in Lala&apos;s world. Leave blank for no coin value yet.
               </div>
             </div>
           </div>
@@ -879,15 +878,13 @@ export default function ClosetUpload() {
             {uploading
               ? "Uploading looks…"
               : files.length
-              ? `Upload ${files.length} look${
-                  files.length === 1 ? "" : "s"
-                } to queue`
+              ? `Upload ${files.length} look${files.length === 1 ? "" : "s"} to queue`
               : "Add images to upload"}
           </button>
 
           <div className="closet-footer-note">
-            Background removal runs automatically after upload. Once items are
-            ready, you can approve them on the right and choose their audience.
+            Background removal runs automatically after upload. Once items are ready, you can approve
+            them on the right and choose their audience.
           </div>
         </section>
 
@@ -897,8 +894,8 @@ export default function ClosetUpload() {
             <div>
               <h2 className="closet-card-title">Closet activity</h2>
               <p className="closet-card-sub">
-                See what&apos;s in the queue, what&apos;s live in the fan
-                closet, and quickly approve or reject new uploads.
+                See what&apos;s in the queue, what&apos;s live in the fan closet, and quickly
+                approve or reject new uploads.
               </p>
             </div>
             <div className="closet-auto-meta">
@@ -921,25 +918,17 @@ export default function ClosetUpload() {
           <div className="closet-tabs">
             <button
               type="button"
-              className={
-                "closet-tab" +
-                (viewMode === "ACTIVITY" ? " closet-tab--active" : "")
-              }
+              className={"closet-tab" + (viewMode === "ACTIVITY" ? " closet-tab--active" : "")}
               onClick={() => setViewMode("ACTIVITY")}
             >
-              Activity
-              <span className="closet-tab-count">{items.length}</span>
+              Activity <span className="closet-tab-count">{items.length}</span>
             </button>
             <button
               type="button"
-              className={
-                "closet-tab" +
-                (viewMode === "REVIEW" ? " closet-tab--active" : "")
-              }
+              className={"closet-tab" + (viewMode === "REVIEW" ? " closet-tab--active" : "")}
               onClick={() => setViewMode("REVIEW")}
             >
-              Review queue
-              <span className="closet-tab-count">{pendingItems.length}</span>
+              Review queue <span className="closet-tab-count">{pendingItems.length}</span>
             </button>
           </div>
 
@@ -963,9 +952,7 @@ export default function ClosetUpload() {
               onChange={(e) => setSearch(e.target.value)}
             />
             <div className="closet-filter-pill">
-              Showing{" "}
-              <strong>{isReviewMode ? pendingItems.length : itemCount}</strong>{" "}
-              looks
+              Showing <strong>{isReviewMode ? pendingItems.length : itemCount}</strong> looks
             </div>
           </div>
 
@@ -981,8 +968,7 @@ export default function ClosetUpload() {
             <>
               {itemCount === 0 && !itemsLoading && !itemsError && (
                 <div className="closet-grid-empty" style={{ marginTop: 12 }}>
-                  No closet activity yet. Once you upload looks, they&apos;ll
-                  appear here.
+                  No closet activity yet. Once you upload looks, they&apos;ll appear here.
                 </div>
               )}
 
@@ -992,58 +978,33 @@ export default function ClosetUpload() {
                   const label = humanStatusLabel(item);
 
                   let statusClass = "closet-status-pill--default";
-                  if (status === "PUBLISHED")
-                    statusClass = "closet-status-pill--published";
-                  else if (status === "PENDING")
-                    statusClass = "closet-status-pill--pending";
-                  else if (status === "REJECTED")
-                    statusClass = "closet-status-pill--rejected";
+                  if (status === "PUBLISHED") statusClass = "closet-status-pill--published";
+                  else if (status === "PENDING") statusClass = "closet-status-pill--pending";
+                  else if (status === "REJECTED") statusClass = "closet-status-pill--rejected";
 
                   return (
-                    <article
-                      key={item.id}
-                      className="closet-grid-card closet-grid-card--activity"
-                    >
+                    <article key={item.id} className="closet-grid-card closet-grid-card--activity">
                       <div className="closet-grid-thumb">
                         {item.mediaUrl ? (
-                          <img
-                            src={item.mediaUrl}
-                            alt={item.title || "Closet item"}
-                          />
+                          <img src={item.mediaUrl} alt={item.title || "Closet item"} />
                         ) : (
-                          <span className="closet-grid-thumb-empty">
-                            No preview
-                          </span>
+                          <span className="closet-grid-thumb-empty">No preview</span>
                         )}
                       </div>
                       <div className="closet-grid-body">
                         <div className="closet-grid-title-row">
-                          <div className="closet-grid-main-title">
-                            {item.title || "Untitled look"}
-                          </div>
-                          {isNew(item.createdAt) && (
-                            <span className="closet-badge-new">New</span>
-                          )}
+                          <div className="closet-grid-main-title">{item.title || "Untitled look"}</div>
+                          {isNew(item.createdAt) && <span className="closet-badge-new">New</span>}
                         </div>
                         <div className="closet-grid-meta">
-                          <span
-                            className={"closet-status-pill " + statusClass}
-                          >
-                            {label}
-                          </span>
+                          <span className={"closet-status-pill " + statusClass}>{label}</span>
                           {item.audience && (
-                            <span className="closet-grid-audience">
-                              {item.audience.toLowerCase()}
-                            </span>
+                            <span className="closet-grid-audience">{item.audience.toLowerCase()}</span>
                           )}
                         </div>
                         <div className="closet-grid-footer">
                           <span className="closet-grid-date">
-                            {item.createdAt
-                              ? new Date(
-                                  item.createdAt
-                                ).toLocaleDateString()
-                              : "—"}
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
                           </span>
                           <div className="closet-grid-actions">
                             <button
@@ -1063,8 +1024,8 @@ export default function ClosetUpload() {
 
               {hasMore && (
                 <div className="closet-grid-footer-row">
-                  Showing {previewItems.length} of {itemCount} looks. Use the
-                  Closet Library page to browse everything.
+                  Showing {previewItems.length} of {itemCount} looks. Use the Closet Library page to
+                  browse everything.
                 </div>
               )}
             </>
@@ -1075,8 +1036,8 @@ export default function ClosetUpload() {
             <>
               {reviewList.length === 0 && !itemsLoading && !itemsError && (
                 <div className="closet-grid-empty" style={{ marginTop: 12 }}>
-                  Nothing pending review right now. Upload new looks on the left
-                  to start a fresh batch.
+                  Nothing pending review right now. Upload new looks on the left to start a fresh
+                  batch.
                 </div>
               )}
 
@@ -1087,53 +1048,29 @@ export default function ClosetUpload() {
                   const readyForReview = hasAnyImage;
                   const isBusy = busyId === item.id;
 
-                  const stage =
-                    !hasAnyImage ? 0 : hasAnyImage && !hasCutout ? 0.5 : 1;
+                  const stage = !hasAnyImage ? 0 : hasAnyImage && !hasCutout ? 0.5 : 1;
                   const progressPct = stage * 100;
 
                   const audienceVal = item.audience || "PUBLIC";
 
-                  // Debug helper if you need it:
-                  console.log("[ClosetReview] item", item.id, {
-                    mediaKey: item.mediaKey,
-                    rawMediaKey: item.rawMediaKey,
-                    hasAnyImage,
-                    hasCutout,
-                    stage,
-                  });
-
                   return (
-                    <article
-                      key={item.id}
-                      className="closet-grid-card closet-grid-card--review"
-                    >
+                    <article key={item.id} className="closet-grid-card closet-grid-card--review">
                       <div className="closet-grid-thumb">
                         {item.mediaUrl ? (
-                          <img
-                            src={item.mediaUrl}
-                            alt={item.title || "Closet item"}
-                          />
+                          <img src={item.mediaUrl} alt={item.title || "Closet item"} />
                         ) : (
-                          <span className="closet-grid-thumb-empty">
-                            No preview
-                          </span>
+                          <span className="closet-grid-thumb-empty">No preview</span>
                         )}
 
                         <div className="closet-review-pills">
                           {!hasAnyImage && (
-                            <span className="closet-bg-pill">
-                              Processing background…
-                            </span>
+                            <span className="closet-bg-pill">Processing background…</span>
                           )}
                           {hasAnyImage && !hasCutout && (
-                            <span className="closet-bg-pill closet-bg-pill--ready">
-                              Original photo
-                            </span>
+                            <span className="closet-bg-pill closet-bg-pill--ready">Original photo</span>
                           )}
                           {hasCutout && (
-                            <span className="closet-bg-pill closet-bg-pill--ready">
-                              Cutout ready
-                            </span>
+                            <span className="closet-bg-pill closet-bg-pill--ready">Cutout ready</span>
                           )}
                         </div>
 
@@ -1146,8 +1083,7 @@ export default function ClosetUpload() {
                           </div>
                           <span className="closet-review-progress-label">
                             {stage === 0 && "Queued for background removal…"}
-                            {stage === 0.5 &&
-                              "Waiting on background removal…"}
+                            {stage === 0.5 && "Waiting on background removal…"}
                             {stage === 1 && "Background removed 🎉"}
                           </span>
                         </div>
@@ -1155,27 +1091,17 @@ export default function ClosetUpload() {
 
                       <div className="closet-grid-body closet-grid-body--review">
                         <div className="closet-grid-title-row">
-                          <div className="closet-grid-main-title">
-                            {item.title || "Untitled look"}
-                          </div>
-                          {isNew(item.createdAt) && (
-                            <span className="closet-badge-new">New</span>
-                          )}
+                          <div className="closet-grid-main-title">{item.title || "Untitled look"}</div>
+                          {isNew(item.createdAt) && <span className="closet-badge-new">New</span>}
                         </div>
 
                         <div className="closet-grid-meta closet-grid-meta--review">
-                          <span className="pill-soft">
-                            {item.category || "Uncategorized"}
-                          </span>
-                          <span className="closet-grid-audience">
-                            {audienceVal.toLowerCase()}
-                          </span>
+                          <span className="pill-soft">{item.category || "Uncategorized"}</span>
+                          <span className="closet-grid-audience">{audienceVal.toLowerCase()}</span>
                         </div>
 
                         <div className="closet-review-audience-row">
-                          <label className="closet-review-label">
-                            Audience
-                          </label>
+                          <label className="closet-review-label">Audience</label>
                           <select
                             className="sa-input closet-review-audience"
                             value={audienceVal}
@@ -1193,8 +1119,8 @@ export default function ClosetUpload() {
                             ))}
                           </select>
                           <div className="closet-review-hint">
-                            Choose whether this look is visible to all fans,
-                            besties only, or saved for a special drop.
+                            Choose whether this look is visible to all fans, besties only, or saved
+                            for a special drop.
                           </div>
                         </div>
 
@@ -1205,11 +1131,7 @@ export default function ClosetUpload() {
                             disabled={isBusy || !readyForReview}
                             onClick={() => approveItem(item)}
                           >
-                            {isBusy
-                              ? "Working…"
-                              : readyForReview
-                              ? "Approve look"
-                              : "Waiting on bg…"}
+                            {isBusy ? "Working…" : readyForReview ? "Approve look" : "Waiting on bg…"}
                           </button>
 
                           <button
@@ -1224,9 +1146,7 @@ export default function ClosetUpload() {
 
                         <div className="closet-grid-footer-row">
                           Uploaded{" "}
-                          {item.createdAt
-                            ? new Date(item.createdAt).toLocaleString()
-                            : "—"}
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
                         </div>
                       </div>
                     </article>
@@ -1240,6 +1160,7 @@ export default function ClosetUpload() {
     </div>
   );
 }
+
 
 const closetUploadStyles =
  `
