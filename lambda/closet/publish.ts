@@ -1,52 +1,146 @@
-// lambda/closet/publish.ts
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
 
-/**
- * Simple publish stub for Besties closets / stories.
- *
- * BestiesClosetStack wires this into a Step Functions workflow
- * to represent "publishing" an approved closet item or story.
- *
- * Right now this is just a NO-OP placeholder that:
- *   - logs the incoming event
- *   - echoes back a simple "ok" result
- *
- * Later you can extend this to:
- *   - mark an item as PUBLISHED in DynamoDB
- *   - fan out to community feeds
- *   - trigger cross-posting, etc.
- */
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+  marshallOptions: { removeUndefinedValues: true },
+});
+const eb = new EventBridgeClient({});
 
-type PublishEvent = {
-  itemId?: string;
-  storyId?: string;
-  ownerId?: string;
-  action?: string;
-  [key: string]: any;
-};
+const TABLE_NAME = process.env.TABLE_NAME!;
+const PK_NAME = process.env.PK_NAME || "pk";
+const SK_NAME = process.env.SK_NAME || "sk";
 
-type PublishResult = {
-  ok: boolean;
-  itemId?: string;
-  storyId?: string;
-  status: string;
-};
+async function emit(detailType: string, detail: any) {
+  try {
+    await eb.send(
+      new PutEventsCommand({
+        Entries: [
+          {
+            Source: "stylingadventures.closet",
+            DetailType: detailType,
+            Detail: JSON.stringify(detail),
+          },
+        ],
+      }),
+    );
+  } catch (e) {
+    console.warn("[publish] EventBridge put failed:", e);
+  }
+}
 
-export const handler = async (
-  event: PublishEvent | any
-): Promise<PublishResult> => {
+function isConditionalCheckFailed(err: any) {
+  return err?.name === "ConditionalCheckFailedException";
+}
+
+export const handler = async (event: any) => {
   console.log("[publish] incoming event:", JSON.stringify(event));
 
-  const itemId = event.itemId || event.closetItemId || undefined;
-  const storyId = event.storyId || undefined;
+  // Deterministic ID resolution (we now pass approvalId explicitly from the SM)
+  const approvalId =
+    event?.approvalId ||
+    event?.item?.id ||
+    event?.itemId ||
+    event?.closetItemId ||
+    event?.admin?.approvalId;
 
-  // In the future you could:
-  // - call DynamoDB to set status = PUBLISHED
-  // - emit EventBridge events, etc.
+  if (!approvalId) {
+    console.warn("[publish] missing approvalId; no-op publish");
+    return { ok: false, status: "NO_ID" };
+  }
 
-  return {
-    ok: true,
-    itemId,
-    storyId,
-    status: "PUBLISHED",
-  };
+  const pk = `ITEM#${approvalId}`;
+  const sk = "META";
+  const now = new Date().toISOString();
+
+  // Prefer processed image for published mediaKey
+  const mediaKey =
+    event?.segmentation?.outputKey ||
+    event?.processedImageKey ||
+    event?.item?.s3Key ||
+    null;
+
+  // 0) Read current status (idempotency + better return values)
+  const { Item } = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+      ConsistentRead: true,
+    }),
+  );
+
+  if (!Item) {
+    console.warn("[publish] meta not found", { approvalId });
+    return { ok: false, status: "NOT_FOUND", approvalId };
+  }
+
+  const currentStatus = Item.status as string | undefined;
+
+  // If already published, return idempotent success
+  if (currentStatus === "PUBLISHED") {
+    return {
+      ok: true,
+      approvalId,
+      status: "PUBLISHED",
+      idempotent: true,
+      mediaKey: (Item.mediaKey as string | undefined) ?? mediaKey,
+    };
+  }
+
+  // Only APPROVED -> PUBLISHED
+  if (currentStatus !== "APPROVED") {
+    return { ok: false, approvalId, status: "NOT_APPROVED", currentStatus };
+  }
+
+  // 1) Conditional update ensures deterministic transition
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        ConditionExpression: "#status = :approved",
+        UpdateExpression:
+          "SET #status = :published, updatedAt = :t, publishedAt = :t, mediaKey = :m",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":approved": "APPROVED",
+          ":published": "PUBLISHED",
+          ":t": now,
+          ":m": mediaKey,
+        },
+      }),
+    );
+  } catch (err: any) {
+    if (isConditionalCheckFailed(err)) {
+      // Another invocation may have published; re-read and return stable outcome
+      const reread = await ddb.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+          ConsistentRead: true,
+        }),
+      );
+      const s = (reread.Item?.status as string | undefined) ?? "UNKNOWN";
+      if (s === "PUBLISHED") {
+        return {
+          ok: true,
+          approvalId,
+          status: "PUBLISHED",
+          idempotent: true,
+          mediaKey: (reread.Item?.mediaKey as string | undefined) ?? mediaKey,
+        };
+      }
+      return { ok: false, approvalId, status: "RACE_LOST", currentStatus: s };
+    }
+    throw err;
+  }
+
+  // 2) Emit event (best-effort)
+  await emit("ClosetItemPublished", {
+    approvalId,
+    publishedAt: now,
+    mediaKey,
+  });
+
+  return { ok: true, approvalId, status: "PUBLISHED", mediaKey };
 };

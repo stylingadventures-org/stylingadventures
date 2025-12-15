@@ -3833,6 +3833,13 @@
        "Action": "states:StartExecution",
        "Effect": "Allow",
        "Resource": {
+        "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBestieClosetUploadAutoPublishSMD39D3713F9680EDA"
+       }
+      },
+      {
+       "Action": "states:StartExecution",
+       "Effect": "Allow",
+       "Resource": {
         "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D"
        }
       },
@@ -3867,7 +3874,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "31578c2bc039261d085133c3cb4ce4c8e9ad6eca7cc186a0c937aada0f696ebe.zip"
+     "S3Key": "f637f88a5166c43b4ef4e7a155840a51323b0f4ae52e67828a3f8f91fa4ff79b.zip"
     },
     "Environment": {
      "Variables": {
@@ -3879,6 +3886,12 @@
       "STATUS_GSI": "gsi1",
       "APPROVAL_SM_ARN": {
        "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
+      },
+      "FAN_APPROVAL_SM_ARN": {
+       "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
+      },
+      "BESTIE_AUTOPUBLISH_SM_ARN": {
+       "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBestieClosetUploadAutoPublishSMD39D3713F9680EDA"
       },
       "BG_CHANGE_SM_ARN": {
        "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D"
@@ -3917,7 +3930,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.31578c2bc039261d085133c3cb4ce4c8e9ad6eca7cc186a0c937aada0f696ebe",
+    "aws:asset:path": "asset.f637f88a5166c43b4ef4e7a155840a51323b0f4ae52e67828a3f8f91fa4ff79b",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -4065,7 +4078,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "1b14f314e4d8b3bf786b098e2ed4e1bc5e957eebd68493b1ed5d76e43c6e045c.zip"
+     "S3Key": "860b18bc75112ca18137fe7a03cf8b50d5da8cd6178785dabc568a81a7b6d34b.zip"
     },
     "Environment": {
      "Variables": {
@@ -4076,6 +4089,9 @@
       "SK_NAME": "sk",
       "STATUS_GSI": "gsi1",
       "APPROVAL_SM_ARN": {
+       "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
+      },
+      "FAN_APPROVAL_SM_ARN": {
        "Fn::ImportValue": "BestiesClosetStack:ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
       },
       "ADMIN_GROUP_NAME": "ADMIN",
@@ -4110,7 +4126,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetAdminFn/Resource",
-    "aws:asset:path": "asset.1b14f314e4d8b3bf786b098e2ed4e1bc5e957eebd68493b1ed5d76e43c6e045c",
+    "aws:asset:path": "asset.860b18bc75112ca18137fe7a03cf8b50d5da8cd6178785dabc568a81a7b6d34b",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

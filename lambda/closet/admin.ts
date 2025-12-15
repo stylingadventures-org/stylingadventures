@@ -24,7 +24,9 @@ const {
   CREATOR_GROUP_NAME: CREATOR_GROUP_NAME_RAW = "creator",
 } = process.env;
 
-const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN || "";
+// ✅ New: explicit fan SM ARN (fallback to legacy APPROVAL_SM_ARN)
+const FAN_APPROVAL_SM_ARN =
+  process.env.FAN_APPROVAL_SM_ARN || process.env.APPROVAL_SM_ARN || "";
 
 if (!TABLE_NAME) throw new Error("Missing env: TABLE_NAME");
 
@@ -93,7 +95,6 @@ type AdminCreateClosetItemInput = {
 };
 
 type AdminUpdateClosetItemInput = {
-  // many schemas send id inside input, so support that
   id?: string | null;
 
   title?: string | null;
@@ -183,11 +184,9 @@ function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
     vibes: raw.vibes?.S ?? null,
     audience: raw.audience?.S ?? null,
 
-    // categorization
     category: raw.category?.S ?? null,
     subcategory: raw.subcategory?.S ?? null,
 
-    // pinned flag
     pinned,
 
     favoriteCount,
@@ -223,10 +222,6 @@ function decodeToken(
 
 /* ============== Queries ============== */
 
-/**
- * NOTE: GraphQL type is ClosetConnection!
- * so we must return { items, nextToken }.
- */
 export const adminListPending = async (
   event: AppSyncEvent,
 ): Promise<AdminClosetItemsPage> => {
@@ -273,7 +268,6 @@ export const adminListClosetItems = async (
   const { status, limit = 50, nextToken } = event.arguments || {};
   const exclusiveKey = decodeToken(nextToken);
 
-  // If a specific status is provided, use gsi2 (STATUS index).
   if (status) {
     const out = await ddb.send(
       new QueryCommand({
@@ -303,7 +297,6 @@ export const adminListClosetItems = async (
     };
   }
 
-  // Otherwise, do a (small) scan of ITEM# records.
   const out = await ddb.send(
     new ScanCommand({
       TableName: TABLE_NAME,
@@ -324,7 +317,6 @@ export const adminListClosetItems = async (
     }),
   );
 
-  // newest first
   items.sort(
     (a, b) =>
       new Date(b.createdAt || 0).getTime() -
@@ -337,10 +329,6 @@ export const adminListClosetItems = async (
   };
 };
 
-/**
- * Bestie closet admin list – reuse adminListClosetItems and filter
- * down to Bestie-style audiences (BESTIE / EXCLUSIVE).
- */
 export const adminListBestieClosetItems = async (
   event: AppSyncEvent,
 ): Promise<AdminClosetItemsPage> => {
@@ -359,26 +347,14 @@ export const adminListBestieClosetItems = async (
   };
 };
 
-/**
- * closetFeed: fan/friend-facing feed.
- *
- * IMPORTANT CHANGES:
- * - We no longer rely on the STATUS GSI, because some older items may
- *   not have gsi2pk set correctly.
- * - Instead, we scan ITEM# records and filter for APPROVED/PUBLISHED
- *   in code.
- * - We also skip any items with missing/blank createdAt to avoid
- *   AWSDateTime serialization errors.
- */
 export const closetFeed = async (
   event: AppSyncEvent,
 ): Promise<AdminClosetItemsPage> => {
-  const { sub } = getIdentity(event); // ensure authed, capture viewer
+  const { sub } = getIdentity(event);
   const sortArg = (event.arguments?.sort as string | undefined) ?? "NEWEST";
   const sort: "NEWEST" | "MOST_LOVED" =
     sortArg === "MOST_LOVED" ? "MOST_LOVED" : "NEWEST";
 
-  // Favorites for this viewer
   const favOut = await ddb.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -400,7 +376,6 @@ export const closetFeed = async (
     }),
   );
 
-  // Scan all closet items and filter to APPROVED / PUBLISHED.
   const out = await ddb.send(
     new ScanCommand({
       TableName: TABLE_NAME,
@@ -416,22 +391,15 @@ export const closetFeed = async (
 
   for (const it of out.Items || []) {
     const status = it.status?.S as ClosetStatus | undefined;
-
-    // Only APPROVED/PUBLISHED go into the fan feed.
     if (status !== "APPROVED" && status !== "PUBLISHED") continue;
 
     const createdAtVal = it.createdAt?.S || "";
-    if (!createdAtVal.trim()) {
-      // Bad/missing createdAt would break AWSDateTime; just skip.
-      continue;
-    }
+    if (!createdAtVal.trim()) continue;
 
     const mapped = mapItem(
       {
         ...it,
         status: it["status"],
-        // make sure createdAt/updatedAt exist – mapItem is defensive,
-        // but we pass through the real values here.
         createdAt: { S: createdAtVal },
         updatedAt: it.updatedAt ?? { S: createdAtVal },
       },
@@ -443,7 +411,6 @@ export const closetFeed = async (
     collected.push(mapped);
   }
 
-  // Sort client-side
   collected.sort((a, b) => {
     const aTime = new Date(a.createdAt || 0).getTime();
     const bTime = new Date(b.createdAt || 0).getTime();
@@ -455,20 +422,18 @@ export const closetFeed = async (
       return bTime - aTime;
     }
 
-    // NEWEST
     return bTime - aTime;
   });
 
   return {
     items: collected,
-    nextToken: null, // no pagination yet
+    nextToken: null,
   };
 };
 
 export const topClosetLooks = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem[]> => {
-  // reuse closetFeed, but always NEWEST; unwrap connection
   const conn = await closetFeed({
     ...event,
     arguments: { ...(event.arguments || {}), sort: "NEWEST" },
@@ -488,7 +453,6 @@ export const adminCreateClosetItem = async (
 
   if (!input.title?.trim()) throw new Error("title is required");
 
-  // Allow either rawMediaKey or mediaKey; the new upload flow sends rawMediaKey.
   const rawKey = input.rawMediaKey || input.mediaKey;
   if (!rawKey) throw new Error("rawMediaKey is required");
 
@@ -523,36 +487,28 @@ export const adminCreateClosetItem = async (
     }),
   );
 
-  // 🔁 Kick off the ClosetUploadApproval state machine so the worker
-  // can remove the background / moderate / publish.
-  if (APPROVAL_SM_ARN) {
+  // ✅ Start FAN approval workflow (WAIT_FOR_TASK_TOKEN)
+  if (FAN_APPROVAL_SM_ARN) {
     try {
       await sfn.send(
         new StartExecutionCommand({
-          stateMachineArn: APPROVAL_SM_ARN,
+          stateMachineArn: FAN_APPROVAL_SM_ARN,
           input: JSON.stringify({
-            // The state machine expects $.item.s3Key for SegmentOutfit,
-            // but we can send extra fields along for later steps.
             item: {
               id,
-              userId: sub,
               ownerSub: sub,
+              userId: sub,
               s3Key: rawKey,
             },
           }),
         }),
       );
     } catch (err) {
-      console.error(
-        "Failed to start ClosetUploadApproval Step Function",
-        err,
-      );
-      // We *don’t* throw here so the upload still succeeds; it will just
-      // stay in PENDING with no cutout if the SM fails to start.
+      console.error("Failed to start FAN approval Step Function", err);
     }
   } else {
     console.warn(
-      "APPROVAL_SM_ARN is not set; uploads will not trigger background removal.",
+      "FAN_APPROVAL_SM_ARN is not set; adminCreateClosetItem will not trigger the fan approval workflow.",
     );
   }
 
@@ -593,7 +549,7 @@ export const adminApproveItem = async (
       TableName: TABLE_NAME,
       Key: { pk: S(`ITEM#${id}`), sk: S("META") },
       UpdateExpression:
-        "SET #s = :s, updatedAt = :u, gsi2pk = :g2pk, gsi2sk = :g2sk REMOVE reason, approvalToken",
+        "SET #s = :s, updatedAt = :u, gsi2pk = :g2pk, gsi2sk = :g2sk REMOVE reason, approvalToken, taskToken",
       ExpressionAttributeNames: { "#s": "status" },
       ExpressionAttributeValues: {
         ":s": S("APPROVED"),
@@ -606,18 +562,18 @@ export const adminApproveItem = async (
   );
 
   const prev = out.Attributes!;
-  const token = prev.approvalToken?.S;
+  const token = prev.taskToken?.S ?? prev.approvalToken?.S;
 
   if (token) {
     try {
       await sfn.send(
         new SendTaskSuccessCommand({
           taskToken: token,
-          output: JSON.stringify({ approved: true }),
+          output: JSON.stringify({ decision: "APPROVE" }),
         }),
       );
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("SendTaskSuccess failed (token may be stale)", err);
     }
   }
 
@@ -644,7 +600,7 @@ export const adminRejectItem = async (
       TableName: TABLE_NAME,
       Key: { pk: S(`ITEM#${id}`), sk: S("META") },
       UpdateExpression:
-        "SET #s = :s, updatedAt = :u, gsi2pk = :g2pk, gsi2sk = :g2sk, reason = :r REMOVE approvalToken",
+        "SET #s = :s, updatedAt = :u, gsi2pk = :g2pk, gsi2sk = :g2sk, reason = :r REMOVE approvalToken, taskToken",
       ExpressionAttributeNames: { "#s": "status" },
       ExpressionAttributeValues: {
         ":s": S("REJECTED"),
@@ -658,7 +614,7 @@ export const adminRejectItem = async (
   );
 
   const prev = out.Attributes!;
-  const token = prev.approvalToken?.S;
+  const token = prev.taskToken?.S ?? prev.approvalToken?.S;
 
   if (token) {
     try {
@@ -669,8 +625,8 @@ export const adminRejectItem = async (
           cause: reason || "Rejected by admin",
         }),
       );
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("SendTaskFailure failed (token may be stale)", err);
     }
   }
 
@@ -681,10 +637,6 @@ export const adminRejectItem = async (
   });
 };
 
-/**
- * Publish a closet item into the public fan feed.
- * Sets status = PUBLISHED and moves it in the STATUS GSI.
- */
 export const adminPublishClosetItem = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem> => {
@@ -720,7 +672,6 @@ export const adminPublishClosetItem = async (
   return mapItem(out.Attributes);
 };
 
-// adminUpdateClosetItem – update title/category/subcategory/audience/pinned/season/vibes
 export const adminUpdateClosetItem = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem> => {
@@ -737,7 +688,6 @@ export const adminUpdateClosetItem = async (
 
   if (!id) throw new Error("closetItemId or input.id required");
 
-  // First make sure the item exists
   const existing = await ddb.send(
     new GetItemCommand({
       TableName: TABLE_NAME,
@@ -748,7 +698,6 @@ export const adminUpdateClosetItem = async (
     throw new Error("Closet item not found");
   }
 
-  // Merge top-level args into input if they exist (for maximum schema compatibility)
   const input: AdminUpdateClosetItemInput = { ...rawInput };
   (
     [
@@ -842,14 +791,12 @@ export const adminUpdateClosetItem = async (
   );
 
   if (!out.Attributes) {
-    // Extremely unlikely now, but keep a clear error if AWS ever returns nothing.
     throw new Error("Closet item not found");
   }
 
   return mapItem(out.Attributes);
 };
 
-// adminSetClosetAudience – simple audience-only helper
 export const adminSetClosetAudience = async (
   event: AppSyncEvent,
 ): Promise<ClosetItem> => {
@@ -896,13 +843,11 @@ export const toggleFavoriteClosetItem = async (
     | undefined;
   const legacyOnArg = event.arguments?.on as boolean | null | undefined;
 
-  // accept new favoriteOn first, then legacy "on"
   const onArg =
     typeof favoriteOnArg === "boolean" ? favoriteOnArg : legacyOnArg;
 
   if (!id) throw new Error("id required");
 
-  // load base closet item
   const getOut = await ddb.send(
     new GetItemCommand({
       TableName: TABLE_NAME,
@@ -998,7 +943,6 @@ export const handler = async (event: AppSyncEvent) => {
   if (field === "closetFeed") return closetFeed(event);
   if (field === "topClosetLooks") return topClosetLooks(event);
 
-  // Support both old + new schema names for the hearts mutation
   if (field === "toggleFavoriteClosetItem" || field === "likeClosetItem") {
     return toggleFavoriteClosetItem(event);
   }

@@ -8,10 +8,7 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
-import {
-  EventBridgeClient,
-  PutEventsCommand,
-} from "@aws-sdk/client-eventbridge";
+import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 import { AppSyncIdentityCognito } from "aws-lambda";
@@ -20,7 +17,15 @@ const ddbMarshal = (value: any) =>
   marshall(value, { removeUndefinedValues: true });
 
 const TABLE_NAME = process.env.TABLE_NAME!;
-const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN!;
+
+// Backwards compat
+const APPROVAL_SM_ARN = process.env.APPROVAL_SM_ARN || "";
+
+// ✅ Explicit split
+const FAN_APPROVAL_SM_ARN = process.env.FAN_APPROVAL_SM_ARN || APPROVAL_SM_ARN;
+const BESTIE_AUTOPUBLISH_SM_ARN =
+  process.env.BESTIE_AUTOPUBLISH_SM_ARN || APPROVAL_SM_ARN;
+
 const BG_CHANGE_SM_ARN = process.env.BG_CHANGE_SM_ARN!;
 const STORY_PUBLISH_SM_ARN = process.env.STORY_PUBLISH_SM_ARN!;
 const STATUS_GSI = process.env.STATUS_GSI ?? "gsi1"; // status index name
@@ -274,7 +279,7 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
   const item = unmarshall(raw) as any;
 
   const id: string =
-    item.id ?? extractIdFromSk(item.sk) ?? randomUUID(); // last-ditch fallback (keeps GraphQL ID non-null)
+    item.id ?? extractIdFromSk(item.sk) ?? randomUUID(); // last-ditch fallback
 
   // Fallbacks between userId and ownerSub so we always have an owner
   const inferredUserFromPk =
@@ -313,10 +318,7 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
     storyVibes: item.storyVibes,
     pinned: item.pinned,
     pendingBackgroundKey: item.pendingBackgroundKey,
-
-    // 👇 NEW: surface this so the UI can show progress / DONE / FAILED
     backgroundStatus: item.backgroundStatus ?? null,
-
     inCommunityFeed: item.inCommunityFeed,
     favoriteCount: item.favoriteCount,
     likeCount: item.likeCount,
@@ -354,8 +356,6 @@ function isAdminIdentity(identity: SAIdentity): boolean {
 
 // ────────────────────────────────────────────────────────────
 // 1) myCloset – return all items owned by the current user.
-//    Now returns a ClosetConnection and is Bestie+ only.
-//    FREE tier gets an empty closet.
 // ────────────────────────────────────────────────────────────
 
 async function handleMyCloset(identity: SAIdentity): Promise<ClosetConnection> {
@@ -363,7 +363,6 @@ async function handleMyCloset(identity: SAIdentity): Promise<ClosetConnection> {
   const tier = getUserTier(identity);
 
   if (tier === "FREE") {
-    // Fans don't have their own closet
     return { items: [], nextToken: null };
   }
 
@@ -384,19 +383,13 @@ async function handleMyCloset(identity: SAIdentity): Promise<ClosetConnection> {
     .map(mapClosetItem)
     .filter((ci) => ci.id && ci.id !== "undefined");
 
-  return {
-    items,
-    nextToken: null,
-  };
+  return { items, nextToken: null };
 }
 
-// Bestie closet paginated connection – for now, just wraps myCloset
-// Explicitly returns ClosetConnection & enforces Bestie+.
 async function handleBestieClosetItems(
   args: { limit?: number | null; nextToken?: string | null },
   identity: SAIdentity,
 ): Promise<ClosetConnection> {
-  // Bestie+ only
   requireBestieTier(identity);
 
   const myClosetConnection = await handleMyCloset(identity);
@@ -407,11 +400,8 @@ async function handleBestieClosetItems(
       ? Math.min(args.limit, allItems.length)
       : allItems.length;
 
-  const items = allItems.slice(0, limit);
-
-  // No real pagination yet, so always null
   return {
-    items,
+    items: allItems.slice(0, limit),
     nextToken: null,
   };
 }
@@ -424,8 +414,8 @@ async function handleCreateClosetItem(
   args: {
     input: {
       title?: string;
-      description?: string | null; // kept for schema compatibility
-      story?: string | null; // legacy field
+      description?: string | null;
+      story?: string | null;
       audience?: ClosetAudience;
       mediaKey?: string;
       rawMediaKey?: string;
@@ -435,7 +425,6 @@ async function handleCreateClosetItem(
   },
   identity: SAIdentity,
 ): Promise<ClosetItem> {
-  // Only Besties+ can own a closet
   requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const id = randomUUID();
@@ -456,8 +445,6 @@ async function handleCreateClosetItem(
     category: input.category ?? null,
     subcategory: input.subcategory ?? null,
     audience: input.audience ?? "PRIVATE",
-
-    // 👇 NEW
     backgroundStatus: input.rawMediaKey ? "PROCESSING" : null,
   };
 
@@ -468,14 +455,10 @@ async function handleCreateClosetItem(
         pk: pkForUser(sub),
         sk: skForClosetItem(id),
 
-        // status GSI
         gsi1pk: gsi1ForStatus(item.status),
         gsi1sk: now,
 
-        // rawMediaKey GSI uses "rawMediaKey" as its partition key
-        // (index name is RAW_MEDIA_GSI_NAME = "rawMediaKeyIndex" on the table)
         rawMediaKey: item.rawMediaKey,
-
         ...item,
       }),
     }),
@@ -485,7 +468,7 @@ async function handleCreateClosetItem(
 }
 
 // ────────────────────────────────────────────────────────────
-// 3) updateClosetMediaKey – update mediaKey on an item owned by the user.
+// 3) updateClosetMediaKey – update mediaKey
 // ────────────────────────────────────────────────────────────
 
 async function handleUpdateClosetMediaKey(
@@ -515,15 +498,12 @@ async function handleUpdateClosetMediaKey(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Item not found");
-  }
-
+  if (!res.Attributes) throw new Error("Item not found");
   return mapClosetItem(res.Attributes);
 }
 
 // ────────────────────────────────────────────────────────────
-// 4) requestClosetApproval – mark DRAFT→PENDING and kick off Step Functions.
+// 4) requestClosetApproval – DRAFT→PENDING and start BESTIE auto-publish SM
 // ────────────────────────────────────────────────────────────
 
 async function handleRequestClosetApproval(
@@ -561,14 +541,27 @@ async function handleRequestClosetApproval(
 
   const item = mapClosetItem(res.Attributes);
 
-  // Fire-and-forget Step Functions execution
+  const s3Key = item.rawMediaKey || item.mediaKey;
+  if (!s3Key) {
+    throw new Error("Cannot request approval: missing rawMediaKey/mediaKey");
+  }
+
+  // ✅ Bestie flow: start the auto-publish SM (no WAIT_FOR_TASK_TOKEN)
+  const smArn = BESTIE_AUTOPUBLISH_SM_ARN || APPROVAL_SM_ARN;
+  if (!smArn) {
+    throw new Error("Missing env: BESTIE_AUTOPUBLISH_SM_ARN (or APPROVAL_SM_ARN)");
+  }
+
   await sfn.send(
     new StartExecutionCommand({
-      stateMachineArn: APPROVAL_SM_ARN,
+      stateMachineArn: smArn,
       input: JSON.stringify({
-        itemId: item.id,
-        userId: item.userId,
-        ownerSub: item.ownerSub,
+        item: {
+          id: item.id,
+          userId: item.userId,
+          ownerSub: item.ownerSub,
+          s3Key, // required by SegmentOutfit step
+        },
       }),
     }),
   );
@@ -577,7 +570,7 @@ async function handleRequestClosetApproval(
 }
 
 // ────────────────────────────────────────────────────────────
-// 5) updateClosetItemStory – Bestie-side metadata (legacy/simple version).
+// 5) updateClosetItemStory
 // ────────────────────────────────────────────────────────────
 
 async function handleUpdateClosetItemStory(
@@ -587,7 +580,6 @@ async function handleUpdateClosetItemStory(
   requireBestieTier(identity);
   const sub = requireUserSub(identity);
   const { closetItemId, story } = args;
-
   const now = nowIso();
 
   const res = await ddb.send(
@@ -597,8 +589,7 @@ async function handleUpdateClosetItemStory(
         pk: pkForUser(sub),
         sk: skForClosetItem(closetItemId),
       }),
-      UpdateExpression:
-        "SET storyTitle = :storyTitle, updatedAt = :updatedAt",
+      UpdateExpression: "SET storyTitle = :storyTitle, updatedAt = :updatedAt",
       ExpressionAttributeValues: ddbMarshal({
         ":storyTitle": story,
         ":updatedAt": now,
@@ -607,10 +598,7 @@ async function handleUpdateClosetItemStory(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Item not found");
-  }
-
+  if (!res.Attributes) throw new Error("Item not found");
   return mapClosetItem(res.Attributes);
 }
 
@@ -632,22 +620,17 @@ async function loadClosetItemById(
   );
 
   const raw = (scanRes.Items ?? [])[0];
-  if (!raw) {
-    throw new Error("Closet item not found");
-  }
+  if (!raw) throw new Error("Closet item not found");
 
   const base = mapClosetItem(raw);
   const ownerId = base.userId;
-  if (!ownerId) {
-    throw new Error("Closet item missing owner");
-  }
+  if (!ownerId) throw new Error("Closet item missing owner");
 
   return { base, ownerId };
 }
 
 // ────────────────────────────────────────────────────────────
-// 6) likeClosetItem – public like/heart interaction (legacy).
-//     Fans ARE allowed to like (no tier restriction here).
+// 6) likeClosetItem (fans allowed)
 // ────────────────────────────────────────────────────────────
 
 async function handleLikeClosetItem(
@@ -674,14 +657,11 @@ async function handleLikeClosetItem(
       new PutItemCommand({
         TableName: TABLE_NAME,
         Item: ddbMarshal(likeItem),
-        // de-dupe per viewer
         ConditionExpression: "attribute_not_exists(sk)",
       }),
     );
   } catch (err: any) {
-    if (err?.name !== "ConditionalCheckFailedException") {
-      throw err;
-    }
+    if (err?.name !== "ConditionalCheckFailedException") throw err;
   }
 
   const res = await ddb.send(
@@ -702,14 +682,11 @@ async function handleLikeClosetItem(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found");
-  }
+  if (!res.Attributes) throw new Error("Closet item not found");
 
   const item = mapClosetItem(res.Attributes);
   item.viewerHasLiked = true;
 
-  // Engagement: increment like analytics
   await putEngagementEvent({
     action: "LIKED",
     closetItemId,
@@ -722,8 +699,7 @@ async function handleLikeClosetItem(
 }
 
 // ────────────────────────────────────────────────────────────
-// 7) commentOnClosetItem – COMMENT child + bump commentCount
-//     Fans ARE allowed to comment.
+// 7) commentOnClosetItem (fans allowed)
 // ────────────────────────────────────────────────────────────
 
 async function handleCommentOnClosetItem(
@@ -772,15 +748,6 @@ async function handleCommentOnClosetItem(
     }),
   );
 
-  const comment: ClosetItemComment = {
-    id: commentId,
-    closetItemId,
-    authorSub,
-    text,
-    createdAt: now,
-  };
-
-  // Engagement: comment analytics
   await putEngagementEvent({
     action: "COMMENTED",
     closetItemId,
@@ -790,30 +757,31 @@ async function handleCommentOnClosetItem(
     commentText: text,
   });
 
-  return comment;
+  return {
+    id: commentId,
+    closetItemId,
+    authorSub,
+    text,
+    createdAt: now,
+  };
 }
 
 // ────────────────────────────────────────────────────────────
-// 8) pinHighlight – owner (or admin) can pin/unpin a closet item.
-//     Bestie+ only (fans can't pin).
+// 8) pinHighlight (Bestie+ only)
 // ────────────────────────────────────────────────────────────
 
 async function handlePinHighlight(
   args: { closetItemId: string; pinned: boolean },
   identity: SAIdentity,
 ): Promise<ClosetItem> {
-  // Bestie+ only
   requireBestieTier(identity);
 
   const callerSub = requireUserSub(identity);
   const admin = isAdminIdentity(identity);
-
   const closetItemId = args.closetItemId;
   const pinned = !!args.pinned;
 
-  if (!closetItemId) {
-    throw new Error("closetItemId is required");
-  }
+  if (!closetItemId) throw new Error("closetItemId is required");
 
   const { base } = await loadClosetItemById(closetItemId);
 
@@ -839,15 +807,12 @@ async function handlePinHighlight(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found after update");
-  }
-
+  if (!res.Attributes) throw new Error("Closet item not found after update");
   return mapClosetItem(res.Attributes);
 }
 
 // ────────────────────────────────────────────────────────────
-// 9) closetItemComments – query all COMMENT# children
+// 9) closetItemComments
 // ────────────────────────────────────────────────────────────
 
 async function handleClosetItemComments(args: {
@@ -878,7 +843,7 @@ async function handleClosetItemComments(args: {
 }
 
 // ────────────────────────────────────────────────────────────
-// 10) adminClosetItemLikes – admin view of LIKE children
+// 10) adminClosetItemLikes
 // ────────────────────────────────────────────────────────────
 
 async function handleAdminClosetItemLikes(args: {
@@ -906,10 +871,6 @@ async function handleAdminClosetItemLikes(args: {
   }));
 }
 
-// ────────────────────────────────────────────────────────────
-// 11) adminClosetItemComments – alias for closetItemComments
-// ────────────────────────────────────────────────────────────
-
 async function handleAdminClosetItemComments(args: {
   closetItemId: string;
 }): Promise<ClosetItemComment[]> {
@@ -917,15 +878,13 @@ async function handleAdminClosetItemComments(args: {
 }
 
 // ────────────────────────────────────────────────────────────
-// 12) toggleWishlistItem – viewer's wishlist for a closet item.
-//     Bestie+ only. Fans cannot maintain a wishlist.
+// 12) toggleWishlistItem (Bestie+)
 // ────────────────────────────────────────────────────────────
 
 async function handleToggleWishlistItem(
   args: { closetItemId: string; on?: boolean | null },
   identity: SAIdentity,
 ): Promise<ClosetItem> {
-  // Bestie+ only for wishlist
   requireBestieTier(identity);
 
   const viewerSub = requireUserSub(identity);
@@ -937,15 +896,11 @@ async function handleToggleWishlistItem(
   const wishlistPk = pkForUser(viewerSub);
   const wishlistSk = `WISHLIST#${closetItemId}`;
 
-  // Turning OFF
   if (on === false) {
     await ddb.send(
       new DeleteItemCommand({
         TableName: TABLE_NAME,
-        Key: ddbMarshal({
-          pk: wishlistPk,
-          sk: wishlistSk,
-        }),
+        Key: ddbMarshal({ pk: wishlistPk, sk: wishlistSk }),
       }),
     );
 
@@ -970,13 +925,10 @@ async function handleToggleWishlistItem(
           ReturnValues: "ALL_NEW",
         }),
       );
-      if (res.Attributes) {
-        updated = mapClosetItem(res.Attributes);
-      }
+      if (res.Attributes) updated = mapClosetItem(res.Attributes);
     } catch (err: any) {
-      if (err?.name !== "ConditionalCheckFailedException") {
-        throw err;
-      }
+      if (err?.name !== "ConditionalCheckFailedException") throw err;
+
       const fallbackRes = await ddb.send(
         new QueryCommand({
           TableName: TABLE_NAME,
@@ -987,19 +939,15 @@ async function handleToggleWishlistItem(
           }),
         }),
       );
+
       const itemRaw = (fallbackRes.Items ?? [])[0];
-      if (itemRaw) {
-        updated = mapClosetItem(itemRaw);
-      }
+      if (itemRaw) updated = mapClosetItem(itemRaw);
     }
 
-    if (!updated) {
-      throw new Error("Closet item not found");
-    }
+    if (!updated) throw new Error("Closet item not found");
 
     updated.viewerHasWishlisted = false;
 
-    // Engagement: wishlist off
     await putEngagementEvent({
       action: "WISHLIST_TOGGLED",
       closetItemId,
@@ -1011,7 +959,6 @@ async function handleToggleWishlistItem(
     return updated;
   }
 
-  // Turning ON (or default toggle-on)
   const wishlistItem = {
     pk: wishlistPk,
     sk: wishlistSk,
@@ -1027,14 +974,11 @@ async function handleToggleWishlistItem(
       new PutItemCommand({
         TableName: TABLE_NAME,
         Item: ddbMarshal(wishlistItem),
-        // de-dupe per viewer+item
         ConditionExpression: "attribute_not_exists(sk)",
       }),
     );
   } catch (err: any) {
-    if (err?.name !== "ConditionalCheckFailedException") {
-      throw err;
-    }
+    if (err?.name !== "ConditionalCheckFailedException") throw err;
   }
 
   const res = await ddb.send(
@@ -1055,14 +999,11 @@ async function handleToggleWishlistItem(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found");
-  }
+  if (!res.Attributes) throw new Error("Closet item not found");
 
   const item = mapClosetItem(res.Attributes);
   item.viewerHasWishlisted = true;
 
-  // Engagement: wishlist on
   await putEngagementEvent({
     action: "WISHLIST_TOGGLED",
     closetItemId,
@@ -1075,8 +1016,7 @@ async function handleToggleWishlistItem(
 }
 
 // ────────────────────────────────────────────────────────────
-// 13) myWishlist – viewer's wishlist expanded to ClosetItem
-//     Now returns a ClosetConnection. FREE → empty list.
+// 13) myWishlist
 // ────────────────────────────────────────────────────────────
 
 async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection> {
@@ -1084,7 +1024,6 @@ async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection>
   const tier = getUserTier(identity);
 
   if (tier === "FREE") {
-    // Fans don't have a persistent wishlist
     return { items: [], nextToken: null };
   }
 
@@ -1102,13 +1041,7 @@ async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection>
   );
 
   const entries = (res.Items ?? []).map((raw) => unmarshall(raw) as any);
-
-  if (!entries.length) {
-    return {
-      items: [],
-      nextToken: null,
-    };
-  }
+  if (!entries.length) return { items: [], nextToken: null };
 
   const keys = entries.map((e) => ({
     pk: pkForUser(e.ownerSub),
@@ -1118,9 +1051,7 @@ async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection>
   const batchRes = await ddb.send(
     new BatchGetItemCommand({
       RequestItems: {
-        [TABLE_NAME]: {
-          Keys: keys.map((k) => ddbMarshal(k)),
-        },
+        [TABLE_NAME]: { Keys: keys.map((k) => ddbMarshal(k)) },
       },
     }),
   );
@@ -1128,18 +1059,13 @@ async function handleMyWishlist(identity: SAIdentity): Promise<ClosetConnection>
   const itemsRaw = batchRes.Responses?.[TABLE_NAME] ?? [];
   const closetItems = itemsRaw.map(mapClosetItem);
 
-  for (const ci of closetItems) {
-    ci.viewerHasWishlisted = true;
-  }
+  for (const ci of closetItems) ci.viewerHasWishlisted = true;
 
-  return {
-    items: closetItems,
-    nextToken: null,
-  };
+  return { items: closetItems, nextToken: null };
 }
 
 // ────────────────────────────────────────────────────────────
-// 14) pinnedClosetItems – child resolver for GameProfile.pinnedClosetItems
+// 14) pinnedClosetItems
 // ────────────────────────────────────────────────────────────
 
 async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
@@ -1151,9 +1077,7 @@ async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
     (source.id as string | undefined) ||
     (identity?.sub as string | undefined);
 
-  if (!userId) {
-    throw new Error("Cannot resolve pinnedClosetItems: missing userId");
-  }
+  if (!userId) throw new Error("Cannot resolve pinnedClosetItems: missing userId");
 
   const res = await ddb.send(
     new QueryCommand({
@@ -1177,8 +1101,7 @@ async function handlePinnedClosetItems(event: any): Promise<ClosetItem[]> {
 }
 
 // ────────────────────────────────────────────────────────────
-// 15) closetFeed – public community feed for Lala’s Closet
-//     (Already returning ClosetConnection.)
+// 15) closetFeed
 // ────────────────────────────────────────────────────────────
 
 async function handleClosetFeed(event: any): Promise<ClosetConnection> {
@@ -1200,34 +1123,22 @@ async function handleClosetFeed(event: any): Promise<ClosetConnection> {
         ExpressionAttributeValues: ddbMarshal({
           ":pk": gsi1ForStatus(status),
         }),
-        ScanIndexForward: false, // newest first
+        ScanIndexForward: false,
         Limit: limit * 2,
       }),
     );
 
-    const chunk = (resp.Items ?? []).map(mapClosetItem);
-    collected.push(...chunk);
+    collected.push(...(resp.Items ?? []).map(mapClosetItem));
   }
 
-  // Only show fan-facing looks (PUBLIC audience).
   const filtered = collected.filter((item) => {
-    const statusOk =
-      item.status === "APPROVED" || item.status === "PUBLISHED";
-
-    const audience =
-      (item.audience as ClosetAudience | undefined) ?? "PUBLIC";
-    const audienceOk = audience === "PUBLIC";
-
-    return statusOk && audienceOk;
+    const statusOk = item.status === "APPROVED" || item.status === "PUBLISHED";
+    const audience = (item.audience as ClosetAudience | undefined) ?? "PUBLIC";
+    return statusOk && audience === "PUBLIC";
   });
 
-  // De-dupe by id in case an item appears twice
   const byId = new Map<string, ClosetItem>();
-  for (const it of filtered) {
-    if (!byId.has(it.id)) {
-      byId.set(it.id, it);
-    }
-  }
+  for (const it of filtered) if (!byId.has(it.id)) byId.set(it.id, it);
 
   const unique = Array.from(byId.values());
 
@@ -1242,22 +1153,14 @@ async function handleClosetFeed(event: any): Promise<ClosetConnection> {
       return bCreated.localeCompare(aCreated);
     }
 
-    // NEWEST
     return bCreated.localeCompare(aCreated);
   });
 
-  const pageItems = unique.slice(0, limit);
-
-  // For now we don't paginate beyond this, so nextToken is always null.
-  return {
-    items: pageItems,
-    nextToken: null,
-  };
+  return { items: unique.slice(0, limit), nextToken: null };
 }
 
 // ────────────────────────────────────────────────────────────
-// 16) toggleFavoriteClosetItem – hearts in fan closet feed
-//     Fans ARE allowed to favorite feed items.
+// 16) toggleFavoriteClosetItem (fans allowed)
 // ────────────────────────────────────────────────────────────
 
 async function handleToggleFavoriteClosetItem(
@@ -1273,15 +1176,11 @@ async function handleToggleFavoriteClosetItem(
   const pkRoot = pkForClosetRoot(closetItemId);
   const skFavorite = `FAVORITE#${viewerSub}`;
 
-  // Turning OFF
   if (favoriteOn === false) {
     await ddb.send(
       new DeleteItemCommand({
         TableName: TABLE_NAME,
-        Key: ddbMarshal({
-          pk: pkRoot,
-          sk: skFavorite,
-        }),
+        Key: ddbMarshal({ pk: pkRoot, sk: skFavorite }),
       }),
     );
 
@@ -1306,13 +1205,10 @@ async function handleToggleFavoriteClosetItem(
           ReturnValues: "ALL_NEW",
         }),
       );
-      if (res.Attributes) {
-        updated = mapClosetItem(res.Attributes);
-      }
+      if (res.Attributes) updated = mapClosetItem(res.Attributes);
     } catch (err: any) {
-      if (err?.name !== "ConditionalCheckFailedException") {
-        throw err;
-      }
+      if (err?.name !== "ConditionalCheckFailedException") throw err;
+
       const fallbackRes = await ddb.send(
         new QueryCommand({
           TableName: TABLE_NAME,
@@ -1324,20 +1220,15 @@ async function handleToggleFavoriteClosetItem(
         }),
       );
       const itemRaw = (fallbackRes.Items ?? [])[0];
-      if (itemRaw) {
-        updated = mapClosetItem(itemRaw);
-      }
+      if (itemRaw) updated = mapClosetItem(itemRaw);
     }
 
-    if (!updated) {
-      throw new Error("Closet item not found");
-    }
+    if (!updated) throw new Error("Closet item not found");
 
     updated.viewerHasFaved = false;
     return updated;
   }
 
-  // Turning ON (or default toggle-on)
   const favoriteItem = {
     pk: pkRoot,
     sk: skFavorite,
@@ -1350,17 +1241,14 @@ async function handleToggleFavoriteClosetItem(
 
   try {
     await ddb.send(
-    new PutItemCommand({
+      new PutItemCommand({
         TableName: TABLE_NAME,
         Item: ddbMarshal(favoriteItem),
-        // de-dupe per viewer
         ConditionExpression: "attribute_not_exists(sk)",
       }),
     );
   } catch (err: any) {
-    if (err?.name !== "ConditionalCheckFailedException") {
-      throw err;
-    }
+    if (err?.name !== "ConditionalCheckFailedException") throw err;
   }
 
   const res = await ddb.send(
@@ -1381,9 +1269,7 @@ async function handleToggleFavoriteClosetItem(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found");
-  }
+  if (!res.Attributes) throw new Error("Closet item not found");
 
   const item = mapClosetItem(res.Attributes);
   item.viewerHasFaved = true;
@@ -1391,7 +1277,7 @@ async function handleToggleFavoriteClosetItem(
 }
 
 // ────────────────────────────────────────────────────────────
-// 17) requestClosetBackgroundChange – Besties-only, kicks BG SM
+// 17) requestClosetBackgroundChange
 // ────────────────────────────────────────────────────────────
 
 async function handleRequestClosetBackgroundChange(
@@ -1413,7 +1299,6 @@ async function handleRequestClosetBackgroundChange(
     throw new Error("Not authorized to change background for this item");
   }
 
-  // Persist pending background metadata on the closet item
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
@@ -1421,8 +1306,7 @@ async function handleRequestClosetBackgroundChange(
         pk: pkForUser(base.userId),
         sk: skForClosetItem(base.id),
       }),
-      UpdateExpression:
-        "SET pendingBackgroundKey = :bg, updatedAt = :now",
+      UpdateExpression: "SET pendingBackgroundKey = :bg, updatedAt = :now",
       ExpressionAttributeValues: ddbMarshal({
         ":bg": requestedBackgroundKey ?? null,
         ":now": now,
@@ -1454,7 +1338,7 @@ async function handleRequestClosetBackgroundChange(
 }
 
 // ────────────────────────────────────────────────────────────
-// 18) createStory – Besties story creation (DRAFT)
+// 18) createStory
 // ────────────────────────────────────────────────────────────
 
 async function handleCreateStory(
@@ -1501,14 +1385,11 @@ async function handleCreateStory(
 }
 
 // ────────────────────────────────────────────────────────────
-// 19) publishStory – Besties story publish (kicks Story SM)
+// 19) publishStory
 // ────────────────────────────────────────────────────────────
 
 async function handlePublishStory(
-  args: {
-    storyId: string;
-    scheduledAt?: string | null;
-  },
+  args: { storyId: string; scheduledAt?: string | null },
   identity: SAIdentity,
 ): Promise<Story> {
   requireBestieTier(identity);
@@ -1519,15 +1400,10 @@ async function handlePublishStory(
   const res = await ddb.send(
     new UpdateItemCommand({
       TableName: TABLE_NAME,
-      Key: ddbMarshal({
-        pk: pkForUser(sub),
-        sk: skForStory(storyId),
-      }),
+      Key: ddbMarshal({ pk: pkForUser(sub), sk: skForStory(storyId) }),
       UpdateExpression:
         "SET #status = :pending, updatedAt = :now, scheduledAt = :scheduledAt",
-      ExpressionAttributeNames: {
-        "#status": "status",
-      },
+      ExpressionAttributeNames: { "#status": "status" },
       ExpressionAttributeValues: ddbMarshal({
         ":pending": "PENDING_PUBLISH",
         ":now": now,
@@ -1537,9 +1413,7 @@ async function handlePublishStory(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Story not found");
-  }
+  if (!res.Attributes) throw new Error("Story not found");
 
   const story = unmarshall(res.Attributes) as Story;
 
@@ -1559,7 +1433,7 @@ async function handlePublishStory(
 }
 
 // ────────────────────────────────────────────────────────────
-// 20) addClosetItemToCommunityFeed – Besties-only
+// 20) addClosetItemToCommunityFeed
 // ────────────────────────────────────────────────────────────
 
 async function handleAddClosetItemToCommunityFeed(
@@ -1584,8 +1458,7 @@ async function handleAddClosetItemToCommunityFeed(
         pk: pkForUser(base.userId),
         sk: skForClosetItem(base.id),
       }),
-      UpdateExpression:
-        "SET inCommunityFeed = :true, updatedAt = :now",
+      UpdateExpression: "SET inCommunityFeed = :true, updatedAt = :now",
       ExpressionAttributeValues: ddbMarshal({
         ":true": true,
         ":now": now,
@@ -1594,13 +1467,10 @@ async function handleAddClosetItemToCommunityFeed(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found");
-  }
+  if (!res.Attributes) throw new Error("Closet item not found");
 
   const updated = mapClosetItem(res.Attributes);
 
-  // Engagement: create COMMUNITY_FEED record via Engagement Lambda
   await putEngagementEvent({
     action: "COMMUNITY_FEATURED",
     closetItemId,
@@ -1612,7 +1482,7 @@ async function handleAddClosetItemToCommunityFeed(
 }
 
 // ────────────────────────────────────────────────────────────
-// 21) removeClosetItemFromCommunityFeed – Besties-only
+// 21) removeClosetItemFromCommunityFeed
 // ────────────────────────────────────────────────────────────
 
 async function handleRemoveClosetItemFromCommunityFeed(
@@ -1637,8 +1507,7 @@ async function handleRemoveClosetItemFromCommunityFeed(
         pk: pkForUser(base.userId),
         sk: skForClosetItem(base.id),
       }),
-      UpdateExpression:
-        "SET inCommunityFeed = :false, updatedAt = :now",
+      UpdateExpression: "SET inCommunityFeed = :false, updatedAt = :now",
       ExpressionAttributeValues: ddbMarshal({
         ":false": false,
         ":now": now,
@@ -1647,16 +1516,12 @@ async function handleRemoveClosetItemFromCommunityFeed(
     }),
   );
 
-  if (!res.Attributes) {
-    throw new Error("Closet item not found");
-  }
-
+  if (!res.Attributes) throw new Error("Closet item not found");
   return mapClosetItem(res.Attributes);
 }
 
 // ────────────────────────────────────────────────────────────
-// 22) shareClosetItemToPinterest – fire-and-forget event record
-//     Besties-only sharing of their looks.
+// 22) shareClosetItemToPinterest
 // ────────────────────────────────────────────────────────────
 
 async function handleShareClosetItemToPinterest(
@@ -1687,7 +1552,6 @@ async function handleShareClosetItemToPinterest(
     }),
   );
 
-  // Engagement: let EngagementFn track Pinterest share analytics
   await putEngagementEvent({
     action: "PINTEREST_SHARE_REQUESTED",
     closetItemId,
@@ -1695,7 +1559,6 @@ async function handleShareClosetItemToPinterest(
     actorSub: sharerSub,
   });
 
-  // Downstream worker (EventBridge/Streams) can do the actual API call
   return true;
 }
 
@@ -1714,10 +1577,7 @@ export const handler = async (event: any) => {
         return await handleMyCloset(event.identity);
 
       case "bestieClosetItems":
-        return await handleBestieClosetItems(
-          event.arguments || {},
-          event.identity,
-        );
+        return await handleBestieClosetItems(event.arguments || {}, event.identity);
 
       case "myWishlist":
         return await handleMyWishlist(event.identity);
@@ -1726,31 +1586,19 @@ export const handler = async (event: any) => {
         return await handleCreateClosetItem(event.arguments, event.identity);
 
       case "updateClosetMediaKey":
-        return await handleUpdateClosetMediaKey(
-          event.arguments,
-          event.identity,
-        );
+        return await handleUpdateClosetMediaKey(event.arguments, event.identity);
 
       case "requestClosetApproval":
-        return await handleRequestClosetApproval(
-          event.arguments,
-          event.identity,
-        );
+        return await handleRequestClosetApproval(event.arguments, event.identity);
 
       case "updateClosetItemStory":
-        return await handleUpdateClosetItemStory(
-          event.arguments,
-          event.identity,
-        );
+        return await handleUpdateClosetItemStory(event.arguments, event.identity);
 
       case "likeClosetItem":
         return await handleLikeClosetItem(event.arguments, event.identity);
 
       case "commentOnClosetItem":
-        return await handleCommentOnClosetItem(
-          event.arguments,
-          event.identity,
-        );
+        return await handleCommentOnClosetItem(event.arguments, event.identity);
 
       case "pinHighlight":
         return await handlePinHighlight(event.arguments, event.identity);
@@ -1765,10 +1613,7 @@ export const handler = async (event: any) => {
         return await handleAdminClosetItemComments(event.arguments);
 
       case "toggleWishlistItem":
-        return await handleToggleWishlistItem(
-          event.arguments,
-          event.identity,
-        );
+        return await handleToggleWishlistItem(event.arguments, event.identity);
 
       case "pinnedClosetItems":
         return await handlePinnedClosetItems(event);
@@ -1777,17 +1622,10 @@ export const handler = async (event: any) => {
         return await handleClosetFeed(event);
 
       case "toggleFavoriteClosetItem":
-        return await handleToggleFavoriteClosetItem(
-          event.arguments,
-          event.identity,
-        );
+        return await handleToggleFavoriteClosetItem(event.arguments, event.identity);
 
-      // NEW Besties workflows
       case "requestClosetBackgroundChange":
-        return await handleRequestClosetBackgroundChange(
-          event.arguments,
-          event.identity,
-        );
+        return await handleRequestClosetBackgroundChange(event.arguments, event.identity);
 
       case "createStory":
         return await handleCreateStory(event.arguments, event.identity);
@@ -1796,22 +1634,13 @@ export const handler = async (event: any) => {
         return await handlePublishStory(event.arguments, event.identity);
 
       case "addClosetItemToCommunityFeed":
-        return await handleAddClosetItemToCommunityFeed(
-          event.arguments,
-          event.identity,
-        );
+        return await handleAddClosetItemToCommunityFeed(event.arguments, event.identity);
 
       case "removeClosetItemFromCommunityFeed":
-        return await handleRemoveClosetItemFromCommunityFeed(
-          event.arguments,
-          event.identity,
-        );
+        return await handleRemoveClosetItemFromCommunityFeed(event.arguments, event.identity);
 
       case "shareClosetItemToPinterest":
-        return await handleShareClosetItemToPinterest(
-          event.arguments,
-          event.identity,
-        );
+        return await handleShareClosetItemToPinterest(event.arguments, event.identity);
 
       default:
         throw new Error(`Unsupported field: ${fieldName}`);

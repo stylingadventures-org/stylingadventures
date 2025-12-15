@@ -23,8 +23,7 @@ function readCfg(SA) {
   // to override when it has fresher values from the live stack.
   const jsonCfg = window.__cfg || {};
   const compatCfg = window.sa?.cfg || {};
-  const saCfg =
-    (SA && typeof SA.cfg === "function" ? SA.cfg() : SA?.cfg) || {};
+  const saCfg = (SA && typeof SA.cfg === "function" ? SA.cfg() : SA?.cfg) || {};
 
   const cfg = {
     ...jsonCfg,
@@ -47,14 +46,9 @@ function readCfg(SA) {
   // Build full Hosted UI domain if needed
   let domain = (cfg.cognitoDomain || "").trim().replace(/\/+$/, "");
   if (!domain) {
-    const pref =
-      (cfg.cognitoDomainPrefix ||
-        cfg.hostedUiDomain ||
-        cfg.domain ||
-        "").trim();
+    const pref = (cfg.cognitoDomainPrefix || cfg.hostedUiDomain || cfg.domain || "").trim();
     const region = (cfg.region || "").trim();
-    if (pref && region)
-      domain = `https://${pref}.auth.${region}.amazoncognito.com`;
+    if (pref && region) domain = `https://${pref}.auth.${region}.amazoncognito.com`;
   }
   cfg.cognitoDomain = domain;
 
@@ -66,35 +60,32 @@ function readCfg(SA) {
   // Normalise uploadsApiUrl from legacy keys
   if (!cfg.uploadsApiUrl) {
     cfg.uploadsApiUrl =
-      cfg.uploadsApiUrl ||
-      cfg.uploadsApi ||
-      cfg.uploadsOrigin ||
-      cfg.uploadApiUrl ||
+      cfg.uploadsApiUrl || cfg.uploadsApi || cfg.uploadsOrigin || cfg.uploadApiUrl || "";
+  }
+
+  // Normalize adminApiUrl too (used for StepFn approval endpoints, etc.)
+  if (!cfg.adminApiUrl) {
+    cfg.adminApiUrl =
+      cfg.adminApiUrl ||
+      cfg.adminApi ||
+      cfg.adminOrigin ||
+      cfg.adminBaseUrl ||
+      cfg.AdminApiUrl ||
       "";
   }
 
   // Known-bad hosts we never want to keep using
-  const BAD_UPLOAD_HOSTS = [
-    "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
-  ];
+  const BAD_UPLOAD_HOSTS = ["r9mrarhdxa.execute-api.us-east-1.amazonaws.com"];
 
   const currentUploadsUrl = String(cfg.uploadsApiUrl || "").trim();
   const jsonUploadsUrl =
-    jsonCfg.uploadsApiUrl ||
-    jsonCfg.uploadsApi ||
-    jsonCfg.uploadsOrigin ||
-    jsonCfg.uploadApiUrl ||
-    "";
+    jsonCfg.uploadsApiUrl || jsonCfg.uploadsApi || jsonCfg.uploadsOrigin || jsonCfg.uploadApiUrl || "";
 
   const isBadUploadsUrl =
-    !currentUploadsUrl ||
-    BAD_UPLOAD_HOSTS.some((host) => currentUploadsUrl.includes(host));
+    !currentUploadsUrl || BAD_UPLOAD_HOSTS.some((host) => currentUploadsUrl.includes(host));
 
   if (isBadUploadsUrl) {
-    if (
-      jsonUploadsUrl &&
-      !BAD_UPLOAD_HOSTS.some((h) => jsonUploadsUrl.includes(h))
-    ) {
+    if (jsonUploadsUrl && !BAD_UPLOAD_HOSTS.some((h) => jsonUploadsUrl.includes(h))) {
       cfg.uploadsApiUrl = jsonUploadsUrl.trim();
     } else {
       // Last-resort placeholder – you should never actually hit this in dev
@@ -149,24 +140,83 @@ function saveTokens(tokens) {
     localStorage.setItem("sa_refresh_token", refresh_token);
   }
   if (expires_in) {
-    sessionStorage.setItem(
-      "token_exp_at",
-      String(Date.now() + Number(expires_in) * 1000),
-    );
+    sessionStorage.setItem("token_exp_at", String(Date.now() + Number(expires_in) * 1000));
   }
 }
 
 function readToken(name) {
-  return (
-    sessionStorage.getItem(name) || localStorage.getItem(`sa_${name}`) || ""
-  );
+  return sessionStorage.getItem(name) || localStorage.getItem(`sa_${name}`) || "";
+}
+
+/**
+ * Best-effort: fetch an ID token from the global SA helper (Amplify/Cognito),
+ * then persist it into our own storage so the rest of the app works consistently.
+ *
+ * This is the critical fix for:
+ * - “Not signed in”
+ * - role showing as FAN when you’re ADMIN
+ * - missing ownerSub/sub on REST calls
+ */
+async function syncTokenFromGlobalSA() {
+  try {
+    const SA = await getSA().catch(() => undefined);
+    if (!SA) return "";
+
+    // Common patterns our global helper might support:
+    // 1) SA.auth.currentSession() (Amplify style)
+    if (SA?.auth?.currentSession) {
+      const sess = await SA.auth.currentSession();
+      const idTok =
+        sess?.getIdToken?.()?.getJwtToken?.() ||
+        sess?.idToken?.jwtToken ||
+        sess?.idToken ||
+        "";
+      const accessTok =
+        sess?.getAccessToken?.()?.getJwtToken?.() ||
+        sess?.accessToken?.jwtToken ||
+        sess?.accessToken ||
+        "";
+      if (idTok) {
+        saveTokens({
+          id_token: idTok,
+          access_token: accessTok || undefined,
+          expires_in: 3600,
+        });
+        return idTok;
+      }
+    }
+
+    // 2) SA.getIdToken() or SA.auth.getIdToken()
+    if (typeof SA?.getIdToken === "function") {
+      const idTok = await SA.getIdToken();
+      if (idTok) {
+        saveTokens({ id_token: idTok, expires_in: 3600 });
+        return idTok;
+      }
+    }
+    if (typeof SA?.auth?.getIdToken === "function") {
+      const idTok = await SA.auth.getIdToken();
+      if (idTok) {
+        saveTokens({ id_token: idTok, expires_in: 3600 });
+        return idTok;
+      }
+    }
+
+    return "";
+  } catch (e) {
+    console.warn("[SA] syncTokenFromGlobalSA failed (non-fatal)", e);
+    return "";
+  }
 }
 
 /** Best-effort Cognito ID token for Authorization header */
 export async function getIdToken() {
-  // 🔒 Source of truth is our own storage.
-  // Do NOT read from window.SA here – that causes "zombie" sessions.
-  return readToken("id_token");
+  // 1) Prefer our own storage (source of truth)
+  const localTok = readToken("id_token");
+  if (localTok) return localTok;
+
+  // 2) If missing, recover from global SA (Amplify/Cognito caches), then persist.
+  return syncTokenFromGlobalSA();
 }
 
 export async function exchangeCodeForTokens() {
@@ -187,10 +237,7 @@ export async function exchangeCodeForTokens() {
     redirect_uri: cfg.redirectUri || currentRedirectUri(),
   });
 
-  const tokenEndpoint = `${cfg.cognitoDomain.replace(
-    /\/+$/,
-    "",
-  )}/oauth2/token`;
+  const tokenEndpoint = `${cfg.cognitoDomain.replace(/\/+$/, "")}/oauth2/token`;
   const res = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -233,18 +280,14 @@ export async function login(redirectUri) {
     throw new Error("Auth misconfigured: missing cognitoDomain/clientId");
   }
 
-  const redirect =
-    redirectUri || cfg.redirectUri || currentRedirectUri();
+  const redirect = redirectUri || cfg.redirectUri || currentRedirectUri();
 
-  const loginUrl = withQuery(
-    `${cfg.cognitoDomain.replace(/\/+$/, "")}/login`,
-    {
-      client_id: cfg.clientId,
-      response_type: "code",
-      scope: cfg.scopes.join(" "),
-      redirect_uri: redirect,
-    },
-  );
+  const loginUrl = withQuery(`${cfg.cognitoDomain.replace(/\/+$/, "")}/login`, {
+    client_id: cfg.clientId,
+    response_type: "code",
+    scope: cfg.scopes.join(" "),
+    redirect_uri: redirect,
+  });
 
   window.location.assign(loginUrl);
 }
@@ -285,13 +328,10 @@ export async function logout(redirectUri) {
     return;
   }
 
-  const logoutUrl = withQuery(
-    `${cfg.cognitoDomain.replace(/\/+$/, "")}/logout`,
-    {
-      client_id: cfg.clientId,
-      logout_uri: target,
-    },
-  );
+  const logoutUrl = withQuery(`${cfg.cognitoDomain.replace(/\/+$/, "")}/logout`, {
+    client_id: cfg.clientId,
+    logout_uri: target,
+  });
 
   window.location.assign(logoutUrl);
 }
@@ -392,10 +432,7 @@ export async function getSignedGetUrl(key) {
     const SA = await getSA().catch(() => undefined);
     cfg = readCfg(SA || {});
   } catch (e) {
-    console.warn(
-      "[getSignedGetUrl] readCfg failed; falling back to window.__cfg",
-      e,
-    );
+    console.warn("[getSignedGetUrl] readCfg failed; falling back to window.__cfg", e);
     cfg = window.__cfg || {};
   }
 
@@ -421,13 +458,7 @@ export async function getSignedGetUrl(key) {
 
   // Last resort: direct S3 URL
   const bucket =
-    cfg.uploadsBucket ||
-    cfg.mediaBucket ||
-    cfg.webBucket ||
-    cfg.assetsBucket ||
-    cfg.bucket ||
-    cfg.BUCKET ||
-    "";
+    cfg.uploadsBucket || cfg.mediaBucket || cfg.webBucket || cfg.assetsBucket || cfg.bucket || cfg.BUCKET || "";
   const region = cfg.region || "us-east-1";
 
   if (!bucket) {
@@ -482,17 +513,16 @@ export async function signedUpload(fileOrText, opts = {}) {
   }
 
   // Ask API for a presigned request
-  const presignRes = await fetch(
-    `${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: await getIdToken(),
-      },
-      body: JSON.stringify(presignBody),
+  const idTok = await getIdToken();
+
+  const presignRes = await fetch(`${cfg.uploadsApiUrl.replace(/\/+$/, "")}/presign`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(idTok ? { Authorization: idTok } : {}),
     },
-  );
+    body: JSON.stringify(presignBody),
+  });
 
   if (!presignRes.ok) {
     const text = await presignRes.text().catch(() => "");
@@ -503,9 +533,7 @@ export async function signedUpload(fileOrText, opts = {}) {
   // Upload to S3 using method returned by API
   if (presign.method === "POST" || presign.fields) {
     const form = new FormData();
-    Object.entries(presign.fields || {}).forEach(([k, v]) =>
-      form.append(k, v),
-    );
+    Object.entries(presign.fields || {}).forEach(([k, v]) => form.append(k, v));
     form.append("file", blob);
     const up = await fetch(presign.url, { method: "POST", body: form });
     if (!up.ok) {
@@ -515,10 +543,7 @@ export async function signedUpload(fileOrText, opts = {}) {
   } else {
     const up = await fetch(presign.url, {
       method: presign.method || "PUT",
-      headers:
-        presign.headers || {
-          "Content-Type": blob.type || "application/octet-stream",
-        },
+      headers: presign.headers || { "Content-Type": blob.type || "application/octet-stream" },
       body: blob,
     });
     if (!up.ok) {
@@ -545,16 +570,10 @@ export async function uploadProfilePhoto(file) {
   const upload = await signedUpload(file, { kind: "profile" });
 
   const SA = await getSA();
-  const avatarUrl =
-    upload.url ||
-    (await getSignedGetUrl(upload.key)) ||
-    null;
+  const avatarUrl = upload.url || (await getSignedGetUrl(upload.key)) || null;
 
   if (!avatarUrl) {
-    console.warn(
-      "[uploadProfilePhoto] could not compute avatarUrl from upload result",
-      upload,
-    );
+    console.warn("[uploadProfilePhoto] could not compute avatarUrl from upload result", upload);
     return upload;
   }
 
@@ -743,7 +762,6 @@ export function getSessionFromStorage() {
 
 /**
  * Convenience flags for roles (FAN / BESTIE / CREATOR / ADMIN).
- * (You can extend this later with tiers from Dynamo if needed.)
  */
 export function getRoleFlags() {
   const { groups } = getSessionFromStorage();
@@ -770,10 +788,7 @@ function pickSessionCompat(idToken) {
 async function directGraphql(query, variables) {
   const SA = await getSA().catch(() => undefined);
   const cfg = readCfg(SA || {});
-  const appsyncUrl =
-    window.sa?.cfg?.appsyncUrl ||
-    window.__cfg?.appsyncUrl ||
-    cfg?.appsyncUrl;
+  const appsyncUrl = window.sa?.cfg?.appsyncUrl || window.__cfg?.appsyncUrl || cfg?.appsyncUrl;
 
   const idToken = await getIdToken();
 
@@ -803,6 +818,7 @@ async function readyCompat() {
       (await getSA()
         .then((SA) => readCfg(SA).appsyncUrl)
         .catch(() => undefined));
+
     if (idTok && appsyncUrl) break;
     if (Date.now() - start > 5000) break;
     await new Promise((r) => setTimeout(r, 100));
@@ -816,13 +832,28 @@ async function readyCompat() {
     ...(SA ? readCfg(SA) : {}),
   };
 
+  // expose config in a predictable place
   window.sa = window.sa || {};
-  window.sa.session = pickSessionCompat(idToken);
   window.sa.cfg = cfg;
+  window.sa.config = cfg;
+
+  // session + role
+  window.sa.session = pickSessionCompat(idToken);
+  const groups = window.sa.session?.groups || [];
+  window.sa.role = groups.includes("ADMIN")
+    ? "ADMIN"
+    : groups.includes("CREATOR")
+    ? "CREATOR"
+    : groups.includes("BESTIE")
+    ? "BESTIE"
+    : "FAN";
+
   // Prefer SA.gql if present; otherwise fallback to directGraphql
   window.sa.graphql =
-    window.sa.graphql ||
-    (SA?.gql ? (q, v) => SA.gql(q, v) : (q, v) => directGraphql(q, v));
+    window.sa.graphql || (SA?.gql ? (q, v) => SA.gql(q, v) : (q, v) => directGraphql(q, v));
+
+  console.log("[app] ready; role =", window.sa.role, "cfg.appsyncUrl =", cfg.appsyncUrl);
+
   return true;
 }
 
@@ -830,6 +861,7 @@ async function readyCompat() {
 window.sa = window.sa || {};
 window.sa.ready = window.sa.ready || readyCompat;
 window.sa.cfg = window.sa.cfg || window.__cfg || {};
+window.sa.config = window.sa.config || window.sa.cfg;
 
 // Named export mirroring the drop-in helper’s API
 export async function graphql(query, variables) {

@@ -8,74 +8,65 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 const TABLE_NAME = process.env.TABLE_NAME!;
 const PK_NAME = process.env.PK_NAME || "pk";
 const SK_NAME = process.env.SK_NAME || "sk";
-
-function mustGet(obj: any, key: string) {
-  const val = obj?.[key];
-  if (val === undefined || val === null) {
-    throw new Error(
-      `Missing required field: ${key}. Keys present: ${Object.keys(obj || {}).join(", ")}`
-    );
-  }
-  return val;
-}
+const TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 export const handler = async (event: any) => {
-  console.log("[notify-admin] incoming event:", JSON.stringify(event));
+  console.log("[notify-admin] event:", JSON.stringify(event));
 
-  // ✅ This MUST be present when Step Functions uses WAIT_FOR_TASK_TOKEN
-  // and your payload includes: token: JsonPath.taskToken
-  const taskToken = mustGet(event, "token") as string;
+  const token = event.token;
+  const item = event.item;
 
-  const item = mustGet(event, "item") as any;
-  const approvalId = item.id || item.itemId || item.closetItemId;
-  if (!approvalId) {
-    throw new Error(
-      `Could not determine approvalId (expected item.id). item keys: ${Object.keys(item || {}).join(
-        ", ",
-      )}`
-    );
+  if (!token || !item?.id) {
+    throw new Error("Missing task token or item.id");
   }
 
-  const pk = `ITEM#${approvalId}`;
+  const pk = `ITEM#${item.id}`;
   const sk = "META";
-  const now = new Date().toISOString();
 
-  console.log("[notify-admin] writing token to ddb", {
-    table: TABLE_NAME,
-    pk,
-    sk,
-    tokenLen: taskToken.length,
-  });
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const expiresAt = Math.floor(now.getTime() / 1000) + TOKEN_TTL_SECONDS;
 
-  const result = await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { [PK_NAME]: pk, [SK_NAME]: sk },
-      UpdateExpression: [
-        "SET #status = :pending",
-        "    , taskToken = :tok",
-        "    , approvalRequestedAt = :now",
-        "    , processedImageKey = :pkey",
-        "    , updatedAt = :now",
-        "    , rawInput = :raw",
-      ].join(" "),
-      ExpressionAttributeNames: {
-        "#status": "status",
-      },
-      ExpressionAttributeValues: {
-        ":pending": "PENDING",
-        ":tok": taskToken,
-        ":now": now,
-        ":pkey": event.processedImageKey ?? null,
-        ":raw": event,
-      },
-      ReturnValues: "ALL_NEW",
-    }),
-  );
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
 
-  console.log("[notify-admin] ddb ALL_NEW:", JSON.stringify(result.Attributes));
+        // ✅ Don’t clobber terminal decisions.
+        // ✅ Don’t overwrite an existing outstanding token.
+        ConditionExpression:
+          "attribute_not_exists(taskToken) AND (attribute_not_exists(#status) OR (#status IN (:new, :pending)))",
 
-  // IMPORTANT: do NOT call SendTaskSuccess here.
-  // This Lambda's job is only to store the task token; StepFn should keep waiting.
-  return { ok: true, approvalId };
+        UpdateExpression: `
+          SET #status = :pending,
+              taskToken = :token,
+              taskTokenExpiresAt = :exp,
+              approvalRequestedAt = :now,
+              processedImageKey = :pkey,
+              updatedAt = :now
+        `,
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":new": "NEW",
+          ":pending": "PENDING",
+          ":token": token,
+          ":exp": expiresAt,
+          ":now": nowIso,
+          ":pkey": event.processedImageKey ?? null,
+        },
+      }),
+    );
+  } catch (err: any) {
+    // If it’s already decided or already has a token, treat as idempotent no-op.
+    if (err?.name === "ConditionalCheckFailedException") {
+      console.log("[notify-admin] idempotent/no-op (already has token or terminal status)", {
+        approvalId: item.id,
+      });
+      return { ok: true, approvalId: item.id, idempotent: true };
+    }
+    throw err;
+  }
+
+  return { ok: true, approvalId: item.id };
 };

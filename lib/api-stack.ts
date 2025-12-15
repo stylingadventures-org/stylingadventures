@@ -15,8 +15,9 @@ export interface ApiStackProps extends StackProps {
   userPool: cognito.IUserPool;
   table: dynamodb.ITable;
 
-  // All three should come from WorkflowsStack
-  closetApprovalSm: sfn.IStateMachine;
+  // Workflows
+  closetApprovalSm: sfn.IStateMachine; // FAN wait-for-approval SM
+  bestieClosetAutoPublishSm: sfn.IStateMachine; // BESTIE auto-publish SM (no wait)
   backgroundChangeSm: sfn.IStateMachine;
   storyPublishSm: sfn.IStateMachine;
 
@@ -42,7 +43,6 @@ const ADMIN_GROUP_NAME = "ADMIN";
 const CREATOR_GROUP_NAME = "CREATOR";
 
 // Optional: shared CDN base for raw uploads / previews
-// (kept in Lambda env so resolvers can emit fully-qualified URLs if needed)
 const PUBLIC_UPLOADS_CDN = process.env.PUBLIC_UPLOADS_CDN ?? "";
 
 /**
@@ -58,6 +58,7 @@ export class ApiStack extends Stack {
       userPool,
       table,
       closetApprovalSm,
+      bestieClosetAutoPublishSm,
       backgroundChangeSm,
       storyPublishSm,
       livestreamFn,
@@ -116,7 +117,6 @@ export class ApiStack extends Stack {
     // CREATOR MEDIA BUCKET (for cabinets / creator assets)
     // ────────────────────────────────────────────────────────────
     const creatorMediaBucket = new s3.Bucket(this, "CreatorMediaBucket", {
-      // let CDK generate a unique bucket name (avoids global name conflicts)
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       cors: [
@@ -193,9 +193,17 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
         ...DDB_ENV,
+
+        // Backwards compatible (some code may still read this)
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+
+        // ✅ Explicit split
+        FAN_APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+        BESTIE_AUTOPUBLISH_SM_ARN: bestieClosetAutoPublishSm.stateMachineArn,
+
         BG_CHANGE_SM_ARN: backgroundChangeSm.stateMachineArn,
         STORY_PUBLISH_SM_ARN: storyPublishSm.stateMachineArn,
+
         ADMIN_GROUP_NAME,
         CREATOR_GROUP_NAME,
         PUBLIC_UPLOADS_CDN,
@@ -204,7 +212,10 @@ export class ApiStack extends Stack {
     });
 
     table.grantReadWriteData(closetFn);
+
+    // Allow GraphQL resolver to start both workflows
     closetApprovalSm.grantStartExecution(closetFn);
+    bestieClosetAutoPublishSm.grantStartExecution(closetFn);
     backgroundChangeSm.grantStartExecution(closetFn);
     storyPublishSm.grantStartExecution(closetFn);
 
@@ -331,7 +342,13 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
       environment: {
         ...DDB_ENV,
+
+        // Backwards compatible
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+
+        // ✅ New explicit name (recommended for fan flow)
+        FAN_APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
+
         ADMIN_GROUP_NAME,
         PUBLIC_UPLOADS_CDN,
         NODE_OPTIONS: "--enable-source-maps",
@@ -419,9 +436,7 @@ export class ApiStack extends Stack {
       environment: {
         ...DDB_ENV,
         ADMIN_GROUP_NAME,
-        // dev safety: always treat your email as super-admin
         SUPERADMIN_EMAILS: "evonifoster@yahoo.com",
-        // flip to "false" in prod if you want strict group-only checks
         SKIP_ADMIN_CHECK: process.env.SKIP_ADMIN_CHECK ?? "false",
         NODE_OPTIONS: "--enable-source-maps",
       },
@@ -525,7 +540,6 @@ export class ApiStack extends Stack {
       },
     });
 
-    // now read/write, since it updates profiles and unlock rows
     table.grantReadWriteData(episodesGateFn);
 
     const episodesGateDs = this.api.addLambdaDataSource(
@@ -604,8 +618,7 @@ export class ApiStack extends Stack {
       bundling: { format: OutputFormat.CJS, minify: true },
       environment: {
         ...gameEnv,
-        ADMIN_GROUP_NAME, // e.g. awardCoins can be admin-only
-        // ⬇️ NEW
+        ADMIN_GROUP_NAME,
         AWARD_PRIME_COINS_FN_NAME: primeBankAwardCoinsFn.functionName,
       },
     });
@@ -637,7 +650,6 @@ export class ApiStack extends Stack {
       },
     });
 
-    // Prime Bank-aware Economy Fn
     const gameEconomyFn = new NodejsFunction(this, "GameEconomyFn", {
       entry: "lambda/api/game-economy.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -650,20 +662,15 @@ export class ApiStack extends Stack {
       },
     });
 
-    // Dynamo permissions
     table.grantReadWriteData(gameplayFn);
     table.grantReadData(leaderboardFn);
     table.grantReadWriteData(pollsFn);
     table.grantReadWriteData(profileFn);
     table.grantReadWriteData(gameEconomyFn);
 
-    // Prime Bank permissions
     primeBankAccountTable.grantReadWriteData(gameEconomyFn);
 
-    // already had this:
     primeBankAwardCoinsFn.grantInvoke(gameEconomyFn);
-
-    // ⬇️ NEW — gameplay can also invoke AwardPrimeCoinsFn
     primeBankAwardCoinsFn.grantInvoke(gameplayFn);
 
     const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
@@ -733,7 +740,6 @@ export class ApiStack extends Stack {
       fieldName: "getMyProfile",
     });
 
-    // Existing Game Economy resolvers (config lives in GameEconomyFn now)
     gameEconomyDs.createResolver("GetGameEconomyConfigResolver", {
       typeName: "Query",
       fieldName: "getGameEconomyConfig",
@@ -744,7 +750,6 @@ export class ApiStack extends Stack {
       fieldName: "updateGameEconomyConfig",
     });
 
-    // 🔹 NEW: Prime Bank resolvers (implemented inside GameEconomyFn)
     gameEconomyDs.createResolver("GetPrimeBankAccountResolver", {
       typeName: "Query",
       fieldName: "getPrimeBankAccount",
@@ -756,7 +761,7 @@ export class ApiStack extends Stack {
     });
 
     // ────────────────────────────────────────────────────────────
-    // 🛍 SHOPPING (Shop Lala's Look, Shop This Scene, Link Closet Item)
+    // 🛍 SHOPPING
     // ────────────────────────────────────────────────────────────
     const shopLalasLookDs = this.api.addLambdaDataSource(
       "ShopLalasLookDataSource",
@@ -773,7 +778,6 @@ export class ApiStack extends Stack {
       linkClosetItemToProductFn,
     );
 
-    // 🛍 Resolvers
     shopLalasLookDs.createResolver("ShopLalasLookResolver", {
       typeName: "Query",
       fieldName: "shopLalasLook",
@@ -812,7 +816,6 @@ export class ApiStack extends Stack {
       });
     }
 
-    // 🔹 Creator Tools Lambda (cabinets + folders + assets + simple AI stub)
     const creatorToolsFn = new NodejsFunction(this, "CreatorToolsFn", {
       entry: "lambda/creator-tools/index.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -827,24 +830,16 @@ export class ApiStack extends Stack {
       memorySize: 512,
     });
 
-    // Access to Dynamo single-table for cabinets + assets
     table.grantReadWriteData(creatorToolsFn);
-
-    // Access to S3 for uploads / search / thumbnails
     creatorMediaBucket.grantReadWrite(creatorToolsFn);
 
-    const creatorAiDs = this.api.addLambdaDataSource(
-      "CreatorAiDs",
-      creatorToolsFn,
-    );
+    const creatorAiDs = this.api.addLambdaDataSource("CreatorAiDs", creatorToolsFn);
 
-    // Creator AI now lives on Mutation with CreatorAiSuggestionKind
     creatorAiDs.createResolver("CreatorAiSuggestResolver", {
       typeName: "Mutation",
       fieldName: "creatorAiSuggest",
     });
 
-    // Creator cabinets (same CreatorTools lambda)
     creatorAiDs.createResolver("CreatorCabinetsResolver", {
       typeName: "Query",
       fieldName: "creatorCabinets",
@@ -880,7 +875,6 @@ export class ApiStack extends Stack {
       fieldName: "createCreatorAssetUpload",
     });
 
-    // 🔹 New: folders + richer asset ops
     creatorAiDs.createResolver("CreatorCabinetFoldersResolver", {
       typeName: "Query",
       fieldName: "creatorCabinetFolders",

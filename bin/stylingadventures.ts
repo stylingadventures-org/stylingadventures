@@ -121,13 +121,13 @@ const webOrigin = (
 const webBucketName = web.webBucketName;
 const webCloudFrontOrigin = web.cloudFrontOrigin;
 
-// 2) Data (DynamoDB) — MUST be before IdentityV2Stack so we can pass appTable
+// 2) Data (DynamoDB)
 const data = new DataStack(app, "DataStack", {
   env,
   description: `Primary application table - ${envName}`,
 });
 
-// 3) ✅ Identity v2 (Cognito) — uses appTable for tier sync / triggers
+// 3) ✅ Identity v2 (Cognito)
 const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
   env,
   envName,
@@ -137,7 +137,7 @@ const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
   description: `Cognito v2 (user pool, app client, groups) - ${envName}`,
 });
 
-// 4) Core Workflows (approval / background / story publish / Social Pulse)
+// 4) Core Workflows
 const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
   env,
   table: data.table,
@@ -191,19 +191,17 @@ const livestream = new LivestreamStack(app, "LivestreamStack", {
   description: `Creator livestream infra - ${envName}`,
 });
 
-// 10) Pro Creators — scheduling + AI helpers (separate infra stack, still used elsewhere)
+// 10) Pro Creators — scheduling + AI helpers
 const creatorTools = new CreatorToolsStack(app, "CreatorToolsStack", {
   env,
   envName,
   table: data.table,
-  // still using BestiesStories for now; Prime Studios can hook in later if desired
   storyPublishStateMachine: bestiesStories.storyPublishStateMachine,
-  // NEW: Social Pulse Express state machine from WorkflowsV2
   socialPulseStateMachine: workflows.socialPulseStateMachine,
   description: `Creator scheduling + AI helpers - ${envName}`,
 });
 
-// 10.5) Shopping — product & scene mapping
+// 10.5) Shopping
 const shopping = new ShoppingStack(app, "ShoppingStack", {
   env,
 });
@@ -225,14 +223,14 @@ const analytics = new AnalyticsStack(app, "AnalyticsStack", {
   description: `Analytics + metrics export - ${envName}`,
 });
 
-// 13) Layout Engine — positioning + accessibility validation
+// 13) Layout Engine
 const layoutEngine = new LayoutEngineStack(app, "LayoutEngineStack", {
   env,
   envName,
   description: `Layout templates + accessibility validation - ${envName}`,
 });
 
-// 14) Prime Studios — episode production + support systems
+// 14) Prime Studios
 const primeStudios = new PrimeStudiosStack(app, "PrimeStudiosStack", {
   env,
   envName,
@@ -242,14 +240,14 @@ const primeStudios = new PrimeStudiosStack(app, "PrimeStudiosStack", {
   description: `Prime Studios episode production + support systems - ${envName}`,
 });
 
-// 14.5) Prime Bank — balances, transactions, caps
+// 14.5) Prime Bank
 const primeBank = new PrimeBankStack(app, "PrimeBankStack", {
   env,
   envName,
   description: `Prime Bank balances and transactions - ${envName}`,
 });
 
-// 15) Publishing — episode publishing pipeline
+// 15) Publishing
 const publishing = new PublishingStack(app, "PublishingStack", {
   env,
   envName,
@@ -296,21 +294,22 @@ const api = new ApiStack(app, "ApiStack", {
   userPool: identity.userPool,
   table: data.table,
 
-  // Use the real Besties closet approval workflow
+  // ✅ Fan approval SM (WAIT_FOR_TASK_TOKEN)
   closetApprovalSm: bestiesCloset.closetUploadStateMachine,
+
+  // ✅ Bestie auto-publish SM (no wait)
+  bestieClosetAutoPublishSm:
+    bestiesCloset.bestieClosetUploadAutoPublishStateMachine,
+
   backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
   storyPublishSm: bestiesStories.storyPublishStateMachine,
 
   livestreamFn: livestream.livestreamFn,
-  // creatorAiFn removed – CreatorTools Lambda now lives inside ApiStack
   commerceFn: commerce.commerceFn,
-
   adminModerationFn: admin.moderationFn,
 
-  // 🔹 Wire Prime Bank into API so game economy can award Prime Coins
   primeBankAwardCoinsFn: primeBank.awardPrimeCoinsFn,
 
-  // 🛍 New shopping Lambdas
   getShopLalasLookFn: shopping.getShopLalasLookFn,
   getShopThisSceneFn: shopping.getShopThisSceneFn,
   linkClosetItemToProductFn: shopping.linkClosetItemToProductFn,
