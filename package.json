@@ -1,13 +1,24 @@
 {
   "scripts": {
-    "build": "tsc -b && cd site && npm run build",
+    "build": "tsc -p tsconfig.build.json && cd site && npm run build",
+    "build:infra": "tsc -p tsconfig.build.json",
+    "build:site": "cd site && npm run build",
+
+    "test": "jest -c jest.config.cjs",
+    "test:watch": "jest -c jest.config.cjs --watch",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+
     "plan": "npx cdk synth && npx cdk diff",
     "deploy": "npm run build && npx cdk deploy --concurrency 1 --require-approval never",
+    "deploy:dev": "npm run build && npx cdk deploy --all --require-approval never",
+    "plan:dev": "npx cdk synth && npx cdk diff --all",
     "destroy": "npx cdk destroy --force",
+
     "check": "bash scripts/check-prereqs.sh || scripts/check-prereqs.cmd",
     "postdeploy": "node scripts/write-outputs.js",
-    "deploy:dev": "npm run build && npx cdk deploy --all --require-approval never",
-    "plan:dev": "npx cdk synth && npx cdk diff --all"
+
+    "smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-after-deploy.ps1 -StackName BestiesClosetStack -Region us-east-1",
+    "deploy:smoke": "npm run deploy -- BestiesClosetStack && npm run smoke"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.948.0",
@@ -15,6 +26,7 @@
     "@aws-sdk/client-lambda": "^3.948.0",
     "@aws-sdk/client-s3": "^3.943.0",
     "@aws-sdk/client-sfn": "^3.911.0",
+    "@aws-sdk/client-sns": "^3.948.0",
     "@aws-sdk/client-sqs": "^3.906.0",
     "@aws-sdk/lib-dynamodb": "^3.948.0",
     "@aws-sdk/s3-request-presigner": "^3.943.0",
@@ -38,16 +50,20 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.927.0",
     "@types/aws-lambda": "^8.10.156",
     "@types/form-data": "^2.2.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.0",
     "@types/node-fetch": "^2.6.13",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/sharp": "^0.31.1",
     "aws-cdk-lib": "^2.223.0",
+    "aws-sdk-client-mock": "^4.1.0",
     "constructs": "^10.4.3",
     "esbuild": "^0.27.0",
+    "jest": "^30.2.0",
     "source-map-support": "^0.5.21",
     "stripe": "^19.3.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

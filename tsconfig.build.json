@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": false,
+    "outDir": "dist"
+  },
+  "include": ["bin/**/*.ts", "lib/**/*.ts", "lambda/**/*.ts"],
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "lib/stacks/web/**", "node_modules", "cdk.out"]
+}

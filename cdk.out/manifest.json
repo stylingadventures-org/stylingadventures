@@ -1380,7 +1380,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5b9a18b357018aa33c745e6012adb2bca49aa0779cec7a9797a5f50b071f2783.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5a10458c8b86e9fd40238afddabb2f07c8a24039a179cc5d04c5ac27536a5e64.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1411,6 +1411,36 @@
                 "Value": "dev"
               }
             ]
+          }
+        ],
+        "/BestiesClosetStack/AdminAuditTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminAuditTable2543903C"
+          }
+        ],
+        "/BestiesClosetStack/ClosetOpsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetOpsTopicE34D076D"
+          }
+        ],
+        "/BestiesClosetStack/ClosetOpsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetOpsTopicArn"
+          }
+        ],
+        "/BestiesClosetStack/ClosetApprovalDLQ/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetApprovalDLQ736F075F"
+          }
+        ],
+        "/BestiesClosetStack/ClosetApprovalDLQ/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetApprovalDLQPolicy00BAAD4D"
           }
         ],
         "/BestiesClosetStack/ImageSegmentationFn/ServiceRole/Resource": [
@@ -1503,6 +1533,120 @@
             "data": "NotifyAdminFnFDB24FD6"
           }
         ],
+        "/BestiesClosetStack/ExpireApprovalFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireApprovalFnServiceRole40D6B513"
+          }
+        ],
+        "/BestiesClosetStack/ExpireApprovalFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireApprovalFnServiceRoleDefaultPolicy65417781"
+          }
+        ],
+        "/BestiesClosetStack/ExpireApprovalFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireApprovalFnFC082AFD"
+          }
+        ],
+        "/BestiesClosetStack/ExpireClosetApprovalsFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireClosetApprovalsFnServiceRoleDA11CC78"
+          }
+        ],
+        "/BestiesClosetStack/ExpireClosetApprovalsFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireClosetApprovalsFnServiceRoleDefaultPolicy821887CD"
+          }
+        ],
+        "/BestiesClosetStack/ExpireClosetApprovalsFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireClosetApprovalsFn6CE6ADC2"
+          }
+        ],
+        "/BestiesClosetStack/ExpireClosetApprovalsSchedule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireClosetApprovalsSchedule554150AC"
+          }
+        ],
+        "/BestiesClosetStack/ExpireClosetApprovalsSchedule/AllowEventRuleBestiesClosetStackExpireClosetApprovalsFn46C0A13F": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireClosetApprovalsScheduleAllowEventRuleBestiesClosetStackExpireClosetApprovalsFn46C0A13F28003CF0"
+          }
+        ],
+        "/BestiesClosetStack/ClosetDlqProcessorFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetDlqProcessorFnServiceRoleE2E435C2"
+          }
+        ],
+        "/BestiesClosetStack/ClosetDlqProcessorFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetDlqProcessorFnServiceRoleDefaultPolicy2BD3A172"
+          }
+        ],
+        "/BestiesClosetStack/ClosetDlqProcessorFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetDlqProcessorFn5FC330B3"
+          }
+        ],
+        "/BestiesClosetStack/ClosetDlqProcessorFn/DlqEventSource/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetDlqProcessorFnDlqEventSource7CCE0FD5"
+          }
+        ],
+        "/BestiesClosetStack/ClosetApprovalExecutionFailedToDLQ/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetApprovalExecutionFailedToDLQ09FF699B"
+          }
+        ],
+        "/BestiesClosetStack/ClosetHappyPathDashboard/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetHappyPathDashboard09D7F40C"
+          }
+        ],
+        "/BestiesClosetStack/ApprovalDlqAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalDlqAlarmA17D94B1"
+          }
+        ],
+        "/BestiesClosetStack/ExpireApprovalsErrors/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExpireApprovalsErrorsAA836C75"
+          }
+        ],
+        "/BestiesClosetStack/DlqProcessorErrors/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DlqProcessorErrors8287BC1E"
+          }
+        ],
+        "/BestiesClosetStack/ApprovalLatencyP90TooHigh/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalLatencyP90TooHighBB2A4D89"
+          }
+        ],
+        "/BestiesClosetStack/ApprovalLatencyP99TooHigh/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalLatencyP99TooHigh7DE91D29"
+          }
+        ],
         "/BestiesClosetStack/ClosetUploadApprovalSM/Role/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1519,6 +1663,30 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ClosetUploadApprovalSM46D354C9"
+          }
+        ],
+        "/BestiesClosetStack/ClosetUploadApprovalSMFailedAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetUploadApprovalSMFailedAlarm76205ED7"
+          }
+        ],
+        "/BestiesClosetStack/BestieClosetUploadAutoPublishSM/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieClosetUploadAutoPublishSMRole45F297D7"
+          }
+        ],
+        "/BestiesClosetStack/BestieClosetUploadAutoPublishSM/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieClosetUploadAutoPublishSMRoleDefaultPolicy928FB5B7"
+          }
+        ],
+        "/BestiesClosetStack/BestieClosetUploadAutoPublishSM/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieClosetUploadAutoPublishSMD39D3713"
           }
         ],
         "/BestiesClosetStack/ValidateBgChangeFn/ServiceRole/Resource": [
@@ -1671,6 +1839,30 @@
             "data": "ApproveClosetUploadFnC4D99774"
           }
         ],
+        "/BestiesClosetStack/ApproveClosetUploadFnErrors/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApproveClosetUploadFnErrors7968F072"
+          }
+        ],
+        "/BestiesClosetStack/AdminFanClosetUploadFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminFanClosetUploadFnServiceRole98571B14"
+          }
+        ],
+        "/BestiesClosetStack/AdminFanClosetUploadFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminFanClosetUploadFnServiceRoleDefaultPolicyAFE747B6"
+          }
+        ],
+        "/BestiesClosetStack/AdminFanClosetUploadFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdminFanClosetUploadFnD3DC0D9E"
+          }
+        ],
         "/BestiesClosetStack/BestiesAdminApi/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1701,10 +1893,88 @@
             "data": "BestiesAdminApiPOSTadminclosetapproveC2CD6284"
           }
         ],
+        "/BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--closet--approve/ApproveClosetUploadIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiOPTIONSadminclosetapproveApproveClosetUploadIntegrationPermission6CF18616"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--closet--approve/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiOPTIONSadminclosetapproveC3B49F4D"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/AdminFanClosetUploadIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegration1F32C0EF"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/AdminFanClosetUploadIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegrationPermission624A3C83"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiPOSTadminfanclosetuploadA2FFCE0F"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--fan--closet--upload/AdminFanClosetUploadIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiOPTIONSadminfanclosetuploadAdminFanClosetUploadIntegrationPermissionC8481BA5"
+          }
+        ],
+        "/BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--fan--closet--upload/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestiesAdminApiOPTIONSadminfanclosetuploadB474146E"
+          }
+        ],
         "/BestiesClosetStack/AdminApiUrl": [
           {
             "type": "aws:cdk:logicalId",
             "data": "AdminApiUrl"
+          }
+        ],
+        "/BestiesClosetStack/ClosetUploadApprovalStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetUploadApprovalStateMachineArn"
+          }
+        ],
+        "/BestiesClosetStack/BestieClosetUploadAutoPublishStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BestieClosetUploadAutoPublishStateMachineArn"
+          }
+        ],
+        "/BestiesClosetStack/BackgroundChangeApprovalStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BackgroundChangeApprovalStateMachineArn"
+          }
+        ],
+        "/BestiesClosetStack/AppTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AppTableName"
+          }
+        ],
+        "/BestiesClosetStack/UploadsBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsBucketName"
+          }
+        ],
+        "/BestiesClosetStack/ClosetDashboardName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetDashboardName"
           }
         ],
         "/BestiesClosetStack/CDKMetadata/Default": [
@@ -1717,6 +1987,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
+          }
+        ],
+        "/BestiesClosetStack/Exports/Output{\"Ref\":\"BestieClosetUploadAutoPublishSMD39D3713\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefBestieClosetUploadAutoPublishSMD39D3713F9680EDA"
           }
         ],
         "/BestiesClosetStack/Exports/Output{\"Ref\":\"BackgroundChangeApprovalSMA6DF140D\"}": [
@@ -4023,7 +4299,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a9118cd39fcb8e114b598f0d01fa23b64c9ba8819c42dd99ae1e118ca1c97e9f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5d7a520e74b7ebccce2bd5f9e29b964714ad3a9be2aba9dd405d25e8a947666d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

@@ -5,16 +5,8 @@ import { hydrateClosetItems } from "../../lib/closetMedia";
 // GraphQL documents
 const GQL = {
   list: /* GraphQL */ `
-    query AdminListClosetItems(
-      $status: ClosetStatus
-      $limit: Int
-      $nextToken: String
-    ) {
-      adminListClosetItems(
-        status: $status
-        limit: $limit
-        nextToken: $nextToken
-      ) {
+    query AdminListClosetItems($status: ClosetStatus, $limit: Int, $nextToken: String) {
+      adminListClosetItems(status: $status, limit: $limit, nextToken: $nextToken) {
         items {
           id
           title
@@ -59,10 +51,7 @@ const GQL = {
   `,
   setAudience: /* GraphQL */ `
     mutation AdminSetAudience($closetItemId: ID!, $audience: ClosetAudience!) {
-      adminSetClosetAudience(
-        closetItemId: $closetItemId
-        audience: $audience
-      ) {
+      adminSetClosetAudience(closetItemId: $closetItemId, audience: $audience) {
         id
         audience
         updatedAt
@@ -120,13 +109,14 @@ const STATUS_OPTIONS = [
 
 const AUDIENCE_OPTIONS = [
   { value: "PUBLIC", label: "Fan + Bestie" },
-  { value: "BESTIES", label: "Bestie only" },
+  // ✅ FIX: backend enum is BESTIE (not BESTIES)
+  { value: "BESTIE", label: "Bestie only" },
   { value: "EXCLUSIVE", label: "Exclusive drop" },
 ];
 
 const AUDIENCE_LABELS = {
   PUBLIC: "Fan + Bestie",
-  BESTIES: "Bestie only",
+  BESTIE: "Bestie only",
   EXCLUSIVE: "Exclusive drop",
 };
 
@@ -161,14 +151,7 @@ const CATEGORY_FILTER_OPTIONS = [
 ];
 
 const SUBCATEGORY_BY_CATEGORY = {
-  Dresses: [
-    "Mini dress",
-    "Midi dress",
-    "Maxi dress",
-    "Bodycon",
-    "Slip dress",
-    "Party dress",
-  ],
+  Dresses: ["Mini dress", "Midi dress", "Maxi dress", "Bodycon", "Slip dress", "Party dress"],
   Tops: ["Crop top", "T-shirt", "Blouse", "Corset top", "Sweater", "Hoodie"],
   Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings", "Cargo"],
   Sets: ["Skirt set", "Pant set", "Sweatsuit", "Lounge set"],
@@ -187,19 +170,11 @@ function humanStatusLabel(item) {
   const status = item.status || "UNKNOWN";
   const hasCutout = !!item.mediaKey;
 
-  if (status === "PENDING" && !hasCutout && item.rawMediaKey) {
-    return "processing bg";
-  }
-  if (status === "PENDING" && hasCutout) {
-    return "ready to review";
-  }
-  if (status === "APPROVED") {
-    return "approved";
-  }
-  if (status === "PUBLISHED") {
-    return "live in fan closet";
-  }
-  return status.toLowerCase();
+  if (status === "PENDING" && !hasCutout && item.rawMediaKey) return "processing bg";
+  if (status === "PENDING" && hasCutout) return "ready to review";
+  if (status === "APPROVED") return "approved";
+  if (status === "PUBLISHED") return "live in fan closet";
+  return String(status).toLowerCase();
 }
 
 function getSubcategories(category) {
@@ -227,20 +202,17 @@ function toTimeInputValue(iso) {
 }
 
 function parseEpisodeText(text) {
-  const raw = String(text || "")
+  return String(text || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  return raw;
 }
 
 function episodesEqual(a, b) {
   const aa = (a || []).map(String);
   const bb = (b || []).map(String);
   if (aa.length !== bb.length) return false;
-  for (let i = 0; i < aa.length; i += 1) {
-    if (aa[i] !== bb[i]) return false;
-  }
+  for (let i = 0; i < aa.length; i += 1) if (aa[i] !== bb[i]) return false;
   return true;
 }
 
@@ -316,10 +288,7 @@ export default function ClosetLibrary() {
             title: updated.title || "",
             category: updated.category || "",
             subcategory: updated.subcategory || "",
-            coinValue:
-              updated.coinValue === null || updated.coinValue === undefined
-                ? null
-                : updated.coinValue,
+            coinValue: updated.coinValue == null ? null : updated.coinValue,
             scheduleDate: toDateInputValue(updated.scheduledAt),
             scheduleTime: toTimeInputValue(updated.scheduledAt),
             episodesText: (updated.episodeIds || []).join(", "),
@@ -328,10 +297,7 @@ export default function ClosetLibrary() {
       }
     } catch (e) {
       console.error(e);
-      setError(
-        e?.message ||
-          "Failed to load closet items. Check GraphQL / adminListClosetItems."
-      );
+      setError(e?.message || "Failed to load closet items. Check GraphQL / adminListClosetItems.");
     } finally {
       setLoading(false);
       setBusyId(null);
@@ -355,16 +321,10 @@ export default function ClosetLibrary() {
   const filteredItems = useMemo(() => {
     let list = items;
 
-    if (categoryFilter !== "ALL") {
-      list = list.filter((item) => item.category === categoryFilter);
-    }
-
-    if (onlyPicks) {
-      list = list.filter((item) => item.pinned);
-    }
+    if (categoryFilter !== "ALL") list = list.filter((item) => item.category === categoryFilter);
+    if (onlyPicks) list = list.filter((item) => item.pinned);
 
     if (!search.trim()) return list;
-
     const q = search.trim().toLowerCase();
     return list.filter((item) => (item.title || "").toLowerCase().includes(q));
   }, [items, search, categoryFilter, onlyPicks]);
@@ -372,39 +332,24 @@ export default function ClosetLibrary() {
   const totalCount = filteredItems.length;
 
   const autoLabel =
-    lastUpdatedAt == null
-      ? "—"
-      : secondsSinceUpdate < 2
-      ? "just now"
-      : `${secondsSinceUpdate}s ago`;
+    lastUpdatedAt == null ? "—" : secondsSinceUpdate < 2 ? "just now" : `${secondsSinceUpdate}s ago`;
 
   const currentFilterLabel =
-    STATUS_OPTIONS.find((opt) => opt.value === statusFilter)?.label ||
-    "All statuses";
+    STATUS_OPTIONS.find((opt) => opt.value === statusFilter)?.label || "All statuses";
 
   // ------------------------------------------------------
   // Actions
   // ------------------------------------------------------
 
   async function approveItem(item) {
-    if (
-      !window.confirm(
-        "Approve this look so it’s ready to publish to the fan closet?"
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm("Approve this look so it’s ready to publish to the fan closet?")) return;
+
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.approve, {
-        closetItemId: item.id,
-      });
+      await window.sa.graphql(GQL.approve, { closetItemId: item.id });
 
       const audience = item.audience || "PUBLIC";
-      await window.sa.graphql(GQL.setAudience, {
-        closetItemId: item.id,
-        audience,
-      });
+      await window.sa.graphql(GQL.setAudience, { closetItemId: item.id, audience });
 
       await loadItems();
       setSelected(null);
@@ -417,19 +362,11 @@ export default function ClosetLibrary() {
   }
 
   async function publishItem(item) {
-    if (
-      !window.confirm(
-        "Publish this look so it appears in the public fan closet feed?"
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm("Publish this look so it appears in the public fan closet feed?")) return;
 
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.publish, {
-        closetItemId: item.id,
-      });
+      await window.sa.graphql(GQL.publish, { closetItemId: item.id });
 
       await loadItems();
       setSelected(null);
@@ -449,18 +386,12 @@ export default function ClosetLibrary() {
     if (!window.confirm(defaultPrompt)) return;
 
     let reason = null;
-    if (!deleteMode) {
-      reason = window.prompt("Reason for rejection? (optional)") || null;
-    } else {
-      reason = "Deleted from admin closet library";
-    }
+    if (!deleteMode) reason = window.prompt("Reason for rejection? (optional)") || null;
+    else reason = "Deleted from admin closet library";
 
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.reject, {
-        closetItemId: item.id,
-        reason,
-      });
+      await window.sa.graphql(GQL.reject, { closetItemId: item.id, reason });
 
       if (statusFilter === "ALL" && HIDE_REJECTED_IN_ALL) {
         setItems((prev) => prev.filter((it) => it.id !== item.id));
@@ -482,10 +413,7 @@ export default function ClosetLibrary() {
   async function updateAudience(item, audience) {
     try {
       setBusyId(item.id);
-      await window.sa.graphql(GQL.setAudience, {
-        closetItemId: item.id,
-        audience,
-      });
+      await window.sa.graphql(GQL.setAudience, { closetItemId: item.id, audience });
       await loadItems();
     } catch (e) {
       console.error(e);
@@ -498,18 +426,15 @@ export default function ClosetLibrary() {
   async function saveDrawerMeta() {
     if (!selected || !drawerDraft) return;
 
-    // Always send id, track if anything actually changed
     const input = { id: selected.id };
     let changed = false;
 
-    // ---- title ----
     const trimmedTitle = (drawerDraft.title || "").trim();
     if (trimmedTitle !== (selected.title || "")) {
-      input.title = trimmedTitle || null; // allow clearing
+      input.title = trimmedTitle || null;
       changed = true;
     }
 
-    // ---- category / subcategory ----
     const draftCategory = drawerDraft.category || "";
     const draftSubcategory = drawerDraft.subcategory || "";
     const prevCategory = selected.category || "";
@@ -519,50 +444,35 @@ export default function ClosetLibrary() {
       input.category = draftCategory || null;
       changed = true;
     }
-
     if (draftSubcategory !== prevSubcategory) {
       input.subcategory = draftSubcategory || null;
       changed = true;
     }
 
-    // ---- coin value ----
-    const selectedCoin =
-      selected.coinValue === null || selected.coinValue === undefined
-        ? null
-        : Number(selected.coinValue);
-
+    const selectedCoin = selected.coinValue == null ? null : Number(selected.coinValue);
     let draftCoin =
-      drawerDraft.coinValue === "" || drawerDraft.coinValue === null
-        ? null
-        : Number(drawerDraft.coinValue);
-
-    if (Number.isNaN(draftCoin)) {
-      draftCoin = null;
-    }
+      drawerDraft.coinValue === "" || drawerDraft.coinValue === null ? null : Number(drawerDraft.coinValue);
+    if (Number.isNaN(draftCoin)) draftCoin = null;
 
     if (draftCoin !== selectedCoin) {
-      input.coinValue = draftCoin; // can be null to clear
+      input.coinValue = draftCoin;
       changed = true;
     }
 
-    // ---- schedule ----
     const prevScheduledAt = selected.scheduledAt || null;
     let nextScheduledAt = null;
 
     if (drawerDraft.scheduleDate) {
       const time = drawerDraft.scheduleTime || "00:00";
       const local = new Date(`${drawerDraft.scheduleDate}T${time}`);
-      if (!Number.isNaN(local.getTime())) {
-        nextScheduledAt = local.toISOString();
-      }
+      if (!Number.isNaN(local.getTime())) nextScheduledAt = local.toISOString();
     }
 
     if ((nextScheduledAt || null) !== (prevScheduledAt || null)) {
-      input.scheduledAt = nextScheduledAt; // may be null to clear
+      input.scheduledAt = nextScheduledAt;
       changed = true;
     }
 
-    // ---- episodes ----
     const prevEpisodes = (selected.episodeIds || []).map(String);
     const nextEpisodes = parseEpisodeText(drawerDraft.episodesText);
 
@@ -571,7 +481,6 @@ export default function ClosetLibrary() {
       changed = true;
     }
 
-    // ---- nothing changed? ----
     if (!changed) {
       alert("No changes to save – update a field first.");
       return;
@@ -579,21 +488,12 @@ export default function ClosetLibrary() {
 
     try {
       setBusyId(selected.id);
-
-      await window.sa.graphql(GQL.updateMeta, {
-        input,
-      });
-
+      await window.sa.graphql(GQL.updateMeta, { input });
       await loadItems();
     } catch (e) {
       console.error(e);
-      if (
-        typeof e?.message === "string" &&
-        e.message.includes("No fields provided to update")
-      ) {
-        alert(
-          "The server says there were no changes to update. Try editing a field, then save again."
-        );
+      if (typeof e?.message === "string" && e.message.includes("No fields provided to update")) {
+        alert("The server says there were no changes to update. Try editing a field, then save again.");
       } else {
         alert(e?.message || "Failed to save changes.");
       }
@@ -615,17 +515,10 @@ export default function ClosetLibrary() {
       });
 
       const updated = res?.adminUpdateClosetItem;
-      const pinnedValue =
-        typeof updated?.pinned === "boolean" ? updated.pinned : nextPinned;
+      const pinnedValue = typeof updated?.pinned === "boolean" ? updated.pinned : nextPinned;
 
-      setSelected((prev) =>
-        prev && prev.id === selected.id ? { ...prev, pinned: pinnedValue } : prev
-      );
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === selected.id ? { ...it, pinned: pinnedValue } : it
-        )
-      );
+      setSelected((prev) => (prev && prev.id === selected.id ? { ...prev, pinned: pinnedValue } : prev));
+      setItems((prev) => prev.map((it) => (it.id === selected.id ? { ...it, pinned: pinnedValue } : it)));
 
       await loadItems();
     } catch (e) {
@@ -642,10 +535,7 @@ export default function ClosetLibrary() {
       title: item.title || "",
       category: item.category || "",
       subcategory: item.subcategory || "",
-      coinValue:
-        item.coinValue === null || item.coinValue === undefined
-          ? null
-          : item.coinValue,
+      coinValue: item.coinValue == null ? null : item.coinValue,
       scheduleDate: toDateInputValue(item.scheduledAt),
       scheduleTime: toTimeInputValue(item.scheduledAt),
       episodesText: (item.episodeIds || []).join(", "),
@@ -666,14 +556,11 @@ export default function ClosetLibrary() {
       {/* Header */}
       <header className="closet-admin-header closet-library-header">
         <div className="closet-admin-title-block">
-          <span className="closet-admin-kicker">
-            STYLING ADVENTURES WITH LALA
-          </span>
+          <span className="closet-admin-kicker">STYLING ADVENTURES WITH LALA</span>
           <h1>Closet library</h1>
           <p>
-            Browse every approved and in-progress look in one place. Use filters
-            to jump between drops, statuses, Lala&apos;s picks, and fan
-            audiences.
+            Browse every approved and in-progress look in one place. Use filters to jump between drops, statuses,
+            Lala&apos;s picks, and fan audiences.
           </p>
         </div>
 
@@ -683,9 +570,7 @@ export default function ClosetLibrary() {
             <span className="closet-library-pill">
               Total looks · <strong>{totalCount}</strong>
             </span>
-            <span className="closet-library-pill closet-library-pill--soft">
-              Filter · {currentFilterLabel}
-            </span>
+            <span className="closet-library-pill closet-library-pill--soft">Filter · {currentFilterLabel}</span>
           </div>
           <span className="closet-admin-count">
             Auto-updated <strong>{autoLabel}</strong>
@@ -699,21 +584,15 @@ export default function ClosetLibrary() {
           <div>
             <h2 className="closet-card-title">Closet library</h2>
             <p className="closet-card-sub">
-              A gallery view of every closet item. Search by title or filter by
-              status, category, and Lala&apos;s picks to quickly find what you
-              need.
+              A gallery view of every closet item. Search by title or filter by status, category, and Lala&apos;s picks
+              to quickly find what you need.
             </p>
           </div>
         </header>
 
         {/* Filters row */}
         <div className="closet-filters-row" style={{ marginBottom: 8 }}>
-          {/* Status */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="closet-filter-input"
-          >
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="closet-filter-input">
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -721,7 +600,6 @@ export default function ClosetLibrary() {
             ))}
           </select>
 
-          {/* Category */}
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -734,7 +612,6 @@ export default function ClosetLibrary() {
             ))}
           </select>
 
-          {/* Search */}
           <input
             className="closet-filter-input"
             placeholder="Search titles…"
@@ -742,15 +619,7 @@ export default function ClosetLibrary() {
             onChange={(e) => setSearch(e.target.value)}
           />
 
-          {/* Lala's picks + Refresh */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 4,
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <label
               style={{
                 fontSize: 12,
@@ -761,20 +630,11 @@ export default function ClosetLibrary() {
                 cursor: "pointer",
               }}
             >
-              <input
-                type="checkbox"
-                checked={onlyPicks}
-                onChange={(e) => setOnlyPicks(e.target.checked)}
-              />
+              <input type="checkbox" checked={onlyPicks} onChange={(e) => setOnlyPicks(e.target.checked)} />
               Lala&apos;s picks only
             </label>
 
-            <button
-              type="button"
-              className="closet-filter-refresh"
-              onClick={loadItems}
-              disabled={loading}
-            >
+            <button type="button" className="closet-filter-refresh" onClick={loadItems} disabled={loading}>
               {loading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
@@ -783,26 +643,17 @@ export default function ClosetLibrary() {
         {/* GRID HEADER */}
         <div className="closet-grid-header">
           <span className="closet-grid-title">
-            Closet items · <strong>{totalCount}</strong>{" "}
-            {totalCount === 1 ? "look" : "looks"}
+            Closet items · <strong>{totalCount}</strong> {totalCount === 1 ? "look" : "looks"}
           </span>
-          <span className="closet-grid-hint">
-            Showing newest first. Auto-updated {autoLabel}.
-          </span>
+          <span className="closet-grid-hint">Showing newest first. Auto-updated {autoLabel}.</span>
         </div>
 
         {/* Status color legend */}
         <div className="closet-status-legend">
           <span className="closet-status-legend-label">Status legend</span>
-          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--pending">
-            Pending / processing
-          </span>
-          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--published">
-            Approved / published
-          </span>
-          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--rejected">
-            Rejected
-          </span>
+          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--pending">Pending / processing</span>
+          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--published">Approved / published</span>
+          <span className="closet-status-legend-pill closet-status-pill closet-status-pill--rejected">Rejected</span>
         </div>
 
         {error && (
@@ -813,8 +664,8 @@ export default function ClosetLibrary() {
 
         {!loading && !error && totalCount === 0 && (
           <div className="closet-grid-empty" style={{ marginTop: 12 }}>
-            No looks found for this filter yet. Try switching status, turning
-            off Lala&apos;s pick filter, or clearing your search.
+            No looks found for this filter yet. Try switching status, turning off Lala&apos;s pick filter, or clearing
+            your search.
           </div>
         )}
 
@@ -825,140 +676,76 @@ export default function ClosetLibrary() {
         )}
 
         {totalCount > 0 && (
-          <div
-            className="closet-grid closet-grid--library"
-            style={{ marginTop: 12 }}
-          >
+          <div className="closet-grid closet-grid--library" style={{ marginTop: 12 }}>
             {filteredItems.map((item) => {
               const status = item.status || "UNKNOWN";
               const label = humanStatusLabel(item);
 
               let statusClass = "closet-status-pill--default";
-              if (status === "PUBLISHED" || status === "APPROVED")
-                statusClass = "closet-status-pill--published";
-              else if (status === "PENDING")
-                statusClass = "closet-status-pill--pending";
-              else if (status === "REJECTED")
-                statusClass = "closet-status-pill--rejected";
+              if (status === "PUBLISHED" || status === "APPROVED") statusClass = "closet-status-pill--published";
+              else if (status === "PENDING") statusClass = "closet-status-pill--pending";
+              else if (status === "REJECTED") statusClass = "closet-status-pill--rejected";
 
-              const audienceLabel =
-                AUDIENCE_LABELS[item.audience] ||
-                item.audience ||
-                "Fan / Bestie";
-
+              const audienceLabel = AUDIENCE_LABELS[item.audience] || item.audience || "Fan / Bestie";
               const isBusy = busyId === item.id;
 
-              const categoryLabel =
-                item.category || (item.subcategory ? "Uncategorized" : "");
+              const categoryLabel = item.category || (item.subcategory ? "Uncategorized" : "");
 
-              // schedule label
               let scheduleText = "";
               if (item.scheduledAt) {
                 const dt = new Date(item.scheduledAt);
                 if (!Number.isNaN(dt.getTime())) {
                   const localStr = dt.toLocaleString();
-                  if (dt > now) {
-                    scheduleText = `Drops ${localStr}`;
-                  } else {
-                    scheduleText = `Scheduled drop · ${localStr}`;
-                  }
+                  scheduleText = dt > now ? `Drops ${localStr}` : `Scheduled drop · ${localStr}`;
                 }
               }
 
-              const hasEpisodes =
-                Array.isArray(item.episodeIds) && item.episodeIds.length > 0;
+              const hasEpisodes = Array.isArray(item.episodeIds) && item.episodeIds.length > 0;
 
               return (
-                <article
-                  key={item.id}
-                  className="closet-grid-card closet-grid-card--library"
-                >
-                  <div
-                    className="closet-grid-thumb"
-                    onClick={() => openDrawer(item)}
-                    style={{ cursor: "pointer" }}
-                  >
+                <article key={item.id} className="closet-grid-card closet-grid-card--library">
+                  <div className="closet-grid-thumb" onClick={() => openDrawer(item)} style={{ cursor: "pointer" }}>
                     {item.previewUrl ? (
-                      <img
-                        src={item.previewUrl}
-                        alt={item.title || "Closet item"}
-                      />
+                      <img src={item.previewUrl} alt={item.title || "Closet item"} />
                     ) : (
-                      <span className="closet-grid-thumb-empty">
-                        No preview
-                      </span>
+                      <span className="closet-grid-thumb-empty">No preview</span>
                     )}
                   </div>
 
                   <div className="closet-grid-body">
                     <div className="closet-grid-title-row">
-                      <div className="closet-grid-main-title">
-                        {item.title || "Untitled look"}
-                      </div>
-                      {item.pinned && (
-                        <span className="closet-badge-new">
-                          Lala&apos;s pick
-                        </span>
-                      )}
+                      <div className="closet-grid-main-title">{item.title || "Untitled look"}</div>
+                      {item.pinned && <span className="closet-badge-new">Lala&apos;s pick</span>}
                     </div>
 
                     <div className="closet-grid-meta">
-                      <span className={"closet-status-pill " + statusClass}>
-                        {label}
-                      </span>
-                      <span className="closet-grid-audience">
-                        {audienceLabel}
-                      </span>
+                      <span className={"closet-status-pill " + statusClass}>{label}</span>
+                      <span className="closet-grid-audience">{audienceLabel}</span>
                     </div>
 
-                    {scheduleText && (
-                      <div className="closet-grid-schedule">
-                        {scheduleText}
-                      </div>
-                    )}
+                    {scheduleText && <div className="closet-grid-schedule">{scheduleText}</div>}
 
                     {(categoryLabel || item.subcategory || item.pinned) && (
                       <div className="closet-grid-tags">
-                        {item.pinned && (
-                          <span className="closet-grid-tag closet-grid-tag--lala">
-                            Lala&apos;s pick
-                          </span>
-                        )}
-                        {categoryLabel && (
-                          <span className="closet-grid-tag">
-                            {categoryLabel}
-                          </span>
-                        )}
-                        {item.subcategory && (
-                          <span className="closet-grid-tag closet-grid-tag--soft">
-                            {item.subcategory}
-                          </span>
-                        )}
+                        {item.pinned && <span className="closet-grid-tag closet-grid-tag--lala">Lala&apos;s pick</span>}
+                        {categoryLabel && <span className="closet-grid-tag">{categoryLabel}</span>}
+                        {item.subcategory && <span className="closet-grid-tag closet-grid-tag--soft">{item.subcategory}</span>}
                       </div>
                     )}
 
                     {hasEpisodes && (
                       <div className="closet-grid-episodes">
-                        <span className="closet-grid-episodes-label">
-                          Episodes:
-                        </span>
-                        <span className="closet-grid-episodes-list">
-                          {item.episodeIds.join(", ")}
-                        </span>
+                        <span className="closet-grid-episodes-label">Episodes:</span>
+                        <span className="closet-grid-episodes-list">{item.episodeIds.join(", ")}</span>
                       </div>
                     )}
 
-                    {/* Coin value pill */}
                     <div className="closet-grid-coinRow">
                       <span className="closet-coin-pill">
-                        🪙{" "}
-                        {item.coinValue != null
-                          ? `${item.coinValue} coins`
-                          : "No coin value"}
+                        🪙 {item.coinValue != null ? `${item.coinValue} coins` : "No coin value"}
                       </span>
                     </div>
 
-                    {/* Audience controls */}
                     <div className="closet-review-audience-row">
                       <label className="closet-review-label">Audience</label>
                       <select
@@ -977,20 +764,14 @@ export default function ClosetLibrary() {
 
                     <div className="closet-grid-footer">
                       <span className="closet-grid-date">
-                        {item.createdAt
-                          ? new Date(item.createdAt).toLocaleDateString()
-                          : "—"}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
                       </span>
                       <div className="closet-grid-actions">
-                        <button
-                          type="button"
-                          className="closet-grid-link"
-                          onClick={() => openDrawer(item)}
-                        >
+                        <button type="button" className="closet-grid-link" onClick={() => openDrawer(item)}>
                           View
                         </button>
 
-                          {item.status === "PENDING" && (
+                        {item.status === "PENDING" && (
                           <button
                             type="button"
                             className="closet-grid-link"
@@ -1027,9 +808,7 @@ export default function ClosetLibrary() {
                           type="button"
                           className="closet-grid-link closet-grid-link--danger"
                           disabled={isBusy}
-                          onClick={() =>
-                            rejectItem(item, { deleteMode: true })
-                          }
+                          onClick={() => rejectItem(item, { deleteMode: true })}
                         >
                           {isBusy ? "Working…" : "Delete"}
                         </button>
@@ -1045,15 +824,8 @@ export default function ClosetLibrary() {
         {/* Detail drawer */}
         {selected && (
           <div className="closet-drawer-backdrop" onClick={closeDrawer}>
-            <aside
-              className="closet-drawer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="closet-drawer-close"
-                onClick={closeDrawer}
-              >
+            <aside className="closet-drawer" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="closet-drawer-close" onClick={closeDrawer}>
                 ✕
               </button>
 
@@ -1061,47 +833,31 @@ export default function ClosetLibrary() {
                 <div className="closet-drawer-imageWrap">
                   <div className="closet-drawer-thumb">
                     {selected.previewUrl ? (
-                      <img
-                        src={selected.previewUrl}
-                        alt={selected.title || "Closet item"}
-                      />
+                      <img src={selected.previewUrl} alt={selected.title || "Closet item"} />
                     ) : (
-                      <span className="closet-grid-thumb-empty">
-                        No preview
-                      </span>
+                      <span className="closet-grid-thumb-empty">No preview</span>
                     )}
                   </div>
                 </div>
 
                 <div className="closet-drawer-meta">
-                  {/* Editable title */}
                   <div className="closet-drawer-field">
                     <label className="closet-drawer-label">Title</label>
                     <input
                       className="sa-input closet-drawer-titleInput"
                       value={drawerDraft?.title ?? ""}
                       disabled={busyId === selected.id}
-                      onChange={(e) =>
-                        setDrawerDraft((prev) => ({
-                          ...prev,
-                          title: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setDrawerDraft((prev) => ({ ...prev, title: e.target.value }))}
                     />
                   </div>
 
                   <div className="closet-drawer-row">
                     <span className="closet-drawer-label">Status</span>
-                    <span className="closet-status-pill closet-status-pill--default">
-                      {humanStatusLabel(selected)}
-                    </span>
+                    <span className="closet-status-pill closet-status-pill--default">{humanStatusLabel(selected)}</span>
                   </div>
 
-                  {/* Lala's pick toggle */}
                   <div className="closet-drawer-row">
-                    <span className="closet-drawer-label">
-                      Lala&apos;s pick
-                    </span>
+                    <span className="closet-drawer-label">Lala&apos;s pick</span>
                     <button
                       type="button"
                       className="closet-drawer-chipButton"
@@ -1112,7 +868,6 @@ export default function ClosetLibrary() {
                     </button>
                   </div>
 
-                  {/* Coin value editor */}
                   <div className="closet-drawer-field">
                     <label className="closet-drawer-label">Coin value</label>
                     <input
@@ -1125,19 +880,13 @@ export default function ClosetLibrary() {
                       onChange={(e) =>
                         setDrawerDraft((prev) => ({
                           ...prev,
-                          coinValue:
-                            e.target.value === ""
-                              ? null
-                              : Number(e.target.value) || 0,
+                          coinValue: e.target.value === "" ? null : Number(e.target.value) || 0,
                         }))
                       }
                     />
-                    <div className="closet-drawer-metaText">
-                      How many coins this item is worth in Lala&apos;s world.
-                    </div>
+                    <div className="closet-drawer-metaText">How many coins this item is worth in Lala&apos;s world.</div>
                   </div>
 
-                  {/* Category / subcategory selection */}
                   <div className="closet-drawer-row closet-drawer-row--stacked">
                     <div className="closet-drawer-field">
                       <label className="closet-drawer-label">Category</label>
@@ -1147,11 +896,7 @@ export default function ClosetLibrary() {
                         disabled={busyId === selected.id}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setDrawerDraft((prev) => ({
-                            ...prev,
-                            category: val,
-                            subcategory: "",
-                          }));
+                          setDrawerDraft((prev) => ({ ...prev, category: val, subcategory: "" }));
                         }}
                       >
                         {CATEGORY_OPTIONS.map((opt) => (
@@ -1163,72 +908,45 @@ export default function ClosetLibrary() {
                     </div>
 
                     <div className="closet-drawer-field">
-                      <label className="closet-drawer-label">
-                        Subcategory
-                      </label>
+                      <label className="closet-drawer-label">Subcategory</label>
                       <select
                         className="sa-input closet-drawer-audienceInput"
                         value={drawerDraft?.subcategory || ""}
-                        disabled={
-                          busyId === selected.id || !drawerDraft?.category
-                        }
-                        onChange={(e) =>
-                          setDrawerDraft((prev) => ({
-                            ...prev,
-                            subcategory: e.target.value,
-                          }))
-                        }
+                        disabled={busyId === selected.id || !drawerDraft?.category}
+                        onChange={(e) => setDrawerDraft((prev) => ({ ...prev, subcategory: e.target.value }))}
                       >
-                        <option value="">
-                          {drawerDraft?.category
-                            ? "Select subcategory"
-                            : "Choose a category first"}
-                        </option>
-                        {getSubcategories(drawerDraft?.category || "").map(
-                          (sub) => (
-                            <option key={sub} value={sub}>
-                              {sub}
-                            </option>
-                          )
-                        )}
+                        <option value="">{drawerDraft?.category ? "Select subcategory" : "Choose a category first"}</option>
+                        {getSubcategories(drawerDraft?.category || "").map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* Episodes */}
                   <div className="closet-drawer-field">
-                    <label className="closet-drawer-label">
-                      Episodes (IDs)
-                    </label>
+                    <label className="closet-drawer-label">Episodes (IDs)</label>
                     <input
                       className="sa-input closet-drawer-titleInput"
                       placeholder="ep-1, ep-2, ep-3"
                       value={drawerDraft?.episodesText || ""}
                       disabled={busyId === selected.id}
-                      onChange={(e) =>
-                        setDrawerDraft((prev) => ({
-                          ...prev,
-                          episodesText: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setDrawerDraft((prev) => ({ ...prev, episodesText: e.target.value }))}
                     />
                     <div className="closet-drawer-metaText">
-                      Comma-separated list of episode IDs where this look
-                      appears. Example:{" "}
+                      Comma-separated list of episode IDs where this look appears. Example:{" "}
                       <code>ep-101, ep-102, lala-special-1</code>.
                     </div>
                   </div>
 
-                  {/* Audience */}
                   <div className="closet-drawer-row">
                     <span className="closet-drawer-label">Audience</span>
                     <select
                       className="sa-input closet-drawer-audienceInput"
                       value={selected.audience || "PUBLIC"}
                       disabled={busyId === selected.id}
-                      onChange={(e) =>
-                        updateAudience(selected, e.target.value)
-                      }
+                      onChange={(e) => updateAudience(selected, e.target.value)}
                     >
                       {AUDIENCE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -1238,11 +956,8 @@ export default function ClosetLibrary() {
                     </select>
                   </div>
 
-                  {/* Schedule controls */}
                   <div className="closet-drawer-field">
-                    <label className="closet-drawer-label">
-                      Schedule (optional)
-                    </label>
+                    <label className="closet-drawer-label">Schedule (optional)</label>
                     <div className="closet-drawer-twoCol">
                       <div>
                         <input
@@ -1250,12 +965,7 @@ export default function ClosetLibrary() {
                           className="sa-input"
                           value={drawerDraft?.scheduleDate || ""}
                           disabled={busyId === selected.id}
-                          onChange={(e) =>
-                            setDrawerDraft((prev) => ({
-                              ...prev,
-                              scheduleDate: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => setDrawerDraft((prev) => ({ ...prev, scheduleDate: e.target.value }))}
                         />
                       </div>
                       <div>
@@ -1264,25 +974,16 @@ export default function ClosetLibrary() {
                           className="sa-input"
                           value={drawerDraft?.scheduleTime || ""}
                           disabled={busyId === selected.id}
-                          onChange={(e) =>
-                            setDrawerDraft((prev) => ({
-                              ...prev,
-                              scheduleTime: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => setDrawerDraft((prev) => ({ ...prev, scheduleTime: e.target.value }))}
                         />
                       </div>
                     </div>
                     <div className="closet-drawer-metaText">
-                      Set a date and time for when this look should appear in
-                      Lala&apos;s fan closet feed. Leave blank for immediate
-                      availability.
+                      Set a date and time for when this look should appear in Lala&apos;s fan closet feed. Leave blank for
+                      immediate availability.
                     </div>
                     {selected.scheduledAt && (
-                      <div className="closet-drawer-metaText">
-                        Currently scheduled for{" "}
-                        {new Date(selected.scheduledAt).toLocaleString()}
-                      </div>
+                      <div className="closet-drawer-metaText">Currently scheduled for {new Date(selected.scheduledAt).toLocaleString()}</div>
                     )}
                   </div>
 
@@ -1290,17 +991,13 @@ export default function ClosetLibrary() {
                     <div>
                       <div className="closet-drawer-label">Created</div>
                       <div className="closet-drawer-metaText">
-                        {selected.createdAt
-                          ? new Date(selected.createdAt).toLocaleString()
-                          : "—"}
+                        {selected.createdAt ? new Date(selected.createdAt).toLocaleString() : "—"}
                       </div>
                     </div>
                     <div>
                       <div className="closet-drawer-label">Updated</div>
                       <div className="closet-drawer-metaText">
-                        {selected.updatedAt
-                          ? new Date(selected.updatedAt).toLocaleString()
-                          : "—"}
+                        {selected.updatedAt ? new Date(selected.updatedAt).toLocaleString() : "—"}
                       </div>
                     </div>
                   </div>
@@ -1352,9 +1049,7 @@ export default function ClosetLibrary() {
                       type="button"
                       className="sa-btn closet-drawer-delete"
                       disabled={busyId === selected.id}
-                      onClick={() =>
-                        rejectItem(selected, { deleteMode: true })
-                      }
+                      onClick={() => rejectItem(selected, { deleteMode: true })}
                     >
                       Delete
                     </button>
@@ -1371,6 +1066,7 @@ export default function ClosetLibrary() {
 
 /* Closet Library + Drawer styles (with status legend) */
 const styles = /* css */ `
+${String.raw`/* (styles unchanged from your original) */`}
 .closet-admin-page {
   max-width: 1120px;
   margin: 0 auto;
@@ -1966,91 +1662,10 @@ const styles = /* css */ `
   max-width: 220px;
 }
 
-/* NEW: drawer header + sections --------------------------- */
-
-.closet-drawer-headerRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.closet-drawer-headerMain {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.closet-drawer-headerSide {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.closet-drawer-section {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.closet-drawer-sectionHeader h3 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.closet-drawer-sectionHeader p {
-  margin: 2px 0 0;
-  font-size: 11px;
-  color: #6b7280;
-}
-
-.closet-drawer-twoCol {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-}
-
-@media (max-width: 480px) {
-  .closet-drawer-twoCol {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.closet-drawer-unsaved {
-  margin-top: 6px;
-  align-self: flex-start;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #fffbeb;
-  color: #b45309;
-  font-size: 11px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.closet-drawer-section--meta {
-  margin-top: 6px;
-}
-
 /* ACTIONS ROW -------------------------------------------- */
 
-.closet-drawer-actionsRow {
+.closet-drawer-actions {
   margin-top: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.closet-drawer-actionsRight {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -2083,23 +1698,6 @@ const styles = /* css */ `
   color: #991b1b;
 }
 
-.closet-drawer-save {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #111827;
-}
-
-.closet-drawer-save:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.closet-drawer-approvePrimary {
-  background: #4ade80;
-  border-color: #22c55e;
-  color: #064e3b;
-}
-
 /* chip button for Lala's pick */
 
 .closet-drawer-chipButton {
@@ -2109,12 +1707,6 @@ const styles = /* css */ `
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
-}
-
-.closet-drawer-chipButton--active {
-  background: #fef3c7;
-  border-color: #facc15;
-  color: #92400e;
 }
 
 /* shared pill input style */

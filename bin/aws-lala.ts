@@ -294,8 +294,13 @@ const api = new ApiStack(app, "ApiStack", {
   userPool: identity.userPool,
   table: data.table,
 
-  // Use the real Besties closet approval workflow
+  // FAN wait-for-approval workflow
   closetApprovalSm: bestiesCloset.closetUploadStateMachine,
+
+  // ✅ BESTIE auto-publish workflow (NO WAIT)
+  bestieClosetAutoPublishSm:
+    bestiesCloset.bestieClosetUploadAutoPublishStateMachine,
+
   backgroundChangeSm: bestiesCloset.backgroundChangeStateMachine,
   storyPublishSm: bestiesStories.storyPublishStateMachine,
 
