@@ -276,6 +276,17 @@
    "Export": {
     "Name": "SA-OrdersTableName-dev"
    }
+  },
+  "ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7": {
+   "Value": {
+    "Fn::GetAtt": [
+     "CommerceFn39448B29",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "CommerceStack:ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
+   }
   }
  },
  "Parameters": {

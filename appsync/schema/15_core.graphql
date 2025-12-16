@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────
+# Core / Auth
+# ─────────────────────────────────────────
+
+type Me {
+  id: ID!
+  email: String!
+  role: String!
+  tier: String!
+}
+
+type RoleResult {
+  userId: ID!
+  role: String!
+}
+
+extend type Query {
+  # Simple healthcheck (used by hello.graphql in site/src/graphql)
+  hello: String
+
+  # Current user basic info
+  me: Me! @aws_cognito_user_pools
+}
+
+extend type Mutation {
+  setUserRole(userId: ID!, role: String!): RoleResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+}

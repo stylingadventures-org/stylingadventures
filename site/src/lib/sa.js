@@ -31,15 +31,11 @@ function readCfg(SA) {
     ...saCfg,
   };
 
-  // Hard-override AppSync URL in dev if missing or weird
+  // Only fallback if appsyncUrl is truly missing
   const FALLBACK_APPSYNC_URL =
     "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
 
-  if (
-    !cfg.appsyncUrl ||
-    typeof cfg.appsyncUrl !== "string" ||
-    !cfg.appsyncUrl.includes("appsync-api.us-east-1.amazonaws.com")
-  ) {
+  if (!cfg.appsyncUrl || typeof cfg.appsyncUrl !== "string") {
     cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
   }
 
@@ -219,6 +215,14 @@ export async function getIdToken() {
   return syncTokenFromGlobalSA();
 }
 
+/** Access token (sometimes AppSync/user-pool auth expects this) */
+export async function getAccessToken() {
+  const tok = readToken("access_token");
+  if (tok) return tok;
+  // If we only had id token, still return empty here.
+  return "";
+}
+
 export async function exchangeCodeForTokens() {
   const SA = await getSA();
   const cfg = readCfg(SA);
@@ -396,6 +400,7 @@ export const Auth = {
   handleCallbackIfPresent,
   clearTokens,
   getIdToken,
+  getAccessToken,
 };
 
 /* ---------------------------------------------------------------------------
@@ -727,8 +732,6 @@ function parseJwt(t) {
   }
 }
 
-// --- Simple session helper (role-aware) -----------------------------
-
 /**
  * Read current session from our own storage.
  * Returns:
@@ -784,6 +787,14 @@ function pickSessionCompat(idToken) {
   return { idToken, idTokenPayload: payload, groups };
 }
 
+async function doGraphqlFetch(appsyncUrl, token, query, variables) {
+  return fetch(appsyncUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: token },
+    body: JSON.stringify({ query, variables }),
+  });
+}
+
 // Fallback GraphQL (direct AppSync HTTP) when SA.gql is unavailable.
 async function directGraphql(query, variables) {
   const SA = await getSA().catch(() => undefined);
@@ -791,19 +802,49 @@ async function directGraphql(query, variables) {
   const appsyncUrl = window.sa?.cfg?.appsyncUrl || window.__cfg?.appsyncUrl || cfg?.appsyncUrl;
 
   const idToken = await getIdToken();
+  const accessToken = await getAccessToken();
 
-  console.log("[SA] GraphQL appsyncUrl in use:", appsyncUrl);
+  const payload = idToken ? parseJwt(idToken) : {};
+  const iss = payload?.iss || "";
+  const tokenPoolId = typeof iss === "string" ? iss.split("/").pop() : "";
+  const cfgPoolId = cfg.userPoolId || window.__cfg?.userPoolId;
 
-  if (!appsyncUrl || !idToken) throw new Error("Auth not ready");
+  console.log("[SA] GraphQL appsyncUrl:", appsyncUrl);
+  console.log("[SA] token present:", !!idToken, "cfg.userPoolId:", cfgPoolId, "tokenPoolId:", tokenPoolId);
 
-  const r = await fetch(appsyncUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: idToken },
-    body: JSON.stringify({ query, variables }),
-  });
-  const j = await r.json();
-  if (j.errors?.length) throw new Error(j.errors[0].message);
-  return j.data;
+  if (!appsyncUrl) throw new Error("Missing appsyncUrl");
+  if (!idToken && !accessToken) throw new Error("Missing auth token (not logged in or callback not handled)");
+
+  // Try id token first
+  if (idToken) {
+    const r1 = await doGraphqlFetch(appsyncUrl, idToken, query, variables);
+    if (r1.ok) {
+      const j = await r1.json();
+      if (j.errors?.length) throw new Error(j.errors[0].message);
+      return j.data;
+    }
+
+    // If 401, retry with access token (helps confirm which token AppSync expects)
+    if (r1.status !== 401 || !accessToken) {
+      const t = await r1.text().catch(() => "");
+      console.error("[SA] GraphQL HTTP error:", r1.status, t.slice(0, 500));
+      throw new Error(`GraphQL HTTP ${r1.status}`);
+    }
+
+    console.warn("[SA] GraphQL 401 with id_token; retrying with access_token...");
+  }
+
+  // Retry with access token
+  const r2 = await doGraphqlFetch(appsyncUrl, accessToken, query, variables);
+  if (!r2.ok) {
+    const t = await r2.text().catch(() => "");
+    console.error("[SA] GraphQL HTTP error:", r2.status, t.slice(0, 500));
+    throw new Error(`GraphQL HTTP ${r2.status}`);
+  }
+
+  const j2 = await r2.json();
+  if (j2.errors?.length) throw new Error(j2.errors[0].message);
+  return j2.data;
 }
 
 async function readyCompat() {
@@ -816,10 +857,10 @@ async function readyCompat() {
       window.sa?.cfg?.appsyncUrl ||
       window.__cfg?.appsyncUrl ||
       (await getSA()
-        .then((SA) => readCfg(SA).appsyncUrl)
+        .then((SA2) => readCfg(SA2).appsyncUrl)
         .catch(() => undefined));
 
-    if (idTok && appsyncUrl) break;
+    if ((idTok || (await getAccessToken())) && appsyncUrl) break;
     if (Date.now() - start > 5000) break;
     await new Promise((r) => setTimeout(r, 100));
   }

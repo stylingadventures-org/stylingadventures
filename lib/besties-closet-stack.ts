@@ -69,21 +69,36 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     // 0) Container-based image segmentation Lambda (Docker)
     // =====================================================
-    const imageSegmentationFn = new lambda.DockerImageFunction(this, "ImageSegmentationFn", {
-      code: lambda.DockerImageCode.fromImageAsset(
-        path.join(process.cwd(), "image-segmentation-lambda"),
-      ),
-      memorySize: 3008,
-      timeout: cdk.Duration.seconds(120),
-      ephemeralStorageSize: cdk.Size.mebibytes(4096),
-      environment: {
-        UPLOADS_BUCKET_NAME: uploadsBucket.bucketName,
-        PROCESSED_PREFIX: "closet/processed",
+    const imageSegmentationFn = new lambda.DockerImageFunction(
+      this,
+      "ImageSegmentationFn",
+      {
+        code: lambda.DockerImageCode.fromImageAsset(
+          path.join(process.cwd(), "image-segmentation-lambda"),
+        ),
+        memorySize: 3008,
+        timeout: cdk.Duration.seconds(120),
+        ephemeralStorageSize: cdk.Size.mebibytes(4096),
+        environment: {
+          UPLOADS_BUCKET_NAME: uploadsBucket.bucketName,
+          PROCESSED_PREFIX: "closet/processed",
+        },
       },
-    });
+    );
 
-    uploadsBucket.grantRead(imageSegmentationFn, "closet/*");
-    uploadsBucket.grantWrite(imageSegmentationFn, "closet/processed/*");
+    // ✅ Exact least-privilege S3 permissions for segmentation Lambda
+    imageSegmentationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [uploadsBucket.arnForObjects("closet/*")],
+      }),
+    );
+    imageSegmentationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject"],
+        resources: [uploadsBucket.arnForObjects("closet/processed/*")],
+      }),
+    );
 
     const ENV = {
       TABLE_NAME: table.tableName,
@@ -114,18 +129,26 @@ export class BestiesClosetStack extends cdk.Stack {
       environment: ENV,
     });
 
-    const publishClosetItemFn = new lambdaNode.NodejsFunction(this, "PublishClosetItemFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(60),
-      memorySize: 1024,
-      entry: path.join(process.cwd(), "lambda/closet/publish.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...ENV,
-        BUCKET_NAME: uploadsBucket.bucketName,
-        PUBLISHED_PREFIX: "published",
+    const publishClosetItemFn = new lambdaNode.NodejsFunction(
+      this,
+      "PublishClosetItemFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(60),
+        memorySize: 1024,
+        entry: path.join(process.cwd(), "lambda/closet/publish.ts"),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+        },
+        environment: {
+          ...ENV,
+          BUCKET_NAME: uploadsBucket.bucketName,
+          PUBLISHED_PREFIX: "published",
+        },
       },
-    });
+    );
 
     const notifyAdminFn = new lambdaNode.NodejsFunction(this, "NotifyAdminFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -146,31 +169,46 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     // Expire lambda (WAIT_FOR_TASK_TOKEN timeout path)
     // =====================================================
-    const expireApprovalFn = new lambdaNode.NodejsFunction(this, "ExpireApprovalFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(15),
-      memorySize: 256,
-      entry: path.join(process.cwd(), "lambda/closet/expire-approval.ts"),
-      environment: ENV,
-    });
+    const expireApprovalFn = new lambdaNode.NodejsFunction(
+      this,
+      "ExpireApprovalFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(15),
+        memorySize: 256,
+        entry: path.join(process.cwd(), "lambda/closet/expire-approval.ts"),
+        environment: ENV,
+      },
+    );
     table.grantReadWriteData(expireApprovalFn);
 
     // =====================================================
     // Scheduled expiration Lambda (sweeper)
     // =====================================================
-    const expireApprovalsFn = new lambdaNode.NodejsFunction(this, "ExpireClosetApprovalsFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
-      entry: path.join(process.cwd(), "lambda/closet/expire-closet-approvals.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...ENV,
-        AUDIT_TABLE_NAME: adminAuditTable.tableName,
-        NOTIFY_TOPIC_ARN: opsTopic.topicArn,
-        MAX_PER_RUN: "25",
+    const expireApprovalsFn = new lambdaNode.NodejsFunction(
+      this,
+      "ExpireClosetApprovalsFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        entry: path.join(
+          process.cwd(),
+          "lambda/closet/expire-closet-approvals.ts",
+        ),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+        },
+        environment: {
+          ...ENV,
+          AUDIT_TABLE_NAME: adminAuditTable.tableName,
+          NOTIFY_TOPIC_ARN: opsTopic.topicArn,
+          MAX_PER_RUN: "25",
+        },
       },
-    });
+    );
 
     table.grantReadWriteData(expireApprovalsFn);
     adminAuditTable.grantWriteData(expireApprovalsFn);
@@ -191,18 +229,26 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     // DLQ processor Lambda
     // =====================================================
-    const dlqProcessorFn = new lambdaNode.NodejsFunction(this, "ClosetDlqProcessorFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
-      entry: path.join(process.cwd(), "lambda/closet/dlq-processor.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...ENV,
-        AUDIT_TABLE_NAME: adminAuditTable.tableName,
-        NOTIFY_TOPIC_ARN: opsTopic.topicArn,
+    const dlqProcessorFn = new lambdaNode.NodejsFunction(
+      this,
+      "ClosetDlqProcessorFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        entry: path.join(process.cwd(), "lambda/closet/dlq-processor.ts"),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+        },
+        environment: {
+          ...ENV,
+          AUDIT_TABLE_NAME: adminAuditTable.tableName,
+          NOTIFY_TOPIC_ARN: opsTopic.topicArn,
+        },
       },
-    });
+    );
 
     table.grantReadWriteData(dlqProcessorFn);
     adminAuditTable.grantWriteData(dlqProcessorFn);
@@ -238,12 +284,13 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     const alarmAction = new cloudwatchActions.SnsAction(opsTopic);
 
-    // =====================================================
-    // Dashboard shell (widgets added after SM exists)
-    // =====================================================
-    const dashboard = new cloudwatch.Dashboard(this, "ClosetHappyPathDashboard", {
-      dashboardName: `sa-${cdk.Stack.of(this).stackName}-closet-happy-path`,
-    });
+    const dashboard = new cloudwatch.Dashboard(
+      this,
+      "ClosetHappyPathDashboard",
+      {
+        dashboardName: `sa-${cdk.Stack.of(this).stackName}-closet-happy-path`,
+      },
+    );
 
     new cloudwatch.Alarm(this, "ApprovalDlqAlarm", {
       metric: approvalDlq.metricApproximateNumberOfMessagesVisible({
@@ -255,7 +302,9 @@ export class BestiesClosetStack extends cdk.Stack {
     }).addAlarmAction(alarmAction);
 
     new cloudwatch.Alarm(this, "ExpireApprovalsErrors", {
-      metric: expireApprovalsFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      metric: expireApprovalsFn.metricErrors({
+        period: cdk.Duration.minutes(5),
+      }),
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "ExpireClosetApprovalsFn is erroring",
@@ -266,39 +315,6 @@ export class BestiesClosetStack extends cdk.Stack {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "ClosetDlqProcessorFn is erroring",
-    }).addAlarmAction(alarmAction);
-
-    // =====================================================
-    // SLA alarms: Approval latency p90 / p99 (APPROVED outcomes)
-    // =====================================================
-    const approvalLatencyP90 = new cloudwatch.Metric({
-      namespace: "StylingAdventures/ClosetApprovals",
-      metricName: "ApprovalLatencySeconds",
-      statistic: "p90",
-      period: cdk.Duration.minutes(5),
-      dimensionsMap: { Outcome: "APPROVED" },
-    });
-
-    new cloudwatch.Alarm(this, "ApprovalLatencyP90TooHigh", {
-      metric: approvalLatencyP90,
-      threshold: 60 * 10,
-      evaluationPeriods: 1,
-      alarmDescription: "p90 approval latency > 10 minutes",
-    }).addAlarmAction(alarmAction);
-
-    const approvalLatencyP99 = new cloudwatch.Metric({
-      namespace: "StylingAdventures/ClosetApprovals",
-      metricName: "ApprovalLatencySeconds",
-      statistic: "p99",
-      period: cdk.Duration.minutes(5),
-      dimensionsMap: { Outcome: "APPROVED" },
-    });
-
-    new cloudwatch.Alarm(this, "ApprovalLatencyP99TooHigh", {
-      metric: approvalLatencyP99,
-      threshold: 60 * 20,
-      evaluationPeriods: 1,
-      alarmDescription: "p99 approval latency > 20 minutes",
     }).addAlarmAction(alarmAction);
 
     // =====================================================
@@ -348,51 +364,67 @@ export class BestiesClosetStack extends cdk.Stack {
       },
     });
 
-    const fanUseUserIdAsOwnerSub_NoRaw = new sfn.Pass(this, "FanUseUserIdAsOwnerSub_NoRaw", {
-      parameters: {
-        item: {
-          "id.$": "$.item.id",
-          "s3Key.$": "$.item.s3Key",
-          "userId.$": "$.item.userId",
-          "ownerSub.$": "$.item.userId",
+    const fanUseUserIdAsOwnerSub_NoRaw = new sfn.Pass(
+      this,
+      "FanUseUserIdAsOwnerSub_NoRaw",
+      {
+        parameters: {
+          item: {
+            "id.$": "$.item.id",
+            "s3Key.$": "$.item.s3Key",
+            "userId.$": "$.item.userId",
+            "ownerSub.$": "$.item.userId",
+          },
         },
       },
-    });
+    );
 
-    const fanUseUserIdAsOwnerSub_WithRaw = new sfn.Pass(this, "FanUseUserIdAsOwnerSub_WithRaw", {
-      parameters: {
-        item: {
-          "id.$": "$.item.id",
-          "s3Key.$": "$.item.s3Key",
-          "rawMediaKey.$": "$.item.rawMediaKey",
-          "userId.$": "$.item.userId",
-          "ownerSub.$": "$.item.userId",
+    const fanUseUserIdAsOwnerSub_WithRaw = new sfn.Pass(
+      this,
+      "FanUseUserIdAsOwnerSub_WithRaw",
+      {
+        parameters: {
+          item: {
+            "id.$": "$.item.id",
+            "s3Key.$": "$.item.s3Key",
+            "rawMediaKey.$": "$.item.rawMediaKey",
+            "userId.$": "$.item.userId",
+            "ownerSub.$": "$.item.userId",
+          },
         },
       },
-    });
+    );
 
-    const fanUseOwnerSubAsUserId_NoRaw = new sfn.Pass(this, "FanUseOwnerSubAsUserId_NoRaw", {
-      parameters: {
-        item: {
-          "id.$": "$.item.id",
-          "s3Key.$": "$.item.s3Key",
-          "ownerSub.$": "$.item.ownerSub",
-          "userId.$": "$.item.ownerSub",
+    const fanUseOwnerSubAsUserId_NoRaw = new sfn.Pass(
+      this,
+      "FanUseOwnerSubAsUserId_NoRaw",
+      {
+        parameters: {
+          item: {
+            "id.$": "$.item.id",
+            "s3Key.$": "$.item.s3Key",
+            "ownerSub.$": "$.item.ownerSub",
+            "userId.$": "$.item.ownerSub",
+          },
         },
       },
-    });
+    );
 
-    const fanUseOwnerSubAsUserId_WithRaw = new sfn.Pass(this, "FanUseOwnerSubAsUserId_WithRaw", {
-      parameters: {
-        item: {
-          "id.$": "$.item.id",
-          "s3Key.$": "$.item.s3Key",
-          "rawMediaKey.$": "$.item.rawMediaKey",
-          "ownerSub.$": "$.item.ownerSub",
-          "userId.$": "$.item.ownerSub",
+    const fanUseOwnerSubAsUserId_WithRaw = new sfn.Pass(
+      this,
+      "FanUseOwnerSubAsUserId_WithRaw",
+      {
+        parameters: {
+          item: {
+            "id.$": "$.item.id",
+            "s3Key.$": "$.item.s3Key",
+            "rawMediaKey.$": "$.item.rawMediaKey",
+            "ownerSub.$": "$.item.ownerSub",
+            "userId.$": "$.item.ownerSub",
+          },
         },
       },
-    });
+    );
 
     const fanChooseIdsOk = new sfn.Choice(this, "FanHasRawMediaKey_ForIdsOk?")
       .when(sfn.Condition.isPresent("$.item.rawMediaKey"), fanIdsOk_WithRaw)
@@ -402,14 +434,20 @@ export class BestiesClosetStack extends cdk.Stack {
       this,
       "FanHasRawMediaKey_ForUserIdAsOwnerSub?",
     )
-      .when(sfn.Condition.isPresent("$.item.rawMediaKey"), fanUseUserIdAsOwnerSub_WithRaw)
+      .when(
+        sfn.Condition.isPresent("$.item.rawMediaKey"),
+        fanUseUserIdAsOwnerSub_WithRaw,
+      )
       .otherwise(fanUseUserIdAsOwnerSub_NoRaw);
 
     const fanChooseUseOwnerSubAsUserId = new sfn.Choice(
       this,
       "FanHasRawMediaKey_ForOwnerSubAsUserId?",
     )
-      .when(sfn.Condition.isPresent("$.item.rawMediaKey"), fanUseOwnerSubAsUserId_WithRaw)
+      .when(
+        sfn.Condition.isPresent("$.item.rawMediaKey"),
+        fanUseOwnerSubAsUserId_WithRaw,
+      )
       .otherwise(fanUseOwnerSubAsUserId_NoRaw);
 
     const fanEnsureIds = new sfn.Choice(this, "FanEnsureIds?")
@@ -434,7 +472,11 @@ export class BestiesClosetStack extends cdk.Stack {
         ),
         fanChooseUseOwnerSubAsUserId,
       )
-      .otherwise(new sfn.Fail(this, "FanMissingIdentity", { cause: "Missing userId/ownerSub" }));
+      .otherwise(
+        new sfn.Fail(this, "FanMissingIdentity", {
+          cause: "Missing userId/ownerSub",
+        }),
+      );
 
     const fanUseItemS3Key = new sfn.Pass(this, "FanUseItemS3Key", {
       parameters: {
@@ -461,19 +503,27 @@ export class BestiesClosetStack extends cdk.Stack {
     const fanPickUploadKey = new sfn.Choice(this, "FanPickUploadKey?")
       .when(sfn.Condition.isPresent("$.item.s3Key"), fanUseItemS3Key)
       .when(sfn.Condition.isPresent("$.item.rawMediaKey"), fanUseItemRawMediaKey)
-      .otherwise(new sfn.Fail(this, "FanMissingUploadKey", { cause: "Missing s3Key/rawMediaKey" }));
+      .otherwise(
+        new sfn.Fail(this, "FanMissingUploadKey", {
+          cause: "Missing s3Key/rawMediaKey",
+        }),
+      );
 
-    const fanSegmentOutfitTask = new tasks.LambdaInvoke(this, "FanSegmentOutfit", {
-      lambdaFunction: imageSegmentationFn,
-      payload: sfn.TaskInput.fromObject({
-        item: {
-          "s3Key.$": "$.item.s3Key",
-          bucket: uploadsBucket.bucketName,
-        },
-      }),
-      payloadResponseOnly: true,
-      resultPath: "$.segmentation",
-    });
+    const fanSegmentOutfitTask = new tasks.LambdaInvoke(
+      this,
+      "FanSegmentOutfit",
+      {
+        lambdaFunction: imageSegmentationFn,
+        payload: sfn.TaskInput.fromObject({
+          item: {
+            "s3Key.$": "$.item.s3Key",
+            bucket: uploadsBucket.bucketName,
+          },
+        }),
+        payloadResponseOnly: true,
+        resultPath: "$.segmentation",
+      },
+    );
 
     const fanModerationTask = new tasks.LambdaInvoke(this, "FanModerateImage", {
       lambdaFunction: moderationFn,
@@ -499,19 +549,23 @@ export class BestiesClosetStack extends cdk.Stack {
       resultPath: "$.expired",
     });
 
-    const fanNotifyAdminTask = new tasks.LambdaInvoke(this, "FanNotifyAdminForApproval", {
-      lambdaFunction: notifyAdminFn,
-      integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
-      taskTimeout: sfn.Timeout.duration(cdk.Duration.hours(24)),
-      payload: sfn.TaskInput.fromObject({
-        token: sfn.JsonPath.taskToken,
-        item: sfn.JsonPath.objectAt("$.item"),
-        processedImageKey: sfn.JsonPath.stringAt("$.segmentation.outputKey"),
-        moderation: sfn.JsonPath.objectAt("$.moderation"),
-        pii: sfn.JsonPath.objectAt("$.pii"),
-      }),
-      resultPath: "$.admin",
-    });
+    const fanNotifyAdminTask = new tasks.LambdaInvoke(
+      this,
+      "FanNotifyAdminForApproval",
+      {
+        lambdaFunction: notifyAdminFn,
+        integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+        taskTimeout: sfn.Timeout.duration(cdk.Duration.hours(24)),
+        payload: sfn.TaskInput.fromObject({
+          token: sfn.JsonPath.taskToken,
+          item: sfn.JsonPath.objectAt("$.item"),
+          processedImageKey: sfn.JsonPath.stringAt("$.segmentation.outputKey"),
+          moderation: sfn.JsonPath.objectAt("$.moderation"),
+          pii: sfn.JsonPath.objectAt("$.pii"),
+        }),
+        resultPath: "$.admin",
+      },
+    );
 
     fanNotifyAdminTask.addCatch(fanExpiredTask, {
       errors: ["States.Timeout"],
@@ -532,11 +586,16 @@ export class BestiesClosetStack extends cdk.Stack {
       resultPath: "$.published",
     });
 
-    const fanRejected = new sfn.Fail(this, "FanRejected", { cause: "RejectedByAdmin" });
+    const fanRejected = new sfn.Fail(this, "FanRejected", {
+      cause: "RejectedByAdmin",
+    });
     const fanApproved = fanPublishTask.next(new sfn.Succeed(this, "FanPublished"));
 
     const fanWaitForAdminChoice = new sfn.Choice(this, "FanAdminApproved?")
-      .when(sfn.Condition.stringEquals("$.admin.decision", "APPROVE"), fanApproved)
+      .when(
+        sfn.Condition.stringEquals("$.admin.decision", "APPROVE"),
+        fanApproved,
+      )
       .when(sfn.Condition.stringEquals("$.admin.decision", "REJECT"), fanRejected)
       .otherwise(fanRejected);
 
@@ -556,92 +615,54 @@ export class BestiesClosetStack extends cdk.Stack {
       .next(fanNotifyAdminTask)
       .next(fanWasExpired);
 
-    this.closetUploadStateMachine = new sfn.StateMachine(this, "ClosetUploadApprovalSM", {
-      definitionBody: sfn.DefinitionBody.fromChainable(fanDefinition),
-      stateMachineType: sfn.StateMachineType.STANDARD,
-      tracingEnabled: true,
-    });
+    this.closetUploadStateMachine = new sfn.StateMachine(
+      this,
+      "ClosetUploadApprovalSM",
+      {
+        definitionBody: sfn.DefinitionBody.fromChainable(fanDefinition),
+        stateMachineType: sfn.StateMachineType.STANDARD,
+        tracingEnabled: true,
+      },
+    );
 
     new cloudwatch.Alarm(this, "ClosetUploadApprovalSMFailedAlarm", {
-      metric: this.closetUploadStateMachine.metricFailed({ period: cdk.Duration.minutes(5) }),
+      metric: this.closetUploadStateMachine.metricFailed({
+        period: cdk.Duration.minutes(5),
+      }),
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: "ClosetUploadApprovalSM failed executions > 0",
     }).addAlarmAction(alarmAction);
 
-    // Dashboard widgets (now that SM exists)
-    const smStarted = this.closetUploadStateMachine.metricStarted({ period: cdk.Duration.minutes(5) });
-    const smSucceeded = this.closetUploadStateMachine.metricSucceeded({
-      period: cdk.Duration.minutes(5),
-    });
-    const smFailed = this.closetUploadStateMachine.metricFailed({ period: cdk.Duration.minutes(5) });
-    const smTimedOut = this.closetUploadStateMachine.metricTimedOut({
-      period: cdk.Duration.minutes(5),
-    });
-
-    const approvedCount = new cloudwatch.Metric({
-      namespace: "StylingAdventures/ClosetApprovals",
-      metricName: "ApprovalCount",
-      statistic: "sum",
-      period: cdk.Duration.minutes(5),
-      dimensionsMap: { Outcome: "APPROVED" },
-    });
-
-    const rejectedCount = new cloudwatch.Metric({
-      namespace: "StylingAdventures/ClosetApprovals",
-      metricName: "ApprovalCount",
-      statistic: "sum",
-      period: cdk.Duration.minutes(5),
-      dimensionsMap: { Outcome: "REJECTED" },
-    });
-
-    dashboard.addWidgets(
-      new cloudwatch.GraphWidget({
-        title: "ClosetUploadApprovalSM — executions (5m)",
-        left: [smStarted, smSucceeded, smFailed, smTimedOut],
-      }),
-      new cloudwatch.GraphWidget({
-        title: "Admin decisions — approvals vs rejects (5m)",
-        left: [approvedCount, rejectedCount],
-      }),
-      new cloudwatch.GraphWidget({
-        title: "Approval latency (seconds) — p90 / p99 (APPROVED)",
-        left: [approvalLatencyP90, approvalLatencyP99],
-      }),
-      new cloudwatch.GraphWidget({
-        title: "Approval DLQ — visible messages (5m)",
-        left: [approvalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) })],
-      }),
-      new cloudwatch.GraphWidget({
-        title: "Key Lambda errors (5m)",
-        left: [
-          notifyAdminFn.metricErrors({ period: cdk.Duration.minutes(5) }),
-          publishClosetItemFn.metricErrors({ period: cdk.Duration.minutes(5) }),
-        ],
-      }),
-    );
-
     // =====================================================
     // 1B) BESTIE CLOSET UPLOAD (AUTO-PUBLISH, NO WAIT)
     // =====================================================
-    const bestieSegmentOutfitTask = new tasks.LambdaInvoke(this, "BestieSegmentOutfit", {
-      lambdaFunction: imageSegmentationFn,
-      payload: sfn.TaskInput.fromObject({
-        item: {
-          "s3Key.$": "$.item.s3Key",
-          bucket: uploadsBucket.bucketName,
-        },
-      }),
-      payloadResponseOnly: true,
-      resultPath: "$.segmentation",
-    });
+    const bestieSegmentOutfitTask = new tasks.LambdaInvoke(
+      this,
+      "BestieSegmentOutfit",
+      {
+        lambdaFunction: imageSegmentationFn,
+        payload: sfn.TaskInput.fromObject({
+          item: {
+            "s3Key.$": "$.item.s3Key",
+            bucket: uploadsBucket.bucketName,
+          },
+        }),
+        payloadResponseOnly: true,
+        resultPath: "$.segmentation",
+      },
+    );
 
-    const bestieModerationTask = new tasks.LambdaInvoke(this, "BestieModerateImage", {
-      lambdaFunction: moderationFn,
-      payload: sfn.TaskInput.fromJsonPathAt("$"),
-      payloadResponseOnly: true,
-      resultPath: "$.moderation",
-    });
+    const bestieModerationTask = new tasks.LambdaInvoke(
+      this,
+      "BestieModerateImage",
+      {
+        lambdaFunction: moderationFn,
+        payload: sfn.TaskInput.fromJsonPathAt("$"),
+        payloadResponseOnly: true,
+        resultPath: "$.moderation",
+      },
+    );
 
     const bestiePiiTask = new tasks.LambdaInvoke(this, "BestieCheckPII", {
       lambdaFunction: piiCheckFn,
@@ -650,18 +671,22 @@ export class BestiesClosetStack extends cdk.Stack {
       resultPath: "$.pii",
     });
 
-    const bestiePublishTask = new tasks.LambdaInvoke(this, "BestiePublishClosetItem", {
-      lambdaFunction: publishClosetItemFn,
-      payload: sfn.TaskInput.fromObject({
-        "approvalId.$": "$.item.id",
-        "item.$": "$.item",
-        "segmentation.$": "$.segmentation",
-        "moderation.$": "$.moderation",
-        "pii.$": "$.pii",
-      }),
-      payloadResponseOnly: true,
-      resultPath: "$.published",
-    });
+    const bestiePublishTask = new tasks.LambdaInvoke(
+      this,
+      "BestiePublishClosetItem",
+      {
+        lambdaFunction: publishClosetItemFn,
+        payload: sfn.TaskInput.fromObject({
+          "approvalId.$": "$.item.id",
+          "item.$": "$.item",
+          "segmentation.$": "$.segmentation",
+          "moderation.$": "$.moderation",
+          "pii.$": "$.pii",
+        }),
+        payloadResponseOnly: true,
+        resultPath: "$.published",
+      },
+    );
 
     const bestieGate = new sfn.Choice(this, "BestieChecksPassed?")
       .when(
@@ -703,14 +728,25 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     // 2) BACKGROUND CHANGE APPROVAL (SNS + WAIT_FOR_TASK_TOKEN)
     // =====================================================
-    const validateBgFn = new lambdaNode.NodejsFunction(this, "ValidateBgChangeFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
-      entry: path.join(process.cwd(), "lambda/closet/validate-background-change.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: ENV,
-    });
+    const validateBgFn = new lambdaNode.NodejsFunction(
+      this,
+      "ValidateBgChangeFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 512,
+        entry: path.join(
+          process.cwd(),
+          "lambda/closet/validate-background-change.ts",
+        ),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+        },
+        environment: ENV,
+      },
+    );
     table.grantReadWriteData(validateBgFn);
 
     const moderateBgFn = new lambdaNode.NodejsFunction(this, "ModerateBgFn", {
@@ -718,7 +754,11 @@ export class BestiesClosetStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       entry: path.join(process.cwd(), "lambda/closet/moderate-background.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+      },
       environment: ENV,
     });
     table.grantReadWriteData(moderateBgFn);
@@ -729,7 +769,11 @@ export class BestiesClosetStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60),
       memorySize: 1024,
       entry: path.join(process.cwd(), "lambda/closet/apply-background-change.ts"),
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+      },
       environment: ENV,
     });
     table.grantReadWriteData(applyBgFn);
@@ -822,21 +866,29 @@ export class BestiesClosetStack extends cdk.Stack {
           ),
       );
 
-    this.backgroundChangeStateMachine = new sfn.StateMachine(this, "BackgroundChangeApprovalSM", {
-      definitionBody: sfn.DefinitionBody.fromChainable(bgDefinition),
-      stateMachineType: sfn.StateMachineType.STANDARD,
-      tracingEnabled: true,
-    });
+    this.backgroundChangeStateMachine = new sfn.StateMachine(
+      this,
+      "BackgroundChangeApprovalSM",
+      {
+        definitionBody: sfn.DefinitionBody.fromChainable(bgDefinition),
+        stateMachineType: sfn.StateMachineType.STANDARD,
+        tracingEnabled: true,
+      },
+    );
 
     // =====================================================
     // 3) Save-approval-token Lambda wired to SNS topic (BG flow)
     // =====================================================
-    const saveApprovalTokenFn = new lambdaNode.NodejsFunction(this, "SaveApprovalTokenFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      entry: path.join(process.cwd(), "lambda/workflows/save-approval-token.ts"),
-      handler: "handler",
-      environment: { ...ENV },
-    });
+    const saveApprovalTokenFn = new lambdaNode.NodejsFunction(
+      this,
+      "SaveApprovalTokenFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(process.cwd(), "lambda/workflows/save-approval-token.ts"),
+        handler: "handler",
+        environment: { ...ENV },
+      },
+    );
 
     table.grantReadWriteData(saveApprovalTokenFn);
     bgApprovalTopic.addSubscription(new subs.LambdaSubscription(saveApprovalTokenFn));
@@ -844,17 +896,21 @@ export class BestiesClosetStack extends cdk.Stack {
     // =====================================================
     // 4) Admin Approval API -> SendTaskSuccess
     // =====================================================
-    const approveClosetUploadFn = new lambdaNode.NodejsFunction(this, "ApproveClosetUploadFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      entry: path.join(process.cwd(), "lambda/admin/approve-closet-upload.ts"),
-      handler: "handler",
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...ENV,
-        AUDIT_TABLE_NAME: adminAuditTable.tableName,
-        NOTIFY_TOPIC_ARN: opsTopic.topicArn,
+    const approveClosetUploadFn = new lambdaNode.NodejsFunction(
+      this,
+      "ApproveClosetUploadFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(process.cwd(), "lambda/admin/approve-closet-upload.ts"),
+        handler: "handler",
+        bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
+        environment: {
+          ...ENV,
+          AUDIT_TABLE_NAME: adminAuditTable.tableName,
+          NOTIFY_TOPIC_ARN: opsTopic.topicArn,
+        },
       },
-    });
+    );
 
     table.grantReadWriteData(approveClosetUploadFn);
     adminAuditTable.grantWriteData(approveClosetUploadFn);
@@ -867,31 +923,28 @@ export class BestiesClosetStack extends cdk.Stack {
       }),
     );
 
-    new cloudwatch.Alarm(this, "ApproveClosetUploadFnErrors", {
-      metric: approveClosetUploadFn.metricErrors({ period: cdk.Duration.minutes(5) }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      alarmDescription: "ApproveClosetUploadFn is erroring",
-    }).addAlarmAction(alarmAction);
-
     // =====================================================
     // 4B) Admin upload endpoint -> starts FAN SM
     // =====================================================
-    const adminFanClosetUploadFn = new lambdaNode.NodejsFunction(this, "AdminFanClosetUploadFn", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      entry: path.join(process.cwd(), "lambda/admin/fan-closet-upload.ts"),
-      handler: "handler",
-      bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
-      timeout: cdk.Duration.seconds(15),
-      memorySize: 512,
-      environment: {
-        TABLE_NAME: table.tableName,
-        PK_NAME: "pk",
-        SK_NAME: "sk",
-        FAN_APPROVAL_SM_ARN: this.closetUploadStateMachine.stateMachineArn,
-        NODE_OPTIONS: "--enable-source-maps",
+    const adminFanClosetUploadFn = new lambdaNode.NodejsFunction(
+      this,
+      "AdminFanClosetUploadFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(process.cwd(), "lambda/admin/fan-closet-upload.ts"),
+        handler: "handler",
+        bundling: { format: lambdaNode.OutputFormat.CJS, minify: true, sourceMap: true },
+        timeout: cdk.Duration.seconds(15),
+        memorySize: 512,
+        environment: {
+          TABLE_NAME: table.tableName,
+          PK_NAME: "pk",
+          SK_NAME: "sk",
+          FAN_APPROVAL_SM_ARN: this.closetUploadStateMachine.stateMachineArn,
+          NODE_OPTIONS: "--enable-source-maps",
+        },
       },
-    });
+    );
 
     table.grantReadWriteData(adminFanClosetUploadFn);
     this.closetUploadStateMachine.grantStartExecution(adminFanClosetUploadFn);
@@ -922,7 +975,7 @@ export class BestiesClosetStack extends cdk.Stack {
     });
 
     // =====================================================
-    // ✅ Outputs for scripting / CI
+    // Outputs
     // =====================================================
     new cdk.CfnOutput(this, "AdminApiUrl", { value: adminApi.url ?? "" });
 

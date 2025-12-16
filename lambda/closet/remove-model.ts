@@ -15,7 +15,20 @@ export const handler: S3Handler = async (event: S3Event) => {
     try {
       const originalBuffer = await getObjectBuffer(bucket, key);
       const maskBuffer = await getClothingMaskFromApi(originalBuffer);
+
+      // 1) Segmentation mask applied (isolated PNG with alpha)
       const isolatedClothingBuffer = await applyMask(originalBuffer, maskBuffer);
+
+      // 2) Enhancement step (sharpen + mild lighting + 800x800 transparent padding)
+      const enhanced = await sharp(isolatedClothingBuffer)
+        .sharpen()
+        .modulate({ brightness: 1.1, saturation: 1.2 })
+        .resize(800, 800, {
+          fit: "contain",
+          background: { r: 255, g: 255, b: 255, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
 
       const outputKey = key
         .replace("admin-uploads/", "lala-closet/isolated/")
@@ -25,7 +38,7 @@ export const handler: S3Handler = async (event: S3Event) => {
         new PutObjectCommand({
           Bucket: bucket,
           Key: outputKey,
-          Body: isolatedClothingBuffer,
+          Body: enhanced, // ✅ save enhanced buffer instead of isolatedClothingBuffer
           ContentType: "image/png",
         })
       );

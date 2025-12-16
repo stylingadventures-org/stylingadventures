@@ -1,0 +1,14 @@
+schema: "./appsync/schema.graphql"
+documents: "site/src/**/*.graphql"
+
+generates:
+  site/src/generated/graphql.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-react-apollo
+    config:
+      scalars:
+        AWSDateTime: string
+        AWSDate: string
+        AWSJSON: any

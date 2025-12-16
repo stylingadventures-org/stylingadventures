@@ -1,0 +1,321 @@
+# ─────────────────────────────────────────
+# Closet domain
+# Owns: closet enums, types, inputs, bg change request types, comments, likes
+# ─────────────────────────────────────────
+
+# ─────────────────────────────────────────
+# Enums
+# ─────────────────────────────────────────
+
+enum ClosetAudience {
+  PUBLIC
+  BESTIES
+  EXCLUSIVE
+}
+
+enum ClosetVisibility {
+  PRIVATE
+  BESTIE
+  PUBLIC
+}
+
+enum ClosetStatus {
+  PENDING
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+enum ClosetFeedSort {
+  NEWEST
+  MOST_LOVED
+  LALAS_PICK
+  MY_FAVES
+}
+
+# ─────────────────────────────────────────
+# Core types
+# ─────────────────────────────────────────
+
+type ClosetItem {
+  id: ID!
+  ownerId: ID
+  ownerSub: ID
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility!
+  affiliateUrl: String
+  episodeIds: [ID!]
+  status: ClosetStatus!
+  audience: ClosetAudience
+  pinned: Boolean
+  favoriteCount: Int
+  coinValue: Int
+  backgroundStatus: String
+  scheduledAt: AWSDateTime
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
+}
+
+type ClosetConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+# ─────────────────────────────────────────
+# Comments & Likes
+# ─────────────────────────────────────────
+
+type Comment {
+  id: ID!
+  itemId: ID!
+  userId: ID!
+  text: String!
+  createdAt: AWSDateTime!
+}
+
+type CommentConnection {
+  items: [Comment!]!
+  nextToken: String
+}
+
+type Like {
+  itemId: ID!
+  userId: ID!
+  createdAt: AWSDateTime!
+}
+
+type LikeConnection {
+  items: [Like!]!
+  nextToken: String
+}
+
+# ─────────────────────────────────────────
+# Inputs
+# ─────────────────────────────────────────
+
+input CreateClosetItemInput {
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+  episodeIds: [ID!]
+}
+
+input UpdateClosetItemStoryInput {
+  itemId: ID!
+  storyId: ID
+  storyPosition: Int
+}
+
+input CommentOnClosetItemInput {
+  itemId: ID!
+  text: String!
+}
+
+input BestieCreateClosetItemInput {
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+  episodeIds: [ID!]
+}
+
+input BestieUpdateClosetItemInput {
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+  episodeIds: [ID!]
+}
+
+input AdminCreateClosetItemInput {
+  ownerId: ID
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+  episodeIds: [ID!]
+  status: ClosetStatus
+  audience: ClosetAudience
+  pinned: Boolean
+  coinValue: Int
+  backgroundStatus: String
+}
+
+input AdminUpdateClosetItemInput {
+  id: ID!
+  ownerId: ID
+  title: String
+  mediaKey: String
+  rawMediaKey: String
+  category: String
+  subcategory: String
+  colorTags: [String!]
+  season: String
+  vibes: String
+  notes: String
+  visibility: ClosetVisibility
+  affiliateUrl: String
+  episodeIds: [ID!]
+  status: ClosetStatus
+  audience: ClosetAudience
+  pinned: Boolean
+  coinValue: Int
+  backgroundStatus: String
+  scheduledAt: AWSDateTime
+}
+
+# ─────────────────────────────────────────
+# Background change request (owned here, referenced elsewhere)
+# ─────────────────────────────────────────
+
+input BgChangeRequestInput {
+  itemId: ID!
+  newBackgroundKey: String!
+  notes: String
+}
+
+type BgChangeRequestResult {
+  ok: Boolean!
+  requestId: ID
+}
+
+# ─────────────────────────────────────────
+# Query operations
+# ─────────────────────────────────────────
+
+extend type Query {
+  myCloset(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  myWishlist(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  closetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
+    @aws_cognito_user_pools
+
+  adminClosetItemLikes(itemId: ID!, limit: Int, nextToken: String): LikeConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminClosetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminListPending(limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminListClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  closetFeed(sort: ClosetFeedSort, limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+}
+
+# ─────────────────────────────────────────
+# Mutation operations
+# ─────────────────────────────────────────
+
+extend type Mutation {
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  requestClosetApproval(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  likeClosetItem(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+
+  commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
+    @aws_cognito_user_pools
+
+  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  bestieDeleteClosetItem(id: ID!): Boolean!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminApproveItem(closetItemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminPublishClosetItem(closetItemId: ID!): ClosetItem
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminSetClosetAudience(closetItemId: ID!, audience: ClosetAudience!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+}
