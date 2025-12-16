@@ -1380,7 +1380,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5a10458c8b86e9fd40238afddabb2f07c8a24039a179cc5d04c5ac27536a5e64.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/2d393fca64a67a54b648bc6dad3273ff3b51a5bc5b3deaaed2212f7e9c5770b4.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1635,18 +1635,6 @@
             "data": "DlqProcessorErrors8287BC1E"
           }
         ],
-        "/BestiesClosetStack/ApprovalLatencyP90TooHigh/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ApprovalLatencyP90TooHighBB2A4D89"
-          }
-        ],
-        "/BestiesClosetStack/ApprovalLatencyP99TooHigh/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ApprovalLatencyP99TooHigh7DE91D29"
-          }
-        ],
         "/BestiesClosetStack/ClosetUploadApprovalSM/Role/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1837,12 +1825,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ApproveClosetUploadFnC4D99774"
-          }
-        ],
-        "/BestiesClosetStack/ApproveClosetUploadFnErrors/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ApproveClosetUploadFnErrors7968F072"
           }
         ],
         "/BestiesClosetStack/AdminFanClosetUploadFn/ServiceRole/Resource": [
@@ -2569,7 +2551,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/9ba5a837a9b9084f204528ebfcb99e0c40edd965cffd124acc904ff1aca63fdf.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/16d2a714be583ff6d7775a7cce1fee591e182e2d09748d058c23b92784860f51.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2644,6 +2626,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CDKMetadata"
+          }
+        ],
+        "/CommerceStack/Exports/Output{\"Fn::GetAtt\":[\"CommerceFn39448B29\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
           }
         ],
         "/CommerceStack/BootstrapVersion": [
@@ -4299,7 +4287,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5d7a520e74b7ebccce2bd5f9e29b964714ad3a9be2aba9dd405d25e8a947666d.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/c9810279a0e8a62029eb17b08edbb3511f9c236600779c9a51ee7e5b5d48facf.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4315,6 +4303,7 @@
         "IdentityV2Stack",
         "ShoppingStack",
         "LivestreamStack",
+        "CommerceStack",
         "DataStack",
         "BestiesClosetStack",
         "BestiesStoriesStack",
@@ -4419,6 +4408,24 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiQueryBestieClosetItemsResolver9C2DC004"
+          }
+        ],
+        "/ApiStack/StylingApi/ClosetFeedResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiClosetFeedResolverA7586067"
+          }
+        ],
+        "/ApiStack/StylingApi/StoriesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiStoriesResolverEA4BABA8"
+          }
+        ],
+        "/ApiStack/StylingApi/MyStoriesResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiMyStoriesResolverEB0CC059"
           }
         ],
         "/ApiStack/StylingApi/CreateClosetItem/Resource": [
@@ -4529,6 +4536,24 @@
             "data": "StylingApiShareClosetItemToPinterestResolverE33FBADF"
           }
         ],
+        "/ApiStack/StylingApi/BestieCreateClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieCreateClosetItemResolver3803A0EE"
+          }
+        ],
+        "/ApiStack/StylingApi/BestieUpdateClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieUpdateClosetItemResolverEC0BE4C0"
+          }
+        ],
+        "/ApiStack/StylingApi/BestieDeleteClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiBestieDeleteClosetItemResolverEDD9D880"
+          }
+        ],
         "/ApiStack/StylingApi/ClosetAdminSource/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -4557,12 +4582,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiAdminListClosetItemsResolver3D611162"
-          }
-        ],
-        "/ApiStack/StylingApi/ClosetFeedResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetFeedResolverA7586067"
           }
         ],
         "/ApiStack/StylingApi/AdminCreateClosetItemResolver/Resource": [
@@ -5037,6 +5056,42 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "StylingApiPinLivestreamHighlightResolverB01D03D5"
+          }
+        ],
+        "/ApiStack/StylingApi/CommerceDs/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCommerceDsServiceRole3C8295DD"
+          }
+        ],
+        "/ApiStack/StylingApi/CommerceDs/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCommerceDsServiceRoleDefaultPolicy94082CC9"
+          }
+        ],
+        "/ApiStack/StylingApi/CommerceDs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCommerceDs455289CD"
+          }
+        ],
+        "/ApiStack/StylingApi/CreatorRevenueSummaryResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCreatorRevenueSummaryResolver8033B6DD"
+          }
+        ],
+        "/ApiStack/StylingApi/CreatorRevenueByPlatformResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiCreatorRevenueByPlatformResolverB9B02038"
+          }
+        ],
+        "/ApiStack/StylingApi/RecordAffiliateClickResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiRecordAffiliateClickResolver4FC6FA42"
           }
         ],
         "/ApiStack/StylingApi/CreatorAiDs/ServiceRole/Resource": [

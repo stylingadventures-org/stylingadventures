@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getIdToken, getSignedGetUrl, signedUpload } from "../../lib/sa";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const GRID_PREVIEW_LIMIT = 6;
 const AUTO_REFRESH_MS = 20_000;
 
 // ---------- config helpers (window.__cfg + window.sa bridge) ----------
@@ -41,11 +40,47 @@ const ADMIN_API_BASE = normalizeBaseUrl(
     "https://asf706c16e.execute-api.us-east-1.amazonaws.com",
 );
 
+// ---------- auth helpers ----------
+function pickSubFromWindow() {
+  // Most common places your app stores Cognito/JWT identity
+  const cfg = readCfg();
+  const fromSa =
+    window.sa?.session?.idTokenPayload?.sub ||
+    window.sa?.session?.sub ||
+    window.sa?.user?.sub ||
+    window.sa?.userId;
+
+  const fromCfg =
+    cfg?.idTokenPayload?.sub ||
+    cfg?.session?.sub ||
+    cfg?.user?.sub ||
+    cfg?.userId;
+
+  return fromSa || fromCfg || null;
+}
+
+function getFallbackUserId() {
+  return pickSubFromWindow() || "admin-upload";
+}
+
+async function getAuthHeader() {
+  const token = await getIdToken().catch(() => null);
+  if (!token) return {};
+
+  // If token already has Bearer prefix, keep it. Otherwise add it.
+  const value = String(token).startsWith("Bearer ") ? String(token) : `Bearer ${token}`;
+  return { Authorization: value };
+}
+
 // ---------- REST helpers ----------
 async function fetchJsonOrText(url, options) {
   const res = await fetch(url, options);
   const text = await res.text().catch(() => "");
-  if (!res.ok) throw new Error(text || `Request failed: HTTP ${res.status}`);
+
+  if (!res.ok) {
+    // Keep body for easier debugging in UI
+    throw new Error(text || `Request failed: HTTP ${res.status}`);
+  }
 
   try {
     return text ? JSON.parse(text) : { ok: true };
@@ -55,24 +90,24 @@ async function fetchJsonOrText(url, options) {
 }
 
 async function startFanUploadWorkflow(payload) {
-  const token = await getIdToken();
+  const auth = await getAuthHeader();
   return fetchJsonOrText(`${ADMIN_API_BASE}/admin/fan/closet/upload`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: token } : {}),
+      ...auth,
     },
     body: JSON.stringify(payload),
   });
 }
 
 async function sendWorkflowDecision({ approvalId, decision, reason }) {
-  const token = await getIdToken();
+  const auth = await getAuthHeader();
   return fetchJsonOrText(`${ADMIN_API_BASE}/admin/closet/approve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: token } : {}),
+      ...auth,
     },
     body: JSON.stringify({
       approvalId,
@@ -94,11 +129,7 @@ function isNew(createdAt) {
 function looksLikeCutoutKey(mediaKey) {
   if (!mediaKey) return false;
   const mk = String(mediaKey);
-  return (
-    /removed-bg\.(png|webp)$/i.test(mk) ||
-    /\/processed\//i.test(mk) ||
-    /cutout/i.test(mk)
-  );
+  return /removed-bg\.(png|webp)$/i.test(mk) || /\/processed\//i.test(mk) || /cutout/i.test(mk);
 }
 
 // IMPORTANT: don't assume bg removed unless image actually has transparency.
@@ -218,7 +249,7 @@ function humanStatusLabel(item) {
   if (status === "PENDING" && hasAnyImage) {
     if (item.cutoutVerified) return "cutout ready";
     if (item.cutoutKeyLooksRight && !item.cutoutVerified) return "processing cutout";
-    return "ready to review";
+    return "waiting for cutout";
   }
 
   return String(status).toLowerCase();
@@ -229,28 +260,6 @@ const GQL = {
   listPending: /* GraphQL */ `
     query AdminListPending($limit: Int, $nextToken: String) {
       adminListPending(limit: $limit, nextToken: $nextToken) {
-        items {
-          id
-          title
-          status
-          audience
-          mediaKey
-          rawMediaKey
-          category
-          subcategory
-          createdAt
-          updatedAt
-          ownerSub
-          pinned
-          favoriteCount
-        }
-        nextToken
-      }
-    }
-  `,
-  listPublished: /* GraphQL */ `
-    query ClosetFeedAdminView($limit: Int, $nextToken: String) {
-      closetFeed(sort: NEWEST, limit: $limit, nextToken: $nextToken) {
         items {
           id
           title
@@ -286,14 +295,6 @@ const GQL = {
         id
         status
         updatedAt
-      }
-    }
-  `,
-  rejectAsDelete: /* GraphQL */ `
-    mutation AdminRejectItem($closetItemId: ID!, $reason: String) {
-      adminRejectItem(closetItemId: $closetItemId, reason: $reason) {
-        id
-        status
       }
     }
   `,
@@ -339,16 +340,6 @@ const SUBCATEGORY_BY_CATEGORY = {
   Beauty: ["Perfume", "Body mist", "Lip product", "Face", "Eyes"],
 };
 
-function getFallbackUserId() {
-  return (
-    window.sa?.session?.idTokenPayload?.sub ||
-    window.sa?.session?.sub ||
-    window.sa?.user?.sub ||
-    window.sa?.userId ||
-    "admin-upload"
-  );
-}
-
 export default function ClosetUpload() {
   // Form fields
   const [title, setTitle] = useState("");
@@ -369,15 +360,10 @@ export default function ClosetUpload() {
   // Drag state
   const [isDragging, setIsDragging] = useState(false);
 
-  // Admin list state
+  // Review queue state (PENDING only)
   const [items, setItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemsError, setItemsError] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-
-  // View mode
-  const [viewMode, setViewMode] = useState("ACTIVITY");
   const [busyId, setBusyId] = useState(null);
 
   // Auto-update timer
@@ -436,32 +422,23 @@ export default function ClosetUpload() {
     setIsDragging(false);
   }
 
-  // ------- Admin list load -------
+  // ------- Review queue load (PENDING only) -------
   async function loadItems() {
     setItemsLoading(true);
     setItemsError("");
     try {
       await (window.sa?.ready?.() || Promise.resolve());
 
-      const [pendingData, publishedData] = await Promise.all([
-        window.sa.graphql(GQL.listPending, { limit: 100, nextToken: null }),
-        window.sa.graphql(GQL.listPublished, { limit: 60, nextToken: null }),
-      ]);
-
+      const pendingData = await window.sa.graphql(GQL.listPending, { limit: 120, nextToken: null });
       const pending = pendingData?.adminListPending?.items ?? [];
-      const published = publishedData?.closetFeed?.items ?? [];
 
-      const byId = {};
-      for (const it of pending) byId[it.id] = { ...it };
-      for (const it of published) byId[it.id] = { ...(byId[it.id] || {}), ...it };
+      const hydrated = await hydrateItems(pending);
 
-      const merged = Object.values(byId).sort((a, b) => {
+      hydrated.sort((a, b) => {
         const ta = new Date(a.createdAt || 0).getTime();
         const tb = new Date(b.createdAt || 0).getTime();
         return tb - ta;
       });
-
-      const hydrated = await hydrateItems(merged);
 
       setItems(hydrated);
       setLastUpdatedAt(Date.now());
@@ -469,7 +446,7 @@ export default function ClosetUpload() {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
-      setItemsError(err?.message || "Failed to load closet items.");
+      setItemsError(err?.message || "Failed to load pending closet items.");
     } finally {
       setItemsLoading(false);
     }
@@ -494,30 +471,8 @@ export default function ClosetUpload() {
     return () => clearInterval(id);
   }, [lastUpdatedAt]);
 
-  const pendingCount = useMemo(() => items.filter((it) => it.status === "PENDING").length, [items]);
-
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
-    return items.filter((item) => {
-      if (viewMode === "REVIEW") return item.status === "PENDING" && (!q || (item.title || "").toLowerCase().includes(q));
-
-      if (statusFilter !== "ALL") {
-        if (statusFilter === "PUBLISHED") {
-          if (item.status !== "PUBLISHED" && item.status !== "APPROVED") return false;
-        } else if (item.status !== statusFilter) {
-          return false;
-        }
-      }
-
-      if (!q) return true;
-      return (item.title || "").toLowerCase().includes(q);
-    });
-  }, [items, search, statusFilter, viewMode]);
-
-  const itemCount = filteredItems.length;
-  const previewItems = filteredItems.slice(0, GRID_PREVIEW_LIMIT);
-  const hasMore = itemCount > GRID_PREVIEW_LIMIT;
+  const pendingItems = useMemo(() => items.filter((it) => it.status === "PENDING"), [items]);
+  const pendingCount = pendingItems.length;
 
   // ------- Upload submit (multi-file) -------
   async function handleSubmit(e) {
@@ -535,7 +490,12 @@ export default function ClosetUpload() {
 
       const total = files.length;
       const results = [];
+
+      const ownerSub = pickSubFromWindow() || getFallbackUserId();
       const userId = getFallbackUserId();
+
+      // eslint-disable-next-line no-console
+      console.log("[ClosetUpload] identity", { ownerSub, userId, ADMIN_API_BASE });
 
       setUploadMsg(`Uploading ${total} item${total > 1 ? "s" : ""}…`);
 
@@ -548,9 +508,7 @@ export default function ClosetUpload() {
         results.push(`Uploading “${itemTitle}”…`);
 
         const ext =
-          (file.name.split(".").pop() || "jpg")
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "") || "jpg";
+          (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
 
         const uploadKey = `${randomId()}.${ext}`;
 
@@ -560,8 +518,11 @@ export default function ClosetUpload() {
 
         // 2) Start workflow
         const approvalId = randomId();
+
+        // ✅ include ownerSub so backend doesn't need to infer it
         const startPayload = {
           id: approvalId,
+          ownerSub, // <--- REQUIRED by your backend
           userId,
           s3Key: rawMediaKey,
           title: itemTitle,
@@ -573,13 +534,13 @@ export default function ClosetUpload() {
 
         const started = await startFanUploadWorkflow(startPayload);
 
-        results.push(`✔ Queued “${itemTitle}” for approval (id: ${approvalId.slice(0, 8)}…).`);
+        results.push(`✔ Queued “${itemTitle}” for review (id: ${approvalId.slice(0, 8)}…).`);
         // eslint-disable-next-line no-console
         console.log("[ClosetUpload] startFanUploadWorkflow ok", { approvalId, started });
       }
 
       setUploadMsg(
-        `Finished uploading ${total} item${total > 1 ? "s" : ""}. They’re now in the approval workflow — check the Review queue on the right.`,
+        `Finished uploading ${total} item${total > 1 ? "s" : ""}. They’re now in the review queue on the right.`,
       );
       setUploadDetails(results);
 
@@ -591,7 +552,6 @@ export default function ClosetUpload() {
       setSubcategory("");
 
       await loadItems();
-      setViewMode("REVIEW");
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
@@ -601,22 +561,7 @@ export default function ClosetUpload() {
     }
   }
 
-  // ------- Actions -------
-  async function handleDelete(id) {
-    if (!window.confirm("Delete (reject) this closet item? This cannot be undone.")) return;
-    try {
-      await window.sa.graphql(GQL.rejectAsDelete, {
-        closetItemId: id,
-        reason: "Deleted from admin upload page",
-      });
-      await loadItems();
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(err);
-      alert(err?.message || "Failed to delete item.");
-    }
-  }
-
+  // ------- Actions (Review queue: PENDING only) -------
   function updateLocalAudience(id, audience) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, audience } : it)));
   }
@@ -636,15 +581,13 @@ export default function ClosetUpload() {
   }
 
   async function approveItem(item) {
+    if (!item?.id) return;
+
     try {
       setBusyId(item.id);
+      await sendWorkflowDecision({ approvalId: item.id, decision: "APPROVE" });
 
-      if (item.status === "PENDING") {
-        await sendWorkflowDecision({ approvalId: item.id, decision: "APPROVE" });
-      } else {
-        await window.sa.graphql(GQL.approve, { closetItemId: item.id });
-      }
-
+      // Ensure audience is set (defaults to PUBLIC)
       const audience = item.audience || "PUBLIC";
       await window.sa.graphql(GQL.setAudience, { closetItemId: item.id, audience });
 
@@ -658,24 +601,24 @@ export default function ClosetUpload() {
     }
   }
 
-  async function rejectItem(item) {
-    const reason = window.prompt("Reason for rejection? (optional)") || null;
-    if (!window.confirm("Reject this closet item?")) return;
+  async function rejectItem(item, opts = {}) {
+    const { deleteMode = false } = opts;
+
+    const reason =
+      deleteMode ? "Deleted from admin upload page" : window.prompt("Reason for rejection? (optional)") || null;
+
+    const confirmText = deleteMode ? "Delete this closet item? This cannot be undone." : "Reject this closet item?";
+    if (!window.confirm(confirmText)) return;
 
     try {
       setBusyId(item.id);
-
-      if (item.status === "PENDING") {
-        await sendWorkflowDecision({ approvalId: item.id, decision: "REJECT", reason });
-      } else {
-        await window.sa.graphql(GQL.reject, { closetItemId: item.id, reason });
-      }
+      await sendWorkflowDecision({ approvalId: item.id, decision: "REJECT", reason });
 
       await loadItems();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
-      alert(err?.message || "Failed to reject item.");
+      alert(err?.message || "Failed to reject/delete item.");
     } finally {
       setBusyId(null);
     }
@@ -684,7 +627,6 @@ export default function ClosetUpload() {
   const autoLabel =
     lastUpdatedAt == null ? "—" : secondsSinceUpdate < 2 ? "just now" : `${secondsSinceUpdate}s ago`;
 
-  const isReviewMode = viewMode === "REVIEW";
   const currentSubcats = SUBCATEGORY_BY_CATEGORY[category] || [];
 
   return (
@@ -707,7 +649,7 @@ export default function ClosetUpload() {
           <span className="closet-admin-pill">ADMIN PORTAL</span>
           <div className="closet-admin-count-block">
             <span className="closet-admin-count">
-              Closet items: <strong>{items.length}</strong>
+              Pending in queue: <strong>{pendingCount}</strong>
             </span>
             <span className="closet-admin-count">
               Auto-updated <strong>{autoLabel}</strong>
@@ -889,261 +831,159 @@ export default function ClosetUpload() {
           </div>
         </section>
 
-        {/* RIGHT */}
+        {/* RIGHT: Simplified Review Queue (PENDING only) */}
         <section className="sa-card closet-dashboard-card">
           <div className="closet-dashboard-header">
             <div>
-              <h2 className="closet-card-title">Closet activity</h2>
+              <h2 className="closet-card-title">Review queue</h2>
               <p className="closet-card-sub">
-                See what&apos;s in the queue, what&apos;s live in the fan closet, and quickly approve or reject new uploads.
+                Pending only. Approve is enabled when the cutout is verified (transparency check).
               </p>
             </div>
 
             <div className="closet-auto-meta">
               <div className="closet-auto-block">
-                <span className="closet-auto-label">Auto-update</span>
+                <span className="closet-auto-label">Updated</span>
                 <span className="closet-auto-value">{autoLabel}</span>
               </div>
-              <button type="button" className="closet-filter-refresh" onClick={loadItems} disabled={itemsLoading}>
+              <button
+                type="button"
+                className="closet-filter-refresh"
+                onClick={loadItems}
+                disabled={itemsLoading}
+                title="Refresh pending queue"
+              >
                 {itemsLoading ? "Refreshing…" : "Refresh"}
               </button>
             </div>
           </div>
 
-          <div className="closet-tabs">
-            <button
-              type="button"
-              className={"closet-tab" + (viewMode === "ACTIVITY" ? " closet-tab--active" : "")}
-              onClick={() => setViewMode("ACTIVITY")}
-            >
-              Activity <span className="closet-tab-count">{items.length}</span>
-            </button>
-            <button
-              type="button"
-              className={"closet-tab" + (viewMode === "REVIEW" ? " closet-tab--active" : "")}
-              onClick={() => setViewMode("REVIEW")}
-            >
-              Review queue <span className="closet-tab-count">{pendingCount}</span>
-            </button>
-          </div>
+          {itemsError && <div className="closet-grid-error">{itemsError}</div>}
 
-          <div className="closet-filters-row" style={{ marginTop: 10 }}>
-            <select
-              className="closet-filter-input"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              disabled={isReviewMode}
-            >
-              <option value="ALL">All statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PUBLISHED">Published (incl approved)</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
-
-            <input
-              className="closet-filter-input"
-              placeholder="Search titles…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-
-            <div className="closet-filter-pill">
-              Showing <strong>{itemCount}</strong> looks
-            </div>
-          </div>
-
-          {itemsError && (
-            <div className="closet-grid-error" style={{ marginTop: 8 }}>
-              {itemsError}
+          {!itemsLoading && !itemsError && (
+            <div className="closet-queue-meta">
+              <span className="closet-queue-count">
+                <strong>{pendingCount}</strong> pending
+              </span>
+              <span className="closet-queue-updated">{autoLabel}</span>
             </div>
           )}
 
-          {!isReviewMode && (
-            <>
-              {itemCount === 0 && !itemsLoading && !itemsError && (
-                <div className="closet-grid-empty" style={{ marginTop: 12 }}>
-                  No closet activity yet. Once you upload looks, they&apos;ll appear here.
-                </div>
-              )}
-
-              <div className="closet-grid" style={{ marginTop: 10 }}>
-                {previewItems.map((item) => {
-                  const status = item.status || "UNKNOWN";
-                  const label = humanStatusLabel(item);
-
-                  let statusClass = "closet-status-pill--default";
-                  if (status === "PUBLISHED" || status === "APPROVED") statusClass = "closet-status-pill--published";
-                  else if (status === "PENDING") statusClass = "closet-status-pill--pending";
-                  else if (status === "REJECTED") statusClass = "closet-status-pill--rejected";
-
-                  return (
-                    <article key={item.id} className="closet-grid-card closet-grid-card--activity">
-                      <div className="closet-grid-thumb">
-                        {item.mediaUrl ? (
-                          <img src={item.mediaUrl} alt={item.title || "Closet item"} />
-                        ) : (
-                          <span className="closet-grid-thumb-empty">No preview</span>
-                        )}
-                      </div>
-
-                      <div className="closet-grid-body">
-                        <div className="closet-grid-title-row">
-                          <div className="closet-grid-main-title">{item.title || "Untitled look"}</div>
-                          {isNew(item.createdAt) && <span className="closet-badge-new">New</span>}
-                        </div>
-
-                        <div className="closet-grid-meta">
-                          <span className={"closet-status-pill " + statusClass}>{label}</span>
-                          {item.audience && <span className="closet-grid-audience">{String(item.audience).toLowerCase()}</span>}
-                        </div>
-
-                        <div className="closet-grid-footer">
-                          <span className="closet-grid-date">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
-                          </span>
-                          <div className="closet-grid-actions">
-                            <button
-                              type="button"
-                              className="closet-grid-link closet-grid-link--danger"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-
-              {hasMore && (
-                <div className="closet-grid-footer-row">
-                  Showing {previewItems.length} of {itemCount} looks. Use the Closet Library page to browse everything.
-                </div>
-              )}
-            </>
+          {!itemsLoading && !itemsError && pendingCount === 0 && (
+            <div className="closet-grid-empty" style={{ marginTop: 10 }}>
+              No pending looks right now. Upload a new look on the left to start the workflow.
+            </div>
           )}
 
-          {isReviewMode && (
-            <>
-              {itemCount === 0 && !itemsLoading && !itemsError && (
-                <div className="closet-grid-empty" style={{ marginTop: 12 }}>
-                  Nothing pending review right now. Upload new looks on the left to start a fresh batch.
-                </div>
-              )}
+          {pendingCount > 0 && (
+            <div className="closet-grid closet-grid--review" style={{ marginTop: 10 }}>
+              {pendingItems.map((item) => {
+                const isBusy = busyId === item.id;
+                const label = humanStatusLabel(item);
 
-              <div className="closet-grid closet-grid--review">
-                {filteredItems.map((item) => {
-                  const hasAnyImage = !!(item.mediaKey || item.rawMediaKey);
-                  const isBusy = busyId === item.id;
+                const approveEnabled = !!item.cutoutVerified;
+                const showNew = isNew(item.createdAt);
 
-                  // 0 = no image yet, 0.5 = raw exists but cutout not verified, 1 = cutout verified
-                  const stage = !hasAnyImage ? 0 : item.cutoutVerified ? 1 : 0.5;
-                  const progressPct = stage * 100;
+                // pills shown on thumbnail (matches your screenshots vibe)
+                const pillA = item.cutoutVerified ? "cutout ready" : item.cutoutKeyLooksRight ? "processing cutout" : "waiting for cutout";
 
-                  const audienceVal = item.audience || "PUBLIC";
-                  const readyForApproval = hasAnyImage;
+                return (
+                  <article key={item.id} className="closet-grid-card">
+                    <div className="closet-grid-thumb">
+                      <div className="closet-review-pills">
+                        {showNew && <span className="closet-badge-new">NEW</span>}
+                        <span className="closet-bg-pill">{pillA}</span>
+                      </div>
 
-                  return (
-                    <article key={item.id} className="closet-grid-card closet-grid-card--review">
-                      <div className="closet-grid-thumb">
-                        {item.mediaUrl ? (
-                          <img src={item.mediaUrl} alt={item.title || "Closet item"} />
-                        ) : (
-                          <span className="closet-grid-thumb-empty">No preview</span>
-                        )}
+                      {item.mediaUrl ? (
+                        <img src={item.mediaUrl} alt={item.title || "Closet item"} />
+                      ) : (
+                        <span className="closet-grid-thumb-empty">No preview yet</span>
+                      )}
 
-                        <div className="closet-review-pills">
-                          {!hasAnyImage && <span className="closet-bg-pill">Processing background…</span>}
-
-                          {hasAnyImage && stage === 0.5 && (
-                            <span className="closet-bg-pill closet-bg-pill--ready">
-                              {item.cutoutKeyLooksRight ? "Cutout processing…" : "Original photo"}
-                            </span>
-                          )}
-
-                          {stage === 1 && (
-                            <span className="closet-bg-pill closet-bg-pill--ready">Cutout verified ✅</span>
-                          )}
-                        </div>
-
+                      {!approveEnabled && (
                         <div className="closet-review-progress">
                           <div className="closet-review-progress-track">
-                            <div className="closet-review-progress-fill" style={{ width: `${progressPct}%` }} />
+                            <div className="closet-review-progress-fill" style={{ width: "42%" }} />
                           </div>
-                          <span className="closet-review-progress-label">
-                            {stage === 0 && "Queued for processing…"}
-                            {stage === 0.5 && (item.cutoutKeyLooksRight ? "Waiting on cutout…" : "Waiting on processing…")}
-                            {stage === 1 && "Background removed 🎉"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="closet-grid-body closet-grid-body--review">
-                        <div className="closet-grid-title-row">
-                          <div className="closet-grid-main-title">{item.title || "Untitled look"}</div>
-                          {isNew(item.createdAt) && <span className="closet-badge-new">New</span>}
-                        </div>
-
-                        <div className="closet-grid-meta closet-grid-meta--review">
-                          <span className="pill-soft">{item.category || "Uncategorized"}</span>
-                          <span className="closet-grid-audience">{String(audienceVal).toLowerCase()}</span>
-                        </div>
-
-                        <div className="closet-review-audience-row">
-                          <label className="closet-review-label">Audience</label>
-                          <select
-                            className="sa-input closet-review-audience"
-                            value={audienceVal}
-                            disabled={isBusy}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateLocalAudience(item.id, val);
-                              saveAudience(item.id, val);
-                            }}
-                          >
-                            {AUDIENCE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="closet-review-hint">
-                            Choose visibility: all fans, besties only, or saved for a special drop.
+                          <div className="closet-review-progress-label">
+                            {label === "processing cutout" ? "processing cutout…" : "waiting for cutout…"}
                           </div>
                         </div>
+                      )}
+                    </div>
 
-                        <div className="closet-review-actions">
-                          <button
-                            type="button"
-                            className="closet-review-approve"
-                            disabled={isBusy || !readyForApproval}
-                            onClick={() => approveItem(item)}
-                          >
-                            {isBusy ? "Working…" : readyForApproval ? "Approve look" : "Waiting…"}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="closet-review-reject sa-link"
-                            disabled={isBusy}
-                            onClick={() => rejectItem(item)}
-                          >
-                            Reject
-                          </button>
-                        </div>
-
-                        <div className="closet-grid-footer-row">
-                          Uploaded {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
-                        </div>
+                    <div className="closet-grid-body">
+                      <div className="closet-grid-title-row">
+                        <div className="closet-grid-main-title">{item.title || item.id}</div>
+                        <span className="pill-soft">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}</span>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </>
+
+                      <div className="closet-grid-meta">
+                        <span className="closet-grid-audience">fan upload</span>
+                        <span className="closet-status-pill closet-status-pill--pending">{label}</span>
+                      </div>
+
+                      <div className="closet-review-audience-row">
+                        <label className="closet-review-label">Audience</label>
+                        <select
+                          className="sa-input closet-review-audience"
+                          value={item.audience || "PUBLIC"}
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            updateLocalAudience(item.id, next);
+                            // audience saves instantly
+                            saveAudience(item.id, next);
+                          }}
+                        >
+                          {AUDIENCE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="closet-review-hint">Audience saves instantly.</div>
+                      </div>
+
+                      <div className="closet-review-actions">
+                        <button
+                          type="button"
+                          className="closet-review-approve"
+                          disabled={!approveEnabled || isBusy}
+                          onClick={() => approveItem(item)}
+                          title={approveEnabled ? "Approve this look" : "Approve turns on once the cutout is verified"}
+                        >
+                          {isBusy ? "Working…" : "Approve"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="closet-grid-link closet-grid-link--danger"
+                          disabled={isBusy}
+                          onClick={() => rejectItem(item)}
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          type="button"
+                          className="closet-grid-link closet-grid-link--danger"
+                          disabled={isBusy}
+                          onClick={() => rejectItem(item, { deleteMode: true })}
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      <div className="closet-footer-note" style={{ marginTop: 6 }}>
+                        Approve turns on once the background is removed and verified (transparency check).
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
@@ -1193,6 +1033,8 @@ const closetUploadStyles = /* css */ `
 .closet-preview-img{max-width:100%;max-height:100%;object-fit:contain}
 .closet-preview-caption{margin:0;font-size:12px;color:#6b7280}
 .closet-footer-note{margin-top:10px;font-size:12px;color:#6b7280}
+
+/* RIGHT PANEL */
 .closet-dashboard-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .closet-auto-meta{display:flex;align-items:flex-end;gap:10px}
 .closet-auto-block{display:flex;flex-direction:column;align-items:flex-end}
@@ -1200,14 +1042,6 @@ const closetUploadStyles = /* css */ `
 .closet-auto-value{font-size:12px;color:#4b5563}
 .closet-filter-refresh{border-radius:999px;border:1px solid #e5e7eb;background:#fff;padding:7px 14px;font-size:13px;cursor:pointer}
 .closet-filter-refresh:disabled{opacity:.7;cursor:not-allowed}
-.closet-tabs{display:flex;gap:8px;margin-top:10px}
-.closet-tab{border:none;border-radius:999px;padding:6px 10px;background:#f3f4f6;color:#374151;cursor:pointer;font-size:13px}
-.closet-tab--active{background:#eef2ff;color:#3730a3}
-.closet-tab-count{margin-left:6px;background:#111827;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px}
-.closet-filters-row{display:grid;grid-template-columns:160px 1fr auto;gap:8px;align-items:center;margin-top:10px}
-@media(max-width:720px){.closet-filters-row{grid-template-columns:1fr}}
-.closet-filter-input{border-radius:999px;border:1px solid #e5e7eb;padding:7px 12px;font-size:13px;background:#f9fafb}
-.closet-filter-pill{font-size:12px;color:#6b7280;justify-self:end}
 .closet-grid{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .closet-grid--review{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 .closet-grid-card{border:1px solid #e5e7eb;border-radius:18px;padding:8px;background:#fff;box-shadow:0 10px 26px rgba(148,163,184,.22);display:flex;flex-direction:column;gap:8px}
@@ -1218,25 +1052,18 @@ const closetUploadStyles = /* css */ `
 .closet-grid-title-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .closet-grid-main-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .closet-badge-new{font-size:10px;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e}
+.pill-soft{font-size:10px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3}
 .closet-grid-meta{display:flex;justify-content:space-between;align-items:center;font-size:11px}
 .closet-grid-audience{color:#6b7280}
 .closet-status-pill{border-radius:999px;padding:2px 8px;font-size:11px;text-transform:lowercase}
 .closet-status-pill--default{background:#e5e7eb;color:#374151}
 .closet-status-pill--pending{background:#fef3c7;color:#92400e}
-.closet-status-pill--published{background:#ecfdf3;color:#166534}
-.closet-status-pill--rejected{background:#fee2e2;color:#b91c1c}
-.closet-grid-footer{display:flex;justify-content:space-between;align-items:center;font-size:11px}
-.closet-grid-date{color:#9ca3af}
-.closet-grid-actions{display:flex;gap:6px}
-.closet-grid-link{border:none;background:rgba(249,250,251,.9);padding:2px 8px;font-size:11px;border-radius:999px;cursor:pointer;color:#4b5563}
-.closet-grid-link--danger{color:#b91c1c;background:#fef2f2}
 .closet-grid-error{padding:8px 10px;border-radius:10px;background:#fef2f2;color:#b91c1c;font-size:12px}
 .closet-grid-empty{font-size:13px;color:#6b7280}
-.closet-grid-footer-row{margin-top:10px;font-size:12px;color:#6b7280}
-.pill-soft{font-size:10px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3}
+.closet-grid-link{border:none;background:rgba(249,250,251,.9);padding:6px 10px;font-size:12px;border-radius:999px;cursor:pointer;color:#4b5563}
+.closet-grid-link--danger{color:#b91c1c;background:#fef2f2}
 .closet-review-pills{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
 .closet-bg-pill{font-size:10px;padding:2px 8px;border-radius:999px;background:#f3f4f6;color:#374151}
-.closet-bg-pill--ready{background:#ecfdf3;color:#166534}
 .closet-review-progress{position:absolute;bottom:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:6px}
 .closet-review-progress-track{height:6px;border-radius:999px;background:rgba(17,24,39,.12);overflow:hidden}
 .closet-review-progress-fill{height:100%;background:#a855f7}
@@ -1245,8 +1072,8 @@ const closetUploadStyles = /* css */ `
 .closet-review-label{font-size:11px;font-weight:600}
 .closet-review-audience{max-width:240px}
 .closet-review-hint{font-size:12px;color:#6b7280}
-.closet-review-actions{display:flex;align-items:center;gap:10px;margin-top:8px}
+.closet-review-actions{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .closet-review-approve{border:none;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;background:#4ade80;color:#064e3b}
 .closet-review-approve:disabled{opacity:.6;cursor:not-allowed}
-.closet-review-reject{padding:0}
+.closet-queue-meta{margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#6b7280}
 `;

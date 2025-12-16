@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────
+# Bestie workflow + membership types
+# ─────────────────────────────────────────
+
+type BestieStatus {
+  userId: ID!
+  isBestie: Boolean!
+  tier: String
+  renewsAt: AWSDateTime
+  trialActive: Boolean
+  trialEndsAt: AWSDateTime
+}
+
+type BestieCheckoutSession {
+  checkoutUrl: String!
+}
+
+extend type Mutation {
+  """
+  Bestie workflow: request a background swap for a closet item.
+  """
+  requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+}

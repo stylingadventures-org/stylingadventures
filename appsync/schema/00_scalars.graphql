@@ -1,0 +1,7 @@
+# ─────────────────────────────────────────
+# Scalars (AppSync + common)
+# ─────────────────────────────────────────
+
+scalar AWSDateTime
+scalar AWSDate
+scalar AWSJSON

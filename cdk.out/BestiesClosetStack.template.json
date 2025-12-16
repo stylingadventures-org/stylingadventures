@@ -181,56 +181,34 @@
     "PolicyDocument": {
      "Statement": [
       {
-       "Action": [
-        "s3:GetObject*",
-        "s3:GetBucket*",
-        "s3:List*"
-       ],
+       "Action": "s3:GetObject",
        "Effect": "Allow",
-       "Resource": [
-        {
-         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-        },
-        {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-           },
-           "/closet/*"
-          ]
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/*"
          ]
-        }
-       ]
+        ]
+       }
       },
       {
-       "Action": [
-        "s3:DeleteObject*",
-        "s3:PutObject",
-        "s3:PutObjectLegalHold",
-        "s3:PutObjectRetention",
-        "s3:PutObjectTagging",
-        "s3:PutObjectVersionTagging",
-        "s3:Abort*"
-       ],
+       "Action": "s3:PutObject",
        "Effect": "Allow",
-       "Resource": [
-        {
-         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-        },
-        {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
-           },
-           "/closet/processed/*"
-          ]
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/processed/*"
          ]
-        }
-       ]
+        ]
+       }
       }
      ],
      "Version": "2012-10-17"
@@ -251,7 +229,7 @@
    "Properties": {
     "Code": {
      "ImageUri": {
-      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:9f03a0707686d9f612e0ee101baf0eafbf5b523a41fef1d674b875568b98151a"
+      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:5104fd45846950ea1b60da26d397af0986cb525269165dd6c774d01c2ba49d99"
      }
     },
     "Environment": {
@@ -291,7 +269,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/Resource",
-    "aws:asset:path": "asset.9f03a0707686d9f612e0ee101baf0eafbf5b523a41fef1d674b875568b98151a",
+    "aws:asset:path": "asset.5104fd45846950ea1b60da26d397af0986cb525269165dd6c774d01c2ba49d99",
     "aws:asset:dockerfile-path": "Dockerfile",
     "aws:asset:property": "Code.ImageUri"
    }
@@ -1607,65 +1585,7 @@
   "ClosetHappyPathDashboard09D7F40C": {
    "Type": "AWS::CloudWatch::Dashboard",
    "Properties": {
-    "DashboardBody": {
-     "Fn::Join": [
-      "",
-      [
-       "{\"widgets\":[{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":0,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ClosetUploadApprovalSM — executions (5m)\",\"region\":\"",
-       {
-        "Ref": "AWS::Region"
-       },
-       "\",\"metrics\":[[\"AWS/States\",\"ExecutionsStarted\",\"StateMachineArn\",\"",
-       {
-        "Ref": "ClosetUploadApprovalSM46D354C9"
-       },
-       "\",{\"stat\":\"Sum\"}],[\"AWS/States\",\"ExecutionsSucceeded\",\"StateMachineArn\",\"",
-       {
-        "Ref": "ClosetUploadApprovalSM46D354C9"
-       },
-       "\",{\"stat\":\"Sum\"}],[\"AWS/States\",\"ExecutionsFailed\",\"StateMachineArn\",\"",
-       {
-        "Ref": "ClosetUploadApprovalSM46D354C9"
-       },
-       "\",{\"stat\":\"Sum\"}],[\"AWS/States\",\"ExecutionsTimedOut\",\"StateMachineArn\",\"",
-       {
-        "Ref": "ClosetUploadApprovalSM46D354C9"
-       },
-       "\",{\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":6,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Admin decisions — approvals vs rejects (5m)\",\"region\":\"",
-       {
-        "Ref": "AWS::Region"
-       },
-       "\",\"metrics\":[[\"StylingAdventures/ClosetApprovals\",\"ApprovalCount\",\"Outcome\",\"APPROVED\",{\"stat\":\"Sum\"}],[\"StylingAdventures/ClosetApprovals\",\"ApprovalCount\",\"Outcome\",\"REJECTED\",{\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":12,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Approval latency (seconds) — p90 / p99 (APPROVED)\",\"region\":\"",
-       {
-        "Ref": "AWS::Region"
-       },
-       "\",\"metrics\":[[\"StylingAdventures/ClosetApprovals\",\"ApprovalLatencySeconds\",\"Outcome\",\"APPROVED\",{\"stat\":\"p90\"}],[\"StylingAdventures/ClosetApprovals\",\"ApprovalLatencySeconds\",\"Outcome\",\"APPROVED\",{\"stat\":\"p99\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":18,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Approval DLQ — visible messages (5m)\",\"region\":\"",
-       {
-        "Ref": "AWS::Region"
-       },
-       "\",\"metrics\":[[\"AWS/SQS\",\"ApproximateNumberOfMessagesVisible\",\"QueueName\",\"",
-       {
-        "Fn::GetAtt": [
-         "ClosetApprovalDLQ736F075F",
-         "QueueName"
-        ]
-       },
-       "\",{\"stat\":\"Maximum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":0,\"y\":6,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Key Lambda errors (5m)\",\"region\":\"",
-       {
-        "Ref": "AWS::Region"
-       },
-       "\",\"metrics\":[[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"",
-       {
-        "Ref": "NotifyAdminFnFDB24FD6"
-       },
-       "\",{\"stat\":\"Sum\"}],[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"",
-       {
-        "Ref": "PublishClosetItemFn8BF46E04"
-       },
-       "\",{\"stat\":\"Sum\"}]],\"yAxis\":{}}}]}"
-      ]
-     ]
-    },
+    "DashboardBody": "{\"widgets\":[]}",
     "DashboardName": "sa-BestiesClosetStack-closet-happy-path"
    },
    "Metadata": {
@@ -1790,80 +1710,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/DlqProcessorErrors/Resource"
-   }
-  },
-  "ApprovalLatencyP90TooHighBB2A4D89": {
-   "Type": "AWS::CloudWatch::Alarm",
-   "Properties": {
-    "AlarmActions": [
-     {
-      "Ref": "ClosetOpsTopicE34D076D"
-     }
-    ],
-    "AlarmDescription": "p90 approval latency > 10 minutes",
-    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-    "Dimensions": [
-     {
-      "Name": "Outcome",
-      "Value": "APPROVED"
-     }
-    ],
-    "EvaluationPeriods": 1,
-    "ExtendedStatistic": "p90",
-    "MetricName": "ApprovalLatencySeconds",
-    "Namespace": "StylingAdventures/ClosetApprovals",
-    "Period": 300,
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ],
-    "Threshold": 600
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/ApprovalLatencyP90TooHigh/Resource"
-   }
-  },
-  "ApprovalLatencyP99TooHigh7DE91D29": {
-   "Type": "AWS::CloudWatch::Alarm",
-   "Properties": {
-    "AlarmActions": [
-     {
-      "Ref": "ClosetOpsTopicE34D076D"
-     }
-    ],
-    "AlarmDescription": "p99 approval latency > 20 minutes",
-    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-    "Dimensions": [
-     {
-      "Name": "Outcome",
-      "Value": "APPROVED"
-     }
-    ],
-    "EvaluationPeriods": 1,
-    "ExtendedStatistic": "p99",
-    "MetricName": "ApprovalLatencySeconds",
-    "Namespace": "StylingAdventures/ClosetApprovals",
-    "Period": 300,
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ],
-    "Threshold": 1200
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/ApprovalLatencyP99TooHigh/Resource"
    }
   },
   "ClosetUploadApprovalSMRole38D45F6B": {
@@ -3667,45 +3513,6 @@
     "aws:asset:path": "asset.474f54f5aa1ad6f7c13578363b98bac935c929caf5a520deaf94dc9d9a36ef3a",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "ApproveClosetUploadFnErrors7968F072": {
-   "Type": "AWS::CloudWatch::Alarm",
-   "Properties": {
-    "AlarmActions": [
-     {
-      "Ref": "ClosetOpsTopicE34D076D"
-     }
-    ],
-    "AlarmDescription": "ApproveClosetUploadFn is erroring",
-    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-    "Dimensions": [
-     {
-      "Name": "FunctionName",
-      "Value": {
-       "Ref": "ApproveClosetUploadFnC4D99774"
-      }
-     }
-    ],
-    "EvaluationPeriods": 1,
-    "MetricName": "Errors",
-    "Namespace": "AWS/Lambda",
-    "Period": 300,
-    "Statistic": "Sum",
-    "Tags": [
-     {
-      "Key": "App",
-      "Value": "stylingadventures"
-     },
-     {
-      "Key": "Env",
-      "Value": "dev"
-     }
-    ],
-    "Threshold": 1
-   },
-   "Metadata": {
-    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFnErrors/Resource"
    }
   },
   "AdminFanClosetUploadFnServiceRole98571B14": {

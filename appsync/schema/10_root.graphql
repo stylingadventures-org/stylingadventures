@@ -1,0 +1,12 @@
+# ─────────────────────────────────────────
+# Root operation shells ONLY
+# (Domain modules must use: extend type Query / extend type Mutation)
+# ─────────────────────────────────────────
+
+type Query {
+  _root: String
+}
+
+type Mutation {
+  _root: String
+}

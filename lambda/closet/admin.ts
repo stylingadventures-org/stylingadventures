@@ -24,7 +24,7 @@ const {
   CREATOR_GROUP_NAME: CREATOR_GROUP_NAME_RAW = "creator",
 } = process.env;
 
-// ✅ New: explicit fan SM ARN (fallback to legacy APPROVAL_SM_ARN)
+// ✅ explicit fan SM ARN (fallback to legacy APPROVAL_SM_ARN)
 const FAN_APPROVAL_SM_ARN =
   process.env.FAN_APPROVAL_SM_ARN || process.env.APPROVAL_SM_ARN || "";
 
@@ -42,19 +42,39 @@ type AppSyncEvent = {
   identity?: any;
 };
 
-type ClosetStatus =
-  | "DRAFT"
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "PUBLISHED"
-  | "ARCHIVED";
+// ✅ MUST match GraphQL schema exactly
+type ClosetStatusApi = "PENDING" | "APPROVED" | "PUBLISHED" | "REJECTED";
+
+// ✅ DB may contain legacy values that are NOT in the schema
+type ClosetStatusDb = ClosetStatusApi | "DRAFT" | "ARCHIVED" | string;
+
+const VALID_CLOSET_STATUSES = new Set<ClosetStatusApi>([
+  "PENDING",
+  "APPROVED",
+  "PUBLISHED",
+  "REJECTED",
+]);
+
+function normalizeClosetStatus(raw: unknown): ClosetStatusApi {
+  const v = String(raw ?? "").trim().toUpperCase();
+
+  if (VALID_CLOSET_STATUSES.has(v as ClosetStatusApi)) {
+    return v as ClosetStatusApi;
+  }
+
+  // Legacy mappings (never leak to GraphQL)
+  if (v === "DRAFT") return "PENDING";
+  if (v === "ARCHIVED") return "REJECTED";
+
+  console.warn("[Closet] Invalid status from DDB; defaulting to PENDING:", raw);
+  return "PENDING";
+}
 
 type ClosetItem = {
   id: string;
   userId: string;
   ownerSub: string;
-  status: ClosetStatus;
+  status: ClosetStatusApi;
   createdAt: string;
   updatedAt: string;
   mediaKey: string;
@@ -150,13 +170,16 @@ function getIdentity(event: AppSyncEvent) {
 /**
  * Defensive mapper from raw Dynamo item -> ClosetItem.
  * - Never assumes attributes exist; falls back to empty strings.
- * - Ensures createdAt / updatedAt are non-empty ISO strings
- *   so AppSync AWSDateTime serialization never explodes.
+ * - Ensures createdAt / updatedAt are non-empty ISO strings.
+ * - Normalizes status so it ALWAYS matches GraphQL enum.
  */
 function mapItem(raw: any, extra?: Partial<ClosetItem>): ClosetItem {
   const idAttr = raw.id?.S ?? "";
   const ownerSubAttr = raw.ownerSub?.S ?? "";
-  const statusAttr = (raw.status?.S as ClosetStatus | undefined) ?? "PENDING";
+
+  const statusRaw: ClosetStatusDb =
+    (raw.status?.S as ClosetStatusDb | undefined) ?? "PENDING";
+  const statusAttr = normalizeClosetStatus(statusRaw);
 
   const createdAtAttr = raw.createdAt?.S || nowIso();
   const updatedAtAttr = raw.updatedAt?.S || createdAtAttr;
@@ -199,9 +222,7 @@ function randomId() {
   if ((globalThis as any).crypto?.randomUUID) {
     return (globalThis as any).crypto.randomUUID();
   }
-  return `${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 // simple base64 wrapper for LastEvaluatedKey
@@ -269,12 +290,16 @@ export const adminListClosetItems = async (
   const exclusiveKey = decodeToken(nextToken);
 
   if (status) {
+    // Status is coming from GraphQL, so it should already be valid.
+    // Still normalize to avoid any weird casing.
+    const normalized = normalizeClosetStatus(status);
+
     const out = await ddb.send(
       new QueryCommand({
         TableName: TABLE_NAME,
         IndexName: "gsi2",
         KeyConditionExpression: "gsi2pk = :p",
-        ExpressionAttributeValues: { ":p": S(`STATUS#${status}`) },
+        ExpressionAttributeValues: { ":p": S(`STATUS#${normalized}`) },
         ScanIndexForward: false, // newest first
         ProjectionExpression:
           "id, ownerSub, #s, createdAt, updatedAt, mediaKey, rawMediaKey, title, reason, season, vibes, audience, favoriteCount, category, subcategory, pinned",
@@ -319,8 +344,7 @@ export const adminListClosetItems = async (
 
   items.sort(
     (a, b) =>
-      new Date(b.createdAt || 0).getTime() -
-      new Date(a.createdAt || 0).getTime(),
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
   );
 
   return {
@@ -390,7 +414,9 @@ export const closetFeed = async (
   const collected: ClosetItem[] = [];
 
   for (const it of out.Items || []) {
-    const status = it.status?.S as ClosetStatus | undefined;
+    // Normalize BEFORE filtering so legacy values don't break logic.
+    const status = normalizeClosetStatus(it.status?.S);
+
     if (status !== "APPROVED" && status !== "PUBLISHED") continue;
 
     const createdAtVal = it.createdAt?.S || "";
@@ -497,7 +523,7 @@ export const adminCreateClosetItem = async (
             item: {
               id,
               ownerSub: sub,
-              userId: sub,
+              userrelubed: sub,
               s3Key: rawKey,
             },
           }),
@@ -700,20 +726,9 @@ export const adminUpdateClosetItem = async (
 
   const input: AdminUpdateClosetItemInput = { ...rawInput };
   (
-    [
-      "title",
-      "category",
-      "subcategory",
-      "audience",
-      "pinned",
-      "season",
-      "vibes",
-    ] as const
+    ["title", "category", "subcategory", "audience", "pinned", "season", "vibes"] as const
   ).forEach((field) => {
-    if (
-      (args as any)[field] !== undefined &&
-      (input as any)[field] === undefined
-    ) {
+    if ((args as any)[field] !== undefined && (input as any)[field] === undefined) {
       (input as any)[field] = (args as any)[field];
     }
   });
@@ -731,8 +746,7 @@ export const adminUpdateClosetItem = async (
   if (input.title !== undefined) {
     updateExpr.push("#title = :title");
     exprNames["#title"] = "title";
-    exprValues[":title"] =
-      input.title === null ? { NULL: true } : S(input.title);
+    exprValues[":title"] = input.title === null ? { NULL: true } : S(input.title);
   }
 
   if (input.category !== undefined) {
@@ -763,16 +777,13 @@ export const adminUpdateClosetItem = async (
 
   if (input.vibes !== undefined) {
     updateExpr.push("vibes = :vibes");
-    exprValues[":vibes"] =
-      input.vibes === null ? { NULL: true } : S(input.vibes);
+    exprValues[":vibes"] = input.vibes === null ? { NULL: true } : S(input.vibes);
   }
 
   if (input.pinned !== undefined) {
     updateExpr.push("pinned = :pinned");
     exprValues[":pinned"] =
-      input.pinned === null
-        ? { NULL: true }
-        : { BOOL: Boolean(input.pinned) };
+      input.pinned === null ? { NULL: true } : { BOOL: Boolean(input.pinned) };
   }
 
   if (updateExpr.length === 1) {
@@ -837,14 +848,10 @@ export const toggleFavoriteClosetItem = async (
   const { sub } = getIdentity(event);
 
   const id = event.arguments?.id as string;
-  const favoriteOnArg = event.arguments?.favoriteOn as
-    | boolean
-    | null
-    | undefined;
+  const favoriteOnArg = event.arguments?.favoriteOn as boolean | null | undefined;
   const legacyOnArg = event.arguments?.on as boolean | null | undefined;
 
-  const onArg =
-    typeof favoriteOnArg === "boolean" ? favoriteOnArg : legacyOnArg;
+  const onArg = typeof favoriteOnArg === "boolean" ? favoriteOnArg : legacyOnArg;
 
   if (!id) throw new Error("id required");
 
@@ -934,12 +941,9 @@ export const handler = async (event: AppSyncEvent) => {
   if (field === "adminCreateClosetItem") return adminCreateClosetItem(event);
   if (field === "adminApproveItem") return adminApproveItem(event);
   if (field === "adminRejectItem") return adminRejectItem(event);
-  if (field === "adminPublishClosetItem")
-    return adminPublishClosetItem(event);
-  if (field === "adminSetClosetAudience")
-    return adminSetClosetAudience(event);
-  if (field === "adminUpdateClosetItem")
-    return adminUpdateClosetItem(event);
+  if (field === "adminPublishClosetItem") return adminPublishClosetItem(event);
+  if (field === "adminSetClosetAudience") return adminSetClosetAudience(event);
+  if (field === "adminUpdateClosetItem") return adminUpdateClosetItem(event);
   if (field === "closetFeed") return closetFeed(event);
   if (field === "topClosetLooks") return topClosetLooks(event);
 
@@ -949,3 +953,4 @@ export const handler = async (event: AppSyncEvent) => {
 
   throw new Error(`No resolver implemented for field ${field}`);
 };
+
