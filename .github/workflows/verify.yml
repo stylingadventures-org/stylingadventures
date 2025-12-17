@@ -3,7 +3,10 @@ name: Verify
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
   verify:
@@ -15,10 +18,10 @@ jobs:
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: 20
+          cache: npm
 
-      - name: Install
+      - name: Install deps (root + workspaces)
         run: npm ci
 
       - name: Verify
