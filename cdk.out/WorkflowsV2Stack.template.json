@@ -1,5 +1,5 @@
 {
- "Description": "Closet & story workflow state machines - dev",
+ "Description": "Closet, story, and creator workflow state machines - dev",
  "Resources": {
   "ApprovalStateMachineRoleE1EEC7A5": {
    "Type": "AWS::IAM::Role",

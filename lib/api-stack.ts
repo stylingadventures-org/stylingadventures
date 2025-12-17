@@ -226,46 +226,181 @@ $util.toJson({
     const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFn);
 
     // Queries
-    closetDs.createResolver("MyCloset", { typeName: "Query", fieldName: "myCloset" });
-    closetDs.createResolver("MyWishlistResolver", { typeName: "Query", fieldName: "myWishlist" });
-    closetDs.createResolver("QueryBestieClosetItemsResolver", { typeName: "Query", fieldName: "bestieClosetItems" });
-    closetDs.createResolver("ClosetFeedResolver", { typeName: "Query", fieldName: "closetFeed" });
+    closetDs.createResolver("MyCloset", {
+      typeName: "Query",
+      fieldName: "myCloset",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("MyWishlistResolver", {
+      typeName: "Query",
+      fieldName: "myWishlist",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("QueryBestieClosetItemsResolver", {
+      typeName: "Query",
+      fieldName: "bestieClosetItems",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("ClosetFeedResolver", {
+      typeName: "Query",
+      fieldName: "closetFeed",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // ✅ Stories (in schema)
-    closetDs.createResolver("StoriesResolver", { typeName: "Query", fieldName: "stories" });
-    closetDs.createResolver("MyStoriesResolver", { typeName: "Query", fieldName: "myStories" });
+    closetDs.createResolver("StoriesResolver", {
+      typeName: "Query",
+      fieldName: "stories",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("MyStoriesResolver", {
+      typeName: "Query",
+      fieldName: "myStories",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // Mutations
-    closetDs.createResolver("CreateClosetItem", { typeName: "Mutation", fieldName: "createClosetItem" });
-    closetDs.createResolver("RequestClosetApproval", { typeName: "Mutation", fieldName: "requestClosetApproval" });
-    closetDs.createResolver("UpdateClosetMediaKey", { typeName: "Mutation", fieldName: "updateClosetMediaKey" });
-    closetDs.createResolver("UpdateClosetItemStory", { typeName: "Mutation", fieldName: "updateClosetItemStory" });
+    closetDs.createResolver("CreateClosetItem", {
+      typeName: "Mutation",
+      fieldName: "createClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("RequestClosetApproval", {
+      typeName: "Mutation",
+      fieldName: "requestClosetApproval",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("UpdateClosetMediaKey", {
+      typeName: "Mutation",
+      fieldName: "updateClosetMediaKey",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("UpdateClosetItemStory", {
+      typeName: "Mutation",
+      fieldName: "updateClosetItemStory",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    closetDs.createResolver("LikeClosetItemResolver", { typeName: "Mutation", fieldName: "likeClosetItem" });
-    closetDs.createResolver("CommentOnClosetItemResolver", { typeName: "Mutation", fieldName: "commentOnClosetItem" });
-    closetDs.createResolver("PinHighlightResolver", { typeName: "Mutation", fieldName: "pinHighlight" });
-    closetDs.createResolver("ToggleWishlistItemResolver", { typeName: "Mutation", fieldName: "toggleWishlistItem" });
+    closetDs.createResolver("LikeClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "likeClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("CommentOnClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "commentOnClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("PinHighlightResolver", {
+      typeName: "Mutation",
+      fieldName: "pinHighlight",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("ToggleWishlistItemResolver", {
+      typeName: "Mutation",
+      fieldName: "toggleWishlistItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    closetDs.createResolver("ClosetItemCommentsResolver", { typeName: "Query", fieldName: "closetItemComments" });
-    closetDs.createResolver("AdminClosetItemLikesResolver", { typeName: "Query", fieldName: "adminClosetItemLikes" });
-    closetDs.createResolver("AdminClosetItemCommentsResolver", { typeName: "Query", fieldName: "adminClosetItemComments" });
+    closetDs.createResolver("ClosetItemCommentsResolver", {
+      typeName: "Query",
+      fieldName: "closetItemComments",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("AdminClosetItemLikesResolver", {
+      typeName: "Query",
+      fieldName: "adminClosetItemLikes",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("AdminClosetItemCommentsResolver", {
+      typeName: "Query",
+      fieldName: "adminClosetItemComments",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    closetDs.createResolver("PinnedClosetItemsResolver", { typeName: "GameProfile", fieldName: "pinnedClosetItems" });
+    closetDs.createResolver("PinnedClosetItemsResolver", {
+      typeName: "GameProfile",
+      fieldName: "pinnedClosetItems",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    closetDs.createResolver("RequestBgChangeResolver", { typeName: "Mutation", fieldName: "requestClosetBackgroundChange" });
+    closetDs.createResolver("RequestBgChangeResolver", {
+      typeName: "Mutation",
+      fieldName: "requestClosetBackgroundChange",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // Story mutations
-    closetDs.createResolver("CreateStoryResolver", { typeName: "Mutation", fieldName: "createStory" });
-    closetDs.createResolver("PublishStoryResolver", { typeName: "Mutation", fieldName: "publishStory" });
+    closetDs.createResolver("CreateStoryResolver", {
+      typeName: "Mutation",
+      fieldName: "createStory",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("PublishStoryResolver", {
+      typeName: "Mutation",
+      fieldName: "publishStory",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    closetDs.createResolver("AddClosetItemToFeedResolver", { typeName: "Mutation", fieldName: "addClosetItemToCommunityFeed" });
-    closetDs.createResolver("RemoveClosetItemFromFeedResolver", { typeName: "Mutation", fieldName: "removeClosetItemFromCommunityFeed" });
-    closetDs.createResolver("ShareClosetItemToPinterestResolver", { typeName: "Mutation", fieldName: "shareClosetItemToPinterest" });
+    closetDs.createResolver("AddClosetItemToFeedResolver", {
+      typeName: "Mutation",
+      fieldName: "addClosetItemToCommunityFeed",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("RemoveClosetItemFromFeedResolver", {
+      typeName: "Mutation",
+      fieldName: "removeClosetItemFromCommunityFeed",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("ShareClosetItemToPinterestResolver", {
+      typeName: "Mutation",
+      fieldName: "shareClosetItemToPinterest",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // Bestie closet aliases (in schema)
-    closetDs.createResolver("BestieCreateClosetItemResolver", { typeName: "Mutation", fieldName: "bestieCreateClosetItem" });
-    closetDs.createResolver("BestieUpdateClosetItemResolver", { typeName: "Mutation", fieldName: "bestieUpdateClosetItem" });
-    closetDs.createResolver("BestieDeleteClosetItemResolver", { typeName: "Mutation", fieldName: "bestieDeleteClosetItem" });
+    closetDs.createResolver("BestieCreateClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "bestieCreateClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("BestieUpdateClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "bestieUpdateClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    closetDs.createResolver("BestieDeleteClosetItemResolver", {
+      typeName: "Mutation",
+      fieldName: "bestieDeleteClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // ────────────────────────────────────────────────────────────
     // CLOSET ADMIN (moderation + feed + admin library)
@@ -318,51 +453,71 @@ $util.toJson({
     closetAdminSource.createResolver("AdminListPendingResolver", {
       typeName: "Query",
       fieldName: "adminListPending",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminListClosetItemsResolver", {
       typeName: "Query",
       fieldName: "adminListClosetItems",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminCreateClosetItemResolver", {
       typeName: "Mutation",
       fieldName: "adminCreateClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminApproveItem", {
       typeName: "Mutation",
       fieldName: "adminApproveItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminRejectItem", {
       typeName: "Mutation",
       fieldName: "adminRejectItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminSetClosetAudience", {
       typeName: "Mutation",
       fieldName: "adminSetClosetAudience",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     closetAdminSource.createResolver("AdminUpdateClosetItemResolver", {
       typeName: "Mutation",
       fieldName: "adminUpdateClosetItem",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    // ✅ IMPORTANT: adminPublishClosetItem exists in schema. Wire it here.
-    // ✅ ALSO IMPORTANT: lock the logical ID so CloudFormation updates the existing resolver
-    // instead of trying to "create" a second resolver and hitting AlreadyExists.
-    const adminPublishResolver = closetAdminSource.createResolver("AdminPublishClosetItem", {
-      typeName: "Mutation",
-      fieldName: "adminPublishClosetItem",
-    });
+    // ✅ IMPORTANT: adminPublishClosetItem exists in schema. Wire it here ONCE.
+    // Keep the construct id stable ("AdminPublishClosetItem") so CDK/CFN updates the same resolver.
+    const adminPublishResolver = closetAdminSource.createResolver(
+      "AdminPublishClosetItem",
+      {
+        typeName: "Mutation",
+        fieldName: "adminPublishClosetItem",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+      },
+    );
 
-    // Force the resolver logical ID to the one from your error:
-    // StylingApiAdminPublishClosetItemResolver0C813E75
-    // so updates won't try to recreate the resolver.
-    const adminPublishCfn = adminPublishResolver.node.defaultChild as appsync.CfnResolver;
-    adminPublishCfn.overrideLogicalId("StylingApiAdminPublishClosetItemResolver0C813E75");
+    // Optional but useful if you previously hit AlreadyExists:
+    // force the CFN Logical ID to match the one already deployed so CFN updates instead of re-creating.
+    const adminPublishCfn = adminPublishResolver.node
+      .defaultChild as appsync.CfnResolver;
+    adminPublishCfn.overrideLogicalId(
+      "StylingApiAdminPublishClosetItemResolver0C813E75",
+    );
 
     // ────────────────────────────────────────────────────────────
     // ADMIN SETTINGS
@@ -392,11 +547,15 @@ $util.toJson({
     adminSettingsDs.createResolver("GetAdminSettingsResolver", {
       typeName: "Query",
       fieldName: "getAdminSettings",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     adminSettingsDs.createResolver("UpdateAdminSettingsResolver", {
       typeName: "Mutation",
       fieldName: "updateAdminSettings",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     // ────────────────────────────────────────────────────────────
@@ -429,13 +588,48 @@ $util.toJson({
 
     const bestieDs = this.api.addLambdaDataSource("BestieDs", bestieFn);
 
-    bestieDs.createResolver("MeBestieStatusResolver", { typeName: "Query", fieldName: "meBestieStatus" });
-    bestieDs.createResolver("StartBestieCheckoutResolver", { typeName: "Mutation", fieldName: "startBestieCheckout" });
-    bestieDs.createResolver("ClaimBestieTrialResolver", { typeName: "Mutation", fieldName: "claimBestieTrial" });
-    bestieDs.createResolver("AdminSetBestieResolver", { typeName: "Mutation", fieldName: "adminSetBestie" });
-    bestieDs.createResolver("AdminRevokeBestieResolver", { typeName: "Mutation", fieldName: "adminRevokeBestie" });
-    bestieDs.createResolver("AdminSetBestieByEmailResolver", { typeName: "Mutation", fieldName: "adminSetBestieByEmail" });
-    bestieDs.createResolver("AdminRevokeBestieByEmailResolver", { typeName: "Mutation", fieldName: "adminRevokeBestieByEmail" });
+    bestieDs.createResolver("MeBestieStatusResolver", {
+      typeName: "Query",
+      fieldName: "meBestieStatus",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("StartBestieCheckoutResolver", {
+      typeName: "Mutation",
+      fieldName: "startBestieCheckout",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("ClaimBestieTrialResolver", {
+      typeName: "Mutation",
+      fieldName: "claimBestieTrial",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminSetBestieResolver", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestie",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminRevokeBestieResolver", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestie",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminSetBestieByEmailResolver", {
+      typeName: "Mutation",
+      fieldName: "adminSetBestieByEmail",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    bestieDs.createResolver("AdminRevokeBestieByEmailResolver", {
+      typeName: "Mutation",
+      fieldName: "adminRevokeBestieByEmail",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // ────────────────────────────────────────────────────────────
     // EPISODE GATE (EARLY ACCESS + UNLOCKS)
@@ -482,7 +676,11 @@ $util.toJson({
       entry: "lambda/episodes/admin.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: { format: OutputFormat.CJS, minify: true },
-      environment: { ...DDB_ENV, ADMIN_GROUP_NAME, NODE_OPTIONS: "--enable-source-maps" },
+      environment: {
+        ...DDB_ENV,
+        ADMIN_GROUP_NAME,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
     });
 
     table.grantReadWriteData(episodesAdminFn);
@@ -495,16 +693,22 @@ $util.toJson({
     episodesAdminDs.createResolver("AdminCreateEpisodeResolver", {
       typeName: "Mutation",
       fieldName: "adminCreateEpisode",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     episodesAdminDs.createResolver("AdminUpdateEpisodeResolver", {
       typeName: "Mutation",
       fieldName: "adminUpdateEpisode",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     episodesAdminDs.createResolver("AdminListEpisodesResolver", {
       typeName: "Query",
       fieldName: "adminListEpisodes",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     // ────────────────────────────────────────────────────────────
@@ -568,31 +772,112 @@ $util.toJson({
     primeBankAwardCoinsFn.grantInvoke(gameplayFn);
 
     const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
-    const leaderboardDs = this.api.addLambdaDataSource("LeaderboardDs", leaderboardFn);
+    const leaderboardDs = this.api.addLambdaDataSource(
+      "LeaderboardDs",
+      leaderboardFn,
+    );
     const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
     const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
-    const gameEconomyDs = this.api.addLambdaDataSource("GameEconomyDs", gameEconomyFn);
+    const gameEconomyDs = this.api.addLambdaDataSource(
+      "GameEconomyDs",
+      gameEconomyFn,
+    );
 
-    gameplayDs.createResolver("LogGameEventResolver", { typeName: "Mutation", fieldName: "logGameEvent" });
-    gameplayDs.createResolver("AwardCoinsResolver", { typeName: "Mutation", fieldName: "awardCoins" });
+    gameplayDs.createResolver("LogGameEventResolver", {
+      typeName: "Mutation",
+      fieldName: "logGameEvent",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    gameplayDs.createResolver("AwardCoinsResolver", {
+      typeName: "Mutation",
+      fieldName: "awardCoins",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    pollsDs.createResolver("CreatePoll", { typeName: "Mutation", fieldName: "createPoll" });
-    pollsDs.createResolver("VotePoll", { typeName: "Mutation", fieldName: "votePoll" });
+    pollsDs.createResolver("CreatePoll", {
+      typeName: "Mutation",
+      fieldName: "createPoll",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    pollsDs.createResolver("VotePoll", {
+      typeName: "Mutation",
+      fieldName: "votePoll",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    profileDs.createResolver("GrantBadge", { typeName: "Mutation", fieldName: "grantBadge" });
-    profileDs.createResolver("SetDisplayName", { typeName: "Mutation", fieldName: "setDisplayName" });
-    profileDs.createResolver("UpdateProfile", { typeName: "Mutation", fieldName: "updateProfile" });
+    profileDs.createResolver("GrantBadge", {
+      typeName: "Mutation",
+      fieldName: "grantBadge",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    profileDs.createResolver("SetDisplayName", {
+      typeName: "Mutation",
+      fieldName: "setDisplayName",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    profileDs.createResolver("UpdateProfile", {
+      typeName: "Mutation",
+      fieldName: "updateProfile",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    leaderboardDs.createResolver("TopXP", { typeName: "Query", fieldName: "topXP" });
-    leaderboardDs.createResolver("TopCoins", { typeName: "Query", fieldName: "topCoins" });
+    leaderboardDs.createResolver("TopXP", {
+      typeName: "Query",
+      fieldName: "topXP",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    leaderboardDs.createResolver("TopCoins", {
+      typeName: "Query",
+      fieldName: "topCoins",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    pollsDs.createResolver("GetPoll", { typeName: "Query", fieldName: "getPoll" });
-    profileDs.createResolver("GetMyProfile", { typeName: "Query", fieldName: "getMyProfile" });
+    pollsDs.createResolver("GetPoll", {
+      typeName: "Query",
+      fieldName: "getPoll",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    profileDs.createResolver("GetMyProfile", {
+      typeName: "Query",
+      fieldName: "getMyProfile",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    gameEconomyDs.createResolver("GetGameEconomyConfigResolver", { typeName: "Query", fieldName: "getGameEconomyConfig" });
-    gameEconomyDs.createResolver("UpdateGameEconomyConfigResolver", { typeName: "Mutation", fieldName: "updateGameEconomyConfig" });
-    gameEconomyDs.createResolver("GetPrimeBankAccountResolver", { typeName: "Query", fieldName: "getPrimeBankAccount" });
-    gameEconomyDs.createResolver("DailyLoginResolver", { typeName: "Mutation", fieldName: "dailyLogin" });
+    gameEconomyDs.createResolver("GetGameEconomyConfigResolver", {
+      typeName: "Query",
+      fieldName: "getGameEconomyConfig",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    gameEconomyDs.createResolver("UpdateGameEconomyConfigResolver", {
+      typeName: "Mutation",
+      fieldName: "updateGameEconomyConfig",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    gameEconomyDs.createResolver("GetPrimeBankAccountResolver", {
+      typeName: "Query",
+      fieldName: "getPrimeBankAccount",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    gameEconomyDs.createResolver("DailyLoginResolver", {
+      typeName: "Mutation",
+      fieldName: "dailyLogin",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // ────────────────────────────────────────────────────────────
     // 🛍 SHOPPING
@@ -615,16 +900,22 @@ $util.toJson({
     shopLalasLookDs.createResolver("ShopLalasLookResolver", {
       typeName: "Query",
       fieldName: "shopLalasLook",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     shopThisSceneDs.createResolver("ShopThisSceneResolver", {
       typeName: "Query",
       fieldName: "shopThisScene",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     linkClosetItemToProductDs.createResolver("LinkClosetItemToProductResolver", {
       typeName: "Mutation",
       fieldName: "linkClosetItemToProduct",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
     // ────────────────────────────────────────────────────────────
@@ -639,11 +930,15 @@ $util.toJson({
       creatorLiveDs.createResolver("GetCreatorLivestreamInfoResolver", {
         typeName: "Query",
         fieldName: "getCreatorLivestreamInfo",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
 
       creatorLiveDs.createResolver("PinLivestreamHighlightResolver", {
         typeName: "Mutation",
         fieldName: "pinLivestreamHighlight",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
     }
 
@@ -654,16 +949,22 @@ $util.toJson({
       commerceDs.createResolver("CreatorRevenueSummaryResolver", {
         typeName: "Query",
         fieldName: "creatorRevenueSummary",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
 
       commerceDs.createResolver("CreatorRevenueByPlatformResolver", {
         typeName: "Query",
         fieldName: "creatorRevenueByPlatform",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
 
       commerceDs.createResolver("RecordAffiliateClickResolver", {
         typeName: "Mutation",
         fieldName: "recordAffiliateClick",
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
     }
 
@@ -687,31 +988,106 @@ $util.toJson({
     table.grantReadWriteData(creatorToolsFn);
     creatorMediaBucket.grantReadWrite(creatorToolsFn);
 
-    const creatorAiDs = this.api.addLambdaDataSource("CreatorAiDs", creatorToolsFn);
+    const creatorAiDs = this.api.addLambdaDataSource(
+      "CreatorAiDs",
+      creatorToolsFn,
+    );
 
     creatorAiDs.createResolver("CreatorAiSuggestResolver", {
       typeName: "Mutation",
       fieldName: "creatorAiSuggest",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
     });
 
-    creatorAiDs.createResolver("CreatorCabinetsResolver", { typeName: "Query", fieldName: "creatorCabinets" });
-    creatorAiDs.createResolver("CreatorCabinetResolver", { typeName: "Query", fieldName: "creatorCabinet" });
-    creatorAiDs.createResolver("CreatorCabinetAssetsResolver", { typeName: "Query", fieldName: "creatorCabinetAssets" });
+    creatorAiDs.createResolver("CreatorCabinetsResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinets",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("CreatorCabinetResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinet",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("CreatorCabinetAssetsResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinetAssets",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    creatorAiDs.createResolver("CreateCreatorCabinetResolver", { typeName: "Mutation", fieldName: "createCreatorCabinet" });
-    creatorAiDs.createResolver("UpdateCreatorCabinetResolver", { typeName: "Mutation", fieldName: "updateCreatorCabinet" });
-    creatorAiDs.createResolver("DeleteCreatorCabinetResolver", { typeName: "Mutation", fieldName: "deleteCreatorCabinet" });
+    creatorAiDs.createResolver("CreateCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorCabinet",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("UpdateCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "updateCreatorCabinet",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("DeleteCreatorCabinetResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorCabinet",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    creatorAiDs.createResolver("CreateCreatorAssetUploadResolver", { typeName: "Mutation", fieldName: "createCreatorAssetUpload" });
+    creatorAiDs.createResolver("CreateCreatorAssetUploadResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorAssetUpload",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    creatorAiDs.createResolver("CreatorCabinetFoldersResolver", { typeName: "Query", fieldName: "creatorCabinetFolders" });
-    creatorAiDs.createResolver("CreateCreatorFolderResolver", { typeName: "Mutation", fieldName: "createCreatorFolder" });
-    creatorAiDs.createResolver("RenameCreatorFolderResolver", { typeName: "Mutation", fieldName: "renameCreatorFolder" });
-    creatorAiDs.createResolver("DeleteCreatorFolderResolver", { typeName: "Mutation", fieldName: "deleteCreatorFolder" });
+    creatorAiDs.createResolver("CreatorCabinetFoldersResolver", {
+      typeName: "Query",
+      fieldName: "creatorCabinetFolders",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("CreateCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "createCreatorFolder",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("RenameCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "renameCreatorFolder",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("DeleteCreatorFolderResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorFolder",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
-    creatorAiDs.createResolver("UpdateCreatorAssetResolver", { typeName: "Mutation", fieldName: "updateCreatorAsset" });
-    creatorAiDs.createResolver("DeleteCreatorAssetResolver", { typeName: "Mutation", fieldName: "deleteCreatorAsset" });
-    creatorAiDs.createResolver("MoveCreatorAssetResolver", { typeName: "Mutation", fieldName: "moveCreatorAsset" });
+    creatorAiDs.createResolver("UpdateCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "updateCreatorAsset",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("DeleteCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "deleteCreatorAsset",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
+    creatorAiDs.createResolver("MoveCreatorAssetResolver", {
+      typeName: "Mutation",
+      fieldName: "moveCreatorAsset",
+      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+    });
 
     // ────────────────────────────────────────────────────────────
     // OUTPUTS
