@@ -104,12 +104,21 @@ enum ClosetVisibility {
   PUBLIC
 }
 
+# Expanded to match values used by backend/workflows and to avoid
+# AppSync "Invalid input for Enum 'ClosetStatus'" serialization errors.
 enum ClosetStatus {
+  DRAFT
   PENDING
+  PENDING_PUBLISH
   APPROVED
   PUBLISHED
   REJECTED
+  ARCHIVED
+  FAILED
+  EXPIRED
 }
+
+
 
 enum ClosetFeedSort {
   NEWEST

@@ -91,16 +91,16 @@
         }
       }
     },
-    "a35f025d7d4c909f01e8ce51acd37e0a9bb2c1fd195f7d44077d2b1288ff7c20": {
+    "abb4da8f20569746fad89085414101526fa1afe08c430cc1f6c7146d74e86bba": {
       "displayName": "WorkflowsV2Stack Template",
       "source": {
         "path": "WorkflowsV2Stack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-72c4fe68": {
+        "637423256673-us-east-1-dc0e58d0": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "a35f025d7d4c909f01e8ce51acd37e0a9bb2c1fd195f7d44077d2b1288ff7c20.json",
+          "objectKey": "abb4da8f20569746fad89085414101526fa1afe08c430cc1f6c7146d74e86bba.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }
