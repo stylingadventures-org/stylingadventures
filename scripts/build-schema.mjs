@@ -41,8 +41,15 @@ const MODULE_ORDER = [
   "15_core.graphql",
 
   "20_closet.graphql",
+  "25_bg-change.graphql",
   "30_bestie.graphql",
   "40_stories.graphql",
+  "44_music.graphql",
+  "45_shopping.graphql",
+  "46_prime-tea-report.graphql",
+  "47_prime-magazine.graphql",
+  "48_creator-forecast.graphql",
+  "51_bestie-spotlight.graphql",
 ];
 
 /* -------------------------------------------------- */

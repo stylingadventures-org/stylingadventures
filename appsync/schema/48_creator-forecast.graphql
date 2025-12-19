@@ -1,0 +1,232 @@
+"""
+Creator Forecast & Predictive Model System (PCFM)
+Forecasts creator growth, audience sentiment, and trend predictions.
+Powered by analytics and machine learning insights.
+"""
+
+type CreatorForecast {
+  id: ID!
+  creatorId: ID!
+  forecastId: String!
+  generatedAt: AWSDateTime!
+  forecastPeriod: ForecastPeriod!
+  growthPrediction: GrowthMetrics!
+  audienceSentiment: SentimentAnalysis!
+  trendPredictions: [TrendPrediction!]!
+  riskFactors: [RiskFactor!]!
+  opportunities: [Opportunity!]!
+  recommendations: [Recommendation!]!
+  confidence: Float!
+  lastUpdated: AWSDateTime!
+}
+
+type GrowthMetrics {
+  currentFollowers: Int!
+  projectedFollowers: Int!
+  growthRate: Float!
+  engagementRate: Float!
+  projectedEngagementRate: Float!
+  estRevenueImpact: Float!
+}
+
+type SentimentAnalysis {
+  overallSentiment: String!
+  positivePercent: Float!
+  neutralPercent: Float!
+  negativePercent: Float!
+  sentimentTrend: String!
+  keyTopics: [String!]!
+  communityHealth: Int!
+}
+
+type TrendPrediction {
+  id: ID!
+  forecastId: ID!
+  trendName: String!
+  category: TrendCategory!
+  probability: Float!
+  peakTime: AWSDateTime
+  relevance: String!
+  actionItems: [String!]!
+}
+
+enum TrendCategory {
+  MUSIC
+  FASHION
+  LIFESTYLE
+  CONTENT_FORMAT
+  PLATFORM_SHIFT
+  AUDIENCE_DEMOGRAPHIC
+  SOCIAL_BEHAVIOR
+}
+
+type RiskFactor {
+  id: ID!
+  forecastId: ID!
+  riskName: String!
+  severity: RiskLevel!
+  probability: Float!
+  potentialImpact: String!
+  mitigationStrategy: String!
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+type Opportunity {
+  id: ID!
+  forecastId: ID!
+  opportunityName: String!
+  category: OpportunityCategory!
+  estimatedValue: Float!
+  timeWindow: String!
+  actionItems: [String!]!
+  difficulty: String!
+}
+
+enum OpportunityCategory {
+  COLLABORATION
+  SPONSORSHIP
+  EXPANSION
+  PRODUCT_LAUNCH
+  CONTENT_PIVOT
+  MONETIZATION
+}
+
+type Recommendation {
+  id: ID!
+  forecastId: ID!
+  priority: Int!
+  title: String!
+  description: String!
+  expectedOutcome: String!
+  timeframe: String!
+  resourcesNeeded: [String!]!
+  successMetrics: [String!]!
+}
+
+type CreatorReport {
+  id: ID!
+  creatorId: ID!
+  reportDate: AWSDateTime!
+  analyticsSnapshot: AnalyticsMetrics!
+  forecasts: [CreatorForecast!]!
+  historicalComparison: HistoricalTrend!
+  recommendations: [String!]!
+}
+
+type AnalyticsMetrics {
+  followers: Int!
+  followersThisWeek: Int!
+  engagement: Float!
+  engagementThisWeek: Float!
+  contentPosted: Int!
+  avgLikes: Float!
+  avgComments: Float!
+  avgShares: Float!
+  topContentType: String!
+  peakEngagementTime: String!
+}
+
+type HistoricalTrend {
+  period: String!
+  avgGrowth: Float!
+  bestPerformingContent: String!
+  worstPerformingContent: String!
+  sentimentChange: Float!
+}
+
+type CreatorForecastConnection {
+  items: [CreatorForecast!]!
+  nextToken: String
+}
+
+extend type Query {
+  """
+  Get latest forecast for a creator
+  """
+  creatorLatestForecast(creatorId: ID!): CreatorForecast
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+  Get forecast history for a creator
+  """
+  creatorForecastHistory(
+    creatorId: ID!
+    limit: Int
+    nextToken: String
+  ): CreatorForecastConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+  Get comprehensive creator report with analytics and forecasts
+  """
+  creatorReport(creatorId: ID!): CreatorReport
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+  Get trend predictions for the platform
+  """
+  platformTrendPredictions: [TrendPrediction!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+  Get growth recommendations for a creator
+  """
+  creatorGrowthRecommendations(creatorId: ID!): [Recommendation!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+}
+
+extend type Mutation {
+  """
+  Admin: Generate creator forecast
+  """
+  adminGenerateCreatorForecast(
+    creatorId: ID!
+    forecastPeriod: ForecastPeriod!
+  ): CreatorForecast!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Update analytics for forecast model
+  """
+  adminUpdateAnalyticsSnapshot(
+    creatorId: ID!
+    metrics: AnalyticsMetricsInput!
+  ): AnalyticsMetrics!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Generate platform-wide trend predictions
+  """
+  adminGeneratePlatformTrends: [TrendPrediction!]!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+}
+
+enum ForecastPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+input AnalyticsMetricsInput {
+  followers: Int!
+  engagement: Float!
+  contentPosted: Int!
+  avgLikes: Float!
+  avgComments: Float!
+  avgShares: Float!
+}

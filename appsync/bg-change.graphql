@@ -1,0 +1,10 @@
+type BgChangeRequestResult {
+  ok: Boolean!
+  requestId: ID
+}
+
+input BgChangeRequestInput {
+  itemId: ID!
+  newBackgroundKey: String!
+  notes: String
+}

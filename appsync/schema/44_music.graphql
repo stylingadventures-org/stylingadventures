@@ -1,0 +1,132 @@
+"""
+Music System
+Lala's music career, studio sessions, music videos, and era arcs.
+"""
+
+type MusicEra {
+  id: ID!
+  name: String!
+  description: String!
+  aesthetic: String!
+  releaseDate: AWSDateTime!
+  songs: [Song!]!
+  musicVideos: [MusicVideo!]!
+  relatedOutfits: [ClosetItem!]
+  storyArcs: [String!]
+  status: ReleaseStatus!
+}
+
+type Song {
+  id: ID!
+  title: String!
+  eraId: ID!
+  inspirationStory: String!
+  lyrics: String
+  spotifyUrl: String
+  appleMusicUrl: String
+  audioUrl: String!
+  duration: Int!
+  conflict: String
+  studio: StudioSession!
+  createdAt: AWSDateTime!
+}
+
+type MusicVideo {
+  id: ID!
+  songId: ID!
+  title: String!
+  description: String!
+  s3Key: String!
+  thumbnailKey: String
+  duration: Int!
+  shoppableItems: [ShoppableItem!]
+  behindTheScenes: [BTS!]
+  releaseDate: AWSDateTime!
+  status: ReleaseStatus!
+}
+
+type StudioSession {
+  id: ID!
+  songId: ID!
+  producer: String!
+  engineerNotes: String!
+  recordedAt: AWSDateTime!
+  studio: String!
+  s3RecordingKey: String
+  dramaNotes: String
+}
+
+type BTS {
+  id: ID!
+  videoId: ID!
+  thumbnailKey: String!
+  title: String!
+  description: String!
+  s3Key: String!
+}
+
+enum ReleaseStatus {
+  IN_PROGRESS
+  TEASER_RELEASED
+  RELEASED
+  ARCHIVED
+}
+
+extend type Query {
+  """
+  Get all music eras
+  """
+  musicEras: [MusicEra!]!
+
+  """
+  Get a specific music era
+  """
+  musicEra(id: ID!): MusicEra
+
+  """
+  Get songs from an era
+  """
+  eraSongs(eraId: ID!): [Song!]!
+
+  """
+  Get music videos for a song
+  """
+  songMusicVideos(songId: ID!): [MusicVideo!]!
+
+  """
+  Get music video details (with shoppable items)
+  """
+  musicVideo(id: ID!): MusicVideo
+}
+
+extend type Mutation {
+  """
+  Admin: Create a new music era
+  """
+  adminCreateMusicEra(
+    name: String!
+    description: String!
+    aesthetic: String!
+    releaseDate: AWSDateTime!
+  ): MusicEra!
+
+  """
+  Admin: Add a song to an era
+  """
+  adminCreateSong(
+    eraId: ID!
+    title: String!
+    inspirationStory: String!
+    spotifyUrl: String
+    audioUrl: String!
+  ): Song!
+
+  """
+  Admin: Release a music video
+  """
+  adminCreateMusicVideo(
+    songId: ID!
+    title: String!
+    s3Key: String!
+  ): MusicVideo!
+}
