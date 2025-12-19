@@ -1,20 +1,29 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
+
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
+
 import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
+
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
+
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
-import * as lambda from "aws-cdk-lib/aws-lambda";
+
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
+
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions";
+
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 
 // HTTP API v2
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
@@ -189,7 +198,7 @@ export class BestiesClosetStack extends cdk.Stack {
     });
 
     // =====================================================
-    // DLQ processor Lambda
+    // DLQ processor Lambda (SQS event source)
     // =====================================================
     const dlqProcessorFn = new lambdaNode.NodejsFunction(this, "ClosetDlqProcessorFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -207,7 +216,6 @@ export class BestiesClosetStack extends cdk.Stack {
     table.grantReadWriteData(dlqProcessorFn);
     adminAuditTable.grantWriteData(dlqProcessorFn);
     opsTopic.grantPublish(dlqProcessorFn);
-    approvalDlq.grantConsumeMessages(dlqProcessorFn);
 
     dlqProcessorFn.addToRolePolicy(
       new iam.PolicyStatement({
@@ -216,22 +224,11 @@ export class BestiesClosetStack extends cdk.Stack {
       }),
     );
 
-    dlqProcessorFn.addEventSourceMapping("DlqEventSource", {
-      eventSourceArn: approvalDlq.queueArn,
-      batchSize: 10,
-    });
-
-    // Step Functions failures → DLQ
-    new events.Rule(this, "ClosetApprovalExecutionFailedToDLQ", {
-      eventPattern: {
-        source: ["aws.states"],
-        detailType: ["Step Functions Execution Status Change"],
-        detail: {
-          status: ["FAILED", "TIMED_OUT", "ABORTED"],
-        },
-      },
-      targets: [new targets.SqsQueue(approvalDlq)],
-    });
+    dlqProcessorFn.addEventSource(
+      new lambdaEventSources.SqsEventSource(approvalDlq, {
+        batchSize: 10,
+      }),
+    );
 
     // =====================================================
     // CloudWatch alarms -> opsTopic
@@ -607,7 +604,9 @@ export class BestiesClosetStack extends cdk.Stack {
       }),
       new cloudwatch.GraphWidget({
         title: "Approval DLQ — visible messages (5m)",
-        left: [approvalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) })],
+        left: [
+          approvalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+        ],
       }),
       new cloudwatch.GraphWidget({
         title: "Key Lambda errors (5m)",
@@ -615,6 +614,13 @@ export class BestiesClosetStack extends cdk.Stack {
           notifyAdminFn.metricErrors({ period: cdk.Duration.minutes(5) }),
           publishClosetItemFn.metricErrors({ period: cdk.Duration.minutes(5) }),
         ],
+      }),
+    );
+
+    publishClosetItemFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["events:PutEvents"],
+        resources: ["*"],
       }),
     );
 
@@ -837,6 +843,25 @@ export class BestiesClosetStack extends cdk.Stack {
 
     table.grantReadWriteData(saveApprovalTokenFn);
     bgApprovalTopic.addSubscription(new subs.LambdaSubscription(saveApprovalTokenFn));
+
+    // =====================================================
+    // ✅ Step Functions failures → DLQ (NOW SAFE: after all SMs exist)
+    // =====================================================
+    new events.Rule(this, "ClosetStepFunctionsFailuresToDLQ", {
+      eventPattern: {
+        source: ["aws.states"],
+        detailType: ["Step Functions Execution Status Change"],
+        detail: {
+          status: ["FAILED", "TIMED_OUT", "ABORTED"],
+          stateMachineArn: [
+            this.closetUploadStateMachine.stateMachineArn,
+            this.bestieClosetUploadAutoPublishStateMachine.stateMachineArn,
+            this.backgroundChangeStateMachine.stateMachineArn,
+          ],
+        },
+      },
+      targets: [new targets.SqsQueue(approvalDlq)],
+    });
 
     // =====================================================
     // 4) Admin Approval API -> SendTaskSuccess

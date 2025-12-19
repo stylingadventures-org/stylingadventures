@@ -1,0 +1,77 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options: [ dev, stg, prd ]
+
+permissions:
+  contents: read
+  id-token: write   # required for AWS OIDC
+  actions: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.env }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test
+
+      - name: CDK Synth
+        run: npm run cdk:synth --if-present
+
+  deploy:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # This is the approval gate:
+    # - dev/stg can be non-protected environments
+    # - prd should require reviewers
+    environment: ${{ github.event.inputs.env }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Configure AWS via OIDC. You’ll set ROLE_ARN per environment as a secret.
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: CDK Deploy
+        env:
+          STAGE: ${{ github.event.inputs.env }}
+        run: |
+          npx cdk deploy --all --require-approval never

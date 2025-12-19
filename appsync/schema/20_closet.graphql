@@ -209,21 +209,6 @@ input AdminUpdateClosetItemInput {
 }
 
 # ─────────────────────────────────────────
-# Background change request (owned here, referenced elsewhere)
-# ─────────────────────────────────────────
-
-input BgChangeRequestInput {
-  itemId: ID!
-  newBackgroundKey: String!
-  notes: String
-}
-
-type BgChangeRequestResult {
-  ok: Boolean!
-  requestId: ID
-}
-
-# ─────────────────────────────────────────
 # Query operations
 # ─────────────────────────────────────────
 
@@ -259,10 +244,13 @@ extend type Query {
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
+  adminListBestieClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
   closetFeed(sort: ClosetFeedSort, limit: Int, nextToken: String): ClosetConnection!
     @aws_cognito_user_pools
 
-  # Pinned items for the signed-in user
   pinnedClosetItems: [ClosetItem!]!
     @aws_cognito_user_pools
 }
@@ -289,6 +277,9 @@ extend type Mutation {
     @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
   likeClosetItem(itemId: ID!): ClosetItem!
+    @aws_cognito_user_pools
+
+  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem!
     @aws_cognito_user_pools
 
   commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
@@ -327,6 +318,28 @@ extend type Mutation {
     @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 
   adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  # ─────────────────────────────────────────
+  # ✅ Added to match ApiStack resolvers
+  # ─────────────────────────────────────────
+
+  pinHighlight(id: ID!, pinned: Boolean): ClosetItem!
+    @aws_cognito_user_pools
+
+  toggleWishlistItem(id: ID!, wishlistOn: Boolean): ClosetItem!
+    @aws_cognito_user_pools
+
+  addClosetItemToCommunityFeed(id: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  removeClosetItemFromCommunityFeed(id: ID!): ClosetItem!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  shareClosetItemToPinterest(id: ID!): AWSJSON!
     @aws_cognito_user_pools
     @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
 }

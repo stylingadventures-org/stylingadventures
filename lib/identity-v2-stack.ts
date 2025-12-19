@@ -51,6 +51,14 @@ export class IdentityV2Stack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     });
 
+    // ✅ LEGACY EXPORT: recreates the exact export name being deleted
+    // Keep until all stacks stop importing the old export.
+    new cdk.CfnOutput(this, "LegacyUserPoolArnExport", {
+      value: this.userPool.userPoolArn,
+      exportName:
+        "IdentityV2Stack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00",
+    });
+
     //
     // Optional: Cognito hosted UI domain
     //

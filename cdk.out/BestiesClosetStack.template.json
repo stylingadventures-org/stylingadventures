@@ -730,7 +730,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "dc60cffde930025679488242abfd8f81490f8d061ec7d14cce5ba17884136dc1.zip"
+     "S3Key": "26ed460570bfcd68736f55c567cad7cb907631781e2ce15482a754a1450cd195.zip"
     },
     "Environment": {
      "Variables": {
@@ -773,7 +773,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "BestiesClosetStack/PublishClosetItemFn/Resource",
-    "aws:asset:path": "asset.dc60cffde930025679488242abfd8f81490f8d061ec7d14cce5ba17884136dc1",
+    "aws:asset:path": "asset.26ed460570bfcd68736f55c567cad7cb907631781e2ce15482a754a1450cd195",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

@@ -196,7 +196,12 @@ export type ClosetItem = {
 
 export enum ClosetStatus {
   Approved = 'APPROVED',
+  Archived = 'ARCHIVED',
+  Draft = 'DRAFT',
+  Expired = 'EXPIRED',
+  Failed = 'FAILED',
   Pending = 'PENDING',
+  PendingPublish = 'PENDING_PUBLISH',
   Published = 'PUBLISHED',
   Rejected = 'REJECTED'
 }
@@ -273,7 +278,7 @@ export type Mutation = {
   _root?: Maybe<Scalars['String']['output']>;
   adminApproveItem: ClosetItem;
   adminCreateClosetItem: ClosetItem;
-  adminPublishClosetItem?: Maybe<ClosetItem>;
+  adminPublishClosetItem: ClosetItem;
   adminRejectItem: ClosetItem;
   adminSetClosetAudience: ClosetItem;
   adminUpdateClosetItem: ClosetItem;
@@ -408,6 +413,7 @@ export type Query = {
   myCloset: ClosetConnection;
   myStories?: Maybe<BestieStoryConnection>;
   myWishlist: ClosetConnection;
+  pinnedClosetItems: Array<ClosetItem>;
   stories?: Maybe<BestieStoryConnection>;
 };
 

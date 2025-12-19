@@ -266,7 +266,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/57655064ed266e6c53d762f5bc59497e96ef84245b7781693cdcf1ae3ecf3df6.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fe64f2a40e560c03857e0e7e3309ebdbad5faee0841e7219280f9bb63ecd20f7.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -315,6 +315,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UserPoolPreTokenGenerationCognito84D0CADA"
+          }
+        ],
+        "/IdentityV2Stack/LegacyUserPoolArnExport": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LegacyUserPoolArnExport"
           }
         ],
         "/IdentityV2Stack/FanGroup": [
@@ -404,7 +410,7 @@
               "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:984)",
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\custom-resources\\lib\\aws-custom-resource\\aws-custom-resource.js:1:7936)",
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\prop-injectable.js:1:681)",
-              "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:187:37)",
+              "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:195:37)",
               "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:131:18)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
@@ -490,12 +496,6 @@
             "data": "ExportsOutputRefUserPool6BA7E5F296FD7236"
           }
         ],
-        "/IdentityV2Stack/Exports/Output{\"Fn::GetAtt\":[\"UserPool6BA7E5F2\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
-          }
-        ],
         "/IdentityV2Stack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -532,7 +532,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/abb4da8f20569746fad89085414101526fa1afe08c430cc1f6c7146d74e86bba.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/040e8d17ce9327cf7b165522be14a0648f08598d60e236c757cdd431a4647d87.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1179,7 +1179,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/2d393fca64a67a54b648bc6dad3273ff3b51a5bc5b3deaaed2212f7e9c5770b4.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/535ab685aa4ac83a9eee2138b31e101fa9438c94d025d3ebbbddc8855f65ff8e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1818,7 +1818,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/a437d24af1c4802303d61f743ed261f388d78518cf778125b715e2ed9051516f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/cd52b843404296e815480fc41e793763c9aae5951b30e55ac5299e7a239c132a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2000,7 +2000,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7bc428d72eba7ca60022a0e09128b00d08fd14bd7f9e7cc3a320dccd372c5fbc.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d3e48ff1694946fef30b8f959617325b97a0622a467bc1b8985cb7fb0066e47e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2134,7 +2134,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/36f0074baebb82e46f56722abb2118d82277b12bd8bd5fd44bcd69d61931b97e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/2f4cba1fd81d511000af3f61fe4583029afc54b347a4bb0c03ffda2bb6c1c2f4.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2208,12 +2208,6 @@
             "data": "CDKMetadata"
           }
         ],
-        "/LivestreamStack/Exports/Output{\"Fn::GetAtt\":[\"CreatorLivestreamFnC329A0C0\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D"
-          }
-        ],
         "/LivestreamStack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -2250,7 +2244,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/8f2daaa195e6404a1c198ae1f6e06cd89f69517c76ce949a67e8628fa5a2a8e7.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/c7b197d15cf7402f49b2c8d5c14f065960abbdf286cd3f35027ef3d3417cdb3e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2350,7 +2344,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3c77ee0a3b05cc844edeabe711cbefb9041281525511b45571e88ca88ab0f2db.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/bac7fcdadc4fca40507e85aa74daa27ecd46c881dc81303936ecaa75f0cd971b.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2497,24 +2491,6 @@
             "data": "CDKMetadata"
           }
         ],
-        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"GetShopLalasLookFn7E8D636F\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttGetShopLalasLookFn7E8D636FArnC5A5CB60"
-          }
-        ],
-        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"GetShopThisSceneFnB567D613\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttGetShopThisSceneFnB567D613ArnC745B8AA"
-          }
-        ],
-        "/ShoppingStack/Exports/Output{\"Fn::GetAtt\":[\"LinkClosetItemToProductFnBF5E4B26\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttLinkClosetItemToProductFnBF5E4B26ArnA1C06ED9"
-          }
-        ],
         "/ShoppingStack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -2551,7 +2527,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/16d2a714be583ff6d7775a7cce1fee591e182e2d09748d058c23b92784860f51.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/9ba5a837a9b9084f204528ebfcb99e0c40edd965cffd124acc904ff1aca63fdf.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2628,12 +2604,6 @@
             "data": "CDKMetadata"
           }
         ],
-        "/CommerceStack/Exports/Output{\"Fn::GetAtt\":[\"CommerceFn39448B29\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttCommerceFn39448B29Arn7BF3E9C7"
-          }
-        ],
         "/CommerceStack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -2670,7 +2640,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/da77102cb470579771d70da3ce5b01399d56146f55d0772c3b38856ebf7fad7e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/0fb78f0fce61911571250f2fbece00766b90bde45a700215c94539506f99fe8f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3252,7 +3222,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/7173b7c44ee56437583f96067b1ffd7aa12bbfaa18919c9ae7362cb5f79fb50b.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/1f30098822f46f9f07b42aed4e684cb692ed051869e8cc71c2959c907e0d82a2.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3401,18 +3371,6 @@
             "data": "CDKMetadata"
           }
         ],
-        "/PrimeBankStack/Exports/Output{\"Fn::GetAtt\":[\"AwardPrimeCoinsFn73EEE891\",\"Arn\"]}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2"
-          }
-        ],
-        "/PrimeBankStack/Exports/Output{\"Ref\":\"AwardPrimeCoinsFn73EEE891\"}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233"
-          }
-        ],
         "/PrimeBankStack/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -3449,7 +3407,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ee247ef55f9260091de0a5282041c7d81774b7e6b2ba9b9771ee033691268688.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/79d0a32b1a64514c755e6cddef61999b42cb4e94410d38720cac29b4ed8cebd3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3632,7 +3590,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/ae5a6cec0f869f4c7fdc11da96300a84c4d1ce432ac0d8d3e22e5883ef8e6576.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/39cdbdcc60c06381a0c8760c767952c356206704d3a3c8de32c9502333558e92.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3902,7 +3860,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/99cf99e89de27165c95d3915814e65df47eb62e2620ac0f5bb0b90e7be352812.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/f1f89a44e195605545cbd2d37c7efbd8afae033212b92e1c437a16e7254dab05.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4287,7 +4245,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/c51f2af3c106dd026d477065a3ad87fb02b2a280355fb33fe6502ae8d91ec153.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/52f9e765e31a19eed9efc992edac8115b5ec2ec676ffbe804f4f4c952506371b.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4301,13 +4259,9 @@
       },
       "dependencies": [
         "IdentityV2Stack",
-        "ShoppingStack",
-        "LivestreamStack",
-        "CommerceStack",
         "DataStack",
         "BestiesClosetStack",
         "BestiesStoriesStack",
-        "PrimeBankStack",
         "ApiStack.assets"
       ],
       "metadata": {
@@ -4458,6 +4412,12 @@
             "data": "StylingApiLikeClosetItemResolverDDD008BD"
           }
         ],
+        "/ApiStack/StylingApi/ToggleFavoriteClosetItemResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiToggleFavoriteClosetItemResolverE4293E23"
+          }
+        ],
         "/ApiStack/StylingApi/CommentOnClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -4584,6 +4544,12 @@
             "data": "StylingApiAdminListClosetItemsResolver3D611162"
           }
         ],
+        "/ApiStack/StylingApi/AdminListBestieClosetItemsResolver/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StylingApiAdminListBestieClosetItemsResolverB59AFF74"
+          }
+        ],
         "/ApiStack/StylingApi/AdminCreateClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -4617,595 +4583,49 @@
         "/ApiStack/StylingApi/AdminPublishClosetItem/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminPublishClosetItemResolver0C813E75"
+            "data": "StylingApiAdminPublishClosetItemE70F2535"
           }
         ],
-        "/ApiStack/StylingApi/AdminSettingsDs/ServiceRole/Resource": [
+        "/ApiStack/AppSyncSchemaReadyFn/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSettingsDsServiceRoleE770C776"
+            "data": "AppSyncSchemaReadyFnServiceRole62E33748"
           }
         ],
-        "/ApiStack/StylingApi/AdminSettingsDs/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/AppSyncSchemaReadyFn/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSettingsDsServiceRoleDefaultPolicy823E1137"
+            "data": "AppSyncSchemaReadyFnServiceRoleDefaultPolicyE0925986"
           }
         ],
-        "/ApiStack/StylingApi/AdminSettingsDs/Resource": [
+        "/ApiStack/AppSyncSchemaReadyFn/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSettingsDsC710BA61"
+            "data": "AppSyncSchemaReadyFnD1C75E51"
           }
         ],
-        "/ApiStack/StylingApi/GetAdminSettingsResolver/Resource": [
+        "/ApiStack/SchemaReadyProvider/framework-onEvent/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetAdminSettingsResolver85DF2C73"
+            "data": "SchemaReadyProviderframeworkonEventServiceRole8F2E62B3"
           }
         ],
-        "/ApiStack/StylingApi/UpdateAdminSettingsResolver/Resource": [
+        "/ApiStack/SchemaReadyProvider/framework-onEvent/ServiceRole/DefaultPolicy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateAdminSettingsResolverF15DD644"
+            "data": "SchemaReadyProviderframeworkonEventServiceRoleDefaultPolicyE2DDA385"
           }
         ],
-        "/ApiStack/StylingApi/BestieDs/ServiceRole/Resource": [
+        "/ApiStack/SchemaReadyProvider/framework-onEvent/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDsServiceRole134EBB9C"
+            "data": "SchemaReadyProviderframeworkonEvent3EBA120F"
           }
         ],
-        "/ApiStack/StylingApi/BestieDs/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/SchemaReady/Default": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDsServiceRoleDefaultPolicy459937D7"
-          }
-        ],
-        "/ApiStack/StylingApi/BestieDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDs1FF238AC"
-          }
-        ],
-        "/ApiStack/StylingApi/MeBestieStatusResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMeBestieStatusResolver27806573"
-          }
-        ],
-        "/ApiStack/StylingApi/StartBestieCheckoutResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiStartBestieCheckoutResolver50369CFB"
-          }
-        ],
-        "/ApiStack/StylingApi/ClaimBestieTrialResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiClaimBestieTrialResolver5994871A"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminSetBestieResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSetBestieResolver49B2D7E7"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminRevokeBestieResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminRevokeBestieResolver87630DF1"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminSetBestieByEmailResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSetBestieByEmailResolverD52DA35C"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminRevokeBestieByEmailResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminRevokeBestieByEmailResolver29BFE567"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesGateDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesGateDsServiceRoleAAD7DDD3"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesGateDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesGateDsServiceRoleDefaultPolicyBE9E9754"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesGateDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesGateDs3A38855A"
-          }
-        ],
-        "/ApiStack/StylingApi/IsEpisodeEarlyAccessResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiIsEpisodeEarlyAccessResolverB49E31ED"
-          }
-        ],
-        "/ApiStack/StylingApi/UnlockEpisodeResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiUnlockEpisodeResolverB91CE673"
-          }
-        ],
-        "/ApiStack/StylingApi/MyUnlockedEpisodesResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMyUnlockedEpisodesResolver3FC6AA85"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesAdminDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesAdminDsServiceRoleF920ABF5"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesAdminDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesAdminDsServiceRoleDefaultPolicy6523A222"
-          }
-        ],
-        "/ApiStack/StylingApi/EpisodesAdminDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEpisodesAdminDs136E3A2E"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateEpisodeResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateEpisodeResolverACF80E84"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminUpdateEpisodeResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminUpdateEpisodeResolverF836327A"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminListEpisodesResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminListEpisodesResolver3AAA48B1"
-          }
-        ],
-        "/ApiStack/StylingApi/GameplayDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameplayDsServiceRoleA193493E"
-          }
-        ],
-        "/ApiStack/StylingApi/GameplayDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameplayDsServiceRoleDefaultPolicy7A4AC6CB"
-          }
-        ],
-        "/ApiStack/StylingApi/GameplayDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameplayDs2AF740EF"
-          }
-        ],
-        "/ApiStack/StylingApi/LeaderboardDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLeaderboardDsServiceRole00D64A33"
-          }
-        ],
-        "/ApiStack/StylingApi/LeaderboardDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLeaderboardDsServiceRoleDefaultPolicyD7DA49C2"
-          }
-        ],
-        "/ApiStack/StylingApi/LeaderboardDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLeaderboardDsEFF3D0CD"
-          }
-        ],
-        "/ApiStack/StylingApi/PollsDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPollsDsServiceRoleFE523342"
-          }
-        ],
-        "/ApiStack/StylingApi/PollsDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPollsDsServiceRoleDefaultPolicyD1CDD935"
-          }
-        ],
-        "/ApiStack/StylingApi/PollsDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPollsDs9CCAF464"
-          }
-        ],
-        "/ApiStack/StylingApi/ProfileDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiProfileDsServiceRole6F0CE2C7"
-          }
-        ],
-        "/ApiStack/StylingApi/ProfileDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiProfileDsServiceRoleDefaultPolicyD64DFCD4"
-          }
-        ],
-        "/ApiStack/StylingApi/ProfileDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiProfileDs16C655BC"
-          }
-        ],
-        "/ApiStack/StylingApi/GameEconomyDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameEconomyDsServiceRole795A4F63"
-          }
-        ],
-        "/ApiStack/StylingApi/GameEconomyDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameEconomyDsServiceRoleDefaultPolicy2CAF6966"
-          }
-        ],
-        "/ApiStack/StylingApi/GameEconomyDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGameEconomyDsA6D32565"
-          }
-        ],
-        "/ApiStack/StylingApi/LogGameEventResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLogGameEventResolver79028153"
-          }
-        ],
-        "/ApiStack/StylingApi/AwardCoinsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAwardCoinsResolverC9D4641F"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatePoll/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatePoll172ED74E"
-          }
-        ],
-        "/ApiStack/StylingApi/VotePoll/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiVotePoll05392468"
-          }
-        ],
-        "/ApiStack/StylingApi/GrantBadge/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGrantBadgeBDDB1A42"
-          }
-        ],
-        "/ApiStack/StylingApi/SetDisplayName/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiSetDisplayName8C104CD4"
-          }
-        ],
-        "/ApiStack/StylingApi/UpdateProfile/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateProfile4D453D81"
-          }
-        ],
-        "/ApiStack/StylingApi/TopXP/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTopXPFE0D029C"
-          }
-        ],
-        "/ApiStack/StylingApi/TopCoins/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTopCoinsFE86E3ED"
-          }
-        ],
-        "/ApiStack/StylingApi/GetPoll/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetPoll72CC3EA6"
-          }
-        ],
-        "/ApiStack/StylingApi/GetMyProfile/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetMyProfile7E9BB4B2"
-          }
-        ],
-        "/ApiStack/StylingApi/GetGameEconomyConfigResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetGameEconomyConfigResolver7F6E2190"
-          }
-        ],
-        "/ApiStack/StylingApi/UpdateGameEconomyConfigResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateGameEconomyConfigResolver1450DE68"
-          }
-        ],
-        "/ApiStack/StylingApi/GetPrimeBankAccountResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetPrimeBankAccountResolver99BAF195"
-          }
-        ],
-        "/ApiStack/StylingApi/DailyLoginResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiDailyLoginResolver5E5CAA70"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopLalasLookDataSource/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopLalasLookDataSourceServiceRole0E7FCA6E"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopLalasLookDataSource/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopLalasLookDataSourceServiceRoleDefaultPolicy6752D949"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopLalasLookDataSource/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopLalasLookDataSource21726806"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopThisSceneDataSource/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopThisSceneDataSourceServiceRoleDE112DBD"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopThisSceneDataSource/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopThisSceneDataSourceServiceRoleDefaultPolicy8DA62DE3"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopThisSceneDataSource/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopThisSceneDataSourceE1DE73BD"
-          }
-        ],
-        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLinkClosetItemToProductDataSourceServiceRoleF7011663"
-          }
-        ],
-        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLinkClosetItemToProductDataSourceServiceRoleDefaultPolicyFF224FF1"
-          }
-        ],
-        "/ApiStack/StylingApi/LinkClosetItemToProductDataSource/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLinkClosetItemToProductDataSourceAC48B843"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopLalasLookResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopLalasLookResolverA5D57BCA"
-          }
-        ],
-        "/ApiStack/StylingApi/ShopThisSceneResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShopThisSceneResolver38564249"
-          }
-        ],
-        "/ApiStack/StylingApi/LinkClosetItemToProductResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLinkClosetItemToProductResolverBA5FDEE1"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorLivestreamDsServiceRoleBA132ACD"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorLivestreamDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorLivestreamDsServiceRoleDefaultPolicyBEFB4995"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorLivestreamDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorLivestreamDsCF43FE9E"
-          }
-        ],
-        "/ApiStack/StylingApi/GetCreatorLivestreamInfoResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiGetCreatorLivestreamInfoResolver55FA26A8"
-          }
-        ],
-        "/ApiStack/StylingApi/PinLivestreamHighlightResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPinLivestreamHighlightResolverB01D03D5"
-          }
-        ],
-        "/ApiStack/StylingApi/CommerceDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCommerceDsServiceRole3C8295DD"
-          }
-        ],
-        "/ApiStack/StylingApi/CommerceDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCommerceDsServiceRoleDefaultPolicy94082CC9"
-          }
-        ],
-        "/ApiStack/StylingApi/CommerceDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCommerceDs455289CD"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorRevenueSummaryResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorRevenueSummaryResolver8033B6DD"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorRevenueByPlatformResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorRevenueByPlatformResolverB9B02038"
-          }
-        ],
-        "/ApiStack/StylingApi/RecordAffiliateClickResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiRecordAffiliateClickResolver4FC6FA42"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorAiDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorAiDsServiceRole5E6F914B"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorAiDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorAiDsServiceRoleDefaultPolicy636643F6"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorAiDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorAiDs7DA2D891"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorAiSuggestResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorAiSuggestResolverE5BE4412"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorCabinetsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorCabinetsResolverE5179C8F"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorCabinetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorCabinetResolverFE24A19E"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorCabinetAssetsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorCabinetAssetsResolver3BC80E66"
-          }
-        ],
-        "/ApiStack/StylingApi/CreateCreatorCabinetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreateCreatorCabinetResolver79CC1F07"
-          }
-        ],
-        "/ApiStack/StylingApi/UpdateCreatorCabinetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateCreatorCabinetResolver8D2AF44F"
-          }
-        ],
-        "/ApiStack/StylingApi/DeleteCreatorCabinetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiDeleteCreatorCabinetResolverE0F106BA"
-          }
-        ],
-        "/ApiStack/StylingApi/CreateCreatorAssetUploadResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreateCreatorAssetUploadResolver3D0687D3"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorCabinetFoldersResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorCabinetFoldersResolver288B7EC3"
-          }
-        ],
-        "/ApiStack/StylingApi/CreateCreatorFolderResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreateCreatorFolderResolver366E9D25"
-          }
-        ],
-        "/ApiStack/StylingApi/RenameCreatorFolderResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiRenameCreatorFolderResolver3914AE61"
-          }
-        ],
-        "/ApiStack/StylingApi/DeleteCreatorFolderResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiDeleteCreatorFolderResolver21DF010A"
-          }
-        ],
-        "/ApiStack/StylingApi/UpdateCreatorAssetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateCreatorAssetResolverBA778420"
-          }
-        ],
-        "/ApiStack/StylingApi/DeleteCreatorAssetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiDeleteCreatorAssetResolverF0495069"
-          }
-        ],
-        "/ApiStack/StylingApi/MoveCreatorAssetResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMoveCreatorAssetResolver35BA5A62"
+            "data": "SchemaReady"
           }
         ],
         "/ApiStack/CreatorMediaBucket/Resource": [
@@ -5244,6 +4664,42 @@
             "data": "ClosetResolverFnDB09D91C"
           }
         ],
+        "/ApiStack/ClosetResolverFn/CurrentVersion/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnCurrentVersion71AF2A5Ed2865cecae5c37ab5ff06ab6d7239043"
+          }
+        ],
+        "/ApiStack/ClosetResolverFnLive/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnLive326F31AD"
+          }
+        ],
+        "/ApiStack/ClosetResolverFnAliasErrorsAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnAliasErrorsAlarmFFD2E07A"
+          }
+        ],
+        "/ApiStack/ClosetResolverFnDeploymentGroup/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnDeploymentGroupServiceRole3D5952DE"
+          }
+        ],
+        "/ApiStack/ClosetResolverFnDeploymentGroup/Application/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnDeploymentGroupApplication6B92EE45"
+          }
+        ],
+        "/ApiStack/ClosetResolverFnDeploymentGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClosetResolverFnDeploymentGroupB4ABBE83"
+          }
+        ],
         "/ApiStack/ClosetAdminFn/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -5262,184 +4718,40 @@
             "data": "ClosetAdminFnB4D542CC"
           }
         ],
-        "/ApiStack/AdminSettingsFn/ServiceRole/Resource": [
+        "/ApiStack/ClosetAdminFn/CurrentVersion/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "AdminSettingsFnServiceRole5CD7AB31"
+            "data": "ClosetAdminFnCurrentVersionFAF5CD3De34e45939ddd1a8606ea184e439ea0f6"
           }
         ],
-        "/ApiStack/AdminSettingsFn/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/ClosetAdminFnLive/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "AdminSettingsFnServiceRoleDefaultPolicyD4F7DF2F"
+            "data": "ClosetAdminFnLive19204595"
           }
         ],
-        "/ApiStack/AdminSettingsFn/Resource": [
+        "/ApiStack/ClosetAdminFnAliasErrorsAlarm/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "AdminSettingsFnE3CD1AE7"
+            "data": "ClosetAdminFnAliasErrorsAlarm510C0B72"
           }
         ],
-        "/ApiStack/BestieFn/ServiceRole/Resource": [
+        "/ApiStack/ClosetAdminFnDeploymentGroup/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieFnServiceRoleF23C6CA8"
+            "data": "ClosetAdminFnDeploymentGroupServiceRole7FC4FFFE"
           }
         ],
-        "/ApiStack/BestieFn/ServiceRole/DefaultPolicy/Resource": [
+        "/ApiStack/ClosetAdminFnDeploymentGroup/Application/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieFnServiceRoleDefaultPolicy85C0CE1B"
+            "data": "ClosetAdminFnDeploymentGroupApplication6B0E5F1B"
           }
         ],
-        "/ApiStack/BestieFn/Resource": [
+        "/ApiStack/ClosetAdminFnDeploymentGroup/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "BestieFn57102072"
-          }
-        ],
-        "/ApiStack/EpisodesGateFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesGateFnServiceRoleB3AD1C04"
-          }
-        ],
-        "/ApiStack/EpisodesGateFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesGateFnServiceRoleDefaultPolicy19662CB1"
-          }
-        ],
-        "/ApiStack/EpisodesGateFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesGateFn123EBDAC"
-          }
-        ],
-        "/ApiStack/EpisodesAdminFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesAdminFnServiceRole49DE0358"
-          }
-        ],
-        "/ApiStack/EpisodesAdminFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesAdminFnServiceRoleDefaultPolicy1F11AD33"
-          }
-        ],
-        "/ApiStack/EpisodesAdminFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "EpisodesAdminFnE94A9FB5"
-          }
-        ],
-        "/ApiStack/GameplayFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameplayFnServiceRole9C9BF690"
-          }
-        ],
-        "/ApiStack/GameplayFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameplayFnServiceRoleDefaultPolicy448D7565"
-          }
-        ],
-        "/ApiStack/GameplayFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameplayFnCD9DA738"
-          }
-        ],
-        "/ApiStack/LeaderboardFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "LeaderboardFnServiceRoleB1EE89C6"
-          }
-        ],
-        "/ApiStack/LeaderboardFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "LeaderboardFnServiceRoleDefaultPolicyA2682BE0"
-          }
-        ],
-        "/ApiStack/LeaderboardFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "LeaderboardFnF2B1AEC2"
-          }
-        ],
-        "/ApiStack/PollsFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "PollsFnServiceRole872F6029"
-          }
-        ],
-        "/ApiStack/PollsFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "PollsFnServiceRoleDefaultPolicyA9884FB0"
-          }
-        ],
-        "/ApiStack/PollsFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "PollsFn65E6C73F"
-          }
-        ],
-        "/ApiStack/ProfileFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ProfileFnServiceRole4C7CA582"
-          }
-        ],
-        "/ApiStack/ProfileFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ProfileFnServiceRoleDefaultPolicy3F833555"
-          }
-        ],
-        "/ApiStack/ProfileFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ProfileFn28F379CF"
-          }
-        ],
-        "/ApiStack/GameEconomyFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameEconomyFnServiceRoleE0BCA8EF"
-          }
-        ],
-        "/ApiStack/GameEconomyFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameEconomyFnServiceRoleDefaultPolicy20EA2DC0"
-          }
-        ],
-        "/ApiStack/GameEconomyFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GameEconomyFn1BCE638D"
-          }
-        ],
-        "/ApiStack/CreatorToolsFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorToolsFnServiceRole02AF0704"
-          }
-        ],
-        "/ApiStack/CreatorToolsFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorToolsFnServiceRoleDefaultPolicyF5B62932"
-          }
-        ],
-        "/ApiStack/CreatorToolsFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorToolsFn517D3A39"
+            "data": "ClosetAdminFnDeploymentGroup7B95AC28"
           }
         ],
         "/ApiStack/GraphQlApiUrl": [

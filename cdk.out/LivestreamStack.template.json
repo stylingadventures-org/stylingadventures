@@ -210,17 +210,6 @@
    "Export": {
     "Name": "SA-CreatorLivePlaybackUrl-dev"
    }
-  },
-  "ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D": {
-   "Value": {
-    "Fn::GetAtt": [
-     "CreatorLivestreamFnC329A0C0",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "LivestreamStack:ExportsOutputFnGetAttCreatorLivestreamFnC329A0C0Arn7213942D"
-   }
   }
  },
  "Parameters": {

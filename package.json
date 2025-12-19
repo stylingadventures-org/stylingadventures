@@ -1,33 +1,37 @@
 {
   "name": "stylingadventures",
   "private": true,
+  "workspaces": [
+    "site"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cd site && npm run build",
+    "build": "npm run build:infra && npm run build:site",
     "build:infra": "tsc -p tsconfig.build.json",
-    "build:site": "cd site && npm run build",
-
+    "build:site": "npm -w site run build",
     "build:schema": "node scripts/build-schema.mjs",
     "schema:check": "node -e \"const fs=require('fs'); const { buildSchema }=require('graphql'); buildSchema(fs.readFileSync('appsync/schema.graphql','utf8')); console.log('Schema OK');\"",
-
-    "codegen": "npm run build:schema && npm run schema:check && graphql-codegen --config codegen.yml",
-
+    "schema:verify": "npm run build:schema && npm run schema:check",
+    "codegen": "npm run schema:verify && graphql-codegen --config codegen.yml",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "pretest": "npm run schema:verify",
     "test": "jest -c jest.config.cjs",
     "test:watch": "jest -c jest.config.cjs --watch",
-    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
-
-    "plan": "npm run build:schema && npm run schema:check && npx cdk synth && npx cdk diff",
-    "deploy": "npm run build:schema && npm run schema:check && npm run build && npx cdk deploy --concurrency 1 --require-approval never",
-    "deploy:dev": "npm run build:schema && npm run schema:check && npm run build && npx cdk deploy --all --require-approval never",
-
-    "destroy": "npx cdk destroy --force",
+    "verify": "npm run codegen && npm run typecheck:test && npm test",
+    "cdk:synth": "npm run schema:verify && npm run build && npx cdk synth",
+    "cdk:diff": "npm run schema:verify && npm run build && npx cdk diff",
+    "cdk:deploy": "npm run schema:verify && npm run build && npx cdk deploy --concurrency 1 --require-approval never",
+    "cdk:deploy:all": "npm run schema:verify && npm run build && npx cdk deploy --all --require-approval never",
+    "deploy:api": "npm run cdk:deploy -- ApiStack",
+    "deploy:api:canary": "npm run cdk:deploy -- ApiStack -c canary=true",
+    "cdk:destroy": "npx cdk destroy --force",
     "postdeploy": "node scripts/write-outputs.js",
-
     "smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-after-deploy.ps1 -StackName BestiesClosetStack -Region us-east-1",
-    "deploy:smoke": "npm run deploy -- BestiesClosetStack && npm run smoke",
-
-    "verify": "npm run codegen && npm run typecheck:test && npm test"
+    "deploy:smoke": "npm run cdk:deploy -- BestiesClosetStack && npm run smoke",
+    "predeploy": "node ./scripts/build-schema.mjs",
+    "deploy": "cdk deploy"
   },
   "dependencies": {
+    "@aws-sdk/client-appsync": "^3.953.0",
     "@aws-sdk/client-dynamodb": "^3.948.0",
     "@aws-sdk/client-eventbridge": "^3.913.0",
     "@aws-sdk/client-lambda": "^3.948.0",
@@ -51,7 +55,8 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.9.5",
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.927.0",
@@ -59,7 +64,6 @@
     "@graphql-codegen/typescript": "^5.0.6",
     "@graphql-codegen/typescript-operations": "^5.0.6",
     "@graphql-codegen/typescript-react-apollo": "^4.3.4",
-    "graphql": "^16.12.0",
     "@types/aws-lambda": "^8.10.156",
     "@types/form-data": "^2.2.1",
     "@types/jest": "^30.0.0",
@@ -72,6 +76,7 @@
     "aws-sdk-client-mock": "^4.1.0",
     "constructs": "^10.4.3",
     "esbuild": "^0.27.0",
+    "graphql": "^16.12.0",
     "jest": "^30.2.0",
     "source-map-support": "^0.5.21",
     "stripe": "^19.3.0",
@@ -80,6 +85,3 @@
     "typescript": "^5.9.3"
   }
 }
-
-
-

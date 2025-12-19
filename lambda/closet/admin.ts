@@ -241,6 +241,12 @@ function decodeToken(
   }
 }
 
+function toLimit(raw: any, fallback: number) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(Math.floor(n), 200);
+}
+
 /* ============== Queries ============== */
 
 export const adminListPending = async (
@@ -249,8 +255,9 @@ export const adminListPending = async (
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
 
-  const { limit = 100, nextToken } = event.arguments || {};
-  const exclusiveKey = decodeToken(nextToken);
+  const args = event.arguments || {};
+  const limit = toLimit(args.limit, 100);
+  const exclusiveKey = decodeToken(args.nextToken);
 
   const out = await ddb.send(
     new QueryCommand({
@@ -274,9 +281,10 @@ export const adminListPending = async (
     }),
   );
 
+  // ✅ NEVER return null/undefined for a Connection type
   return {
-    items,
-    nextToken: encodeToken(out.LastEvaluatedKey),
+    items: items ?? [],
+    nextToken: encodeToken(out.LastEvaluatedKey) ?? null,
   };
 };
 
@@ -286,12 +294,13 @@ export const adminListClosetItems = async (
   const { isAdmin } = getIdentity(event);
   if (!isAdmin) throw new Error("Forbidden");
 
-  const { status, limit = 50, nextToken } = event.arguments || {};
-  const exclusiveKey = decodeToken(nextToken);
+  const args = event.arguments || {};
+  const limit = toLimit(args.limit, 50);
+  const exclusiveKey = decodeToken(args.nextToken);
+
+  const status = args.status as string | undefined;
 
   if (status) {
-    // Status is coming from GraphQL, so it should already be valid.
-    // Still normalize to avoid any weird casing.
     const normalized = normalizeClosetStatus(status);
 
     const out = await ddb.send(
@@ -317,8 +326,8 @@ export const adminListClosetItems = async (
     );
 
     return {
-      items,
-      nextToken: encodeToken(out.LastEvaluatedKey),
+      items: items ?? [],
+      nextToken: encodeToken(out.LastEvaluatedKey) ?? null,
     };
   }
 
@@ -344,12 +353,13 @@ export const adminListClosetItems = async (
 
   items.sort(
     (a, b) =>
-      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+      new Date(b.createdAt || 0).getTime() -
+      new Date(a.createdAt || 0).getTime(),
   );
 
   return {
-    items,
-    nextToken: encodeToken(out.LastEvaluatedKey),
+    items: items ?? [],
+    nextToken: encodeToken(out.LastEvaluatedKey) ?? null,
   };
 };
 
@@ -360,14 +370,14 @@ export const adminListBestieClosetItems = async (
 
   const bestieAudiences = new Set<string>(["BESTIE", "EXCLUSIVE"]);
 
-  const filtered = page.items.filter((it) => {
+  const filtered = (page.items || []).filter((it) => {
     const aud = (it.audience || "").toUpperCase();
     return bestieAudiences.has(aud);
   });
 
   return {
-    ...page,
-    items: filtered,
+    items: filtered ?? [],
+    nextToken: page.nextToken ?? null,
   };
 };
 
@@ -452,7 +462,7 @@ export const closetFeed = async (
   });
 
   return {
-    items: collected,
+    items: collected ?? [],
     nextToken: null,
   };
 };
@@ -464,7 +474,7 @@ export const topClosetLooks = async (
     ...event,
     arguments: { ...(event.arguments || {}), sort: "NEWEST" },
   });
-  return conn.items;
+  return conn.items ?? [];
 };
 
 /* ============== Mutations ============== */
@@ -523,7 +533,7 @@ export const adminCreateClosetItem = async (
             item: {
               id,
               ownerSub: sub,
-              userrelubed: sub,
+              userId: sub, // ✅ fixed typo (was "userrelubed")
               s3Key: rawKey,
             },
           }),
@@ -953,4 +963,5 @@ export const handler = async (event: AppSyncEvent) => {
 
   throw new Error(`No resolver implemented for field ${field}`);
 };
+
 
