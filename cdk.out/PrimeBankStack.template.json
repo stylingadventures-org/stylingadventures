@@ -837,25 +837,6 @@
    "Value": {
     "Ref": "PrimeBankTransactionTableCB2A4A5D"
    }
-  },
-  "ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2": {
-   "Value": {
-    "Fn::GetAtt": [
-     "AwardPrimeCoinsFn73EEE891",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "PrimeBankStack:ExportsOutputFnGetAttAwardPrimeCoinsFn73EEE891Arn7A6820C2"
-   }
-  },
-  "ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233": {
-   "Value": {
-    "Ref": "AwardPrimeCoinsFn73EEE891"
-   },
-   "Export": {
-    "Name": "PrimeBankStack:ExportsOutputRefAwardPrimeCoinsFn73EEE891F3250233"
-   }
   }
  },
  "Parameters": {

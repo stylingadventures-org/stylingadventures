@@ -61,16 +61,16 @@
         }
       }
     },
-    "7173b7c44ee56437583f96067b1ffd7aa12bbfaa18919c9ae7362cb5f79fb50b": {
+    "1f30098822f46f9f07b42aed4e684cb692ed051869e8cc71c2959c907e0d82a2": {
       "displayName": "PrimeBankStack Template",
       "source": {
         "path": "PrimeBankStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-ac4385a8": {
+        "637423256673-us-east-1-17bf7b35": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "7173b7c44ee56437583f96067b1ffd7aa12bbfaa18919c9ae7362cb5f79fb50b.json",
+          "objectKey": "1f30098822f46f9f07b42aed4e684cb692ed051869e8cc71c2959c907e0d82a2.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

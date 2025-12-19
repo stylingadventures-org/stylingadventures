@@ -8,31 +8,30 @@
     "build": "npm run build:infra && npm run build:site",
     "build:infra": "tsc -p tsconfig.build.json",
     "build:site": "npm -w site run build",
-
     "build:schema": "node scripts/build-schema.mjs",
     "schema:check": "node -e \"const fs=require('fs'); const { buildSchema }=require('graphql'); buildSchema(fs.readFileSync('appsync/schema.graphql','utf8')); console.log('Schema OK');\"",
-
-    "codegen": "npm run build:schema && npm run schema:check && graphql-codegen --config codegen.yml",
-
+    "schema:verify": "npm run build:schema && npm run schema:check",
+    "codegen": "npm run schema:verify && graphql-codegen --config codegen.yml",
     "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
-
+    "pretest": "npm run schema:verify",
     "test": "jest -c jest.config.cjs",
     "test:watch": "jest -c jest.config.cjs --watch",
-
     "verify": "npm run codegen && npm run typecheck:test && npm test",
-
-    "cdk:synth": "npm run build:schema && npm run schema:check && npx cdk synth",
-    "cdk:diff": "npm run build:schema && npm run schema:check && npx cdk diff",
-    "cdk:deploy": "npm run build:schema && npm run schema:check && npm run build && npx cdk deploy --concurrency 1 --require-approval never",
-    "cdk:deploy:all": "npm run build:schema && npm run schema:check && npm run build && npx cdk deploy --all --require-approval never",
+    "cdk:synth": "npm run schema:verify && npm run build && npx cdk synth",
+    "cdk:diff": "npm run schema:verify && npm run build && npx cdk diff",
+    "cdk:deploy": "npm run schema:verify && npm run build && npx cdk deploy --concurrency 1 --require-approval never",
+    "cdk:deploy:all": "npm run schema:verify && npm run build && npx cdk deploy --all --require-approval never",
+    "deploy:api": "npm run cdk:deploy -- ApiStack",
+    "deploy:api:canary": "npm run cdk:deploy -- ApiStack -c canary=true",
     "cdk:destroy": "npx cdk destroy --force",
-
     "postdeploy": "node scripts/write-outputs.js",
-
     "smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-after-deploy.ps1 -StackName BestiesClosetStack -Region us-east-1",
-    "deploy:smoke": "npm run cdk:deploy -- BestiesClosetStack && npm run smoke"
+    "deploy:smoke": "npm run cdk:deploy -- BestiesClosetStack && npm run smoke",
+    "predeploy": "node ./scripts/build-schema.mjs",
+    "deploy": "cdk deploy"
   },
   "dependencies": {
+    "@aws-sdk/client-appsync": "^3.953.0",
     "@aws-sdk/client-dynamodb": "^3.948.0",
     "@aws-sdk/client-eventbridge": "^3.913.0",
     "@aws-sdk/client-lambda": "^3.948.0",

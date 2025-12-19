@@ -686,7 +686,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WOQW+DMAyFf0vvqdfBLju2TN1tQ6CdURoCMiRxhZOhCfHfJ2AwtJ3e5/fsJ0cQRTGcDrLnoyrbo8EbDLmXqhWy52JQVDv0BMMH6y4lMiKp3MYrvJCV6PbRf+e1o3DfLhKD2vl9vjijMNLeSglDUrlUdxaZkeaia3DKT5yjq4329OussF4XjkrdMLzNsq2htDBkZPRUN2tKBtXXNC40Co4Lyaw9w3kSwTFcgmq1v0jWo8g0U+iUFnOae1mjq4UK7MkW3U/IcO45mb1t/+9YuT2/B38PfhTT39Dww2d0gsdneDo0jHjsgvNoNWSLfgM0+6l3tAEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WOQW+DMAyFf0vvwetglx1bpu62IdDOKA0BGZK4wsnQhPjvEzBYtZ3e5/eeLccQxwkcD3LgSFVdZPAKY+Gl6oQcuBwVNQ49wfjBus+IjEhrt/MGL2Qluvvov/PaU7jtG6lB7fx9vjqTMNJeKwljWrtM9xaZkZZDl+CUn7lA1xjt6dfZYNsuHVW6ZXhbZK+htDDmZPR8btGMDKqveVxpEpyUkll7htMsghM4B9Vpf5asp7n5HvwteJFrptArLZZe4WWDrhEqsCdb9j8hw2ngdPH2/t+xdhtPYv4bWn74jI/w+AxPh5YRoz44j1ZDvuo3gYox3LQBAAA="
    },
    "Metadata": {
     "aws:cdk:path": "IdentityV2Stack/CDKMetadata/Default"
@@ -694,6 +694,17 @@
   }
  },
  "Outputs": {
+  "LegacyUserPoolArnExport": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UserPool6BA7E5F2",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "IdentityV2Stack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
+   }
+  },
   "UserPoolId": {
    "Value": {
     "Ref": "UserPool6BA7E5F2"
@@ -723,17 +734,6 @@
    },
    "Export": {
     "Name": "IdentityV2Stack:ExportsOutputRefUserPool6BA7E5F296FD7236"
-   }
-  },
-  "ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00": {
-   "Value": {
-    "Fn::GetAtt": [
-     "UserPool6BA7E5F2",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "IdentityV2Stack:ExportsOutputFnGetAttUserPool6BA7E5F2Arn686ACC00"
    }
   }
  },

@@ -46,16 +46,16 @@
         }
       }
     },
-    "3c77ee0a3b05cc844edeabe711cbefb9041281525511b45571e88ca88ab0f2db": {
+    "bac7fcdadc4fca40507e85aa74daa27ecd46c881dc81303936ecaa75f0cd971b": {
       "displayName": "ShoppingStack Template",
       "source": {
         "path": "ShoppingStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-54f982bc": {
+        "637423256673-us-east-1-f6fe54c1": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "3c77ee0a3b05cc844edeabe711cbefb9041281525511b45571e88ca88ab0f2db.json",
+          "objectKey": "bac7fcdadc4fca40507e85aa74daa27ecd46c881dc81303936ecaa75f0cd971b.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

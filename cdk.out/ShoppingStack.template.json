@@ -755,41 +755,6 @@
    }
   }
  },
- "Outputs": {
-  "ExportsOutputFnGetAttGetShopLalasLookFn7E8D636FArnC5A5CB60": {
-   "Value": {
-    "Fn::GetAtt": [
-     "GetShopLalasLookFn7E8D636F",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "ShoppingStack:ExportsOutputFnGetAttGetShopLalasLookFn7E8D636FArnC5A5CB60"
-   }
-  },
-  "ExportsOutputFnGetAttGetShopThisSceneFnB567D613ArnC745B8AA": {
-   "Value": {
-    "Fn::GetAtt": [
-     "GetShopThisSceneFnB567D613",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "ShoppingStack:ExportsOutputFnGetAttGetShopThisSceneFnB567D613ArnC745B8AA"
-   }
-  },
-  "ExportsOutputFnGetAttLinkClosetItemToProductFnBF5E4B26ArnA1C06ED9": {
-   "Value": {
-    "Fn::GetAtt": [
-     "LinkClosetItemToProductFnBF5E4B26",
-     "Arn"
-    ]
-   },
-   "Export": {
-    "Name": "ShoppingStack:ExportsOutputFnGetAttLinkClosetItemToProductFnBF5E4B26ArnA1C06ED9"
-   }
-  }
- },
  "Parameters": {
   "BootstrapVersion": {
    "Type": "AWS::SSM::Parameter::Value<String>",

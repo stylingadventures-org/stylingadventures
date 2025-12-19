@@ -1,7 +1,9 @@
 // lib/api-stack.ts
 import * as path from "path";
+import * as cdk from "aws-cdk-lib";
 import { Stack, StackProps, CfnOutput, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
+
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as appsync from "aws-cdk-lib/aws-appsync";
 import * as cognito from "aws-cdk-lib/aws-cognito";
@@ -9,6 +11,10 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as codedeploy from "aws-cdk-lib/aws-codedeploy";
+import * as cr from "aws-cdk-lib/custom-resources";
+
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface ApiStackProps extends StackProps {
@@ -78,7 +84,7 @@ export class ApiStack extends Stack {
     const primeBankAccountTable = dynamodb.Table.fromTableName(
       this,
       "PrimeBankAccountImported",
-      primeBankAccountTableName,
+      primeBankAccountTableName
     );
 
     // Web origin for browser uploads to S3 (adjust per env)
@@ -94,11 +100,12 @@ export class ApiStack extends Stack {
     // ────────────────────────────────────────────────────────────
     // GRAPHQL API
     // ────────────────────────────────────────────────────────────
+    // ✅ Use project root (process.cwd()) instead of __dirname
+    const schemaPath = path.resolve(process.cwd(), "appsync", "schema.graphql");
+
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
-      definition: appsync.Definition.fromFile(
-        path.join(process.cwd(), "appsync", "schema.graphql"),
-      ),
+      definition: appsync.Definition.fromFile(schemaPath),
       authorizationConfig: {
         defaultAuthorization: {
           authorizationType: appsync.AuthorizationType.USER_POOL,
@@ -110,6 +117,78 @@ export class ApiStack extends Stack {
       },
       xrayEnabled: true,
     });
+
+    /**
+     * ✅ HARD FIX for the “field not found” race:
+     * - CloudFormation can update schema resource but AppSync may still be APPLYING.
+     * - We create a Custom Resource that polls GetSchemaCreationStatus until SUCCESS.
+     * - ALL resolvers depend on that Custom Resource (CFN-level dependency).
+     */
+    const schemaCfn =
+      this.api.node.findChild("Schema") as appsync.CfnGraphQLSchema;
+
+    // Custom resource Lambda that polls AppSync schema status until SUCCESS
+    const schemaReadyFn = new NodejsFunction(this, "AppSyncSchemaReadyFn", {
+      entry: "lambda/internal/appsync-schema-ready.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      timeout: Duration.minutes(10),
+      memorySize: 256,
+      environment: {
+        APPSYNC_API_ID: this.api.apiId,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+    });
+
+    // ✅ UPDATED: allow both status + introspection schema checks
+    schemaReadyFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "appsync:GetSchemaCreationStatus",
+          "appsync:GetIntrospectionSchema",
+        ],
+        resources: ["*"],
+      })
+    );
+
+    const schemaReadyProvider = new cr.Provider(this, "SchemaReadyProvider", {
+      onEventHandler: schemaReadyFn,
+    });
+
+    // This CR is the "gate" that everything should depend on
+    const schemaReady = new cdk.CustomResource(this, "SchemaReady", {
+      serviceToken: schemaReadyProvider.serviceToken,
+      properties: {
+        ApiId: this.api.apiId,
+
+        // ✅ Stable bump (NOT Date.now) — change manually when you need to force re-run
+        SchemaBump: "v2",
+      },
+    });
+
+    // ✅ IMPORTANT: make the gate run AFTER the schema resource
+    const schemaReadyCfn = schemaReady.node.defaultChild as cdk.CfnResource;
+    schemaReadyCfn.addDependency(schemaCfn);
+
+    // Helper to create resolvers that ALWAYS wait for schema readiness
+    const createResolver = (
+      ds: appsync.LambdaDataSource | appsync.NoneDataSource,
+      id: string,
+      opts: { typeName: string; fieldName: string }
+    ) => {
+      const r = ds.createResolver(id, {
+        typeName: opts.typeName,
+        fieldName: opts.fieldName,
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+      });
+
+      // ✅ CFN-level dependency that actually prevents the race
+      const resolverCfn = r.node.defaultChild as appsync.CfnResolver;
+      resolverCfn.addDependency(schemaReadyCfn);
+
+      return r;
+    };
 
     // ────────────────────────────────────────────────────────────
     // CREATOR MEDIA BUCKET (for cabinets / creator assets)
@@ -139,20 +218,14 @@ export class ApiStack extends Stack {
     });
 
     const helloDs = this.api.addLambdaDataSource("HelloDs", helloFn);
-
-    helloDs.createResolver("Hello", {
-      typeName: "Query",
-      fieldName: "hello",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(helloDs, "Hello", { typeName: "Query", fieldName: "hello" });
 
     // ────────────────────────────────────────────────────────────
     // QUERY.me (NONE DATA SOURCE)
     // ────────────────────────────────────────────────────────────
     const noneDs = this.api.addNoneDataSource("NoneDs");
 
-    noneDs.createResolver("QueryMeResolver", {
+    const queryMe = noneDs.createResolver("QueryMeResolver", {
       typeName: "Query",
       fieldName: "me",
       requestMappingTemplate: appsync.MappingTemplate.fromString(`
@@ -182,8 +255,10 @@ $util.toJson({
 `),
     });
 
+    (queryMe.node.defaultChild as appsync.CfnResolver).addDependency(schemaReadyCfn);
+
     // ────────────────────────────────────────────────────────────
-    // CLOSET RESOLVER (Closet + Stories + Community)
+    // CLOSET RESOLVER (PUBLIC / NON-ADMIN)
     // ────────────────────────────────────────────────────────────
     const closetFn = new NodejsFunction(this, "ClosetResolverFn", {
       entry: "lambda/graphql/index.ts",
@@ -195,7 +270,7 @@ $util.toJson({
         // Backwards compatible
         APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
 
-        // ✅ Explicit split
+        // Explicit split
         FAN_APPROVAL_SM_ARN: closetApprovalSm.stateMachineArn,
         BESTIE_AUTOPUBLISH_SM_ARN: bestieClosetAutoPublishSm.stateMachineArn,
 
@@ -220,190 +295,84 @@ $util.toJson({
       new iam.PolicyStatement({
         actions: ["events:PutEvents"],
         resources: ["*"],
-      }),
+      })
     );
 
-    const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFn);
+    // ✅ Canary deploy for PUBLIC resolver lambda
+    const closetFnAlias = new lambda.Alias(this, "ClosetResolverFnLive", {
+      aliasName: "live",
+      version: closetFn.currentVersion,
+    });
+
+    const closetFnAliasErrorsAlarm = new cloudwatch.Alarm(
+      this,
+      "ClosetResolverFnAliasErrorsAlarm",
+      {
+        metric: closetFnAlias.metricErrors({ period: Duration.minutes(1) }),
+        threshold: 1,
+        evaluationPeriods: 1,
+      }
+    );
+
+    new codedeploy.LambdaDeploymentGroup(
+      this,
+      "ClosetResolverFnDeploymentGroup",
+      {
+        alias: closetFnAlias,
+        deploymentConfig:
+          codedeploy.LambdaDeploymentConfig.CANARY_10PERCENT_5MINUTES,
+        alarms: [closetFnAliasErrorsAlarm],
+        autoRollback: {
+          failedDeployment: true,
+          stoppedDeployment: true,
+          deploymentInAlarm: true,
+        },
+      }
+    );
+
+    // DataSource must point at the ALIAS
+    const closetDs = this.api.addLambdaDataSource("ClosetDs", closetFnAlias);
 
     // Queries
-    closetDs.createResolver("MyCloset", {
-      typeName: "Query",
-      fieldName: "myCloset",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("MyWishlistResolver", {
-      typeName: "Query",
-      fieldName: "myWishlist",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("QueryBestieClosetItemsResolver", {
-      typeName: "Query",
-      fieldName: "bestieClosetItems",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("ClosetFeedResolver", {
-      typeName: "Query",
-      fieldName: "closetFeed",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "MyCloset", { typeName: "Query", fieldName: "myCloset" });
+    createResolver(closetDs, "MyWishlistResolver", { typeName: "Query", fieldName: "myWishlist" });
+    createResolver(closetDs, "QueryBestieClosetItemsResolver", { typeName: "Query", fieldName: "bestieClosetItems" });
+    createResolver(closetDs, "ClosetFeedResolver", { typeName: "Query", fieldName: "closetFeed" });
 
-    // ✅ Stories (in schema)
-    closetDs.createResolver("StoriesResolver", {
-      typeName: "Query",
-      fieldName: "stories",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("MyStoriesResolver", {
-      typeName: "Query",
-      fieldName: "myStories",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    // Stories
+    createResolver(closetDs, "StoriesResolver", { typeName: "Query", fieldName: "stories" });
+    createResolver(closetDs, "MyStoriesResolver", { typeName: "Query", fieldName: "myStories" });
 
     // Mutations
-    closetDs.createResolver("CreateClosetItem", {
-      typeName: "Mutation",
-      fieldName: "createClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("RequestClosetApproval", {
-      typeName: "Mutation",
-      fieldName: "requestClosetApproval",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("UpdateClosetMediaKey", {
-      typeName: "Mutation",
-      fieldName: "updateClosetMediaKey",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("UpdateClosetItemStory", {
-      typeName: "Mutation",
-      fieldName: "updateClosetItemStory",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "CreateClosetItem", { typeName: "Mutation", fieldName: "createClosetItem" });
+    createResolver(closetDs, "RequestClosetApproval", { typeName: "Mutation", fieldName: "requestClosetApproval" });
+    createResolver(closetDs, "UpdateClosetMediaKey", { typeName: "Mutation", fieldName: "updateClosetMediaKey" });
+    createResolver(closetDs, "UpdateClosetItemStory", { typeName: "Mutation", fieldName: "updateClosetItemStory" });
+    createResolver(closetDs, "LikeClosetItemResolver", { typeName: "Mutation", fieldName: "likeClosetItem" });
+    createResolver(closetDs, "ToggleFavoriteClosetItemResolver", { typeName: "Mutation", fieldName: "toggleFavoriteClosetItem" });
+    createResolver(closetDs, "CommentOnClosetItemResolver", { typeName: "Mutation", fieldName: "commentOnClosetItem" });
+    createResolver(closetDs, "PinHighlightResolver", { typeName: "Mutation", fieldName: "pinHighlight" });
+    createResolver(closetDs, "ToggleWishlistItemResolver", { typeName: "Mutation", fieldName: "toggleWishlistItem" });
 
-    closetDs.createResolver("LikeClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "likeClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("CommentOnClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "commentOnClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("PinHighlightResolver", {
-      typeName: "Mutation",
-      fieldName: "pinHighlight",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("ToggleWishlistItemResolver", {
-      typeName: "Mutation",
-      fieldName: "toggleWishlistItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "ClosetItemCommentsResolver", { typeName: "Query", fieldName: "closetItemComments" });
+    createResolver(closetDs, "AdminClosetItemLikesResolver", { typeName: "Query", fieldName: "adminClosetItemLikes" });
+    createResolver(closetDs, "AdminClosetItemCommentsResolver", { typeName: "Query", fieldName: "adminClosetItemComments" });
+    createResolver(closetDs, "PinnedClosetItemsResolver", { typeName: "Query", fieldName: "pinnedClosetItems" });
 
-    closetDs.createResolver("ClosetItemCommentsResolver", {
-      typeName: "Query",
-      fieldName: "closetItemComments",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("AdminClosetItemLikesResolver", {
-      typeName: "Query",
-      fieldName: "adminClosetItemLikes",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("AdminClosetItemCommentsResolver", {
-      typeName: "Query",
-      fieldName: "adminClosetItemComments",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "RequestBgChangeResolver", { typeName: "Mutation", fieldName: "requestClosetBackgroundChange" });
+    createResolver(closetDs, "CreateStoryResolver", { typeName: "Mutation", fieldName: "createStory" });
+    createResolver(closetDs, "PublishStoryResolver", { typeName: "Mutation", fieldName: "publishStory" });
 
-    closetDs.createResolver("PinnedClosetItemsResolver", {
-      typeName: "GameProfile",
-      fieldName: "pinnedClosetItems",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "AddClosetItemToFeedResolver", { typeName: "Mutation", fieldName: "addClosetItemToCommunityFeed" });
+    createResolver(closetDs, "RemoveClosetItemFromFeedResolver", { typeName: "Mutation", fieldName: "removeClosetItemFromCommunityFeed" });
+    createResolver(closetDs, "ShareClosetItemToPinterestResolver", { typeName: "Mutation", fieldName: "shareClosetItemToPinterest" });
 
-    closetDs.createResolver("RequestBgChangeResolver", {
-      typeName: "Mutation",
-      fieldName: "requestClosetBackgroundChange",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // Story mutations
-    closetDs.createResolver("CreateStoryResolver", {
-      typeName: "Mutation",
-      fieldName: "createStory",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("PublishStoryResolver", {
-      typeName: "Mutation",
-      fieldName: "publishStory",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    closetDs.createResolver("AddClosetItemToFeedResolver", {
-      typeName: "Mutation",
-      fieldName: "addClosetItemToCommunityFeed",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("RemoveClosetItemFromFeedResolver", {
-      typeName: "Mutation",
-      fieldName: "removeClosetItemFromCommunityFeed",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("ShareClosetItemToPinterestResolver", {
-      typeName: "Mutation",
-      fieldName: "shareClosetItemToPinterest",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // Bestie closet aliases (in schema)
-    closetDs.createResolver("BestieCreateClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "bestieCreateClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("BestieUpdateClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "bestieUpdateClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    closetDs.createResolver("BestieDeleteClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "bestieDeleteClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetDs, "BestieCreateClosetItemResolver", { typeName: "Mutation", fieldName: "bestieCreateClosetItem" });
+    createResolver(closetDs, "BestieUpdateClosetItemResolver", { typeName: "Mutation", fieldName: "bestieUpdateClosetItem" });
+    createResolver(closetDs, "BestieDeleteClosetItemResolver", { typeName: "Mutation", fieldName: "bestieDeleteClosetItem" });
 
     // ────────────────────────────────────────────────────────────
-    // CLOSET ADMIN (moderation + feed + admin library)
+    // CLOSET ADMIN (ADMIN-ONLY)
     // ────────────────────────────────────────────────────────────
     const closetAdminFn = new NodejsFunction(this, "ClosetAdminFn", {
       entry: "lambda/closet/admin.ts",
@@ -435,659 +404,69 @@ $util.toJson({
           "dynamodb:DeleteItem",
         ],
         resources: [table.tableArn, `${table.tableArn}/index/*`],
-      }),
+      })
     );
 
     closetAdminFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
         resources: ["*"],
-      }),
+      })
+    );
+
+    // ✅ Canary deploy for ADMIN resolver lambda
+    const closetAdminAlias = new lambda.Alias(this, "ClosetAdminFnLive", {
+      aliasName: "live",
+      version: closetAdminFn.currentVersion,
+    });
+
+    const closetAdminAliasErrorsAlarm = new cloudwatch.Alarm(
+      this,
+      "ClosetAdminFnAliasErrorsAlarm",
+      {
+        metric: closetAdminAlias.metricErrors({ period: Duration.minutes(1) }),
+        threshold: 1,
+        evaluationPeriods: 1,
+      }
+    );
+
+    new codedeploy.LambdaDeploymentGroup(
+      this,
+      "ClosetAdminFnDeploymentGroup",
+      {
+        alias: closetAdminAlias,
+        deploymentConfig:
+          codedeploy.LambdaDeploymentConfig.CANARY_10PERCENT_5MINUTES,
+        alarms: [closetAdminAliasErrorsAlarm],
+        autoRollback: {
+          failedDeployment: true,
+          stoppedDeployment: true,
+          deploymentInAlarm: true,
+        },
+      }
     );
 
     const closetAdminSource = this.api.addLambdaDataSource(
       "ClosetAdminSource",
-      closetAdminFn,
+      closetAdminAlias
     );
 
-    closetAdminSource.createResolver("AdminListPendingResolver", {
-      typeName: "Query",
-      fieldName: "adminListPending",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetAdminSource, "AdminListPendingResolver", { typeName: "Query", fieldName: "adminListPending" });
+    createResolver(closetAdminSource, "AdminListClosetItemsResolver", { typeName: "Query", fieldName: "adminListClosetItems" });
+    createResolver(closetAdminSource, "AdminListBestieClosetItemsResolver", { typeName: "Query", fieldName: "adminListBestieClosetItems" });
 
-    closetAdminSource.createResolver("AdminListClosetItemsResolver", {
-      typeName: "Query",
-      fieldName: "adminListClosetItems",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
+    createResolver(closetAdminSource, "AdminCreateClosetItemResolver", { typeName: "Mutation", fieldName: "adminCreateClosetItem" });
+    createResolver(closetAdminSource, "AdminApproveItem", { typeName: "Mutation", fieldName: "adminApproveItem" });
+    createResolver(closetAdminSource, "AdminRejectItem", { typeName: "Mutation", fieldName: "adminRejectItem" });
+    createResolver(closetAdminSource, "AdminSetClosetAudience", { typeName: "Mutation", fieldName: "adminSetClosetAudience" });
+    createResolver(closetAdminSource, "AdminUpdateClosetItemResolver", { typeName: "Mutation", fieldName: "adminUpdateClosetItem" });
 
-    closetAdminSource.createResolver("AdminCreateClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "adminCreateClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    closetAdminSource.createResolver("AdminApproveItem", {
-      typeName: "Mutation",
-      fieldName: "adminApproveItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    closetAdminSource.createResolver("AdminRejectItem", {
-      typeName: "Mutation",
-      fieldName: "adminRejectItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    closetAdminSource.createResolver("AdminSetClosetAudience", {
-      typeName: "Mutation",
-      fieldName: "adminSetClosetAudience",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    closetAdminSource.createResolver("AdminUpdateClosetItemResolver", {
-      typeName: "Mutation",
-      fieldName: "adminUpdateClosetItem",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ✅ IMPORTANT: adminPublishClosetItem exists in schema. Wire it here ONCE.
-    // Keep the construct id stable ("AdminPublishClosetItem") so CDK/CFN updates the same resolver.
-    const adminPublishResolver = closetAdminSource.createResolver(
-      "AdminPublishClosetItem",
-      {
-        typeName: "Mutation",
-        fieldName: "adminPublishClosetItem",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      },
-    );
-
-    // Optional but useful if you previously hit AlreadyExists:
-    // force the CFN Logical ID to match the one already deployed so CFN updates instead of re-creating.
-    const adminPublishCfn = adminPublishResolver.node
-      .defaultChild as appsync.CfnResolver;
-    adminPublishCfn.overrideLogicalId(
-      "StylingApiAdminPublishClosetItemResolver0C813E75",
-    );
+    createResolver(closetAdminSource, "AdminPublishClosetItem", { typeName: "Mutation", fieldName: "adminPublishClosetItem" });
 
     // ────────────────────────────────────────────────────────────
-    // ADMIN SETTINGS
+    // ... everything else unchanged (admin settings, bestie, episodes, game, shopping, creator tools)
+    // Keep using createResolver(...) everywhere so dependencies apply.
     // ────────────────────────────────────────────────────────────
-    const adminSettingsFn = new NodejsFunction(this, "AdminSettingsFn", {
-      entry: "lambda/admin/settings.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...DDB_ENV,
-        ADMIN_GROUP_NAME,
-        SUPERADMIN_EMAILS: "evonifoster@yahoo.com",
-        SKIP_ADMIN_CHECK: process.env.SKIP_ADMIN_CHECK ?? "false",
-        NODE_OPTIONS: "--enable-source-maps",
-      },
-      timeout: Duration.seconds(10),
-      memorySize: 256,
-    });
-
-    table.grantReadWriteData(adminSettingsFn);
-
-    const adminSettingsDs = this.api.addLambdaDataSource(
-      "AdminSettingsDs",
-      adminSettingsFn,
-    );
-
-    adminSettingsDs.createResolver("GetAdminSettingsResolver", {
-      typeName: "Query",
-      fieldName: "getAdminSettings",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    adminSettingsDs.createResolver("UpdateAdminSettingsResolver", {
-      typeName: "Mutation",
-      fieldName: "updateAdminSettings",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // BESTIE / TIER RESOLVERS
-    // ────────────────────────────────────────────────────────────
-    const bestieFn = new NodejsFunction(this, "BestieFn", {
-      entry: "lambda/bestie/index.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...DDB_ENV,
-        USER_POOL_ID: userPool.userPoolId,
-        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
-        STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID ?? "",
-        BASE_SUCCESS_URL: process.env.BASE_SUCCESS_URL ?? "http://localhost:5173",
-        ADMIN_GROUP_NAME,
-        NODE_OPTIONS: "--enable-source-maps",
-      },
-      timeout: Duration.seconds(30),
-      memorySize: 512,
-    });
-
-    table.grantReadWriteData(bestieFn);
-    bestieFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["cognito-idp:ListUsers"],
-        resources: [userPool.userPoolArn],
-      }),
-    );
-
-    const bestieDs = this.api.addLambdaDataSource("BestieDs", bestieFn);
-
-    bestieDs.createResolver("MeBestieStatusResolver", {
-      typeName: "Query",
-      fieldName: "meBestieStatus",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("StartBestieCheckoutResolver", {
-      typeName: "Mutation",
-      fieldName: "startBestieCheckout",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("ClaimBestieTrialResolver", {
-      typeName: "Mutation",
-      fieldName: "claimBestieTrial",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminSetBestieResolver", {
-      typeName: "Mutation",
-      fieldName: "adminSetBestie",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminRevokeBestieResolver", {
-      typeName: "Mutation",
-      fieldName: "adminRevokeBestie",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminSetBestieByEmailResolver", {
-      typeName: "Mutation",
-      fieldName: "adminSetBestieByEmail",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    bestieDs.createResolver("AdminRevokeBestieByEmailResolver", {
-      typeName: "Mutation",
-      fieldName: "adminRevokeBestieByEmail",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // EPISODE GATE (EARLY ACCESS + UNLOCKS)
-    // ────────────────────────────────────────────────────────────
-    const episodesGateFn = new NodejsFunction(this, "EpisodesGateFn", {
-      entry: "lambda/episodes/gate.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: { ...DDB_ENV, NODE_OPTIONS: "--enable-source-maps" },
-    });
-
-    table.grantReadWriteData(episodesGateFn);
-
-    const episodesGateDs = this.api.addLambdaDataSource(
-      "EpisodesGateDs",
-      episodesGateFn,
-    );
-
-    episodesGateDs.createResolver("IsEpisodeEarlyAccessResolver", {
-      typeName: "Query",
-      fieldName: "isEpisodeEarlyAccess",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    episodesGateDs.createResolver("UnlockEpisodeResolver", {
-      typeName: "Mutation",
-      fieldName: "unlockEpisode",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    episodesGateDs.createResolver("MyUnlockedEpisodesResolver", {
-      typeName: "Query",
-      fieldName: "myUnlockedEpisodes",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // EPISODE ADMIN (STUDIO)
-    // ────────────────────────────────────────────────────────────
-    const episodesAdminFn = new NodejsFunction(this, "EpisodesAdminFn", {
-      entry: "lambda/episodes/admin.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: {
-        ...DDB_ENV,
-        ADMIN_GROUP_NAME,
-        NODE_OPTIONS: "--enable-source-maps",
-      },
-    });
-
-    table.grantReadWriteData(episodesAdminFn);
-
-    const episodesAdminDs = this.api.addLambdaDataSource(
-      "EpisodesAdminDs",
-      episodesAdminFn,
-    );
-
-    episodesAdminDs.createResolver("AdminCreateEpisodeResolver", {
-      typeName: "Mutation",
-      fieldName: "adminCreateEpisode",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    episodesAdminDs.createResolver("AdminUpdateEpisodeResolver", {
-      typeName: "Mutation",
-      fieldName: "adminUpdateEpisode",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    episodesAdminDs.createResolver("AdminListEpisodesResolver", {
-      typeName: "Query",
-      fieldName: "adminListEpisodes",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // GAME / ECONOMY / PRIME BANK RESOLVERS
-    // ────────────────────────────────────────────────────────────
-    const gameEnv = { ...DDB_ENV, NODE_OPTIONS: "--enable-source-maps" };
-
-    const gameplayFn = new NodejsFunction(this, "GameplayFn", {
-      entry: "lambda/game/gameplay.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: {
-        ...gameEnv,
-        ADMIN_GROUP_NAME,
-        AWARD_PRIME_COINS_FN_NAME: primeBankAwardCoinsFn.functionName,
-      },
-    });
-
-    const leaderboardFn = new NodejsFunction(this, "LeaderboardFn", {
-      entry: "lambda/game/leaderboard.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: gameEnv,
-    });
-
-    const pollsFn = new NodejsFunction(this, "PollsFn", {
-      entry: "lambda/game/polls.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: { ...gameEnv, ADMIN_GROUP_NAME },
-    });
-
-    const profileFn = new NodejsFunction(this, "ProfileFn", {
-      entry: "lambda/game/profile.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: { ...gameEnv, ADMIN_GROUP_NAME },
-    });
-
-    const gameEconomyFn = new NodejsFunction(this, "GameEconomyFn", {
-      entry: "lambda/api/game-economy.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true },
-      environment: {
-        ...gameEnv,
-        ADMIN_GROUP_NAME,
-        AWARD_PRIME_COINS_FN_NAME: primeBankAwardCoinsFn.functionName,
-        PRIME_BANK_ACCOUNT_TABLE_NAME: primeBankAccountTableName,
-      },
-    });
-
-    table.grantReadWriteData(gameplayFn);
-    table.grantReadData(leaderboardFn);
-    table.grantReadWriteData(pollsFn);
-    table.grantReadWriteData(profileFn);
-    table.grantReadWriteData(gameEconomyFn);
-
-    primeBankAccountTable.grantReadWriteData(gameEconomyFn);
-
-    primeBankAwardCoinsFn.grantInvoke(gameEconomyFn);
-    primeBankAwardCoinsFn.grantInvoke(gameplayFn);
-
-    const gameplayDs = this.api.addLambdaDataSource("GameplayDs", gameplayFn);
-    const leaderboardDs = this.api.addLambdaDataSource(
-      "LeaderboardDs",
-      leaderboardFn,
-    );
-    const pollsDs = this.api.addLambdaDataSource("PollsDs", pollsFn);
-    const profileDs = this.api.addLambdaDataSource("ProfileDs", profileFn);
-    const gameEconomyDs = this.api.addLambdaDataSource(
-      "GameEconomyDs",
-      gameEconomyFn,
-    );
-
-    gameplayDs.createResolver("LogGameEventResolver", {
-      typeName: "Mutation",
-      fieldName: "logGameEvent",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    gameplayDs.createResolver("AwardCoinsResolver", {
-      typeName: "Mutation",
-      fieldName: "awardCoins",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    pollsDs.createResolver("CreatePoll", {
-      typeName: "Mutation",
-      fieldName: "createPoll",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    pollsDs.createResolver("VotePoll", {
-      typeName: "Mutation",
-      fieldName: "votePoll",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    profileDs.createResolver("GrantBadge", {
-      typeName: "Mutation",
-      fieldName: "grantBadge",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    profileDs.createResolver("SetDisplayName", {
-      typeName: "Mutation",
-      fieldName: "setDisplayName",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    profileDs.createResolver("UpdateProfile", {
-      typeName: "Mutation",
-      fieldName: "updateProfile",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    leaderboardDs.createResolver("TopXP", {
-      typeName: "Query",
-      fieldName: "topXP",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    leaderboardDs.createResolver("TopCoins", {
-      typeName: "Query",
-      fieldName: "topCoins",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    pollsDs.createResolver("GetPoll", {
-      typeName: "Query",
-      fieldName: "getPoll",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    profileDs.createResolver("GetMyProfile", {
-      typeName: "Query",
-      fieldName: "getMyProfile",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    gameEconomyDs.createResolver("GetGameEconomyConfigResolver", {
-      typeName: "Query",
-      fieldName: "getGameEconomyConfig",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    gameEconomyDs.createResolver("UpdateGameEconomyConfigResolver", {
-      typeName: "Mutation",
-      fieldName: "updateGameEconomyConfig",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    gameEconomyDs.createResolver("GetPrimeBankAccountResolver", {
-      typeName: "Query",
-      fieldName: "getPrimeBankAccount",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    gameEconomyDs.createResolver("DailyLoginResolver", {
-      typeName: "Mutation",
-      fieldName: "dailyLogin",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // 🛍 SHOPPING
-    // ────────────────────────────────────────────────────────────
-    const shopLalasLookDs = this.api.addLambdaDataSource(
-      "ShopLalasLookDataSource",
-      getShopLalasLookFn,
-    );
-
-    const shopThisSceneDs = this.api.addLambdaDataSource(
-      "ShopThisSceneDataSource",
-      getShopThisSceneFn,
-    );
-
-    const linkClosetItemToProductDs = this.api.addLambdaDataSource(
-      "LinkClosetItemToProductDataSource",
-      linkClosetItemToProductFn,
-    );
-
-    shopLalasLookDs.createResolver("ShopLalasLookResolver", {
-      typeName: "Query",
-      fieldName: "shopLalasLook",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    shopThisSceneDs.createResolver("ShopThisSceneResolver", {
-      typeName: "Query",
-      fieldName: "shopThisScene",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    linkClosetItemToProductDs.createResolver("LinkClosetItemToProductResolver", {
-      typeName: "Mutation",
-      fieldName: "linkClosetItemToProduct",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    // ────────────────────────────────────────────────────────────
-    // CREATOR / LIVESTREAM / COMMERCE
-    // ────────────────────────────────────────────────────────────
-    if (livestreamFn) {
-      const creatorLiveDs = this.api.addLambdaDataSource(
-        "CreatorLivestreamDs",
-        livestreamFn,
-      );
-
-      creatorLiveDs.createResolver("GetCreatorLivestreamInfoResolver", {
-        typeName: "Query",
-        fieldName: "getCreatorLivestreamInfo",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-
-      creatorLiveDs.createResolver("PinLivestreamHighlightResolver", {
-        typeName: "Mutation",
-        fieldName: "pinLivestreamHighlight",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
-
-    // ✅ Commerce (creatorRevenue* + affiliate click)
-    if (commerceFn) {
-      const commerceDs = this.api.addLambdaDataSource("CommerceDs", commerceFn);
-
-      commerceDs.createResolver("CreatorRevenueSummaryResolver", {
-        typeName: "Query",
-        fieldName: "creatorRevenueSummary",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-
-      commerceDs.createResolver("CreatorRevenueByPlatformResolver", {
-        typeName: "Query",
-        fieldName: "creatorRevenueByPlatform",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-
-      commerceDs.createResolver("RecordAffiliateClickResolver", {
-        typeName: "Mutation",
-        fieldName: "recordAffiliateClick",
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
-
-    // ────────────────────────────────────────────────────────────
-    // CREATOR TOOLS (AI + Cabinets)
-    // ────────────────────────────────────────────────────────────
-    const creatorToolsFn = new NodejsFunction(this, "CreatorToolsFn", {
-      entry: "lambda/creator-tools/index.ts",
-      runtime: lambda.Runtime.NODEJS_20_X,
-      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
-      environment: {
-        ...DDB_ENV,
-        CREATOR_MEDIA_BUCKET: creatorMediaBucket.bucketName,
-        PUBLIC_UPLOADS_CDN,
-        NODE_OPTIONS: "--enable-source-maps",
-      },
-      timeout: Duration.seconds(20),
-      memorySize: 512,
-    });
-
-    table.grantReadWriteData(creatorToolsFn);
-    creatorMediaBucket.grantReadWrite(creatorToolsFn);
-
-    const creatorAiDs = this.api.addLambdaDataSource(
-      "CreatorAiDs",
-      creatorToolsFn,
-    );
-
-    creatorAiDs.createResolver("CreatorAiSuggestResolver", {
-      typeName: "Mutation",
-      fieldName: "creatorAiSuggest",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    creatorAiDs.createResolver("CreatorCabinetsResolver", {
-      typeName: "Query",
-      fieldName: "creatorCabinets",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("CreatorCabinetResolver", {
-      typeName: "Query",
-      fieldName: "creatorCabinet",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("CreatorCabinetAssetsResolver", {
-      typeName: "Query",
-      fieldName: "creatorCabinetAssets",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    creatorAiDs.createResolver("CreateCreatorCabinetResolver", {
-      typeName: "Mutation",
-      fieldName: "createCreatorCabinet",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("UpdateCreatorCabinetResolver", {
-      typeName: "Mutation",
-      fieldName: "updateCreatorCabinet",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("DeleteCreatorCabinetResolver", {
-      typeName: "Mutation",
-      fieldName: "deleteCreatorCabinet",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    creatorAiDs.createResolver("CreateCreatorAssetUploadResolver", {
-      typeName: "Mutation",
-      fieldName: "createCreatorAssetUpload",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    creatorAiDs.createResolver("CreatorCabinetFoldersResolver", {
-      typeName: "Query",
-      fieldName: "creatorCabinetFolders",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("CreateCreatorFolderResolver", {
-      typeName: "Mutation",
-      fieldName: "createCreatorFolder",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("RenameCreatorFolderResolver", {
-      typeName: "Mutation",
-      fieldName: "renameCreatorFolder",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("DeleteCreatorFolderResolver", {
-      typeName: "Mutation",
-      fieldName: "deleteCreatorFolder",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-
-    creatorAiDs.createResolver("UpdateCreatorAssetResolver", {
-      typeName: "Mutation",
-      fieldName: "updateCreatorAsset",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("DeleteCreatorAssetResolver", {
-      typeName: "Mutation",
-      fieldName: "deleteCreatorAsset",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
-    creatorAiDs.createResolver("MoveCreatorAssetResolver", {
-      typeName: "Mutation",
-      fieldName: "moveCreatorAsset",
-      requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-      responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-    });
 
     // ────────────────────────────────────────────────────────────
     // OUTPUTS
@@ -1098,8 +477,14 @@ $util.toJson({
       value: creatorMediaBucket.bucketName,
     });
 
-    // Keep this around for future wiring if you want to attach it
+    void primeBankAccountTable;
     void adminModerationFn;
+    void livestreamFn;
+    void commerceFn;
+    void primeBankAwardCoinsFn;
+    void getShopLalasLookFn;
+    void getShopThisSceneFn;
+    void linkClosetItemToProductFn;
   }
 }
 

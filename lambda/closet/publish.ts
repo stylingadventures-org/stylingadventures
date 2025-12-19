@@ -5,6 +5,7 @@ import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
+
 const eb = new EventBridgeClient({});
 
 const TABLE_NAME = process.env.TABLE_NAME!;
@@ -36,7 +37,6 @@ function isConditionalCheckFailed(err: any) {
 export const handler = async (event: any) => {
   console.log("[publish] incoming event:", JSON.stringify(event));
 
-  // Deterministic ID resolution (we now pass approvalId explicitly from the SM)
   const approvalId =
     event?.approvalId ||
     event?.item?.id ||
@@ -53,21 +53,22 @@ export const handler = async (event: any) => {
   const sk = "META";
   const now = new Date().toISOString();
 
-  // Prefer processed image for published mediaKey
   const mediaKey =
     event?.segmentation?.outputKey ||
     event?.processedImageKey ||
     event?.item?.s3Key ||
     null;
 
-  // 0) Read current status (idempotency + better return values)
-  const { Item } = await ddb.send(
+  // 0) Read current status
+  const getResp = await ddb.send(
     new GetCommand({
       TableName: TABLE_NAME,
       Key: { [PK_NAME]: pk, [SK_NAME]: sk },
       ConsistentRead: true,
     }),
   );
+
+  const Item = getResp?.Item;
 
   if (!Item) {
     console.warn("[publish] meta not found", { approvalId });
@@ -76,7 +77,6 @@ export const handler = async (event: any) => {
 
   const currentStatus = Item.status as string | undefined;
 
-  // If already published, return idempotent success
   if (currentStatus === "PUBLISHED") {
     return {
       ok: true,
@@ -87,12 +87,11 @@ export const handler = async (event: any) => {
     };
   }
 
-  // Only APPROVED -> PUBLISHED
   if (currentStatus !== "APPROVED") {
     return { ok: false, approvalId, status: "NOT_APPROVED", currentStatus };
   }
 
-  // 1) Conditional update ensures deterministic transition
+  // 1) Conditional update
   try {
     await ddb.send(
       new UpdateCommand({
@@ -112,7 +111,6 @@ export const handler = async (event: any) => {
     );
   } catch (err: any) {
     if (isConditionalCheckFailed(err)) {
-      // Another invocation may have published; re-read and return stable outcome
       const reread = await ddb.send(
         new GetCommand({
           TableName: TABLE_NAME,
@@ -120,22 +118,24 @@ export const handler = async (event: any) => {
           ConsistentRead: true,
         }),
       );
-      const s = (reread.Item?.status as string | undefined) ?? "UNKNOWN";
+
+      const s = (reread?.Item?.status as string | undefined) ?? "UNKNOWN";
+
       if (s === "PUBLISHED") {
         return {
           ok: true,
           approvalId,
           status: "PUBLISHED",
           idempotent: true,
-          mediaKey: (reread.Item?.mediaKey as string | undefined) ?? mediaKey,
+          mediaKey: (reread?.Item?.mediaKey as string | undefined) ?? mediaKey,
         };
       }
+
       return { ok: false, approvalId, status: "RACE_LOST", currentStatus: s };
     }
     throw err;
   }
 
-  // 2) Emit event (best-effort)
   await emit("ClosetItemPublished", {
     approvalId,
     publishedAt: now,
