@@ -4,8 +4,8 @@
 
   "appsyncUrl": "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
 
-  "redirectUri": "http://localhost:5173/callback",
-  "logoutUri": "http://localhost:5173/",
+  "redirectUri": "https://d31cptrudojpsw.cloudfront.net/callback",
+  "logoutUri": "https://d31cptrudojpsw.cloudfront.net/",
 
   "uploadsApiUrl": "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
 

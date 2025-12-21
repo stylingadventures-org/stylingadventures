@@ -162,7 +162,17 @@ export class ApiStack extends Stack {
         ApiId: this.api.apiId,
 
         // ✅ Stable bump (NOT Date.now) — change manually when you need to force re-run
-        SchemaBump: "v2",
+        SchemaBump: "v7",
+
+        // ✅ Don't wait for introspection field - just wait for schema status SUCCESS
+        // (Temporarily disabling field check to see if resolvers can be created)
+        // ExpectedField: "myCloset",
+
+        // ✅ Increase polling attempts for schema readiness
+        SchemaStatusMaxAttempts: "60",
+        SchemaStatusDelayMs: "3000",
+        IntrospectionMaxAttempts: "60",
+        IntrospectionDelayMs: "4000",
       },
     });
 

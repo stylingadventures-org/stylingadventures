@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput, RemovalPolicy } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, RemovalPolicy, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
@@ -35,14 +35,44 @@ export class WebStack extends Stack {
       autoDeleteObjects: envName === "prd" ? false : true,
     });
 
+    // CloudFront Origin Access Identity for secure S3 access
+    const oai = new cloudfront.OriginAccessIdentity(
+      this,
+      "WebOAI",
+      {
+        comment: "OAI for web bucket",
+      }
+    );
+
+    // Grant OAI read access to bucket
+    this.bucket.grantRead(oai);
+
     // CloudFront in front of the bucket
     this.distribution = new cloudfront.Distribution(this, "WebDistribution", {
       defaultBehavior: {
-        origin: new cloudfrontOrigins.S3Origin(this.bucket),
+        origin: new cloudfrontOrigins.S3Origin(this.bucket, {
+          originAccessIdentity: oai,
+        }),
         viewerProtocolPolicy:
           cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        compress: true,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
       defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: Duration.minutes(5),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: Duration.minutes(5),
+        },
+      ],
     });
 
     // helper values for the rest of the app

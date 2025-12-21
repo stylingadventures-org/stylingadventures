@@ -127,10 +127,10 @@ export default function AuthStatus() {
     background: "#fff",
   };
 
-  // 🔐 Login via Cognito Hosted UI, using shared Auth helper
+  // 🔐 Login via direct Cognito auth (not OAuth Hosted UI)
   const onSignIn = async () => {
     try {
-      await Auth.login(); // redirects to Hosted UI
+      window.dispatchEvent(new CustomEvent('openLoginModal'));
     } catch (e) {
       console.error("AuthStatus: login failed", e);
     }

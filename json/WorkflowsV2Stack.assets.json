@@ -1,0 +1,111 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "c55bde3aa5d08cbba5f1fc254d1c36a2b5d815cf617637fb9fb3a932df93abc0": {
+      "displayName": "SocialPulseLoadGoalCompassFn/Code",
+      "source": {
+        "path": "asset.c55bde3aa5d08cbba5f1fc254d1c36a2b5d815cf617637fb9fb3a932df93abc0",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-f4a63620": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "c55bde3aa5d08cbba5f1fc254d1c36a2b5d815cf617637fb9fb3a932df93abc0.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "b2a765865ed9bf5082f05eec3febb231c8967b63ffccf9a9bf46373cacab4a64": {
+      "displayName": "SocialPulseFetchTrendsFn/Code",
+      "source": {
+        "path": "asset.b2a765865ed9bf5082f05eec3febb231c8967b63ffccf9a9bf46373cacab4a64",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-7b2149d1": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "b2a765865ed9bf5082f05eec3febb231c8967b63ffccf9a9bf46373cacab4a64.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "1b9fc782548734629751e3990e41e85b7bf7f76b3b52e8331a74fd6391d477b4": {
+      "displayName": "SocialPulseGenerateIdeasFn/Code",
+      "source": {
+        "path": "asset.1b9fc782548734629751e3990e41e85b7bf7f76b3b52e8331a74fd6391d477b4",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-4ef4d1b4": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "1b9fc782548734629751e3990e41e85b7bf7f76b3b52e8331a74fd6391d477b4.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "f9f0b090b0587b51299a6ae4b02f61a5116189d7fc8a3a8e15abdc154e67bce0": {
+      "displayName": "SocialPulsePersistFn/Code",
+      "source": {
+        "path": "asset.f9f0b090b0587b51299a6ae4b02f61a5116189d7fc8a3a8e15abdc154e67bce0",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-12e4ac4b": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "f9f0b090b0587b51299a6ae4b02f61a5116189d7fc8a3a8e15abdc154e67bce0.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "e2da3e1204ad7815c069c10730a5e803e5f67a8c4f93e8b82095145d7d99d768": {
+      "displayName": "GoalCompassAnalyticsFn/Code",
+      "source": {
+        "path": "asset.e2da3e1204ad7815c069c10730a5e803e5f67a8c4f93e8b82095145d7d99d768",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-f1e7978c": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "e2da3e1204ad7815c069c10730a5e803e5f67a8c4f93e8b82095145d7d99d768.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "12b7efeff4371d3095b15d077954d6f157e4df161512a2890896890b2bba693b": {
+      "displayName": "CompleteApprovalFn/Code",
+      "source": {
+        "path": "asset.12b7efeff4371d3095b15d077954d6f157e4df161512a2890896890b2bba693b",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-eaf89374": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "12b7efeff4371d3095b15d077954d6f157e4df161512a2890896890b2bba693b.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "040e8d17ce9327cf7b165522be14a0648f08598d60e236c757cdd431a4647d87": {
+      "displayName": "WorkflowsV2Stack Template",
+      "source": {
+        "path": "WorkflowsV2Stack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "637423256673-us-east-1-eaded57b": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "040e8d17ce9327cf7b165522be14a0648f08598d60e236c757cdd431a4647d87.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

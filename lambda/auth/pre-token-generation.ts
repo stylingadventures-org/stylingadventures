@@ -66,21 +66,53 @@ export const handler: PreTokenGenerationTriggerHandler = async (
     return event;
   }
 
-  const tier = await getTierFromDynamo(sub);
-  const groupsFromDb = deriveGroupsFromTier(tier);
+  console.log("🔍 pre-token handler triggered for user:", sub);
+  console.log("📦 groupConfiguration:", JSON.stringify(event.request.groupConfiguration));
 
-  // Dynamo is source of truth here — override with our groups
-  event.response = {
-    claimsOverrideDetails: {
-      claimsToAddOrOverride: {
-        // 👇 This 'tier' claim is what your resolvers read
-        tier,
-      },
-      groupOverrideDetails: {
-        groupsToOverride: groupsFromDb,
-      },
-    },
+  // ✅ PRIORITY 1: Use the groups that are already assigned to this user
+  // Note: groupsToOverride contains the groups the user is CURRENTLY in (before override)
+  let groupsToUse: string[] = [];
+  
+  if (event.request.groupConfiguration?.groupsToOverride && 
+      event.request.groupConfiguration.groupsToOverride.length > 0) {
+    // User's actual Cognito group membership
+    groupsToUse = event.request.groupConfiguration.groupsToOverride;
+    console.log("✅ Found groups from Cognito:", groupsToUse);
+  } else {
+    // ✅ PRIORITY 2: Fall back to deriving from DynamoDB tier
+    console.log("⚠️ No groups found in Cognito, trying DynamoDB...");
+    const tier = await getTierFromDynamo(sub);
+    groupsToUse = deriveGroupsFromTier(tier);
+    console.log("📋 Derived groups from tier:", tier, "->", groupsToUse);
+
+    // Add tier claim if we derived it from DynamoDB
+    if (!event.response.claimsOverrideDetails) {
+      event.response.claimsOverrideDetails = {};
+    }
+    if (!event.response.claimsOverrideDetails.claimsToAddOrOverride) {
+      event.response.claimsOverrideDetails.claimsToAddOrOverride = {};
+    }
+    event.response.claimsOverrideDetails.claimsToAddOrOverride.tier = tier;
+  }
+
+  // ✅ Merge groups into existing claims instead of overwriting
+  if (!event.response.claimsOverrideDetails) {
+    event.response.claimsOverrideDetails = {};
+  }
+  if (!event.response.claimsOverrideDetails.claimsToAddOrOverride) {
+    event.response.claimsOverrideDetails.claimsToAddOrOverride = {};
+  }
+
+  // Add cognito:groups claim with all groups (highest priority wins)
+  event.response.claimsOverrideDetails.claimsToAddOrOverride["cognito:groups"] =
+    groupsToUse.join(",");
+
+  // Also set groupOverrideDetails to ensure groups are in token
+  event.response.claimsOverrideDetails.groupOverrideDetails = {
+    groupsToOverride: groupsToUse,
   };
+
+  console.log("✅ Final cognito:groups claim:", groupsToUse.join(","));
 
   return event;
 };

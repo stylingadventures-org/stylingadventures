@@ -1,6 +1,8 @@
 // site/src/routes/bestie/BestieCloset.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useApolloClient } from "@apollo/client";
+import gql from "graphql-tag";
 import { signedUpload } from "../../lib/sa";
 import { getThumbUrlForMediaKey } from "../../lib/thumbs";
 
@@ -21,7 +23,6 @@ const GQL = {
           colorTags
           season
           notes
-          visibility
           createdAt
           updatedAt
         }
@@ -41,7 +42,6 @@ const GQL = {
         colorTags
         season
         notes
-        visibility
         createdAt
         updatedAt
       }
@@ -59,7 +59,6 @@ const GQL = {
         colorTags
         season
         notes
-        visibility
         createdAt
         updatedAt
       }
@@ -172,6 +171,7 @@ async function trackClosetEvent(type, metadata) {
 
 export default function BestieCloset() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const client = useApolloClient();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,19 +216,39 @@ export default function BestieCloset() {
       setErr("");
     }
     try {
-      if (window.sa?.ready) {
-        await window.sa.ready();
-      }
       let nextToken = null;
       const collected = [];
 
       // simple pagination loop
       do {
-        const res = await window.sa.graphql(GQL.list, {
-          limit: 50,
-          nextToken,
+        const res = await client.query({
+          query: gql`
+            query BestieClosetItems($limit: Int, $nextToken: String) {
+              bestieClosetItems(limit: $limit, nextToken: $nextToken) {
+                items {
+                  id
+                  title
+                  mediaKey
+                  rawMediaKey
+                  category
+                  subcategory
+                  colorTags
+                  season
+                  notes
+                  visibility
+                  createdAt
+                  updatedAt
+                }
+                nextToken
+              }
+            }
+          `,
+          variables: {
+            limit: 50,
+            nextToken,
+          },
         });
-        const page = res?.bestieClosetItems;
+        const page = res?.data?.bestieClosetItems;
         const pageItems = page?.items || [];
         collected.push(...pageItems);
         nextToken = page?.nextToken || null;
@@ -283,9 +303,11 @@ export default function BestieCloset() {
   }
 
   useEffect(() => {
-    loadCloset();
+    if (client) {
+      loadCloset();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [client]);
 
   // ---- filtered / sorted items -----------------------------------
 

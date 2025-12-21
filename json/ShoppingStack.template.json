@@ -1,0 +1,792 @@
+{
+ "Resources": {
+  "ProductTableB8D4E9ED": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "productId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "category",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "category-index",
+      "KeySchema": [
+       {
+        "AttributeName": "category",
+        "KeyType": "HASH"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "productId",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "sa-product",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/ProductTable/Resource"
+   }
+  },
+  "AffiliateLinkTableB945AB49": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "affiliateLinkId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "productId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "productId-index",
+      "KeySchema": [
+       {
+        "AttributeName": "productId",
+        "KeyType": "HASH"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "affiliateLinkId",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "sa-affiliate-link",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/AffiliateLinkTable/Resource"
+   }
+  },
+  "ClosetItemProductMapTableC136F238": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "closetItemId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "productId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "closetItemId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "productId",
+      "KeyType": "RANGE"
+     }
+    ],
+    "TableName": "sa-closet-item-product-map",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/ClosetItemProductMapTable/Resource"
+   }
+  },
+  "SceneProductMapTableC93D0F2E": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "sceneId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "productId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "sceneId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "productId",
+      "KeyType": "RANGE"
+     }
+    ],
+    "TableName": "sa-scene-product-map",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/SceneProductMapTable/Resource"
+   }
+  },
+  "GetShopLalasLookFnServiceRole4797B05E": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopLalasLookFn/ServiceRole/Resource"
+   }
+  },
+  "GetShopLalasLookFnServiceRoleDefaultPolicy1AEFEDB0": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ProductTableB8D4E9ED",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ProductTableB8D4E9ED",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AffiliateLinkTableB945AB49",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AffiliateLinkTableB945AB49",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ClosetItemProductMapTableC136F238",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "GetShopLalasLookFnServiceRoleDefaultPolicy1AEFEDB0",
+    "Roles": [
+     {
+      "Ref": "GetShopLalasLookFnServiceRole4797B05E"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopLalasLookFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "GetShopLalasLookFn7E8D636F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "45c5c28b548e8648b9256af63fe1359eb9c383ef67dcfe8267fa080947761611.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRODUCT_TABLE_NAME": {
+       "Ref": "ProductTableB8D4E9ED"
+      },
+      "AFFILIATE_LINK_TABLE_NAME": {
+       "Ref": "AffiliateLinkTableB945AB49"
+      },
+      "CLOSET_ITEM_PRODUCT_MAP_TABLE_NAME": {
+       "Ref": "ClosetItemProductMapTableC136F238"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "GetShopLalasLookFnServiceRole4797B05E",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "GetShopLalasLookFnServiceRoleDefaultPolicy1AEFEDB0",
+    "GetShopLalasLookFnServiceRole4797B05E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopLalasLookFn/Resource",
+    "aws:asset:path": "asset.45c5c28b548e8648b9256af63fe1359eb9c383ef67dcfe8267fa080947761611",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "GetShopThisSceneFnServiceRole79189C36": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopThisSceneFn/ServiceRole/Resource"
+   }
+  },
+  "GetShopThisSceneFnServiceRoleDefaultPolicy8099EAA8": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ProductTableB8D4E9ED",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ProductTableB8D4E9ED",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AffiliateLinkTableB945AB49",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AffiliateLinkTableB945AB49",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SceneProductMapTableC93D0F2E",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "GetShopThisSceneFnServiceRoleDefaultPolicy8099EAA8",
+    "Roles": [
+     {
+      "Ref": "GetShopThisSceneFnServiceRole79189C36"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopThisSceneFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "GetShopThisSceneFnB567D613": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "aee3558bc6b056733f05d516ea33ad4542fce2077064d850431b3d51e44960e4.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "PRODUCT_TABLE_NAME": {
+       "Ref": "ProductTableB8D4E9ED"
+      },
+      "AFFILIATE_LINK_TABLE_NAME": {
+       "Ref": "AffiliateLinkTableB945AB49"
+      },
+      "SCENE_PRODUCT_MAP_TABLE_NAME": {
+       "Ref": "SceneProductMapTableC93D0F2E"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "GetShopThisSceneFnServiceRole79189C36",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "GetShopThisSceneFnServiceRoleDefaultPolicy8099EAA8",
+    "GetShopThisSceneFnServiceRole79189C36"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/GetShopThisSceneFn/Resource",
+    "aws:asset:path": "asset.aee3558bc6b056733f05d516ea33ad4542fce2077064d850431b3d51e44960e4",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "LinkClosetItemToProductFnServiceRole4CEC6541": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/LinkClosetItemToProductFn/ServiceRole/Resource"
+   }
+  },
+  "LinkClosetItemToProductFnServiceRoleDefaultPolicy59E27F86": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ClosetItemProductMapTableC136F238",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LinkClosetItemToProductFnServiceRoleDefaultPolicy59E27F86",
+    "Roles": [
+     {
+      "Ref": "LinkClosetItemToProductFnServiceRole4CEC6541"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/LinkClosetItemToProductFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LinkClosetItemToProductFnBF5E4B26": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "ef1530a3643cc318714f3a532762c9fda82bf21e7f53c92bc5ca83b17edfd54f.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "CLOSET_ITEM_PRODUCT_MAP_TABLE_NAME": {
+       "Ref": "ClosetItemProductMapTableC136F238"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "LinkClosetItemToProductFnServiceRole4CEC6541",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "LinkClosetItemToProductFnServiceRoleDefaultPolicy59E27F86",
+    "LinkClosetItemToProductFnServiceRole4CEC6541"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/LinkClosetItemToProductFn/Resource",
+    "aws:asset:path": "asset.ef1530a3643cc318714f3a532762c9fda82bf21e7f53c92bc5ca83b17edfd54f",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zWOTQ+CMBBEf4v3ZUXw4lFIPBoD3snSFlI+2oQtEkL63w1FT2/m8CaTYJKkGJ9o4UjIPhp0jVvpSPRAC1ebXA2NVta4vakeFOSNCcHDQGMtqTJWqo7xGfCYjXDaGtA04lbYQwh82UGLda9H8sBpRczKMd53AKeYzaJXLiNWv3nMG/Mf9VAotvMkFAShdNRq03rYL2DH508S4+WG11PHWkfTbJweFRYHv/dIP6bpAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ShoppingStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

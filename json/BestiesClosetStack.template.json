@@ -1,0 +1,4089 @@
+{
+ "Description": "Besties closet + background change workflows - dev",
+ "Resources": {
+  "AdminAuditTable2543903C": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "sk",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "pk",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "sk",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/AdminAuditTable/Resource"
+   }
+  },
+  "ClosetOpsTopicE34D076D": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "Closet Ops Notifications",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetOpsTopic/Resource"
+   }
+  },
+  "ClosetApprovalDLQ736F075F": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "MessageRetentionPeriod": 1209600,
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "VisibilityTimeout": 60
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetApprovalDLQ/Resource"
+   }
+  },
+  "ClosetApprovalDLQPolicy00BAAD4D": {
+   "Type": "AWS::SQS::QueuePolicy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:SendMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+       ],
+       "Condition": {
+        "ArnEquals": {
+         "aws:SourceArn": {
+          "Fn::GetAtt": [
+           "ClosetApprovalExecutionFailedToDLQ09FF699B",
+           "Arn"
+          ]
+         }
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "events.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::GetAtt": [
+         "ClosetApprovalDLQ736F075F",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Queues": [
+     {
+      "Ref": "ClosetApprovalDLQ736F075F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetApprovalDLQ/Policy/Resource"
+   }
+  },
+  "ImageSegmentationFnServiceRoleCA334768": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/ServiceRole/Resource"
+   }
+  },
+  "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:GetObject",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "s3:PutObject",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+          },
+          "/closet/processed/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA",
+    "Roles": [
+     {
+      "Ref": "ImageSegmentationFnServiceRoleCA334768"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ImageSegmentationFn0414CF98": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "ImageUri": {
+      "Fn::Sub": "637423256673.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-637423256673-us-east-1:5104fd45846950ea1b60da26d397af0986cb525269165dd6c774d01c2ba49d99"
+     }
+    },
+    "Environment": {
+     "Variables": {
+      "UPLOADS_BUCKET_NAME": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "PROCESSED_PREFIX": "closet/processed"
+     }
+    },
+    "EphemeralStorage": {
+     "Size": 4096
+    },
+    "MemorySize": 3008,
+    "PackageType": "Image",
+    "Role": {
+     "Fn::GetAtt": [
+      "ImageSegmentationFnServiceRoleCA334768",
+      "Arn"
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 120
+   },
+   "DependsOn": [
+    "ImageSegmentationFnServiceRoleDefaultPolicyB8F731BA",
+    "ImageSegmentationFnServiceRoleCA334768"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ImageSegmentationFn/Resource",
+    "aws:asset:path": "asset.5104fd45846950ea1b60da26d397af0986cb525269165dd6c774d01c2ba49d99",
+    "aws:asset:dockerfile-path": "Dockerfile",
+    "aws:asset:property": "Code.ImageUri"
+   }
+  },
+  "ModerationFnServiceRoleBF6ED484": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerationFn/ServiceRole/Resource"
+   }
+  },
+  "ModerationFnServiceRoleDefaultPolicy9C9AC1C0": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ModerationFnServiceRoleDefaultPolicy9C9AC1C0",
+    "Roles": [
+     {
+      "Ref": "ModerationFnServiceRoleBF6ED484"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerationFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ModerationFn7E78A67D": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "c2920f16056fa2c537644143b6b83ed743129b90534bfd802dc05235ab2ccaed.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "BUCKET_NAME": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ModerationFnServiceRoleBF6ED484",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ModerationFnServiceRoleDefaultPolicy9C9AC1C0",
+    "ModerationFnServiceRoleBF6ED484"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerationFn/Resource",
+    "aws:asset:path": "asset.c2920f16056fa2c537644143b6b83ed743129b90534bfd802dc05235ab2ccaed",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PiiCheckFnServiceRole84F31904": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PiiCheckFn/ServiceRole/Resource"
+   }
+  },
+  "PiiCheckFnServiceRoleDefaultPolicy5209AB8F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PiiCheckFnServiceRoleDefaultPolicy5209AB8F",
+    "Roles": [
+     {
+      "Ref": "PiiCheckFnServiceRole84F31904"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PiiCheckFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PiiCheckFnF52DF218": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "3bde3e9d95b60e7b775f5d71ce73b9b0b1971b69e5bbabca8e918ff4b7333ff8.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "PiiCheckFnServiceRole84F31904",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "PiiCheckFnServiceRoleDefaultPolicy5209AB8F",
+    "PiiCheckFnServiceRole84F31904"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PiiCheckFn/Resource",
+    "aws:asset:path": "asset.3bde3e9d95b60e7b775f5d71ce73b9b0b1971b69e5bbabca8e918ff4b7333ff8",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PublishClosetItemFnServiceRole9997268D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PublishClosetItemFn/ServiceRole/Resource"
+   }
+  },
+  "PublishClosetItemFnServiceRoleDefaultPolicy4282ADC3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PublishClosetItemFnServiceRoleDefaultPolicy4282ADC3",
+    "Roles": [
+     {
+      "Ref": "PublishClosetItemFnServiceRole9997268D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PublishClosetItemFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PublishClosetItemFn8BF46E04": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "26ed460570bfcd68736f55c567cad7cb907631781e2ce15482a754a1450cd195.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "BUCKET_NAME": {
+       "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+      },
+      "PUBLISHED_PREFIX": "published"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "PublishClosetItemFnServiceRole9997268D",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "PublishClosetItemFnServiceRoleDefaultPolicy4282ADC3",
+    "PublishClosetItemFnServiceRole9997268D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/PublishClosetItemFn/Resource",
+    "aws:asset:path": "asset.26ed460570bfcd68736f55c567cad7cb907631781e2ce15482a754a1450cd195",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "NotifyAdminFnServiceRole14F33905": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/NotifyAdminFn/ServiceRole/Resource"
+   }
+  },
+  "NotifyAdminFnServiceRoleDefaultPolicyBA423BD5": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "NotifyAdminFnServiceRoleDefaultPolicyBA423BD5",
+    "Roles": [
+     {
+      "Ref": "NotifyAdminFnServiceRole14F33905"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/NotifyAdminFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "NotifyAdminFnFDB24FD6": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "780294498bc411ee7a87bb77836ab9932f8019db05dd3eb8060061e9d708d6af.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "NotifyAdminFnServiceRole14F33905",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "NotifyAdminFnServiceRoleDefaultPolicyBA423BD5",
+    "NotifyAdminFnServiceRole14F33905"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/NotifyAdminFn/Resource",
+    "aws:asset:path": "asset.780294498bc411ee7a87bb77836ab9932f8019db05dd3eb8060061e9d708d6af",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ExpireApprovalFnServiceRole40D6B513": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireApprovalFn/ServiceRole/Resource"
+   }
+  },
+  "ExpireApprovalFnServiceRoleDefaultPolicy65417781": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ExpireApprovalFnServiceRoleDefaultPolicy65417781",
+    "Roles": [
+     {
+      "Ref": "ExpireApprovalFnServiceRole40D6B513"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireApprovalFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ExpireApprovalFnFC082AFD": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "07816386b5ec99ab2b9a97ac6e544056415e344e219a9ac126df2fa01ebb5059.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "ExpireApprovalFnServiceRole40D6B513",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "ExpireApprovalFnServiceRoleDefaultPolicy65417781",
+    "ExpireApprovalFnServiceRole40D6B513"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireApprovalFn/Resource",
+    "aws:asset:path": "asset.07816386b5ec99ab2b9a97ac6e544056415e344e219a9ac126df2fa01ebb5059",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ExpireClosetApprovalsFnServiceRoleDA11CC78": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireClosetApprovalsFn/ServiceRole/Resource"
+   }
+  },
+  "ExpireClosetApprovalsFnServiceRoleDefaultPolicy821887CD": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AdminAuditTable2543903C",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "ClosetOpsTopicE34D076D"
+       }
+      },
+      {
+       "Action": [
+        "states:SendTaskSuccess",
+        "events:PutEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ExpireClosetApprovalsFnServiceRoleDefaultPolicy821887CD",
+    "Roles": [
+     {
+      "Ref": "ExpireClosetApprovalsFnServiceRoleDA11CC78"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireClosetApprovalsFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ExpireClosetApprovalsFn6CE6ADC2": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "127434ea93ff268f997cc3a14c604d83c34f3f177b8ea03440b587b950314192.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AUDIT_TABLE_NAME": {
+       "Ref": "AdminAuditTable2543903C"
+      },
+      "NOTIFY_TOPIC_ARN": {
+       "Ref": "ClosetOpsTopicE34D076D"
+      },
+      "MAX_PER_RUN": "25"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ExpireClosetApprovalsFnServiceRoleDA11CC78",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ExpireClosetApprovalsFnServiceRoleDefaultPolicy821887CD",
+    "ExpireClosetApprovalsFnServiceRoleDA11CC78"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireClosetApprovalsFn/Resource",
+    "aws:asset:path": "asset.127434ea93ff268f997cc3a14c604d83c34f3f177b8ea03440b587b950314192",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ExpireClosetApprovalsSchedule554150AC": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(5 minutes)",
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "ExpireClosetApprovalsFn6CE6ADC2",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireClosetApprovalsSchedule/Resource"
+   }
+  },
+  "ExpireClosetApprovalsScheduleAllowEventRuleBestiesClosetStackExpireClosetApprovalsFn46C0A13F28003CF0": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ExpireClosetApprovalsFn6CE6ADC2",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "ExpireClosetApprovalsSchedule554150AC",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireClosetApprovalsSchedule/AllowEventRuleBestiesClosetStackExpireClosetApprovalsFn46C0A13F"
+   }
+  },
+  "ClosetDlqProcessorFnServiceRoleE2E435C2": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetDlqProcessorFn/ServiceRole/Resource"
+   }
+  },
+  "ClosetDlqProcessorFnServiceRoleDefaultPolicy2BD3A172": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AdminAuditTable2543903C",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "ClosetOpsTopicE34D076D"
+       }
+      },
+      {
+       "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "ClosetApprovalDLQ736F075F",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": "events:PutEvents",
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ClosetDlqProcessorFnServiceRoleDefaultPolicy2BD3A172",
+    "Roles": [
+     {
+      "Ref": "ClosetDlqProcessorFnServiceRoleE2E435C2"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetDlqProcessorFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ClosetDlqProcessorFn5FC330B3": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "2d10a5fead39d9e06a03b7ba286f8b1add4d7ece7b2d60cca3291caa41977806.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AUDIT_TABLE_NAME": {
+       "Ref": "AdminAuditTable2543903C"
+      },
+      "NOTIFY_TOPIC_ARN": {
+       "Ref": "ClosetOpsTopicE34D076D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ClosetDlqProcessorFnServiceRoleE2E435C2",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ClosetDlqProcessorFnServiceRoleDefaultPolicy2BD3A172",
+    "ClosetDlqProcessorFnServiceRoleE2E435C2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetDlqProcessorFn/Resource",
+    "aws:asset:path": "asset.2d10a5fead39d9e06a03b7ba286f8b1add4d7ece7b2d60cca3291caa41977806",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ClosetDlqProcessorFnDlqEventSource7CCE0FD5": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "BatchSize": 10,
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "ClosetApprovalDLQ736F075F",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "ClosetDlqProcessorFn5FC330B3"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetDlqProcessorFn/DlqEventSource/Resource"
+   }
+  },
+  "ClosetApprovalExecutionFailedToDLQ09FF699B": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "EventPattern": {
+     "source": [
+      "aws.states"
+     ],
+     "detail-type": [
+      "Step Functions Execution Status Change"
+     ],
+     "detail": {
+      "status": [
+       "FAILED",
+       "TIMED_OUT",
+       "ABORTED"
+      ]
+     }
+    },
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "ClosetApprovalDLQ736F075F",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetApprovalExecutionFailedToDLQ/Resource"
+   }
+  },
+  "ClosetHappyPathDashboard09D7F40C": {
+   "Type": "AWS::CloudWatch::Dashboard",
+   "Properties": {
+    "DashboardBody": "{\"widgets\":[]}",
+    "DashboardName": "sa-BestiesClosetStack-closet-happy-path"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetHappyPathDashboard/Resource"
+   }
+  },
+  "ApprovalDlqAlarmA17D94B1": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "ClosetOpsTopicE34D076D"
+     }
+    ],
+    "AlarmDescription": "Closet approval DLQ has messages",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "QueueName",
+      "Value": {
+       "Fn::GetAtt": [
+        "ClosetApprovalDLQ736F075F",
+        "QueueName"
+       ]
+      }
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "ApproximateNumberOfMessagesVisible",
+    "Namespace": "AWS/SQS",
+    "Period": 300,
+    "Statistic": "Maximum",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApprovalDlqAlarm/Resource"
+   }
+  },
+  "ExpireApprovalsErrorsAA836C75": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "ClosetOpsTopicE34D076D"
+     }
+    ],
+    "AlarmDescription": "ExpireClosetApprovalsFn is erroring",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "FunctionName",
+      "Value": {
+       "Ref": "ExpireClosetApprovalsFn6CE6ADC2"
+      }
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "Errors",
+    "Namespace": "AWS/Lambda",
+    "Period": 300,
+    "Statistic": "Sum",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ExpireApprovalsErrors/Resource"
+   }
+  },
+  "DlqProcessorErrors8287BC1E": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "ClosetOpsTopicE34D076D"
+     }
+    ],
+    "AlarmDescription": "ClosetDlqProcessorFn is erroring",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "FunctionName",
+      "Value": {
+       "Ref": "ClosetDlqProcessorFn5FC330B3"
+      }
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "Errors",
+    "Namespace": "AWS/Lambda",
+    "Period": 300,
+    "Statistic": "Sum",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/DlqProcessorErrors/Resource"
+   }
+  },
+  "ClosetUploadApprovalSMRole38D45F6B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetUploadApprovalSM/Role/Resource"
+   }
+  },
+  "ClosetUploadApprovalSMRoleDefaultPolicyFFBBCD8F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ImageSegmentationFn0414CF98",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ImageSegmentationFn0414CF98",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ModerationFn7E78A67D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ModerationFn7E78A67D",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PiiCheckFnF52DF218",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PiiCheckFnF52DF218",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "NotifyAdminFnFDB24FD6",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "NotifyAdminFnFDB24FD6",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PublishClosetItemFn8BF46E04",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PublishClosetItemFn8BF46E04",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ExpireApprovalFnFC082AFD",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ExpireApprovalFnFC082AFD",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ClosetUploadApprovalSMRoleDefaultPolicyFFBBCD8F",
+    "Roles": [
+     {
+      "Ref": "ClosetUploadApprovalSMRole38D45F6B"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetUploadApprovalSM/Role/DefaultPolicy/Resource"
+   }
+  },
+  "ClosetUploadApprovalSM46D354C9": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"FanHasItemObject?\",\"States\":{\"FanHasItemObject?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.item\",\"IsPresent\":true,\"Next\":\"FanNormalizeFromItem\"}],\"Default\":\"FanNormalizeFromRoot\"},\"FanNormalizeFromRoot\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.s3Key\",\"rawMediaKey.$\":\"$.rawMediaKey\",\"id.$\":\"$.id\",\"ownerSub.$\":\"$.ownerSub\",\"userId.$\":\"$.userId\"}},\"Next\":\"FanEnsureIds?\"},\"FanEnsureIds?\":{\"Type\":\"Choice\",\"Choices\":[{\"And\":[{\"Variable\":\"$.item.userId\",\"IsPresent\":true},{\"Variable\":\"$.item.ownerSub\",\"IsPresent\":true}],\"Next\":\"FanHasRawMediaKey_ForIdsOk?\"},{\"And\":[{\"Variable\":\"$.item.userId\",\"IsPresent\":true},{\"Not\":{\"Variable\":\"$.item.ownerSub\",\"IsPresent\":true}}],\"Next\":\"FanHasRawMediaKey_ForUserIdAsOwnerSub?\"},{\"And\":[{\"Not\":{\"Variable\":\"$.item.userId\",\"IsPresent\":true}},{\"Variable\":\"$.item.ownerSub\",\"IsPresent\":true}],\"Next\":\"FanHasRawMediaKey_ForOwnerSubAsUserId?\"}],\"Default\":\"FanMissingIdentity\"},\"FanNormalizeFromItem\":{\"Type\":\"Pass\",\"Parameters\":{\"item.$\":\"$.item\"},\"Next\":\"FanEnsureIds?\"},\"FanMissingIdentity\":{\"Type\":\"Fail\",\"Cause\":\"Missing userId/ownerSub\"},\"FanHasRawMediaKey_ForIdsOk?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.item.rawMediaKey\",\"IsPresent\":true,\"Next\":\"FanIdsOk_WithRaw\"}],\"Default\":\"FanIdsOk_NoRaw\"},\"FanIdsOk_NoRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.userId\"}},\"Next\":\"FanPickUploadKey?\"},\"FanPickUploadKey?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.item.s3Key\",\"IsPresent\":true,\"Next\":\"FanUseItemS3Key\"},{\"Variable\":\"$.item.rawMediaKey\",\"IsPresent\":true,\"Next\":\"FanUseItemRawMediaKey\"}],\"Default\":\"FanMissingUploadKey\"},\"FanIdsOk_WithRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"rawMediaKey.$\":\"$.item.rawMediaKey\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.userId\"}},\"Next\":\"FanPickUploadKey?\"},\"FanUseUserIdAsOwnerSub_NoRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"userId.$\":\"$.item.userId\",\"ownerSub.$\":\"$.item.userId\"}},\"Next\":\"FanPickUploadKey?\"},\"FanUseUserIdAsOwnerSub_WithRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"rawMediaKey.$\":\"$.item.rawMediaKey\",\"userId.$\":\"$.item.userId\",\"ownerSub.$\":\"$.item.userId\"}},\"Next\":\"FanPickUploadKey?\"},\"FanHasRawMediaKey_ForUserIdAsOwnerSub?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.item.rawMediaKey\",\"IsPresent\":true,\"Next\":\"FanUseUserIdAsOwnerSub_WithRaw\"}],\"Default\":\"FanUseUserIdAsOwnerSub_NoRaw\"},\"FanUseOwnerSubAsUserId_NoRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.ownerSub\"}},\"Next\":\"FanPickUploadKey?\"},\"FanUseOwnerSubAsUserId_WithRaw\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"s3Key.$\":\"$.item.s3Key\",\"rawMediaKey.$\":\"$.item.rawMediaKey\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.ownerSub\"}},\"Next\":\"FanPickUploadKey?\"},\"FanHasRawMediaKey_ForOwnerSubAsUserId?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.item.rawMediaKey\",\"IsPresent\":true,\"Next\":\"FanUseOwnerSubAsUserId_WithRaw\"}],\"Default\":\"FanUseOwnerSubAsUserId_NoRaw\"},\"FanMissingUploadKey\":{\"Type\":\"Fail\",\"Cause\":\"Missing s3Key/rawMediaKey\"},\"FanUseItemS3Key\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.userId\",\"s3Key.$\":\"$.item.s3Key\"}},\"Next\":\"FanSegmentOutfit\"},\"FanSegmentOutfit\":{\"Next\":\"FanModerateImage\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentation\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ImageSegmentationFn0414CF98",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\",\"bucket\":\"",
+       {
+        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+       },
+       "\"}}},\"FanUseItemRawMediaKey\":{\"Type\":\"Pass\",\"Parameters\":{\"item\":{\"id.$\":\"$.item.id\",\"ownerSub.$\":\"$.item.ownerSub\",\"userId.$\":\"$.item.userId\",\"s3Key.$\":\"$.item.rawMediaKey\"}},\"Next\":\"FanSegmentOutfit\"},\"FanModerateImage\":{\"Next\":\"FanCheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.moderation\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ModerationFn7E78A67D",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":\"$\"},\"FanCheckPII\":{\"Next\":\"FanNotifyAdminForApproval\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.pii\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "PiiCheckFnF52DF218",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":\"$\"},\"FanNotifyAdminForApproval\":{\"Next\":\"FanWasExpired?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Catch\":[{\"ErrorEquals\":[\"States.Timeout\"],\"ResultPath\":\"$.notifyError\",\"Next\":\"FanExpireApproval\"}],\"Type\":\"Task\",\"TimeoutSeconds\":86400,\"ResultPath\":\"$.admin\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke.waitForTaskToken\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "NotifyAdminFnFDB24FD6",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"token.$\":\"$$.Task.Token\",\"item.$\":\"$.item\",\"processedImageKey.$\":\"$.segmentation.outputKey\",\"moderation.$\":\"$.moderation\",\"pii.$\":\"$.pii\"}}},\"FanWasExpired?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.expired\",\"IsPresent\":true,\"Next\":\"FanExpired\"}],\"Default\":\"FanAdminApproved?\"},\"FanAdminApproved?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.admin.decision\",\"StringEquals\":\"APPROVE\",\"Next\":\"FanPublishClosetItem\"},{\"Variable\":\"$.admin.decision\",\"StringEquals\":\"REJECT\",\"Next\":\"FanRejected\"}],\"Default\":\"FanRejected\"},\"FanRejected\":{\"Type\":\"Fail\",\"Cause\":\"RejectedByAdmin\"},\"FanPublishClosetItem\":{\"Next\":\"FanPublished\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.published\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "PublishClosetItemFn8BF46E04",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"approvalId.$\":\"$.item.id\",\"item.$\":\"$.item\",\"segmentation.$\":\"$.segmentation\",\"moderation.$\":\"$.moderation\",\"pii.$\":\"$.pii\",\"admin.$\":\"$.admin\"}},\"FanPublished\":{\"Type\":\"Succeed\"},\"FanExpired\":{\"Type\":\"Fail\",\"Cause\":\"ApprovalExpired\"},\"FanExpireApproval\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.expired\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ExpireApprovalFnFC082AFD",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"approvalId.$\":\"$.item.id\",\"reason\":\"Timed out waiting for admin approval\"}}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "ClosetUploadApprovalSMRole38D45F6B",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "ClosetUploadApprovalSMRoleDefaultPolicyFFBBCD8F",
+    "ClosetUploadApprovalSMRole38D45F6B"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetUploadApprovalSM/Resource"
+   }
+  },
+  "ClosetUploadApprovalSMFailedAlarm76205ED7": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "ClosetOpsTopicE34D076D"
+     }
+    ],
+    "AlarmDescription": "ClosetUploadApprovalSM failed executions > 0",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "StateMachineArn",
+      "Value": {
+       "Ref": "ClosetUploadApprovalSM46D354C9"
+      }
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "ExecutionsFailed",
+    "Namespace": "AWS/States",
+    "Period": 300,
+    "Statistic": "Sum",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetUploadApprovalSMFailedAlarm/Resource"
+   }
+  },
+  "BestieClosetUploadAutoPublishSMRole45F297D7": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestieClosetUploadAutoPublishSM/Role/Resource"
+   }
+  },
+  "BestieClosetUploadAutoPublishSMRoleDefaultPolicy928FB5B7": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ImageSegmentationFn0414CF98",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ImageSegmentationFn0414CF98",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ModerationFn7E78A67D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ModerationFn7E78A67D",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PiiCheckFnF52DF218",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PiiCheckFnF52DF218",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PublishClosetItemFn8BF46E04",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PublishClosetItemFn8BF46E04",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "BestieClosetUploadAutoPublishSMRoleDefaultPolicy928FB5B7",
+    "Roles": [
+     {
+      "Ref": "BestieClosetUploadAutoPublishSMRole45F297D7"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestieClosetUploadAutoPublishSM/Role/DefaultPolicy/Resource"
+   }
+  },
+  "BestieClosetUploadAutoPublishSMD39D3713": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"BestieSegmentOutfit\",\"States\":{\"BestieSegmentOutfit\":{\"Next\":\"BestieModerateImage\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.segmentation\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ImageSegmentationFn0414CF98",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\",\"bucket\":\"",
+       {
+        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+       },
+       "\"}}},\"BestieModerateImage\":{\"Next\":\"BestieCheckPII\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.moderation\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ModerationFn7E78A67D",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":\"$\"},\"BestieCheckPII\":{\"Next\":\"BestieChecksPassed?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.pii\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "PiiCheckFnF52DF218",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":\"$\"},\"BestieChecksPassed?\":{\"Type\":\"Choice\",\"Choices\":[{\"And\":[{\"Or\":[{\"Not\":{\"Variable\":\"$.moderation\",\"IsPresent\":true}},{\"Variable\":\"$.moderation.ok\",\"BooleanEquals\":true}]},{\"Or\":[{\"Not\":{\"Variable\":\"$.pii\",\"IsPresent\":true}},{\"And\":[{\"Variable\":\"$.pii.ok\",\"BooleanEquals\":true},{\"Or\":[{\"Not\":{\"Variable\":\"$.pii.hasPii\",\"IsPresent\":true}},{\"Variable\":\"$.pii.hasPii\",\"BooleanEquals\":false}]}]}]}],\"Next\":\"BestiePublishClosetItem\"}],\"Default\":\"BestieRejected\"},\"BestieRejected\":{\"Type\":\"Fail\",\"Cause\":\"ChecksFailed\"},\"BestiePublishClosetItem\":{\"Next\":\"BestiePublished\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.published\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "PublishClosetItemFn8BF46E04",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"approvalId.$\":\"$.item.id\",\"item.$\":\"$.item\",\"segmentation.$\":\"$.segmentation\",\"moderation.$\":\"$.moderation\",\"pii.$\":\"$.pii\"}},\"BestiePublished\":{\"Type\":\"Succeed\"}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "BestieClosetUploadAutoPublishSMRole45F297D7",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "BestieClosetUploadAutoPublishSMRoleDefaultPolicy928FB5B7",
+    "BestieClosetUploadAutoPublishSMRole45F297D7"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestieClosetUploadAutoPublishSM/Resource"
+   }
+  },
+  "ValidateBgChangeFnServiceRoleA475219F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ValidateBgChangeFn/ServiceRole/Resource"
+   }
+  },
+  "ValidateBgChangeFnServiceRoleDefaultPolicyF44C3E36": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ValidateBgChangeFnServiceRoleDefaultPolicyF44C3E36",
+    "Roles": [
+     {
+      "Ref": "ValidateBgChangeFnServiceRoleA475219F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ValidateBgChangeFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ValidateBgChangeFn419727A4": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "747c8b56a542c8c793d144d82a5d2e732230958c7beb96fe84efe4d8b105e204.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ValidateBgChangeFnServiceRoleA475219F",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ValidateBgChangeFnServiceRoleDefaultPolicyF44C3E36",
+    "ValidateBgChangeFnServiceRoleA475219F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ValidateBgChangeFn/Resource",
+    "aws:asset:path": "asset.747c8b56a542c8c793d144d82a5d2e732230958c7beb96fe84efe4d8b105e204",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ModerateBgFnServiceRoleA8662475": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerateBgFn/ServiceRole/Resource"
+   }
+  },
+  "ModerateBgFnServiceRoleDefaultPolicy75CA2E9C": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "UploadsStack:ExportsOutputFnGetAttUploadsBucket5E5E9B64Arn8603C131"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ModerateBgFnServiceRoleDefaultPolicy75CA2E9C",
+    "Roles": [
+     {
+      "Ref": "ModerateBgFnServiceRoleA8662475"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerateBgFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ModerateBgFn9078832F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "5ca245031610985bf8d9820d169d4b2a39d406e6f44ec6685cf1ab11f7f2d014.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ModerateBgFnServiceRoleA8662475",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ModerateBgFnServiceRoleDefaultPolicy75CA2E9C",
+    "ModerateBgFnServiceRoleA8662475"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ModerateBgFn/Resource",
+    "aws:asset:path": "asset.5ca245031610985bf8d9820d169d4b2a39d406e6f44ec6685cf1ab11f7f2d014",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ApplyBgChangeFnServiceRole9AC3176A": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApplyBgChangeFn/ServiceRole/Resource"
+   }
+  },
+  "ApplyBgChangeFnServiceRoleDefaultPolicyF1F3687F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApplyBgChangeFnServiceRoleDefaultPolicyF1F3687F",
+    "Roles": [
+     {
+      "Ref": "ApplyBgChangeFnServiceRole9AC3176A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApplyBgChangeFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApplyBgChangeFn6D1C78C3": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "862c0fa7572dc63eac883051febde85b44650e42bd7b9ef4538264aeef176b22.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "ApplyBgChangeFnServiceRole9AC3176A",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "ApplyBgChangeFnServiceRoleDefaultPolicyF1F3687F",
+    "ApplyBgChangeFnServiceRole9AC3176A"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApplyBgChangeFn/Resource",
+    "aws:asset:path": "asset.862c0fa7572dc63eac883051febde85b44650e42bd7b9ef4538264aeef176b22",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "BestieBackgroundApprovalTopic895968C0": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "Bestie Background Change Approvals",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestieBackgroundApprovalTopic/Resource"
+   }
+  },
+  "BestieBackgroundApprovalTopicPolicy3A92D095": {
+   "Type": "AWS::SNS::TopicPolicy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "events.amazonaws.com"
+       },
+       "Resource": {
+        "Ref": "BestieBackgroundApprovalTopic895968C0"
+       },
+       "Sid": "0"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Topics": [
+     {
+      "Ref": "BestieBackgroundApprovalTopic895968C0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestieBackgroundApprovalTopic/Policy/Resource"
+   }
+  },
+  "BestiesBus2096AB60": {
+   "Type": "AWS::Events::EventBus",
+   "Properties": {
+    "Name": "sa-BestiesClosetStack-besties",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesBus/Resource"
+   }
+  },
+  "BgChangePendingReviewRule1B7C9136": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "EventBusName": {
+     "Ref": "BestiesBus2096AB60"
+    },
+    "EventPattern": {
+     "source": [
+      "stylingadventures.besties"
+     ],
+     "detail-type": [
+      "BestieBackgroundChangePendingReview"
+     ]
+    },
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Ref": "BestieBackgroundApprovalTopic895968C0"
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BgChangePendingReviewRule/Resource"
+   }
+  },
+  "ClosetItemPendingReviewRule3799EF69": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "EventBusName": {
+     "Ref": "BestiesBus2096AB60"
+    },
+    "EventPattern": {
+     "source": [
+      "stylingadventures.besties"
+     ],
+     "detail-type": [
+      "BestieClosetItemPendingReview"
+     ]
+    },
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Ref": "BestieBackgroundApprovalTopic895968C0"
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ClosetItemPendingReviewRule/Resource"
+   }
+  },
+  "BackgroundChangeApprovalSMRole8975368A": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BackgroundChangeApprovalSM/Role/Resource"
+   }
+  },
+  "BackgroundChangeApprovalSMRoleDefaultPolicy631B6BC3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ValidateBgChangeFn419727A4",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ValidateBgChangeFn419727A4",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ImageSegmentationFn0414CF98",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ImageSegmentationFn0414CF98",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ModerateBgFn9078832F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ModerateBgFn9078832F",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "BestieBackgroundApprovalTopic895968C0"
+       }
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ApplyBgChangeFn6D1C78C3",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ApplyBgChangeFn6D1C78C3",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "BackgroundChangeApprovalSMRoleDefaultPolicy631B6BC3",
+    "Roles": [
+     {
+      "Ref": "BackgroundChangeApprovalSMRole8975368A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BackgroundChangeApprovalSM/Role/DefaultPolicy/Resource"
+   }
+  },
+  "BackgroundChangeApprovalSMA6DF140D": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"ValidateBackgroundChange\",\"States\":{\"ValidateBackgroundChange\":{\"Next\":\"SegmentOutfitForBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.validation\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ValidateBgChangeFn419727A4",
+         "Arn"
+        ]
+       },
+       "\"},\"SegmentOutfitForBgChange\":{\"Next\":\"ModerateBackground\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"TimeoutSeconds\":180,\"ResultPath\":\"$.segmentationBg\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ImageSegmentationFn0414CF98",
+         "Arn"
+        ]
+       },
+       "\",\"Parameters\":{\"item\":{\"s3Key.$\":\"$.item.s3Key\",\"bucket\":\"",
+       {
+        "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+       },
+       "\"}}},\"ModerateBackground\":{\"Next\":\"NotifyAdminBgChange\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.moderationBg\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ModerateBgFn9078832F",
+         "Arn"
+        ]
+       },
+       "\"},\"NotifyAdminBgChange\":{\"Next\":\"AdminApprovedBgChange?\",\"Type\":\"Task\",\"ResultPath\":\"$.approval\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::sns:publish.waitForTaskToken\",\"Parameters\":{\"TopicArn\":\"",
+       {
+        "Ref": "BestieBackgroundApprovalTopic895968C0"
+       },
+       "\",\"Message\":{\"type\":\"BESTIE_BACKGROUND_CHANGE\",\"detail.$\":\"$\",\"taskToken.$\":\"$$.Task.Token\",\"processedImageKey.$\":\"$.segmentationBg.outputKey\"}}},\"AdminApprovedBgChange?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.approval.approved\",\"BooleanEquals\":true,\"Next\":\"ApplyBackgroundChange\"}],\"Default\":\"BackgroundChangeRejected\"},\"BackgroundChangeRejected\":{\"Type\":\"Pass\",\"Result\":{\"status\":\"REJECTED\"},\"End\":true},\"ApplyBackgroundChange\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ClientExecutionTimeoutException\",\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.applied\",\"Resource\":\"",
+       {
+        "Fn::GetAtt": [
+         "ApplyBgChangeFn6D1C78C3",
+         "Arn"
+        ]
+       },
+       "\"}}}"
+      ]
+     ]
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "BackgroundChangeApprovalSMRole8975368A",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "BackgroundChangeApprovalSMRoleDefaultPolicy631B6BC3",
+    "BackgroundChangeApprovalSMRole8975368A"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BackgroundChangeApprovalSM/Resource"
+   }
+  },
+  "SaveApprovalTokenFnServiceRoleD525F86C": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/ServiceRole/Resource"
+   }
+  },
+  "SaveApprovalTokenFnServiceRoleDefaultPolicy8271F5BF": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SaveApprovalTokenFnServiceRoleDefaultPolicy8271F5BF",
+    "Roles": [
+     {
+      "Ref": "SaveApprovalTokenFnServiceRoleD525F86C"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SaveApprovalTokenFnBF4550C6": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "193a25b2fc06146354e9e5db8f227d96865ec02a3549934f5b17aec73c82fa5a.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SaveApprovalTokenFnServiceRoleD525F86C",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "SaveApprovalTokenFnServiceRoleDefaultPolicy8271F5BF",
+    "SaveApprovalTokenFnServiceRoleD525F86C"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/Resource",
+    "aws:asset:path": "asset.193a25b2fc06146354e9e5db8f227d96865ec02a3549934f5b17aec73c82fa5a",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SaveApprovalTokenFnAllowInvokeBestiesClosetStackBestieBackgroundApprovalTopic94BA1983DB3E4AFD": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "SaveApprovalTokenFnBF4550C6",
+      "Arn"
+     ]
+    },
+    "Principal": "sns.amazonaws.com",
+    "SourceArn": {
+     "Ref": "BestieBackgroundApprovalTopic895968C0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/AllowInvoke:BestiesClosetStackBestieBackgroundApprovalTopic94BA1983"
+   }
+  },
+  "SaveApprovalTokenFnBestieBackgroundApprovalTopic6BA6BE2B": {
+   "Type": "AWS::SNS::Subscription",
+   "Properties": {
+    "Endpoint": {
+     "Fn::GetAtt": [
+      "SaveApprovalTokenFnBF4550C6",
+      "Arn"
+     ]
+    },
+    "Protocol": "lambda",
+    "TopicArn": {
+     "Ref": "BestieBackgroundApprovalTopic895968C0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/SaveApprovalTokenFn/BestieBackgroundApprovalTopic/Resource"
+   }
+  },
+  "ApproveClosetUploadFnServiceRole6FCD1BF1": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/Resource"
+   }
+  },
+  "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AdminAuditTable2543903C",
+          "Arn"
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "ClosetOpsTopicE34D076D"
+       }
+      },
+      {
+       "Action": [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure",
+        "events:PutEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A",
+    "Roles": [
+     {
+      "Ref": "ApproveClosetUploadFnServiceRole6FCD1BF1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApproveClosetUploadFnC4D99774": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "474f54f5aa1ad6f7c13578363b98bac935c929caf5a520deaf94dc9d9a36ef3a.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "AUDIT_TABLE_NAME": {
+       "Ref": "AdminAuditTable2543903C"
+      },
+      "NOTIFY_TOPIC_ARN": {
+       "Ref": "ClosetOpsTopicE34D076D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnServiceRole6FCD1BF1",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ApproveClosetUploadFnServiceRoleDefaultPolicy1412967A",
+    "ApproveClosetUploadFnServiceRole6FCD1BF1"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/ApproveClosetUploadFn/Resource",
+    "aws:asset:path": "asset.474f54f5aa1ad6f7c13578363b98bac935c929caf5a520deaf94dc9d9a36ef3a",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AdminFanClosetUploadFnServiceRole98571B14": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/AdminFanClosetUploadFn/ServiceRole/Resource"
+   }
+  },
+  "AdminFanClosetUploadFnServiceRoleDefaultPolicyAFE747B6": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "DataStack:ExportsOutputFnGetAttAppTable815C50BCArnF3D9E3C3"
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "states:StartExecution",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "ClosetUploadApprovalSM46D354C9"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AdminFanClosetUploadFnServiceRoleDefaultPolicyAFE747B6",
+    "Roles": [
+     {
+      "Ref": "AdminFanClosetUploadFnServiceRole98571B14"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/AdminFanClosetUploadFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AdminFanClosetUploadFnD3DC0D9E": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "d373b1b9ca5d755c3b10ef94812553a0430e080c31baf21267f41fac0f892a1a.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "TABLE_NAME": {
+       "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+      },
+      "PK_NAME": "pk",
+      "SK_NAME": "sk",
+      "FAN_APPROVAL_SM_ARN": {
+       "Ref": "ClosetUploadApprovalSM46D354C9"
+      },
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "AdminFanClosetUploadFnServiceRole98571B14",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ],
+    "Timeout": 15
+   },
+   "DependsOn": [
+    "AdminFanClosetUploadFnServiceRoleDefaultPolicyAFE747B6",
+    "AdminFanClosetUploadFnServiceRole98571B14"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/AdminFanClosetUploadFn/Resource",
+    "aws:asset:path": "asset.d373b1b9ca5d755c3b10ef94812553a0430e080c31baf21267f41fac0f892a1a",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "BestiesAdminApiD443FA75": {
+   "Type": "AWS::ApiGatewayV2::Api",
+   "Properties": {
+    "Name": "sa-BestiesClosetStack-admin-api",
+    "ProtocolType": "HTTP",
+    "Tags": {
+     "App": "stylingadventures",
+     "Env": "dev"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/Resource"
+   }
+  },
+  "BestiesAdminApiDefaultStage477978A2": {
+   "Type": "AWS::ApiGatewayV2::Stage",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AutoDeploy": true,
+    "StageName": "$default",
+    "Tags": {
+     "App": "stylingadventures",
+     "Env": "dev"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/DefaultStage/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnC4D99774",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegrationPermissionC159ADDA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnC4D99774",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "BestiesAdminApiD443FA75"
+       },
+       "/*/*/admin/closet/approve"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/ApproveClosetUploadIntegration-Permission"
+   }
+  },
+  "BestiesAdminApiPOSTadminclosetapproveC2CD6284": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "POST /admin/closet/approve",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--closet--approve/Resource"
+   }
+  },
+  "BestiesAdminApiOPTIONSadminclosetapproveApproveClosetUploadIntegrationPermission6CF18616": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApproveClosetUploadFnC4D99774",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "BestiesAdminApiD443FA75"
+       },
+       "/*/*/admin/closet/approve"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--closet--approve/ApproveClosetUploadIntegration-Permission"
+   }
+  },
+  "BestiesAdminApiOPTIONSadminclosetapproveC3B49F4D": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "OPTIONS /admin/closet/approve",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "BestiesAdminApiPOSTadminclosetapproveApproveClosetUploadIntegration8A051F48"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--closet--approve/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegration1F32C0EF": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "AdminFanClosetUploadFnD3DC0D9E",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/AdminFanClosetUploadIntegration/Resource"
+   }
+  },
+  "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegrationPermission624A3C83": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AdminFanClosetUploadFnD3DC0D9E",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "BestiesAdminApiD443FA75"
+       },
+       "/*/*/admin/fan/closet/upload"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/AdminFanClosetUploadIntegration-Permission"
+   }
+  },
+  "BestiesAdminApiPOSTadminfanclosetuploadA2FFCE0F": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "POST /admin/fan/closet/upload",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegration1F32C0EF"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/POST--admin--fan--closet--upload/Resource"
+   }
+  },
+  "BestiesAdminApiOPTIONSadminfanclosetuploadAdminFanClosetUploadIntegrationPermissionC8481BA5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AdminFanClosetUploadFnD3DC0D9E",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "BestiesAdminApiD443FA75"
+       },
+       "/*/*/admin/fan/closet/upload"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--fan--closet--upload/AdminFanClosetUploadIntegration-Permission"
+   }
+  },
+  "BestiesAdminApiOPTIONSadminfanclosetuploadB474146E": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "BestiesAdminApiD443FA75"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "OPTIONS /admin/fan/closet/upload",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "BestiesAdminApiPOSTadminfanclosetuploadAdminFanClosetUploadIntegration1F32C0EF"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/BestiesAdminApi/OPTIONS--admin--fan--closet--upload/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VRwW7bMAz9lt4VrnN22TFpVyzAumV27wEts7ZiW9JMKUEg+N8HyXFitBfxvSeSehQzyLI1PD7gmVeyaledKiEUDmUr8MyHUF009qYqIbxh2ZF4etcJjII1Q3gzVskkJpDOvemUvNzEKy18yXJQ1imj492Sj4L/MYS/nnx6YQLpvDdb0FF02JcVQng2sqVh12NNL17LufkS72noFXNkP06kXWH8IOkVrVW6jgmf1VEo7CHkZho4xbuR2QPJ4YDM5BgWNjZRiXeQkzWsnBkuW2S6Wj5oU9GR4XcKN5+8nltN9byGrZctuVRK0SFDyP3VUIzJ9tbzbYSt51HIzvjqjE42EJ6Rm9LgUMWUO9l0OPRRSmAU7Mi+X40whD0yi6fGKEniBVUnCi8lUSUKh45eUTZKJxdL/qHLwSG3DOFXmnmnT6YlUWje+7JT3IwCrarR0RkvpwzCT+fsxqrkySoRaeGwnl+pKUm58W5CO+2oHnDe8Aea8sZR5MRpqVH74531TqTPjR3TkuMq4MhfTtkjfP0O3x6OrNRq8NqpniCf4n9U488SIQMAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "BestiesClosetStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ClosetOpsTopicArn": {
+   "Value": {
+    "Ref": "ClosetOpsTopicE34D076D"
+   }
+  },
+  "AdminApiUrl": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "BestiesAdminApiD443FA75"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "ClosetUploadApprovalStateMachineArn": {
+   "Value": {
+    "Ref": "ClosetUploadApprovalSM46D354C9"
+   }
+  },
+  "BestieClosetUploadAutoPublishStateMachineArn": {
+   "Value": {
+    "Ref": "BestieClosetUploadAutoPublishSMD39D3713"
+   }
+  },
+  "BackgroundChangeApprovalStateMachineArn": {
+   "Value": {
+    "Ref": "BackgroundChangeApprovalSMA6DF140D"
+   }
+  },
+  "AppTableName": {
+   "Value": {
+    "Fn::ImportValue": "DataStack:ExportsOutputRefAppTable815C50BC1988FCFB"
+   }
+  },
+  "UploadsBucketName": {
+   "Value": {
+    "Fn::ImportValue": "UploadsStack:ExportsOutputRefUploadsBucket5E5E9B64F2F56CC2"
+   }
+  },
+  "ClosetDashboardName": {
+   "Value": {
+    "Ref": "ClosetHappyPathDashboard09D7F40C"
+   }
+  },
+  "ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513": {
+   "Value": {
+    "Ref": "ClosetUploadApprovalSM46D354C9"
+   },
+   "Export": {
+    "Name": "BestiesClosetStack:ExportsOutputRefClosetUploadApprovalSM46D354C9ED6F8513"
+   }
+  },
+  "ExportsOutputRefBestieClosetUploadAutoPublishSMD39D3713F9680EDA": {
+   "Value": {
+    "Ref": "BestieClosetUploadAutoPublishSMD39D3713"
+   },
+   "Export": {
+    "Name": "BestiesClosetStack:ExportsOutputRefBestieClosetUploadAutoPublishSMD39D3713F9680EDA"
+   }
+  },
+  "ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D": {
+   "Value": {
+    "Ref": "BackgroundChangeApprovalSMA6DF140D"
+   },
+   "Export": {
+    "Name": "BestiesClosetStack:ExportsOutputRefBackgroundChangeApprovalSMA6DF140DCA66162D"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -17,6 +17,19 @@ export default defineConfig({
       '@features': path.resolve(__dirname, './src/features'),
     },
   },
+  build: {
+    // Code splitting for better chunk size
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'vendor-cognito': ['@aws-sdk/client-cognito-identity-provider'],
+          'vendor-ui': ['react-hot-toast'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Allow larger chunks
+  },
   server: {
     host: 'localhost',
     port: 5173,

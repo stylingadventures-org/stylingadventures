@@ -1,0 +1,155 @@
+# ===============================================
+# LALA CHARACTER PROFILE SCHEMA
+# ===============================================
+
+# ─────────────────────────────────────────
+# Lala Profile Type
+# Stores user's Lala customization state
+# ─────────────────────────────────────────
+
+type LalaProfile {
+  """User who owns this profile"""
+  userId: ID!
+
+  """Current mood state (playful, confident, soft, spicy, focused, shadow)"""
+  currentMood: String!
+
+  """Currently selected look ID"""
+  currentLookId: String!
+
+  """List of unlocked look IDs"""
+  unlockedLookIds: [String!]!
+
+  """List of unlocked cosmetic IDs (makeup, hair, accessories)"""
+  unlockedCosmeticIds: [String!]!
+
+  """When mood was last changed"""
+  lastMoodChangeAt: AWSDateTime
+
+  """History of styling changes (last 20)"""
+  stylingHistory: [StylingHistoryEntry!]
+
+  """User's tier (FAN, BESTIE, CREATOR, ADMIN, PRIME, COLLAB)"""
+  tier: String!
+
+  """Evolution stage (basic, glowup, prime)"""
+  evolutionStage: String!
+
+  """When profile was created"""
+  createdAt: AWSDateTime!
+
+  """Last updated"""
+  updatedAt: AWSDateTime!
+}
+
+# ─────────────────────────────────────────
+# Styling History Entry
+# Individual styling action record
+# ─────────────────────────────────────────
+
+type StylingHistoryEntry {
+  """Unique ID for this history entry"""
+  id: ID!
+
+  """Look ID that was applied"""
+  lookId: String!
+
+  """Mood at the time"""
+  mood: String!
+
+  """When this styling was applied"""
+  appliedAt: AWSDateTime!
+
+  """User context (where styling happened)"""
+  context: String
+}
+
+# ─────────────────────────────────────────
+# Lala Mood Change Event
+# Mutation result when mood changes
+# ─────────────────────────────────────────
+
+type MoodChangeResult {
+  """Success status"""
+  success: Boolean!
+
+  """New mood"""
+  mood: String!
+
+  """Updated profile"""
+  profile: LalaProfile!
+
+  """Message"""
+  message: String
+}
+
+# ─────────────────────────────────────────
+# Lala Look Change Event
+# Mutation result when look changes
+# ─────────────────────────────────────────
+
+type LookChangeResult {
+  """Success status"""
+  success: Boolean!
+
+  """New look ID"""
+  lookId: String!
+
+  """Updated profile"""
+  profile: LalaProfile!
+
+  """Message"""
+  message: String
+}
+
+# ─────────────────────────────────────────
+# Extend Query with Lala operations
+# ─────────────────────────────────────────
+
+extend type Query {
+  """Get current user's Lala profile"""
+  myLalaProfile: LalaProfile! @aws_cognito_user_pools
+
+  """Get Lala profile for specific user (admin only)"""
+  getLalaProfile(userId: ID!): LalaProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """Get styling history for current user"""
+  myLalaStylingHistory(limit: Int): [StylingHistoryEntry!]!
+    @aws_cognito_user_pools
+}
+
+# ─────────────────────────────────────────
+# Extend Mutation with Lala operations
+# ─────────────────────────────────────────
+
+extend type Mutation {
+  """Change Lala's current mood"""
+  changeLalaMood(mood: String!): MoodChangeResult!
+    @aws_cognito_user_pools
+
+  """Change Lala's current look"""
+  changeLalaLook(lookId: String!): LookChangeResult!
+    @aws_cognito_user_pools
+
+  """Unlock a cosmetic item for Lala"""
+  unlockLalaCosmeticItem(cosmeticId: String!): LalaProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """Unlock a look for user"""
+  unlockLalaLook(lookId: String!, userId: ID): LalaProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """Evolve Lala to next stage (basic -> glowup -> prime)"""
+  evolveLalaStage(stage: String!): LalaProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """Reset Lala profile (admin only)"""
+  resetLalaProfile(userId: ID!): LalaProfile!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN"])
+}

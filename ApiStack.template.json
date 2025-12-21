@@ -1,0 +1,494 @@
+[WARNING] aws-cdk-lib.aws_cloudfront_origins.S3Origin is deprecated.
+  Use `S3BucketOrigin` or `S3StaticWebsiteOrigin` instead.
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_cloudfront_origins.S3Origin#bind is deprecated.
+  Use `S3BucketOrigin` or `S3StaticWebsiteOrigin` instead.
+  This API will be removed in the next major release.
+Bundling asset IdentityV2Stack/PreTokenGenerationFn/Code/Stage...
+
+  ...0cb87a26e068af2fb272d907a5acb868d20f06d1c6e7a6cd-building\index.js  2.6kb
+
+Done in 10ms
+Bundling asset IdentityV2Stack/SeedAdminFn/Code/Stage...
+
+  ...8841b808a00f177e318bb301db3fa2367756e825b8e97566-building\index.js  2.8kb
+
+Done in 14ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+Bundling asset WorkflowsV2Stack/SocialPulseLoadGoalCompassFn/Code/Stage...
+
+  ...f72048bf226072b35ea21b9ba9e5f9085ff23135be665721-building\index.js  1.3kb
+  ...48bf226072b35ea21b9ba9e5f9085ff23135be665721-building\index.js.map  2.3kb
+
+Done in 16ms
+Bundling asset WorkflowsV2Stack/SocialPulseFetchTrendsFn/Code/Stage...
+
+  ...425d115b001f25556195a50f51aa607fbfc2a233a56efbbd-building\index.js  1.0kb
+  ...115b001f25556195a50f51aa607fbfc2a233a56efbbd-building\index.js.map  1.6kb
+
+Done in 17ms
+Bundling asset WorkflowsV2Stack/SocialPulseGenerateIdeasFn/Code/Stage...
+
+  ...f42511f8a1ae587be6ced7311cf3d45845b2017710324654-building\index.js  1.8kb
+  ...11f8a1ae587be6ced7311cf3d45845b2017710324654-building\index.js.map  5.9kb
+
+Done in 24ms
+Bundling asset WorkflowsV2Stack/SocialPulsePersistFn/Code/Stage...
+
+  ...f2c86efbbdd89c55000fea9dc63590a504b02f25e2e41939-building\index.js  2.1kb
+  ...6efbbdd89c55000fea9dc63590a504b02f25e2e41939-building\index.js.map  7.0kb
+
+Done in 28ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+Bundling asset WorkflowsV2Stack/GoalCompassAnalyticsFn/Code/Stage...
+
+  ...79d73ab71681ec9620c441e6cb4eeb32f7b2882e6509c35d-building\index.js  2.2kb
+  ...3ab71681ec9620c441e6cb4eeb32f7b2882e6509c35d-building\index.js.map  7.0kb
+
+Done in 12ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.MapProps#parameters is deprecated.
+  Step Functions has deprecated the `parameters` field in favor of
+the new `itemSelector` field
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.Map#iterator is deprecated.
+  - use `itemProcessor`┬áinstead.
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+Bundling asset WorkflowsV2Stack/CompleteApprovalFn/Code/Stage...
+
+  ...45888e7575d000bb00d6b694df2a38425adad1f34d00067b-building\index.js  2.9kb
+
+Done in 12ms
+Bundling asset UploadsStack/UploadApiFn/Code/Stage...
+
+  ...d810b85070d11fa0b5b196b71eb018e5fe882a3c255eed9f-building\index.js  1.6kb
+  ...b85070d11fa0b5b196b71eb018e5fe882a3c255eed9f-building\index.js.map  6.8kb
+
+Done in 14ms
+Bundling asset UploadsStack/ClosetBgWorkerFn/Code/Stage...
+
+  ...95546e934bc26f4bef3f5d4503eb4b59440d794cfc89d7-building\index.js   94.9kb
+  ...6e934bc26f4bef3f5d4503eb4b59440d794cfc89d7-building\index.js.map  494.5kb
+
+Done in 83ms
+[WARNING] aws-cdk-lib.aws_dynamodb.TableOptions#pointInTimeRecovery is deprecated.
+  use `pointInTimeRecoverySpecification` instead
+  This API will be removed in the next major release.
+Bundling asset BestiesClosetStack/ModerationFn/Code/Stage...
+
+  ...7b7c10b5504cf1bf9e8c598c0282870bf72c27d8e9655c66-building\index.js  1.3kb
+
+Done in 13ms
+Bundling asset BestiesClosetStack/PiiCheckFn/Code/Stage...
+
+  ...7300294a787649626f3804fae7d96702fd6d9b3532d3bb7d-building\index.js  2.1kb
+
+Done in 18ms
+Bundling asset BestiesClosetStack/PublishClosetItemFn/Code/Stage...
+
+  ...be96d8ad00429208c89e8b1ed8baaee09a9915fb0f0c88a8-building\index.js  2.6kb
+  ...d8ad00429208c89e8b1ed8baaee09a9915fb0f0c88a8-building\index.js.map  6.8kb
+
+Done in 15ms
+Bundling asset BestiesClosetStack/NotifyAdminFn/Code/Stage...
+
+  ...07f4cc2be32f8d23b810c271c5ea9f984269be22dc75d115-building\index.js  3.2kb
+
+Done in 15ms
+Bundling asset BestiesClosetStack/ExpireApprovalFn/Code/Stage...
+
+  ...ad7cde5bbd338e6d0b8f0ea111a9d20f46c015f68e33c338-building\index.js  4.0kb
+
+Done in 16ms
+Bundling asset BestiesClosetStack/ExpireClosetApprovalsFn/Code/Stage...
+
+  ...01c5c9285fa77dd7844b94e34f730c5d0955a3ac9243189-building\index.js   4.6kb
+  ...c9285fa77dd7844b94e34f730c5d0955a3ac9243189-building\index.js.map  13.5kb
+
+Done in 15ms
+Bundling asset BestiesClosetStack/ClosetDlqProcessorFn/Code/Stage...
+
+  ...f43cee76361407aeb07334f9684ef9bf6f95de4e54aa1b2e-building\index.js  2.7kb
+  ...ee76361407aeb07334f9684ef9bf6f95de4e54aa1b2e-building\index.js.map  7.6kb
+
+Done in 16ms
+Bundling asset BestiesClosetStack/ValidateBgChangeFn/Code/Stage...
+
+  ...fe9678300796544ef9e9fe2aaf55320bd1039df531a985b8-building\index.js  846b 
+  ...78300796544ef9e9fe2aaf55320bd1039df531a985b8-building\index.js.map  2.2kb
+
+Done in 13ms
+Bundling asset BestiesClosetStack/ModerateBgFn/Code/Stage...
+
+  ...136b26a33ce9196c6d841a278f142b4e9f2527d352bce598-building\index.js  639b 
+  ...26a33ce9196c6d841a278f142b4e9f2527d352bce598-building\index.js.map  568b 
+
+Done in 16ms
+Bundling asset BestiesClosetStack/ApplyBgChangeFn/Code/Stage...
+
+  ...07e6db40b863c547b0bc5f32552fd58b940a33406c1be684-building\index.js  2.4kb
+  ...db40b863c547b0bc5f32552fd58b940a33406c1be684-building\index.js.map  6.4kb
+
+Done in 11ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.TaskStateBaseOptions#timeout is deprecated.
+  use `taskTimeout`
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.TaskStateBaseOptions#timeout is deprecated.
+  use `taskTimeout`
+  This API will be removed in the next major release.
+Bundling asset BestiesClosetStack/SaveApprovalTokenFn/Code/Stage...
+
+  ...6cc887b729576aa6a42dc5c394285824f35c4f0070714dee-building\index.js  2.1kb
+
+Done in 8ms
+Bundling asset BestiesClosetStack/ApproveClosetUploadFn/Code/Stage...
+
+  ...54278ea8afc8b6cb050cb23819c7e12d5d255ed6e722c93-building\index.js   5.2kb
+  ...8ea8afc8b6cb050cb23819c7e12d5d255ed6e722c93-building\index.js.map  15.4kb
+
+Done in 13ms
+Bundling asset BestiesClosetStack/AdminFanClosetUploadFn/Code/Stage...
+
+  ...668c2f5b19688471ef40b110bdd0869f7307ea01277990c-building\index.js   3.1kb
+  ...2f5b19688471ef40b110bdd0869f7307ea01277990c-building\index.js.map  10.2kb
+
+Done in 22ms
+Bundling asset BestiesStoriesStack/ComposeStoryFn/Code/Stage...
+
+  ...1084461cfe0b8c6c3e218d51ea86168a7167a66cf2b0a0-building\index.js  506.6kb
+  ...461cfe0b8c6c3e218d51ea86168a7167a66cf2b0a0-building\index.js.map    1.8mb
+
+Done in 312ms
+Bundling asset BestiesStoriesStack/PublishStoryFn/Code/Stage...
+
+  ...7c50de97454c371df459f3551b54ec7634d4e5a1b0a94f-building\index.js  506.7kb
+  ...de97454c371df459f3551b54ec7634d4e5a1b0a94f-building\index.js.map    1.8mb
+
+Done in 314ms
+Bundling asset BestiesEngagementStack/EngagementFn/Code/Stage...
+
+  ...7b3bec182e7e72cb7dc4b01bc4c7e98b7c9584b2abf05a-building\index.js  1.1mb
+
+Done in 288ms
+Bundling asset LivestreamStack/CreatorLivestreamFn/Code/Stage...
+
+  ...3537c2a07fa321ee27bb4db49861674462e441ebe9548397-building\index.js  1.9kb
+  ...c2a07fa321ee27bb4db49861674462e441ebe9548397-building\index.js.map  5.1kb
+
+Done in 15ms
+Bundling asset CreatorToolsStack/CreatorToolsFn/Code/Stage...
+
+  ...d963fb7e26ce16dae31681a4a1d450bba3c7b467f2b8fb-building\index.js   31.8kb
+  ...fb7e26ce16dae31681a4a1d450bba3c7b467f2b8fb-building\index.js.map  110.2kb
+
+Done in 42ms
+Bundling asset ShoppingStack/GetShopLalasLookFn/Code/Stage...
+
+  ...ad40e0ee35802da25fa2ecd067ddf94c8a8a791385543011-building\index.js  3.7kb
+
+Done in 12ms
+Bundling asset ShoppingStack/GetShopThisSceneFn/Code/Stage...
+
+  ...1d5129eecc08019134d1964dceede9874613367f3069e299-building\index.js  4.2kb
+
+Done in 17ms
+Bundling asset ShoppingStack/LinkClosetItemToProductFn/Code/Stage...
+
+  ...877c1cb90216f5376fffa26c1ea60a1d69713e352e6e4496-building\index.js  1.9kb
+
+Done in 13ms
+Bundling asset CommerceStack/CommerceFn/Code/Stage...
+
+  ...62ca092b027ca7a8b0e29bba89896fda2d1fdcbe899e5a9a-building\index.js  1.9kb
+  ...092b027ca7a8b0e29bba89896fda2d1fdcbe899e5a9a-building\index.js.map  5.1kb
+
+Done in 14ms
+Bundling asset AnalyticsStack/AnalyticsIngestFn/Code/Stage...
+
+  ...bb1be24e2a52aa8c392b62ba8ea8aeb2d2351104f8c19d-building\index.js  667.9kb
+  ...e24e2a52aa8c392b62ba8ea8aeb2d2351104f8c19d-building\index.js.map    2.4mb
+
+Done in 389ms
+Bundling asset AnalyticsStack/AdminAnalyticsFn/Code/Stage...
+
+  ...96f4a4d9ba6e9fa8934a8a9f5b74c3a450b9adb03c8e671e-building\index.js  1.2kb
+  ...a4d9ba6e9fa8934a8a9f5b74c3a450b9adb03c8e671e-building\index.js.map  3.1kb
+
+Done in 9ms
+Bundling asset LayoutEngineStack/LayoutValidatorFn/Code/Stage...
+
+  ...cab3ae05ea05680592e219bcec50f547ee391429f2fe3178-building\index.js  1.1kb
+  ...ae05ea05680592e219bcec50f547ee391429f2fe3178-building\index.js.map  2.5kb
+
+Done in 9ms
+Bundling asset PrimeStudiosStack/EpisodeComponentsFn/Code/Stage...
+
+  ...d6e013746934506902244685d9934483fd42087eaac4dc9f-building\index.js  1.5kb
+  ...13746934506902244685d9934483fd42087eaac4dc9f-building\index.js.map  3.8kb
+
+Done in 14ms
+Bundling asset PrimeStudiosStack/EpisodeAssemblerFn/Code/Stage...
+
+  ...10b7a0fc2c2cdaf5a1070cf21b6c94a7e21be42486b70599-building\index.js  942b 
+  ...a0fc2c2cdaf5a1070cf21b6c94a7e21be42486b70599-building\index.js.map  3.7kb
+
+Done in 14ms
+Bundling asset PrimeStudiosStack/ScriptReviewFn/Code/Stage...
+
+  ...775470a8e63a1a96d27876c7bb6bda8eff29574bedba6b02-building\index.js  1.2kb
+  ...70a8e63a1a96d27876c7bb6bda8eff29574bedba6b02-building\index.js.map  4.3kb
+
+Done in 19ms
+Bundling asset PrimeStudiosStack/CoinsLedgerFn/Code/Stage...
+
+  ...be0af0d7919ef6050da09339f8bfae9e33deb40c3944d73c-building\index.js  1.2kb
+  ...f0d7919ef6050da09339f8bfae9e33deb40c3944d73c-building\index.js.map  4.3kb
+
+Done in 14ms
+Bundling asset PrimeStudiosStack/CareerArchiveFn/Code/Stage...
+
+  ...fe1ef0696f708e1f3829731d5397853e46850b2a37528cb3-building\index.js  2.3kb
+  ...f0696f708e1f3829731d5397853e46850b2a37528cb3-building\index.js.map  8.5kb
+
+Done in 18ms
+Bundling asset PrimeStudiosStack/PollManagerFn/Code/Stage...
+
+  ...13310729fcda78b9a626de1896640281568eef04714d794-building\index.js   2.9kb
+  ...0729fcda78b9a626de1896640281568eef04714d794-building\index.js.map  12.2kb
+
+Done in 14ms
+Bundling asset PrimeStudiosStack/MockSocialFeedFn/Code/Stage...
+
+  ...693ede9192294313a6b7f5c87612013b2ab53f521b9d323-building\index.js   2.9kb
+  ...de9192294313a6b7f5c87612013b2ab53f521b9d323-building\index.js.map  11.9kb
+
+Done in 15ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+Bundling asset PrimeBankStack/AwardPrimeCoinsFn/Code/Stage...
+
+  ...6f53b6ef88d4a8ee4b9bc22f363e8047d27b6cf57c5fa729-building\index.js  1.3kb
+  ...b6ef88d4a8ee4b9bc22f363e8047d27b6cf57c5fa729-building\index.js.map  3.1kb
+
+Done in 13ms
+Bundling asset PrimeBankStack/AwardCreatorCreditsFn/Code/Stage...
+
+  ...fed0cf5a18fc8eb4b37d15f998e8ff4f20350153232a7f3e-building\index.js  1.3kb
+  ...cf5a18fc8eb4b37d15f998e8ff4f20350153232a7f3e-building\index.js.map  3.1kb
+
+Done in 42ms
+Bundling asset PrimeBankStack/CalculateBankMeterFn/Code/Stage...
+
+  ...e909c59026539625181a4ded8b818064662a9787ab950956-building\index.js  1.0kb
+  ...c59026539625181a4ded8b818064662a9787ab950956-building\index.js.map  2.2kb
+
+Done in 14ms
+Bundling asset PrimeBankStack/EnforceEarningCapsFn/Code/Stage...
+
+  ...6777b9bed98ca5c7c611b647386be7e9b73e004b8470abb5-building\index.js  1.3kb
+  ...b9bed98ca5c7c611b647386be7e9b73e004b8470abb5-building\index.js.map  3.2kb
+
+Done in 17ms
+Bundling asset PublishingStack/ValidateEpisodeFn/Code/Stage...
+
+  ...6308391edb1e7b6e295ee71045a06aae7602833f1464fa9-building\index.js   3.6kb
+  ...391edb1e7b6e295ee71045a06aae7602833f1464fa9-building\index.js.map  13.6kb
+
+Done in 16ms
+Bundling asset PublishingStack/PublishEpisodeFn/Code/Stage...
+
+  ...2b9139a3647c5d5216e7b56bb71122c28574ccb37a89c6-building\index.js  492.1kb
+  ...39a3647c5d5216e7b56bb71122c28574ccb37a89c6-building\index.js.map    1.7mb
+
+Done in 301ms
+Bundling asset PublishingStack/FailEpisodeFn/Code/Stage...
+
+  ...f93e98a7dd7cc8f1dd97d8cbf45c26c3254d12f6eed69bf0-building\index.js  1.0kb
+  ...98a7dd7cc8f1dd97d8cbf45c26c3254d12f6eed69bf0-building\index.js.map  4.3kb
+
+Done in 12ms
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+[WARNING] aws-cdk-lib.aws_stepfunctions.StateMachineProps#definition is deprecated.
+  use definitionBody: DefinitionBody.fromChainable()
+  This API will be removed in the next major release.
+Bundling asset CollaboratorStack/CreateCollaboratorInviteFn/Code/Stage...
+
+  ...b14419b63930c6cb8b785177a269c127fc5113d67cf47a-building\index.js  500.0kb
+  ...19b63930c6cb8b785177a269c127fc5113d67cf47a-building\index.js.map    1.7mb
+
+Done in 286ms
+Bundling asset CollaboratorStack/AcceptCollaboratorInviteFn/Code/Stage...
+
+  ...381b29b0de6247cea65410c539dadda194ff3c16aab7bc-building\index.js  500.0kb
+  ...29b0de6247cea65410c539dadda194ff3c16aab7bc-building\index.js.map    1.7mb
+
+Done in 322ms
+Bundling asset CollaboratorStack/AcceptCollaboratorTermsFn/Code/Stage...
+
+  ...aff3be038ceba4836983855926a5947185df6d3e6779aa-building\index.js  500.0kb
+  ...be038ceba4836983855926a5947185df6d3e6779aa-building\index.js.map    1.7mb
+
+Done in 270ms
+Bundling asset CollaboratorStack/CollaboratorUploadFn/Code/Stage...
+
+  ...5235ddc6378b49ccbf3b78e0d97ea4c89ae0c629bda67a-building\index.js  500.0kb
+  ...ddc6378b49ccbf3b78e0d97ea4c89ae0c629bda67a-building\index.js.map    1.7mb
+
+Done in 306ms
+Bundling asset CollaboratorStack/CollaboratorAdminReviewFn/Code/Stage...
+
+  ...8c7e0ce0137cbf9529f7e34f57d822543f45f80e956ec3-building\index.js  500.0kb
+  ...0ce0137cbf9529f7e34f57d822543f45f80e956ec3-building\index.js.map    1.7mb
+
+Done in 265ms
+Bundling asset CollaboratorStack/CollaboratorDeadlineReminderFn/Code/Stage...
+
+  ...b59f37bdbbf76b1e74d6ecce79b9151ca019477080555a-building\index.js  500.0kb
+  ...37bdbbf76b1e74d6ecce79b9151ca019477080555a-building\index.js.map    1.7mb
+
+Done in 294ms
+Bundling asset PromoKitStack/PromoKitGeneratorFn/Code/Stage...
+
+  ...1a2eb28b158286cf8bead3a80f3e02832df57ba43035a6-building\index.js  500.0kb
+  ...b28b158286cf8bead3a80f3e02832df57ba43035a6-building\index.js.map    1.7mb
+
+Done in 276ms
+Bundling asset PromoKitStack/EpisodePreviewFn/Code/Stage...
+
+  ...ab0c33ed74163b1bf9f4ab3b3c899dd7f5bf7fc8d73b2d-building\index.js  500.0kb
+  ...33ed74163b1bf9f4ab3b3c899dd7f5bf7fc8d73b2d-building\index.js.map    1.7mb
+
+Done in 277ms
+Bundling asset PromoKitStack/HallOfSlayFn/Code/Stage...
+
+  ...b7fc2a6f7168cc80045f4e2959c7b8cda9aaa1b70097e6-building\index.js  500.0kb
+  ...2a6f7168cc80045f4e2959c7b8cda9aaa1b70097e6-building\index.js.map    1.7mb
+
+Done in 390ms
+Bundling asset AdminStack/AdminModerationFn/Code/Stage...
+
+  ...ff7ce0bd744a8401a4dbc15001a5fa6874ff2a87dc99508f-building\index.js  1.3kb
+  ...e0bd744a8401a4dbc15001a5fa6874ff2a87dc99508f-building\index.js.map  4.0kb
+
+Done in 13ms
+Bundling asset AdminStack/AdminCommunityFn/Code/Stage...
+
+  ...0140bb235388a2401e3d6984bee78c09b3352dc9569d19a4-building\index.js  1.4kb
+  ...bb235388a2401e3d6984bee78c09b3352dc9569d19a4-building\index.js.map  3.8kb
+
+Done in 12ms
+Bundling asset AdminStack/AdminShoutoutsFn/Code/Stage...
+
+  ...300bc6fd2ef3fec224f4c10ba523e0fb37bf755a1c123a56-building\index.js  1.3kb
+  ...c6fd2ef3fec224f4c10ba523e0fb37bf755a1c123a56-building\index.js.map  3.7kb
+
+Done in 11ms
+Bundling asset AdminStack/AdminAnalyticsFn/Code/Stage...
+
+  ...655f11568fe008534fddcd117a60bb7b92a8c65c089c09a3-building\index.js  1.5kb
+  ...11568fe008534fddcd117a60bb7b92a8c65c089c09a3-building\index.js.map  4.3kb
+
+Done in 10ms
+Bundling asset ApiStack/AppSyncSchemaReadyFn/Code/Stage...
+
+  ...5316dc642ec592719dcf1d1a22a4694d1bc2844fe6a26d5-building\index.js   4.3kb
+  ...dc642ec592719dcf1d1a22a4694d1bc2844fe6a26d5-building\index.js.map  15.0kb
+
+Done in 17ms
+Bundling asset ApiStack/ClosetResolverFn/Code/Stage...
+
+  ...0dc20029605bdb2bca235fab5c76ba916e45b9ee520325b-building\index.js  18.6kb
+  ...0029605bdb2bca235fab5c76ba916e45b9ee520325b-building\index.js.map  86.6kb
+
+Done in 20ms
+Bundling asset ApiStack/ClosetAdminFn/Code/Stage...
+
+  ...c211eee019833c227bd00355d0253cbeefbb29f3470d679-building\index.js  13.8kb
+  ...eee019833c227bd00355d0253cbeefbb29f3470d679-building\index.js.map  45.3kb
+
+Done in 18ms
+Bundling asset ApiStack/TeaReportResolverFn/Code/Stage...
+
+  ...d33b1d264414b1f6828cf9b6732661836825a187abf5427-building\index.js   4.5kb
+  ...1d264414b1f6828cf9b6732661836825a187abf5427-building\index.js.map  20.3kb
+
+Done in 16ms
+Bundling asset ApiStack/MagazineResolverFn/Code/Stage...
+
+  ...a6ef584ad0f2da13280b2802d2614c582dc3a76b5a0be35-building\index.js   4.3kb
+  ...584ad0f2da13280b2802d2614c582dc3a76b5a0be35-building\index.js.map  19.7kb
+
+Done in 19ms
+Bundling asset ApiStack/CreatorForecastResolverFn/Code/Stage...
+
+  ...3cb16fccaa7c56faadad45aded304e79bce9b36e99486c7-building\index.js   5.5kb
+  ...6fccaa7c56faadad45aded304e79bce9b36e99486c7-building\index.js.map  22.8kb
+
+Done in 16ms
+Bundling asset ApiStack/ShoppingResolverFn/Code/Stage...
+
+  ...54d0d255c1a97c38604d02ce9f284fb47924abda9ee5480-building\index.js   4.1kb
+  ...d255c1a97c38604d02ce9f284fb47924abda9ee5480-building\index.js.map  20.8kb
+
+Done in 16ms
+Bundling asset ApiStack/MusicResolverFn/Code/Stage...
+
+  ...72f22b27a8282316275286775f8c6f4c11c1dd499f195d5-building\index.js   3.9kb
+  ...2b27a8282316275286775f8c6f4c11c1dd499f195d5-building\index.js.map  18.3kb
+
+Done in 15ms
+74 feature flags are not configured. Run 'cdk flags --unstable=flags' to learn more.
+
+NOTICES         (What's this? https://github.com/aws/aws-cdk/wiki/CLI-Notices)
+
+34892	CDK CLI will collect telemetry data on command usage starting at version 2.1100.0 (unless opted out)
+
+	Overview: We do not collect customer content and we anonymize the
+	          telemetry we do collect. See the attached issue for more
+	          information on what data is collected, why, and how to
+	          opt-out. Telemetry will NOT be collected for any CDK CLI
+	          version prior to version 2.1100.0 - regardless of
+	          opt-in/out. You can also preview the telemetry we will start
+	          collecting by logging it to a local file, by adding
+	          `--unstable=telemetry --telemetry-file=my/local/file` to any
+	          `cdk` command.
+
+	Affected versions: cli: >=2.0.0 <2.1100.0
+
+	More information at: https://github.com/aws/aws-cdk/issues/34892
+
+
+If you donΓÇÖt want to see a notice anymore, use "cdk acknowledge <id>". For example, "cdk acknowledge 34892".

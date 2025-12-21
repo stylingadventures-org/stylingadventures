@@ -104,6 +104,23 @@ export default function AdminHome() {
             </Link>
           </div>
         </article>
+
+        {/* 🔐 SECRET: Prime Studios */}
+        <article className="admin-card admin-card--secret">
+          <div className="admin-card__header">
+            <h2 className="admin-card__title">✨ Prime Studios</h2>
+            <span className="admin-tag admin-tag--gold">Secret</span>
+          </div>
+          <p className="admin-card__body">
+            Creative control center. Create, edit, and publish episodes. Manage season releases and episode schedules for Prime community.
+          </p>
+
+          <div className="admin-card__actions">
+            <Link to="/admin/prime-studio" className="btn btn-primary btn-sm">
+              Open Prime Studio
+            </Link>
+          </div>
+        </article>
       </section>
     </div>
   );
@@ -265,6 +282,18 @@ const styles = `
 .admin-tag--soft {
   background:#fef9c3;
   color:#92400e;
+}
+
+.admin-tag--gold {
+  background:#fcd34d;
+  color:#78350f;
+  font-weight:600;
+}
+
+.admin-card--secret {
+  background:linear-gradient(135deg,#fef3c7,#fef9e7);
+  border:2px solid #fcd34d;
+  box-shadow:0 10px 26px rgba(245,158,11,0.35);
 }
 
 .admin-card__body {

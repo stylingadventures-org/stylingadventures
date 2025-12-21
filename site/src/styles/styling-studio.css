@@ -1,0 +1,562 @@
+/* ========================================
+   BESTIE STYLING STUDIO CSS
+   ======================================== */
+
+.styling-studio {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f5f5 0%, #efefef 100%);
+  padding: 24px;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.styling-studio-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.styling-studio-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.styling-studio-subtitle {
+  font-size: 14px;
+  color: #999;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ========================================
+   MAIN CONTAINER
+   ======================================== */
+
+.styling-studio-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ========================================
+   PREVIEW SECTION (LEFT)
+   ======================================== */
+
+.styling-studio-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.styling-studio-preview-bg {
+  width: 100%;
+  background: white;
+  border-radius: 12px;
+  padding: 32px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+}
+
+.styling-studio-preview-bg .lala-size-large {
+  width: 280px;
+  height: 380px;
+}
+
+/* MOOD BADGE */
+.styling-studio-mood-badge {
+  background: white;
+  border: 3px solid;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 320px;
+}
+
+.styling-studio-mood-emoji {
+  font-size: 32px;
+}
+
+.styling-studio-mood-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.styling-studio-mood-energy {
+  font-size: 12px;
+  color: #999;
+  font-weight: 500;
+}
+
+/* ========================================
+   CONTROLS SECTION (RIGHT)
+   ======================================== */
+
+.styling-studio-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+/* Section title */
+.styling-studio-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.styling-studio-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #F0F0F0;
+}
+
+/* ========================================
+   MOOD SELECTOR
+   ======================================== */
+
+.styling-studio-mood-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.styling-studio-mood-btn {
+  padding: 12px;
+  background: #FAFAFA;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+}
+
+.styling-studio-mood-btn:hover {
+  background: #F5F5F5;
+  transform: translateY(-2px);
+}
+
+.styling-studio-mood-btn.active {
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFF0CC 100%);
+  border-color: #D4AF37;
+  color: #333;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+.styling-studio-mood-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.styling-studio-mood-name {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========================================
+   LOOKS LIST
+   ======================================== */
+
+.styling-studio-looks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.styling-studio-looks-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.styling-studio-looks-list::-webkit-scrollbar-track {
+  background: #F5F5F5;
+  border-radius: 3px;
+}
+
+.styling-studio-looks-list::-webkit-scrollbar-thumb {
+  background: #D4AF37;
+  border-radius: 3px;
+}
+
+.styling-studio-look-item {
+  padding: 12px;
+  background: #FAFAFA;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.styling-studio-look-item:hover {
+  background: #F5F5F5;
+  transform: translateX(4px);
+}
+
+.styling-studio-look-item.active {
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFF0CC 100%);
+  border-color: #D4AF37;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
+}
+
+.styling-studio-look-name {
+  font-weight: 700;
+  color: #333;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.styling-studio-look-desc {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.styling-studio-look-mood {
+  font-size: 11px;
+  font-weight: 600;
+  color: #D4AF37;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.styling-studio-empty {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+}
+
+/* ========================================
+   OUTFIT DETAILS
+   ======================================== */
+
+.styling-studio-outfit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #FAFAFA;
+  border-radius: 8px;
+}
+
+.styling-studio-outfit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.styling-studio-outfit-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.styling-studio-outfit-value {
+  color: #D4AF37;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========================================
+   STAGE INFO
+   ======================================== */
+
+.styling-studio-stage-info {
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFF0CC 100%);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.styling-studio-stage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.styling-studio-stage-desc {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.styling-studio-stage-unlocks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.styling-studio-unlock-item {
+  background: white;
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.styling-studio-unlock-item span:first-child {
+  font-weight: 600;
+  color: #666;
+}
+
+.styling-studio-unlock-item span:last-child {
+  font-weight: 700;
+  color: #D4AF37;
+  font-size: 13px;
+}
+
+/* ========================================
+   ACTION BUTTONS
+   ======================================== */
+
+.styling-studio-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 2px solid #F0F0F0;
+}
+
+.styling-studio-btn-reset,
+.styling-studio-btn-save {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.styling-studio-btn-reset {
+  background: #F5F5F5;
+  color: #666;
+  border: 1px solid #E0E0E0;
+}
+
+.styling-studio-btn-reset:hover:not(:disabled) {
+  background: #EFEFEF;
+  transform: translateY(-2px);
+}
+
+.styling-studio-btn-save {
+  background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.styling-studio-btn-save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4);
+}
+
+.styling-studio-btn-reset:disabled,
+.styling-studio-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========================================
+   MESSAGES
+   ======================================== */
+
+.styling-studio-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.styling-studio-message-success {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  color: #2E7D32;
+  border: 1px solid #81C784;
+}
+
+.styling-studio-message-error {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+  color: #C62828;
+  border: 1px solid #EF5350;
+}
+
+/* ========================================
+   LOADING STATE
+   ======================================== */
+
+.styling-studio-loading,
+.styling-studio-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+}
+
+.styling-studio-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #F0F0F0;
+  border-top-color: #D4AF37;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.styling-studio-loading p,
+.styling-studio-error p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 1200px) {
+  .styling-studio-container {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .styling-studio-controls {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .styling-studio {
+    padding: 16px;
+  }
+
+  .styling-studio-header h1 {
+    font-size: 24px;
+  }
+
+  .styling-studio-container {
+    gap: 16px;
+  }
+
+  .styling-studio-controls {
+    padding: 16px;
+  }
+
+  .styling-studio-mood-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .styling-studio-stage-unlocks {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .styling-studio {
+    padding: 12px;
+  }
+
+  .styling-studio-header h1 {
+    font-size: 20px;
+  }
+
+  .styling-studio-preview-bg {
+    min-height: 400px;
+    padding: 16px;
+  }
+
+  .styling-studio-preview-bg .lala-size-large {
+    width: 220px;
+    height: 300px;
+  }
+
+  .styling-studio-controls {
+    padding: 12px;
+  }
+
+  .styling-studio-mood-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .styling-studio-stage-unlocks {
+    grid-template-columns: 1fr;
+  }
+
+  .styling-studio-actions {
+    flex-direction: column;
+  }
+
+  .styling-studio-mood-btn .styling-studio-mood-emoji {
+    font-size: 20px;
+  }
+}

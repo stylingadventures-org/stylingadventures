@@ -1,14 +1,40 @@
 // site/src/ui/Layout.jsx
-import React from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Auth, getRoleFlags, getSessionFromStorage } from "../lib/sa";
+import { useAuth } from "../context/AuthContext.jsx";
+import { decodeJWT } from "../lib/jwtDecoder.js";
 
 export default function Layout() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout, idToken } = useAuth();
 
-  const { isAdmin, isCreator, isBestie } = getRoleFlags();
-  const { email, idToken } = getSessionFromStorage();
-  const isAuthed = !!idToken;
+  // Check user groups from token
+  const [isBestie, setIsBestie] = React.useState(false);
+  const [isCreator, setIsCreator] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  useEffect(() => {
+    if (idToken) {
+      try {
+        const decoded = decodeJWT(idToken);
+        const groups = decoded["cognito:groups"] || [];
+        setIsBestie(groups.includes("BESTIE"));
+        setIsCreator(groups.includes("CREATOR"));
+        setIsAdmin(groups.includes("ADMIN"));
+      } catch (e) {
+        console.error("[Layout] Error decoding token:", e);
+        setIsBestie(false);
+        setIsCreator(false);
+        setIsAdmin(false);
+      }
+    } else {
+      setIsBestie(false);
+      setIsCreator(false);
+      setIsAdmin(false);
+    }
+  }, [idToken]);
 
   // Bestie path: if you’re Bestie/Creator/Admin, go straight to /bestie.
   // Otherwise land on the fan upsell page.
@@ -20,14 +46,12 @@ export default function Layout() {
       : "/fan/bestie";
 
   const onSignIn = () => {
-    // Remember destination (optional)
-    sessionStorage.setItem("sa:returnTo", pathname || "/fan");
-    Auth.login();
+    window.dispatchEvent(new CustomEvent('openLoginModal'));
   };
 
-  const onSignOut = () => {
-    sessionStorage.removeItem("sa:returnTo");
-    Auth.logout();
+  const onSignOut = async () => {
+    await logout();
+    navigate("/", { replace: true });
   };
 
   return (
@@ -300,9 +324,9 @@ export default function Layout() {
           <div className="spacer" />
 
           <div className="user-controls">
-            {isAuthed ? (
+            {isAuthenticated ? (
               <>
-                {email && <span className="user-email">{email}</span>}
+                {user?.email && <span className="user-email">✓ {user.email}</span>}
                 <button type="button" onClick={onSignOut}>
                   Sign out
                 </button>

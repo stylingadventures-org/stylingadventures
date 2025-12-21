@@ -1,0 +1,35 @@
+[
+  {
+    "pk": {"S": "USER#f4b83468-e0f1-704a-3781-e945d6d232f9"},
+    "sk": {"S": "CLOSET#item-1"},
+    "id": {"S": "item-1"},
+    "title": {"S": "Red Dress"},
+    "category": {"S": "Dresses"},
+    "visibility": {"S": "PUBLIC"},
+    "status": {"S": "APPROVED"},
+    "createdAt": {"S": "2025-12-19T00:00:00Z"},
+    "updatedAt": {"S": "2025-12-19T00:00:00Z"}
+  },
+  {
+    "pk": {"S": "USER#f4b83468-e0f1-704a-3781-e945d6d232f9"},
+    "sk": {"S": "CLOSET#item-2"},
+    "id": {"S": "item-2"},
+    "title": {"S": "Blue Jeans"},
+    "category": {"S": "Bottoms"},
+    "visibility": {"S": "PUBLIC"},
+    "status": {"S": "APPROVED"},
+    "createdAt": {"S": "2025-12-19T00:00:00Z"},
+    "updatedAt": {"S": "2025-12-19T00:00:00Z"}
+  },
+  {
+    "pk": {"S": "USER#f4b83468-e0f1-704a-3781-e945d6d232f9"},
+    "sk": {"S": "CLOSET#item-3"},
+    "id": {"S": "item-3"},
+    "title": {"S": "White Blazer"},
+    "category": {"S": "Jackets"},
+    "visibility": {"S": "PUBLIC"},
+    "status": {"S": "APPROVED"},
+    "createdAt": {"S": "2025-12-19T00:00:00Z"},
+    "updatedAt": {"S": "2025-12-19T00:00:00Z"}
+  }
+]

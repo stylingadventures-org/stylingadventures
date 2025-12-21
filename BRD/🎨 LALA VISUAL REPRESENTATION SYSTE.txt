@@ -1,0 +1,398 @@
+🎨 LALA VISUAL REPRESENTATION SYSTEM (V1)
+
+Including Styling Adventures Game
+
+This defines how Lala looks, where she appears, and how she changes across the platform.
+
+1️⃣ CORE VISUAL PRINCIPLE (Very Important)
+
+Lala has ONE identity, shown in DIFFERENT visual modes depending on context.
+
+Think of her like a real person:
+
+You see her full outfit when fashion matters
+
+You see her face/bust when conversation or guidance matters
+
+2️⃣ VISUAL MODES (LOCK THESE IN)
+
+Lala has 4 official visual modes.
+Every page uses one of these only.
+
+🟣 MODE 1: FULL BODY — GAME MODE
+
+Used ONLY inside Styling Adventures gameplay
+
+Purpose: Fashion, styling, scenes, missions
+
+Where it appears:
+
+Styling Adventures game
+
+Outfit challenges
+
+Essence styling missions
+
+Bestie Styling Studio
+
+Scene-based fashion play (rooftop, glam room, bedroom)
+
+Visual format:
+
+Full body (head to toe)
+
+Static image or short looping video (not live 3D at first)
+
+Background = scene/location
+
+Pose = preset (confident, relaxed, dramatic, etc.)
+
+What can change here:
+
+Outfit
+
+Hair
+
+Makeup
+
+Nails
+
+Accessories
+
+Pose
+
+Mood lighting
+
+Scene background
+
+✅ This is the ONLY place full body is required
+
+🔵 MODE 2: BUST — GUIDE MODE
+
+Most common mode
+
+Purpose: Companion, guidance, reactions, tone
+
+Where it appears:
+
+Home
+
+Community
+
+Episodes hub
+
+Missions
+
+Notifications
+
+Lala widget / sidebar
+
+Visual format:
+
+Waist or chest up
+
+Expressive face
+
+Light background or soft blur
+
+Small mood animations (blink, head tilt later)
+
+What changes here:
+
+Expression
+
+Makeup preset
+
+Mood overlay
+
+Outfit top (optional)
+
+🟢 MODE 3: PORTRAIT — MENTOR MODE
+
+Used for Creator Portal (Business Lala)
+
+Purpose: Strategy, coaching, authority
+
+Where it appears:
+
+Creator Command Center
+
+Goal Compass
+
+Business Content Fixer
+
+Analytics dashboards
+
+Visual format:
+
+Face / shoulders only
+
+Clean background
+
+Neutral or boss lighting
+
+Minimal glam
+
+Rules:
+
+❌ No full body
+
+❌ No playful outfits
+
+✅ Always “Business Lala”
+
+🟡 MODE 4: CINEMATIC — STORY MODE
+
+Prime Studios only
+
+Purpose: Episodes, music videos, storytelling
+
+Where it appears:
+
+Episodes
+
+Music videos
+
+Promo clips
+
+Visual format:
+
+3D or AI-enhanced cinematic shots
+
+Multiple angles (wide, close-up, silhouette)
+
+Can blend with founder performance
+
+Rules:
+
+Not interactive
+
+Rendered through Prime Studios pipeline
+
+Feeds visual assets back into other modes
+
+3️⃣ GAME-SPECIFIC VISUAL SYSTEM (STYLING ADVENTURES)
+
+This is the part you asked for specifically.
+
+🎮 GAME VIEW = FULL BODY MODE
+
+Game screen layout:
+
+Center: Full body Lala
+
+Background: Scene/location
+
+Side panels: Outfit, hair, makeup options
+
+Top: Mood / Essence indicator
+
+Bottom: Action buttons (save, submit, vote)
+
+👗 HOW OUTFITS WORK (BEGINNER SAFE)
+
+You are NOT building a live avatar builder.
+
+Instead:
+
+Lala uses Look Presets
+
+Each Look Preset = a saved visual asset
+
+Example Look Preset:
+
+ID: look_soft_rooftop_01
+
+Outfit: white corset + trousers
+
+Hair: long waves, brown
+
+Makeup: soft glam
+
+Nails: neutral almond
+
+Pose: relaxed
+
+Mood: Soft
+
+Scene: Rooftop sunset
+
+Changing outfits = switching presets.
+
+🌈 ESSENCE / MOOD IN THE GAME
+
+Starter Mood States (same across platform):
+
+Playful
+
+Confident
+
+Soft
+
+Spicy
+
+Focused
+
+Shadow
+
+In the game, mood affects:
+
+Pose
+
+Expression
+
+Lighting
+
+Makeup preset
+
+Caption/tone
+
+Mood can be:
+
+Auto-set by mission
+
+Selected by user (Besties)
+
+Influenced by story events
+
+4️⃣ APPEARANCE EVOLUTION (OVER TIME)
+
+Lala evolves, but never randomly.
+
+🔓 UNLOCK SYSTEM
+
+Looks are unlocked via:
+
+Episodes
+
+Missions
+
+Prime Coins
+
+Bestie tier
+
+Special events
+
+Stages:
+
+Basic
+
+Glow-Up
+
+Prime
+
+Stages unlock:
+
+New poses
+
+New makeup styles
+
+New outfits
+
+New moods
+
+🧠 STYLE MEMORY (LATER)
+
+The system can remember:
+
+Preferred colors
+
+Favorite silhouettes
+
+Common moods chosen
+
+This influences:
+
+Suggested looks
+
+Default moods
+
+(Not required for v1.)
+
+5️⃣ DATA THAT MUST BE SAVED (SIMPLE)
+
+Each user has a Lala Profile.
+
+LalaProfile (per user):
+
+currentVisualMode (fullBody | bust | portrait)
+
+currentMood
+
+currentLookId
+
+unlockedLookIds[]
+
+unlockedCosmeticIds[]
+
+lastMoodChangeAt
+
+stylingHistory[] (last 20)
+
+tier (Fan | Bestie | Creator)
+
+6️⃣ TIER DIFFERENCES (LOCK THESE)
+👤 FAN
+
+Sees:
+
+Bust most places
+
+Full body only in limited game moments
+
+Can:
+
+Pick vibe occasionally
+
+Cannot:
+
+Freely style everything
+
+💖 BESTIE
+
+Sees:
+
+Full body styling studio
+
+Can:
+
+Style outfits
+
+Upload closet
+
+Change moods freely
+
+Has:
+
+Largest look library
+
+🎯 CREATOR
+
+Sees:
+
+Portrait only
+
+Lala appears as:
+
+Business mentor
+
+No styling or fashion play
+
+7️⃣ WHERE LALA LIVES IN THE UI
+Always present:
+
+Small Lala Widget (bust or portrait)
+
+Clicking Lala opens:
+
+Lala Profile panel:
+
+Mood today
+
+Current look
+
+“Play Styling Adventure”
+
+“Watch Episode”
+
+“Shop this look”

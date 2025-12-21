@@ -151,6 +151,22 @@ async function waitForFieldInIntrospection(
       `introspection attempt ${i}/${maxAttempts}: sdlLen=${sdl.length} fieldAnywhere=${anywhere} fieldInMutation=${inMutation}`
     );
 
+    // ✅ DEBUG: Log the first 2000 chars of the SDL to see what we're getting
+    if (i === 1) {
+      log("SDL prefix (first 2000 chars):", JSON.stringify(sdl.slice(0, 2000)));
+      const queryMatch = sdl.match(/extend type Query \{[\s\S]*?\}/);
+      if (queryMatch) {
+        log("Query block found:", JSON.stringify(queryMatch[0]));
+      } else {
+        log("No 'extend type Query' block found");
+      }
+      
+      // ✅ NEW DEBUG: count types
+      const typeMatches = sdl.match(/^type \w+/gm);
+      const extendMatches = sdl.match(/^extend type \w+/gm);
+      log(`Type count: ${typeMatches ? typeMatches.length : 0}, Extend count: ${extendMatches ? extendMatches.length : 0}`);
+    }
+
     // If it's anywhere, we consider it "ready" to avoid false negatives
     // (AppSync introspection can be eventually consistent / timing-sensitive).
     if (anywhere) {

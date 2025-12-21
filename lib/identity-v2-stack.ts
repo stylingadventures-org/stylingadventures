@@ -148,6 +148,10 @@ export class IdentityV2Stack extends cdk.Stack {
       userPool: this.userPool,
       userPoolClientName: `sa2-${envName}-web-client`,
       generateSecret: false,
+      authFlows: {
+        userPassword: true,
+        adminUserPassword: true,
+      },
       oAuth: {
         flows: { implicitCodeGrant: true },
         callbackUrls: [webOrigin],
@@ -156,7 +160,14 @@ export class IdentityV2Stack extends cdk.Stack {
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,
       ],
+      // ✅ CRITICAL: Token validity for ID/access/refresh tokens
+      idTokenValidity: cdk.Duration.hours(1),
+      accessTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
     });
+
+    // Note: CDK Duration objects automatically set the tokenValidityUnits,
+    // so we don't need to manually configure cfnUserPoolClient.tokenValidityUnits
 
     //
     // SeedAdminFn – ensures initial admin(s) are in the right groups

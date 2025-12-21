@@ -209,7 +209,7 @@ function mapClosetItem(raw: Record<string, any>): ClosetItem {
   const status: ClosetStatus = item.status ?? "DRAFT";
 
   const visibility: ClosetAudience | undefined =
-    item.visibility ?? item.audience;
+    item.visibility ?? item.audience ?? "PRIVATE";
 
   const closetItem: ClosetItem = {
     id,

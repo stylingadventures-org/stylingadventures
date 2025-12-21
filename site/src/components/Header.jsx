@@ -1,47 +1,87 @@
 // site/src/components/Header.jsx
-import React, { useEffect, useState } from "react";
-import { hostedUiLoginUrl, hostedUiLogoutUrl } from "@/lib/sa-login";
+import React from "react";
+import { useAuth } from "../context/AuthContext.jsx";
+import { useNavigate } from "react-router-dom";
 import CoinCounter from "./CoinCounter";
 
 export default function Header() {
-  const [session, setSession] = useState(() => {
-    const id = localStorage.getItem("sa:idToken");
-    return id ? { idToken: id } : null;
-  });
-  const [coins, setCoins] = useState(() => Number(localStorage.getItem("sa:coins") || 0));
+  const { isAuthenticated, user, logout } = useAuth();
+  const nav = useNavigate();
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      const id = localStorage.getItem("sa:idToken");
-      setSession(id ? { idToken: id } : null);
-      setCoins(Number(localStorage.getItem("sa:coins") || 0));
-    }, 1500);
-    return () => clearInterval(t);
-  }, []);
-
-  const signIn = () => {
-    sessionStorage.setItem("sa:returnTo", location.pathname + location.search);
-    window.location.href = hostedUiLoginUrl(window.sa.cfg);
+  const handleSignIn = () => {
+    window.dispatchEvent(new CustomEvent('openLoginModal'));
   };
 
-  const signOut = () => {
-    try {
-      localStorage.removeItem("sa:idToken");
-      localStorage.removeItem("sa:accessToken");
-      localStorage.removeItem("sa:expiresAt");
-      localStorage.removeItem("sa:coins");
-    } catch {}
-    window.location.href = hostedUiLogoutUrl(window.sa.cfg);
+  const handleSignOut = async () => {
+    await logout();
+    nav("/", { replace: true });
   };
 
   return (
     <nav className="topbar relative">
-      {session ? (
-        <button className="btn btn-primary" onClick={signOut}>Sign out</button>
+      <style>{`
+        .topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.75rem 1.5rem;
+        }
+        .auth-status {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .user-email {
+          font-size: 13px;
+          color: #4b5563;
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .btn-logout {
+          padding: 6px 14px;
+          border-radius: 6px;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+          font-size: 13px;
+          font-weight: 600;
+          color: #4b5563;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn-logout:hover {
+          background: #f9fafb;
+          border-color: #d1d5db;
+        }
+        .btn-signin {
+          padding: 6px 14px;
+          border-radius: 6px;
+          border: none;
+          background: #ec4899;
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn-signin:hover {
+          background: #db2777;
+        }
+      `}</style>
+      
+      {isAuthenticated && user?.email ? (
+        <div className="auth-status">
+          <span className="user-email">✓ Signed in as {user.email}</span>
+          <button className="btn-logout" onClick={handleSignOut}>
+            Sign out
+          </button>
+        </div>
       ) : (
-        <button className="btn" onClick={signIn}>Sign in</button>
+        <button className="btn-signin" onClick={handleSignIn}>
+          Sign in
+        </button>
       )}
-      {session && <CoinCounter coins={coins} />}
     </nav>
   );
 }

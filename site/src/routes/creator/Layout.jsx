@@ -1,6 +1,9 @@
 // site/src/routes/creator/Layout.jsx
-import React from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { decodeJWT } from "../../lib/jwtDecoder.js";
+import LalaWidget from "../../components/LalaWidget";
 
 const NAV_SECTIONS = [
   {
@@ -17,9 +20,36 @@ const NAV_SECTIONS = [
   },
 
   {
-    groupLabel: "Create · Director Suite",
+    groupLabel: "Profile & Strategy",
+    groupKey: "profile",
+    items: [
+      {
+        to: "/creator/brand-profile",
+        label: "Brand Profile",
+        description: "Your voice, pillars, audience, offers.",
+      },
+      {
+        to: "/creator/content-strategy",
+        label: "Content Strategy",
+        description: "Themes, campaigns, and annual roadmap.",
+      },
+    ],
+  },
+
+  {
+    groupLabel: "Create & Optimize",
     groupKey: "create",
     items: [
+      {
+        to: "/creator/ai-content-studio",
+        label: "AI Content Studio",
+        description: "Generate posts, emails, scripts, ideas.",
+      },
+      {
+        to: "/creator/scheduling",
+        label: "Content Scheduler",
+        description: "Schedule and publish across platforms.",
+      },
       {
         to: "/creator/create/director-suite",
         label: "Director Suite",
@@ -30,138 +60,170 @@ const NAV_SECTIONS = [
         label: "Scene Packs",
         description: "Reusable shot recipes & content templates.",
       },
-      {
-        to: "/creator/create/niche-directors",
-        label: "Niche Directors",
-        description: "Hair, nails, makeup, fashion, lifestyle.",
-      },
-      {
-        to: "/creator/create/on-set-assistant",
-        label: "On-Set Assistant",
-        description: "Live checklist and prompts while filming.",
-      },
     ],
   },
 
   {
-    groupLabel: "Align · Lala Goal Compass",
-    groupKey: "align",
+    groupLabel: "Monetize & Automate",
+    groupKey: "monetize",
     items: [
       {
-        to: "/creator/align/goal-compass",
-        label: "Lala Goal Compass",
-        description: "Set goals and keep every post on-path.",
+        to: "/creator/funnel-automation",
+        label: "Funnel & Automation",
+        description: "Email sequences, lead magnets, flows.",
       },
-    ],
-  },
-
-  {
-    groupLabel: "Improve · Content & Aesthetic",
-    groupKey: "improve",
-    items: [
-      {
-        to: "/creator/improve/business-content-fixer",
-        label: "Business Content Fixer",
-        description: "Hooks, CTAs, structure, and messaging.",
-      },
-      {
-        to: "/creator/improve/aesthetic-brand-studio",
-        label: "Aesthetic & Brand Studio",
-        description: "Aesthetic health score and brand identity.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Grow · Social Pulse & OS",
-    groupKey: "grow",
-    items: [
-      {
-        to: "/creator/grow/social-pulse",
-        label: "Creator Social Pulse",
-        description: "Trend briefings and niche-specific ideas.",
-      },
-      {
-        to: "/creator/grow/social-os",
-        label: "Creator Social OS",
-        description: "Scheduling, engagement, and analytics.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Story & Content Studio",
-    groupKey: "story",
-    items: [
-      {
-        to: "/creator/story/profile",
-        label: "Story Profile",
-        description: "Who you are, audience, and transformation.",
-      },
-      {
-        to: "/creator/story/eras-seasons",
-        label: "Eras & Seasons",
-        description: "Define the current era and goals.",
-      },
-      {
-        to: "/creator/story/shows-series",
-        label: "Shows & Series",
-        description: "Recurring series and episode structure.",
-      },
-      {
-        to: "/creator/story/planner-calendar",
-        label: "Planner & Calendar",
-        description: "Full content calendar and posting plan.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Monetization HQ",
-    groupKey: "monetization",
-    items: [
       {
         to: "/creator/monetization/overview",
         label: "Revenue Overview",
         description: "Earnings across all channels.",
       },
       {
-        to: "/creator/monetization/social",
-        label: "Social Monetization",
-        description: "TikTok, YouTube, IG payouts & bonuses.",
-      },
-      {
         to: "/creator/monetization/brand-deals",
-        label: "Brand Deals & Sponsorships",
-        description: "Pipeline, rates, contracts, deadlines.",
+        label: "Brand Deals",
+        description: "Pipeline, rates, contracts.",
       },
       {
         to: "/creator/monetization/product-sales",
         label: "Product Sales",
-        description: "Shopify, Etsy, Gumroad, Stan Store, etc.",
+        description: "Shopify, Etsy, Stan Store.",
       },
       {
-        to: "/creator/monetization/affiliate",
-        label: "Lala Affiliate (Future)",
-        description: "Lala-based programs & conversions.",
+        to: "/creator/upgrade",
+        label: "Upgrade Plans",
+        description: "Creator tiers and pricing.",
       },
     ],
   },
 
   {
-    groupLabel: "Asset Library",
-    groupKey: "assets",
+    groupLabel: "Grow & Analytics",
+    groupKey: "grow",
     items: [
+      {
+        to: "/creator/analytics",
+        label: "Analytics Dashboard",
+        description: "Real-time performance metrics.",
+      },
+      {
+        to: "/creator/growth-tracker",
+        label: "Growth Tracker",
+        description: "Track progress toward your goals.",
+      },
+      {
+        to: "/creator/optimization",
+        label: "AI Growth Engine",
+        description: "Personalized growth recommendations.",
+      },
+      {
+        to: "/creator/grow/social-pulse",
+        label: "Social Pulse",
+        description: "Trend briefings and niche insights.",
+      },
+    ],
+  },
+
+  {
+    groupLabel: "Community & Support",
+    groupKey: "community",
+    items: [
+      {
+        to: "/creator/creator-circle",
+        label: "Creator Circle",
+        description: "Network with 1000+ creators.",
+      },
+      {
+        to: "/creator/education",
+        label: "Education Hub",
+        description: "Courses, guides, and templates.",
+      },
+      {
+        to: "/creator/resources",
+        label: "Resource Library",
+        description: "Free tools and templates.",
+      },
+    ],
+  },
+
+  {
+    groupLabel: "Settings & Manage",
+    groupKey: "settings",
+    items: [
+      {
+        to: "/creator/settings",
+        label: "Account Settings",
+        description: "Profile, privacy, integrations.",
+      },
       {
         to: "/creator/library",
         label: "Asset Library",
-        description: "Cabinets, folders, uploads, and media.",
+        description: "Cabinets, folders, uploads, media.",
       },
     ],
   },
 ];
 
 export default function CreatorLayout() {
+  const navigate = useNavigate();
+  const { idToken } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [isCreator, setIsCreator] = useState(false);
+
+  // Check if user has CREATOR group in token
+  useEffect(() => {
+    if (idToken) {
+      try {
+        const decoded = decodeJWT(idToken);
+        const groups = decoded["cognito:groups"] || [];
+        const hasCreatorAccess = groups.includes("CREATOR") || groups.includes("ADMIN");
+        setIsCreator(hasCreatorAccess);
+        setLoading(false);
+      } catch (e) {
+        console.error("[CreatorLayout] Error decoding token:", e);
+        setIsCreator(false);
+        setLoading(false);
+      }
+    } else {
+      setIsCreator(false);
+      setLoading(false);
+    }
+  }, [idToken]);
+
+  // Gate the /creator section - redirect non-creators to /fan
+  useEffect(() => {
+    if (!loading && !isCreator) {
+      console.log("[CreatorLayout] Not authorized, redirecting to /fan");
+      navigate("/fan", { replace: true });
+    }
+  }, [loading, isCreator, navigate]);
+
+  if (loading) {
+    return (
+      <div className="creator-shell">
+        <style>{styles}</style>
+        <div className="creator-layout">
+          <div style={{ padding: "20px" }}>
+            <div className="sa-card-title">Loading Creator Studio…</div>
+            <p className="sa-muted">Getting everything ready for you.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isCreator) {
+    return (
+      <div className="creator-shell">
+        <style>{styles}</style>
+        <div className="creator-layout">
+          <div style={{ padding: "20px" }}>
+            <div className="sa-card-title">Creator Access Required</div>
+            <p className="sa-muted">This section is for creators only. Taking you back…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="creator-shell">
       <style>{styles}</style>
@@ -210,6 +272,9 @@ export default function CreatorLayout() {
               </div>
             ))}
           </nav>
+
+          {/* LALA WIDGET - Portrait mode for Business Lala */}
+          <LalaWidget visualMode="portrait" />
         </aside>
 
         {/* Main content column */}

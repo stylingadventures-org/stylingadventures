@@ -335,6 +335,61 @@ ${mod.raw}
 }
 
 /* -------------------------------------------------- */
+/* Post-process: merge extend type statements */
+/* -------------------------------------------------- */
+
+function mergeExtendTypes(sdl) {
+  // Extract all field definitions from extend type Query
+  const queryExtendMatches = sdl.match(/extend type Query \{[\s\S]*?\n\}/g) || [];
+  const queryFields = [];
+  
+  for (const match of queryExtendMatches) {
+    const content = match.replace(/extend type Query \{/, '').replace(/\n\}$/, '').trim();
+    if (content) {
+      queryFields.push(`  ${content.split('\n').join('\n  ')}`);
+    }
+  }
+
+  // Extract all field definitions from extend type Mutation
+  const mutationExtendMatches = sdl.match(/extend type Mutation \{[\s\S]*?\n\}/g) || [];
+  const mutationFields = [];
+  
+  for (const match of mutationExtendMatches) {
+    const content = match.replace(/extend type Mutation \{/, '').replace(/\n\}$/, '').trim();
+    if (content) {
+      mutationFields.push(`  ${content.split('\n').join('\n  ')}`);
+    }
+  }
+
+  let result = sdl;
+  
+  // Replace the original type Query with merged version
+  if (queryFields.length > 0) {
+    result = result.replace(
+      /type Query \{\s*_root: String\s*\}/,
+      `type Query {\n${queryFields.join('\n\n')}\n}`
+    );
+    // Remove all extend type Query
+    result = result.replace(/extend type Query \{[\s\S]*?\n\}/g, '');
+  }
+
+  // Replace the original type Mutation with merged version
+  if (mutationFields.length > 0) {
+    result = result.replace(
+      /type Mutation \{\s*_root: String\s*\}/,
+      `type Mutation {\n${mutationFields.join('\n\n')}\n}`
+    );
+    // Remove all extend type Mutation
+    result = result.replace(/extend type Mutation \{[\s\S]*?\n\}/g, '');
+  }
+
+  return result;
+}
+
+// Apply post-processing
+output = mergeExtendTypes(output);
+
+/* -------------------------------------------------- */
 /* Write */
 /* -------------------------------------------------- */
 

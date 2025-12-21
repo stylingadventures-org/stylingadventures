@@ -2,16 +2,46 @@
 import React, { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { hasEarlyContentNow } from "../../lib/episodes";
+import LalaWidget from "../../components/LalaWidget";
 
 const navItems = [
-  { to: "/fan", label: "Dashboard", icon: "🏰", end: true },
-  { to: "/fan/episodes", label: "Episodes", icon: "🎬", key: "episodes" },
-  { to: "/fan/closet", label: "Style Games", icon: "🧪" },
-  { to: "/fan/closet-feed", label: "Lala's Closet", icon: "✨" },
-  { to: "/fan/community", label: "Community", icon: "💬" },
-  { to: "/fan/bank", label: "Bank", icon: "🏦" },
-  { to: "/fan/rules", label: "Coin rules", icon: "📜" },
-  { to: "/fan/profile", label: "Profile", icon: "👤" },
+  // FAN HQ
+  {
+    groupLabel: "Fan HQ",
+    groupKey: "hq",
+    items: [
+      { to: "/fan", label: "Dashboard", icon: "🏰", end: true, description: "Your fan hub" },
+      { to: "/fan/profile", label: "Profile", icon: "👤", description: "Your account & settings" },
+    ],
+  },
+  // EPISODES & CONTENT
+  {
+    groupLabel: "Episodes & Content",
+    groupKey: "content",
+    items: [
+      { to: "/fan/episodes", label: "Episodes", icon: "🎬", description: "Watch new drops" },
+      { to: "/fan/closet-feed", label: "Lala's Closet", icon: "✨", description: "Inspire your style" },
+      { to: "/fan/shop", label: "Shop", icon: "🛍️", description: "Shop Lala's looks" },
+      { to: "/fan/community", label: "Community", icon: "💬", description: "Connect with fans" },
+    ],
+  },
+  // GAMEPLAY
+  {
+    groupLabel: "Gameplay",
+    groupKey: "gameplay",
+    items: [
+      { to: "/fan/closet", label: "Style Games", icon: "🧪", description: "Play & earn coins" },
+      { to: "/fan/bank", label: "Bank", icon: "🏦", description: "Manage your coins" },
+    ],
+  },
+  // INFO
+  {
+    groupLabel: "Info",
+    groupKey: "info",
+    items: [
+      { to: "/fan/rules", label: "Game Rules", icon: "📜", description: "Learn how to play" },
+    ],
+  },
 ];
 
 export default function FanLayout() {
@@ -158,15 +188,39 @@ export default function FanLayout() {
         .fan-sidebar-nav {
           margin-top: 4px;
           display: grid;
+          gap: 12px;
+        }
+
+        .fan-sidebar-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .fan-sidebar-group-label {
+          font-size: 11px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #9ca3af;
+          font-weight: 600;
+          padding: 0 8px;
+          margin-top: 4px;
+        }
+
+        .fan-sidebar-group-items {
+          display: flex;
+          flex-direction: column;
           gap: 6px;
         }
 
         .fan-sidebar-link {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 9px 11px;
-          border-radius: 999px;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          gap: 4px;
+          padding: 10px 12px;
+          border-radius: 8px;
           border: 1px solid #f3e3ff;
           background: #fdf7ff;
           color: #111827;
@@ -183,15 +237,22 @@ export default function FanLayout() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
+          width: 100%;
         }
         .fan-sidebar-icon {
-          font-size: 16px;
+          font-size: 18px;
+        }
+        .fan-sidebar-link-desc {
+          font-size: 11px;
+          color: #9ca3af;
+          font-weight: 400;
+          line-height: 1.3;
         }
 
         .fan-sidebar-link:hover {
           background: #ffffff;
           border-color: #e5d5ff;
-          box-shadow: 0 10px 28px rgba(148,163,184,0.3);
+          box-shadow: 0 8px 24px rgba(148,163,184,0.2);
         }
         .fan-sidebar-link:active {
           transform: translateY(1px);
@@ -201,7 +262,10 @@ export default function FanLayout() {
           background: linear-gradient(135deg, var(--sa-primary), var(--sa-secondary));
           color: #f9fafb;
           border-color: transparent;
-          box-shadow: 0 18px 40px rgba(148,0,128,0.65);
+          box-shadow: 0 12px 32px rgba(148,0,128,0.3);
+        }
+        .fan-sidebar-link--active .fan-sidebar-link-desc {
+          color: rgba(255,255,255,0.7);
         }
 
         .fan-sidebar-early-dot {
@@ -341,15 +405,39 @@ export default function FanLayout() {
         .fan-drawer__nav {
           margin-top: 4px;
           display: grid;
+          gap: 12px;
+        }
+
+        .fan-drawer-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .fan-drawer-group-label {
+          font-size: 11px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #9ca3af;
+          font-weight: 600;
+          padding: 0 8px;
+          margin-top: 4px;
+        }
+
+        .fan-drawer-group-items {
+          display: flex;
+          flex-direction: column;
           gap: 6px;
         }
 
         .fan-drawer-link {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 9px 11px;
-          border-radius: 999px;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          gap: 4px;
+          padding: 10px 12px;
+          border-radius: 8px;
           border: 1px solid #f3e3ff;
           background: rgba(248,250,252,0.95);
           color: #111827;
@@ -366,14 +454,22 @@ export default function FanLayout() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
+          width: 100%;
         }
         .fan-drawer-icon {
-          font-size: 16px;
+          font-size: 18px;
         }
+        .fan-drawer-link-desc {
+          font-size: 11px;
+          color: #9ca3af;
+          font-weight: 400;
+          line-height: 1.3;
+        }
+
         .fan-drawer-link:hover {
           background: #ffffff;
           border-color: #e5d5ff;
-          box-shadow: 0 10px 28px rgba(148,163,184,0.4);
+          box-shadow: 0 8px 24px rgba(148,163,184,0.2);
         }
         .fan-drawer-link:active {
           transform: translateY(1px);
@@ -382,7 +478,10 @@ export default function FanLayout() {
           background: linear-gradient(135deg, var(--sa-primary), var(--sa-secondary));
           color: #f9fafb;
           border-color: transparent;
-          box-shadow: 0 18px 40px rgba(148,0,128,0.65);
+          box-shadow: 0 12px 32px rgba(148,0,128,0.3);
+        }
+        .fan-drawer-link--active .fan-drawer-link-desc {
+          color: rgba(255,255,255,0.7);
         }
 
         .fan-drawer-early-dot {
@@ -463,32 +562,49 @@ export default function FanLayout() {
           </div>
 
           <nav className="fan-sidebar-nav">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  "fan-sidebar-link" +
-                  (isActive ? " fan-sidebar-link--active" : "")
-                }
-              >
-                <span className="fan-sidebar-link-main">
-                  <span className="fan-sidebar-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </span>
+            {navItems.map((group) => (
+              <div key={group.groupKey} className="fan-sidebar-group">
+                <div className="fan-sidebar-group-label">{group.groupLabel}</div>
+                <div className="fan-sidebar-group-items">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        "fan-sidebar-link" +
+                        (isActive ? " fan-sidebar-link--active" : "")
+                      }
+                      title={item.description}
+                    >
+                      <span className="fan-sidebar-link-main">
+                        <span className="fan-sidebar-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span>{item.label}</span>
+                      </span>
 
-                {item.to === "/fan/episodes" && showEarlyDot && (
-                  <span
-                    className="fan-sidebar-early-dot"
-                    title="New early drop"
-                  />
-                )}
-              </NavLink>
+                      {item.to === "/fan/episodes" && showEarlyDot && (
+                        <span
+                          className="fan-sidebar-early-dot"
+                          title="New early drop"
+                        />
+                      )}
+
+                      {item.description && (
+                        <span className="fan-sidebar-link-desc">
+                          {item.description}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
+
+          {/* LALA WIDGET */}
+          <LalaWidget visualMode="bust" />
         </aside>
 
         <section className="fan-main-panel">
@@ -533,31 +649,45 @@ export default function FanLayout() {
             </div>
 
             <nav className="fan-drawer__nav">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    "fan-drawer-link" +
-                    (isActive ? " fan-drawer-link--active" : "")
-                  }
-                  onClick={closeNav}
-                >
-                  <span className="fan-drawer-link-main">
-                    <span className="fan-drawer-icon" aria-hidden="true">
-                      {item.icon}
-                    </span>
-                    <span>{item.label}</span>
-                  </span>
+              {navItems.map((group) => (
+                <div key={group.groupKey} className="fan-drawer-group">
+                  <div className="fan-drawer-group-label">{group.groupLabel}</div>
+                  <div className="fan-drawer-group-items">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) =>
+                          "fan-drawer-link" +
+                          (isActive ? " fan-drawer-link--active" : "")
+                        }
+                        onClick={closeNav}
+                        title={item.description}
+                      >
+                        <span className="fan-drawer-link-main">
+                          <span className="fan-drawer-icon" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span>{item.label}</span>
+                        </span>
 
-                  {item.to === "/fan/episodes" && showEarlyDot && (
-                    <span
-                      className="fan-drawer-early-dot"
-                      title="New early drop"
-                    />
-                  )}
-                </NavLink>
+                        {item.to === "/fan/episodes" && showEarlyDot && (
+                          <span
+                            className="fan-drawer-early-dot"
+                            title="New early drop"
+                          />
+                        )}
+
+                        {item.description && (
+                          <span className="fan-drawer-link-desc">
+                            {item.description}
+                          </span>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </aside>

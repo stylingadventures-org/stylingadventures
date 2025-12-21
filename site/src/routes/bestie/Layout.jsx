@@ -1,40 +1,30 @@
 // site/src/routes/bestie/BestieLayout.jsx
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { decodeJWT } from "../../lib/jwtDecoder.js";
 import { fetchBestieStatus, isBestieActive } from "../../lib/bestie";
+import LalaWidget from "../../components/LalaWidget";
 
 function useIsAdminLike() {
   const [isAdmin, setIsAdmin] = useState(false);
+  const { idToken } = useAuth();
 
   useEffect(() => {
-    let gone = false;
-
-    (async () => {
+    if (idToken) {
       try {
-        if (window.sa?.ready) await window.sa.ready();
-        const groups =
-          window.sa?.session?.groups ||
-          (window.sa?.session?.idTokenPayload?.["cognito:groups"] ?? []);
-
-        const list = Array.isArray(groups)
-          ? groups
-          : String(groups || "")
-              .split(",")
-              .map((x) => x.trim())
-              .filter(Boolean);
-
-        const flag = list.includes("ADMIN") || list.includes("COLLAB");
-
-        if (!gone) setIsAdmin(flag);
-      } catch {
-        if (!gone) setIsAdmin(false);
+        const decoded = decodeJWT(idToken);
+        const groups = decoded["cognito:groups"] || [];
+        const flag = groups.includes("ADMIN") || groups.includes("COLLAB");
+        setIsAdmin(flag);
+      } catch (e) {
+        console.error("[BestieLayout] Error decoding token:", e);
+        setIsAdmin(false);
       }
-    })();
-
-    return () => {
-      gone = true;
-    };
-  }, []);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [idToken]);
 
   return isAdmin;
 }
@@ -50,20 +40,49 @@ function useIsAdminLike() {
 export default function BestieLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { idToken } = useAuth();
 
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   const isAdmin = useIsAdminLike();
+  
+  // Check if user has BESTIE group in token (new direct auth flow)
+  const [isBestieFromToken, setIsBestieFromToken] = useState(false);
+  useEffect(() => {
+    if (idToken) {
+      try {
+        const decoded = decodeJWT(idToken);
+        const groups = decoded["cognito:groups"] || [];
+        const isBestie = groups.includes("BESTIE");
+        setIsBestieFromToken(isBestie);
+      } catch (e) {
+        console.error("[BestieLayout] Error decoding token:", e);
+        setIsBestieFromToken(false);
+      }
+    } else {
+      setIsBestieFromToken(false);
+    }
+  }, [idToken]);
+
   const [navOpen, setNavOpen] = useState(false);
 
   const closeNav = () => setNavOpen(false);
 
-  // Fetch membership on mount
+  // Fetch membership on mount (but skip if already token-based bestie)
   useEffect(() => {
     let alive = true;
 
+    // If user is already BESTIE from token, no need to fetch status
+    if (isBestieFromToken || isAdmin) {
+      if (alive) {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Otherwise try to fetch bestie status for OAuth flow users
     (async () => {
       try {
         const s = await fetchBestieStatus();
@@ -80,24 +99,145 @@ export default function BestieLayout() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isBestieFromToken, isAdmin]);
 
   const activeBestie = isBestieActive(status);
-  const allowed = isAdmin || activeBestie;
+  const allowed = isAdmin || activeBestie || isBestieFromToken;
 
   // Gate the /bestie section
   useEffect(() => {
     if (!loading && !allowed) {
+      console.log("[BestieLayout] Not allowed, redirecting to /fan/bestie");
       navigate("/fan/bestie", { replace: true, state: { from: location } });
     }
   }, [loading, allowed, navigate, location]);
 
   const sidebarNav = [
-    { to: "/bestie", label: "Home", icon: "🏠", end: true },
-    { to: "/bestie/closet", label: "My closet", icon: "🧺" },
-    { to: "/bestie/content", label: "Bestie content", icon: "🎬" },
-    { to: "/bestie/perks", label: "Perks", icon: "🎁" },
-    { to: "/bestie/overview", label: "How it works", icon: "❔" },
+    // CLOSET CENTER (PRIMARY FEATURE)
+    {
+      groupLabel: "Closet Center",
+      groupKey: "closet-center",
+      items: [
+        {
+          to: "/bestie/closet-inventory",
+          label: "My Inventory",
+          icon: "👕",
+          description: "Log & organize your wardrobe",
+        },
+        {
+          to: "/bestie/outfit-builder",
+          label: "Outfit Builder",
+          icon: "✨",
+          description: "Mix & match, save looks",
+        },
+        {
+          to: "/bestie/style-calendar",
+          label: "Style Calendar",
+          icon: "📅",
+          description: "Plan outfits by date",
+        },
+        {
+          to: "/bestie/analytics",
+          label: "Analytics",
+          icon: "📊",
+          description: "Your style insights & stats",
+        },
+        {
+          to: "/bestie/capsule",
+          label: "Capsule Wardrobe",
+          icon: "🎒",
+          description: "Minimal curated collections",
+        },
+      ],
+    },
+    // SHOPPING & DISCOVERY
+    {
+      groupLabel: "Shop & Discover",
+      groupKey: "shopping",
+      items: [
+        {
+          to: "/bestie/shopping-cart",
+          label: "Shopping Cart",
+          icon: "🛍️",
+          description: "AI-curated items for you",
+        },
+      ],
+    },
+    // LALA STYLING
+    {
+      groupLabel: "Lala Styling",
+      groupKey: "lala",
+      items: [
+        {
+          to: "/bestie/styling-studio",
+          label: "Influence Lala",
+          icon: "🎨",
+          description: "Customize Lala's looks & moods",
+        },
+      ],
+    },
+    // COMMUNITY & PLAY
+    {
+      groupLabel: "Community & Play",
+      groupKey: "community",
+      items: [
+        {
+          to: "/bestie/community",
+          label: "Bestie Circle",
+          icon: "👥",
+          description: "Connect & share with Besties",
+        },
+        {
+          to: "/bestie/vote-and-play",
+          label: "Vote & Play",
+          icon: "🎮",
+          description: "Shape Lala's story & earn coins",
+        },
+        {
+          to: "/bestie/closet-upload",
+          label: "Closet Upload",
+          icon: "📸",
+          description: "Share your fit & earn commissions",
+        },
+        {
+          to: "/bestie/news",
+          label: "Bestie News",
+          icon: "📰",
+          description: "Latest updates & community posts",
+        },
+        {
+          to: "/bestie/content",
+          label: "Bestie Content",
+          icon: "🎬",
+          description: "Create & share styling content",
+        },
+      ],
+    },
+    // REWARDS & INFO
+    {
+      groupLabel: "Growth & Info",
+      groupKey: "info",
+      items: [
+        {
+          to: "/bestie/rewards",
+          label: "Rewards & Badges",
+          icon: "🏆",
+          description: "Track your achievements",
+        },
+        {
+          to: "/bestie/prime-tea",
+          label: "Prime Tea",
+          icon: "☕",
+          description: "Deep-dive articles & theories",
+        },
+        {
+          to: "/bestie/perks",
+          label: "Perks & Benefits",
+          icon: "🎁",
+          description: "Exclusive Bestie rewards",
+        },
+      ],
+    },
   ];
 
   if (loading) {
@@ -138,6 +278,7 @@ export default function BestieLayout() {
     <div className="bestie-layout-page">
       <style>{styles}</style>
 
+
       {/* Mobile “Bestie pages” chip, like FanLayout header row */}
       <div className="bestie-header-row">
         <button
@@ -173,25 +314,41 @@ export default function BestieLayout() {
           </div>
 
           <nav className="bestie-sidebar-nav">
-            {sidebarNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  "bestie-sidebar-link" +
-                  (isActive ? " bestie-sidebar-link--active" : "")
-                }
-              >
-                <span className="bestie-sidebar-link-main">
-                  <span className="bestie-sidebar-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </span>
-              </NavLink>
+            {sidebarNav.map((group) => (
+              <div key={group.groupKey} className="bestie-sidebar-group">
+                <div className="bestie-sidebar-group-label">{group.groupLabel}</div>
+                <div className="bestie-sidebar-group-items">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        "bestie-sidebar-link" +
+                        (isActive ? " bestie-sidebar-link--active" : "")
+                      }
+                      title={item.description}
+                    >
+                      <span className="bestie-sidebar-link-main">
+                        <span className="bestie-sidebar-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span>{item.label}</span>
+                      </span>
+                      {item.description && (
+                        <span className="bestie-sidebar-link-desc">
+                          {item.description}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
+
+          {/* LALA WIDGET */}
+          <LalaWidget visualMode="bust" />
         </aside>
 
         {/* Main panel – NO global header/tabs; pages own their own chrome */}
@@ -253,24 +410,37 @@ export default function BestieLayout() {
             </div>
 
             <nav className="bestie-drawer__nav">
-              {sidebarNav.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    "bestie-drawer-link" +
-                    (isActive ? " bestie-drawer-link--active" : "")
-                  }
-                  onClick={closeNav}
-                >
-                  <span className="bestie-drawer-link-main">
-                    <span className="bestie-drawer-icon" aria-hidden="true">
-                      {item.icon}
-                    </span>
-                    <span>{item.label}</span>
-                  </span>
-                </NavLink>
+              {sidebarNav.map((group) => (
+                <div key={group.groupKey} className="bestie-drawer-group">
+                  <div className="bestie-drawer-group-label">{group.groupLabel}</div>
+                  <div className="bestie-drawer-group-items">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) =>
+                          "bestie-drawer-link" +
+                          (isActive ? " bestie-drawer-link--active" : "")
+                        }
+                        onClick={closeNav}
+                        title={item.description}
+                      >
+                        <span className="bestie-drawer-link-main">
+                          <span className="bestie-drawer-icon" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span>{item.label}</span>
+                        </span>
+                        {item.description && (
+                          <span className="bestie-drawer-link-desc">
+                            {item.description}
+                          </span>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </aside>
@@ -394,15 +564,39 @@ const styles = `
 .bestie-sidebar-nav {
   margin-top: 4px;
   display: grid;
+  gap: 12px;
+}
+
+.bestie-sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bestie-sidebar-group-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 0 8px;
+  margin-top: 4px;
+}
+
+.bestie-sidebar-group-items {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
 .bestie-sidebar-link {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 11px;
-  border-radius: 999px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
   color: #111827;
@@ -419,24 +613,34 @@ const styles = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 .bestie-sidebar-icon {
-  font-size: 16px;
+  font-size: 18px;
+}
+.bestie-sidebar-link-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .bestie-sidebar-link:hover {
   background: #ffffff;
   border-color: #d1d5db;
-  box-shadow: 0 10px 28px rgba(148,163,184,0.3);
+  box-shadow: 0 8px 24px rgba(148,163,184,0.2);
 }
 .bestie-sidebar-link:active {
   transform: translateY(1px);
 }
 .bestie-sidebar-link--active {
-  background: #020617;
-  color: #f9fafb;
-  border-color: #020617;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 12px 32px rgba(79,70,229,0.3);
+}
+.bestie-sidebar-link--active .bestie-sidebar-link-desc {
+  color: rgba(255,255,255,0.7);
 }
 
 /* Main card */
@@ -572,15 +776,39 @@ const styles = `
 .bestie-drawer__nav {
   margin-top: 4px;
   display: grid;
+  gap: 12px;
+}
+
+.bestie-drawer-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bestie-drawer-group-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 0 8px;
+  margin-top: 4px;
+}
+
+.bestie-drawer-group-items {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
 .bestie-drawer-link {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 11px;
-  border-radius: 999px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: rgba(248,250,252,0.95);
   color: #111827;
@@ -597,23 +825,34 @@ const styles = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 .bestie-drawer-icon {
-  font-size: 16px;
+  font-size: 18px;
 }
+.bestie-drawer-link-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
 .bestie-drawer-link:hover {
   background: #ffffff;
   border-color: #d1d5db;
-  box-shadow: 0 10px 28px rgba(148,163,184,0.4);
+  box-shadow: 0 8px 24px rgba(148,163,184,0.2);
 }
 .bestie-drawer-link:active {
   transform: translateY(1px);
 }
 .bestie-drawer-link--active {
-  background: #020617;
-  color: #f9fafb;
-  border-color: #020617;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.65);
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 12px 32px rgba(79,70,229,0.3);
+}
+.bestie-drawer-link--active .bestie-drawer-link-desc {
+  color: rgba(255,255,255,0.7);
 }
 
 /* Responsive tweaks */

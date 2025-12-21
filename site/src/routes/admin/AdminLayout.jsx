@@ -1,36 +1,35 @@
 // site/src/routes/admin/AdminLayout.jsx
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { decodeJWT } from "../../lib/jwtDecoder.js";
 
 function useIsAdmin() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const { idToken } = useAuth();
 
   useEffect(() => {
-    let gone = false;
-    (async () => {
+    // Try new AuthContext-based auth first
+    if (idToken) {
       try {
-        if (window.sa?.ready) await window.sa.ready();
-        const groups =
-          window.sa?.session?.groups ||
-          (window.sa?.session?.idTokenPayload?.["cognito:groups"] ?? []);
-
-        if (!gone) {
-          setIsAdmin(Array.isArray(groups) && groups.includes("ADMIN"));
-          setReady(true);
-        }
-      } catch {
-        if (!gone) {
-          setIsAdmin(false);
-          setReady(true);
-        }
+        const decoded = decodeJWT(idToken);
+        const groups = decoded["cognito:groups"] || [];
+        setIsAdmin(groups.includes("ADMIN"));
+        setReady(true);
+        return;
+      } catch (e) {
+        console.error("[useIsAdmin] Error decoding token:", e);
+        setIsAdmin(false);
+        setReady(true);
+        return;
       }
-    })();
+    }
 
-    return () => {
-      gone = true;
-    };
-  }, []);
+    // No token, not admin
+    setIsAdmin(false);
+    setReady(true);
+  }, [idToken]);
 
   return { ready, isAdmin };
 }
@@ -164,7 +163,31 @@ export default function AdminLayout() {
             </NavLink>
 
             <div className="section-sidebar-label" style={{ marginTop: 16 }}>
-              People & settings
+              Platform Control
+            </div>
+
+            <NavLink to="/admin/ai-management" className={navClass}>
+              <span className="section-nav-pill-icon">🤖</span>
+              <span>AI Management</span>
+            </NavLink>
+
+            <NavLink to="/admin/roles-permissions" className={navClass}>
+              <span className="section-nav-pill-icon">🔐</span>
+              <span>Roles & Perms</span>
+            </NavLink>
+
+            <NavLink to="/admin/feature-flags" className={navClass}>
+              <span className="section-nav-pill-icon">🚩</span>
+              <span>Feature Flags</span>
+            </NavLink>
+
+            <NavLink to="/admin/prompt-library" className={navClass}>
+              <span className="section-nav-pill-icon">📚</span>
+              <span>Prompt Library</span>
+            </NavLink>
+
+            <div className="section-sidebar-label" style={{ marginTop: 16 }}>
+              Operations
             </div>
 
             <NavLink to="/admin/users" className={navClass}>
@@ -172,9 +195,43 @@ export default function AdminLayout() {
               <span>Users</span>
             </NavLink>
 
+            <NavLink to="/admin/support" className={navClass}>
+              <span className="section-nav-pill-icon">💬</span>
+              <span>Support</span>
+            </NavLink>
+
+            <NavLink to="/admin/automations" className={navClass}>
+              <span className="section-nav-pill-icon">⚙️</span>
+              <span>Automations</span>
+            </NavLink>
+
+            <NavLink to="/admin/integrations" className={navClass}>
+              <span className="section-nav-pill-icon">🔗</span>
+              <span>Integrations</span>
+            </NavLink>
+
+            <div className="section-sidebar-label" style={{ marginTop: 16 }}>
+              Security & Strategy
+            </div>
+
+            <NavLink to="/admin/security" className={navClass}>
+              <span className="section-nav-pill-icon">🔒</span>
+              <span>Security</span>
+            </NavLink>
+
+            <NavLink to="/admin/roadmap" className={navClass}>
+              <span className="section-nav-pill-icon">🗺️</span>
+              <span>Roadmap</span>
+            </NavLink>
+
+            <NavLink to="/admin/brand-settings" className={navClass}>
+              <span className="section-nav-pill-icon">🎨</span>
+              <span>Brand Settings</span>
+            </NavLink>
+
             <NavLink to="/admin/settings" className={navClass}>
               <span className="section-nav-pill-icon">⚙️</span>
-              <span>Settings</span>
+              <span>Admin Settings</span>
             </NavLink>
           </nav>
         </aside>

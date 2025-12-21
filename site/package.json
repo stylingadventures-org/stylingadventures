@@ -11,10 +11,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@apollo/client": "^3.14.0",
+    "@aws-amplify/auth": "^6.17.1",
+    "@aws-sdk/client-cognito-identity-provider": "^3.956.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/material": "^5.15.0",
+    "amazon-cognito-identity-js": "^6.3.16",
+    "apollo-link-context": "^1.0.20",
     "framer-motion": "^12.23.24",
+    "graphql": "^16.12.0",
     "graphql-request": "^7.3.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

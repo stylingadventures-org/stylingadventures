@@ -38,11 +38,572 @@ directive @aws_auth(cognito_groups: [String!]) on FIELD_DEFINITION | OBJECT
 # ─────────────────────────────────────────
 
 type Query {
-  _root: String
+  # Simple healthcheck (used by hello.graphql in site/src/graphql)
+    hello: String
+  
+    # Current user basic info
+    me: Me! @aws_cognito_user_pools
+
+  myCloset(limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    myWishlist(limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    closetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
+      @aws_cognito_user_pools
+  
+    adminClosetItemLikes(itemId: ID!, limit: Int, nextToken: String): LikeConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminClosetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminListPending(limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminListClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminListBestieClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    closetFeed(sort: ClosetFeedSort, limit: Int, nextToken: String): ClosetConnection!
+      @aws_cognito_user_pools
+  
+    pinnedClosetItems: [ClosetItem!]!
+      @aws_cognito_user_pools
+
+  """
+    Get background change requests for a closet item
+    """
+    closetItemBackgroundChanges(closetItemId: ID!): [BackgroundChangeRequest!]!
+  
+    """
+    Get user's pending background change requests
+    """
+    myBackgroundChangeRequests: [BackgroundChangeRequest!]!
+  
+    """
+    Admin: List all pending background change requests
+    """
+    adminListBackgroundChangeRequests(
+      status: BackgroundChangeStatus
+      limit: Int
+      nextToken: String
+    ): BackgroundChangeRequestConnection!
+
+  stories(limit: Int, nextToken: String): BestieStoryConnection
+      @aws_cognito_user_pools
+  
+    myStories(limit: Int, nextToken: String): BestieStoryConnection
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+    Get all music eras
+    """
+    musicEras: [MusicEra!]!
+  
+    """
+    Get a specific music era
+    """
+    musicEra(id: ID!): MusicEra
+  
+    """
+    Get songs from an era
+    """
+    eraSongs(eraId: ID!): [Song!]!
+  
+    """
+    Get music videos for a song
+    """
+    songMusicVideos(songId: ID!): [MusicVideo!]!
+  
+    """
+    Get music video details (with shoppable items)
+    """
+    musicVideo(id: ID!): MusicVideo
+
+  """
+    Search for exact item match
+    """
+    findExactItem(
+      brandName: String!
+      itemName: String!
+      category: String
+    ): [ExactMatchResult!]!
+  
+    """
+    Get shoppable items from a scene
+    """
+    sceneShoppableItems(sceneId: ID!): [ShoppableItem!]!
+  
+    """
+    Get shoppable items from a music video
+    """
+    videoShoppableItems(videoId: ID!): [ShoppableItem!]!
+  
+    """
+    Get user's shopping cart
+    """
+    myShoppingCart: ShoppingCart
+
+  """
+    Get the latest Prime Tea Report
+    """
+    latestTeaReport: TeaReport @aws_cognito_user_pools
+  
+    """
+    Get historical Tea Reports
+    """
+    teaReportHistory(
+      period: TeaPeriod
+      limit: Int
+      nextToken: String
+    ): TeaReportConnection! @aws_cognito_user_pools
+  
+    """
+    Get drama details for a specific character
+    """
+    characterDrama(characterName: String!): [TeaItem!]! @aws_cognito_user_pools
+  
+    """
+    Get relationship status between two characters
+    """
+    relationshipStatus(
+      character1: String!
+      character2: String!
+    ): RelationshipStatus @aws_cognito_user_pools
+
+  """
+    Get the current/latest Prime Magazine issue
+    """
+    currentPrimeMagazine: PrimeMagazine @aws_cognito_user_pools
+  
+    """
+    Get all published Prime Magazine issues
+    """
+    primeMagazineArchive(
+      limit: Int
+      nextToken: String
+    ): PrimeMagazineConnection! @aws_cognito_user_pools
+  
+    """
+    Get a specific magazine issue
+    """
+    primeMagazine(issueNumber: Int!): PrimeMagazine @aws_cognito_user_pools
+  
+    """
+    Get articles from a magazine
+    """
+    magazineArticles(
+      magazineId: ID!
+      category: ArticleCategory
+    ): [Article!]! @aws_cognito_user_pools
+
+  """
+    Get latest forecast for a creator
+    """
+    creatorLatestForecast(creatorId: ID!): CreatorForecast
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    """
+    Get forecast history for a creator
+    """
+    creatorForecastHistory(
+      creatorId: ID!
+      limit: Int
+      nextToken: String
+    ): CreatorForecastConnection!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    """
+    Get comprehensive creator report with analytics and forecasts
+    """
+    creatorReport(creatorId: ID!): CreatorReport
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    """
+    Get trend predictions for the platform
+    """
+    platformTrendPredictions: [TrendPrediction!]!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    """
+    Get growth recommendations for a creator
+    """
+    creatorGrowthRecommendations(creatorId: ID!): [Recommendation!]!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  # Fetch all active Bestie Spotlights (with pagination)
+    bestieSpotlights(limit: Int, nextToken: String): BestieSpotlightPage!
+  
+    # Fetch a specific Bestie's spotlight profile
+    bestieSpotlight(bestieId: ID!): BestieSpotlight
+  
+    # Fetch theories for an episode
+    episodeTheories(episodeId: ID!, limit: Int): [BestieTheory!]!
+  
+    # Fetch reactions for an episode
+    episodeReactions(episodeId: ID!, limit: Int): [BestieReaction!]!
+  
+    # Search theories by category or keyword
+    searchTheories(query: String!, category: TheoryCategory, limit: Int): [BestieTheory!]!
+  
+    # Top trending theories (24h)
+    trendingTheories(limit: Int): [BestieTheory!]!
+  
+    # Top trending reactions (24h)
+    trendingReactions(limit: Int): [BestieReaction!]!
+
+    # Fetch current user's game profile (level, coins, badges, etc.)
+    getMyProfile: GameProfile!
+      @aws_cognito_user_pools
 }
 
 type Mutation {
-  _root: String
+  setUserRole(userId: ID!, role: String!): RoleResult!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    requestClosetApproval(itemId: ID!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    likeClosetItem(itemId: ID!): ClosetItem!
+      @aws_cognito_user_pools
+  
+    toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem!
+      @aws_cognito_user_pools
+  
+    commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
+      @aws_cognito_user_pools
+  
+    bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    bestieDeleteClosetItem(id: ID!): Boolean!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminApproveItem(closetItemId: ID!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminPublishClosetItem(closetItemId: ID!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminSetClosetAudience(closetItemId: ID!, audience: ClosetAudience!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    # ─────────────────────────────────────────
+    # ✅ Added to match ApiStack resolvers
+    # ─────────────────────────────────────────
+  
+    pinHighlight(id: ID!, pinned: Boolean): ClosetItem!
+      @aws_cognito_user_pools
+  
+    toggleWishlistItem(id: ID!, wishlistOn: Boolean): ClosetItem!
+      @aws_cognito_user_pools
+  
+    addClosetItemToCommunityFeed(id: ID!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    removeClosetItemFromCommunityFeed(id: ID!): ClosetItem!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    shareClosetItemToPinterest(id: ID!): AWSJSON!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+    Request a background change for a closet item
+    """
+    requestClosetBackgroundChangeExtended(
+      closetItemId: ID!
+      requestedBackground: String!
+      notes: String
+    ): BackgroundChangeRequest!
+  
+    """
+    Admin: Approve a background change request
+    """
+    adminApproveBackgroundChange(
+      requestId: ID!
+    ): BackgroundChangeRequest!
+  
+    """
+    Admin: Reject a background change request
+    """
+    adminRejectBackgroundChange(
+      requestId: ID!
+      reason: String!
+    ): BackgroundChangeRequest!
+
+  """
+    Bestie workflow: request a background swap for a closet item.
+    """
+    requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  createStory(input: CreateStoryInput!): Story!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+  
+    publishStory(storyId: ID!): Story!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  """
+    Admin: Create a new music era
+    """
+    adminCreateMusicEra(
+      name: String!
+      description: String!
+      aesthetic: String!
+      releaseDate: AWSDateTime!
+    ): MusicEra!
+  
+    """
+    Admin: Add a song to an era
+    """
+    adminCreateSong(
+      eraId: ID!
+      title: String!
+      inspirationStory: String!
+      spotifyUrl: String
+      audioUrl: String!
+    ): Song!
+  
+    """
+    Admin: Release a music video
+    """
+    adminCreateMusicVideo(
+      songId: ID!
+      title: String!
+      s3Key: String!
+    ): MusicVideo!
+
+  """
+    Add item to shopping cart
+    """
+    addToCart(itemId: ID!): ShoppingCart!
+  
+    """
+    Remove item from shopping cart
+    """
+    removeFromCart(itemId: ID!): ShoppingCart!
+  
+    """
+    Admin: Create shoppable item
+    """
+    adminCreateShoppableItem(
+      brand: String!
+      name: String!
+      category: String!
+      sku: String!
+      imageUrl: String!
+      price: Float!
+    ): ShoppableItem!
+  
+    """
+    Admin: Add affiliate link
+    """
+    adminAddAffiliateLink(
+      itemId: ID!
+      retailer: String!
+      url: String!
+      commissionRate: Float!
+    ): AffiliateLink!
+
+  """
+    Admin: Generate a new Tea Report
+    """
+    adminGenerateTeaReport(
+      period: TeaPeriod!
+      sourceEpisodes: [String!]
+      sourceMusic: [String!]
+    ): TeaReport!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Add a hot take to a report
+    """
+    adminAddHotTake(
+      reportId: ID!
+      authorCharacter: String!
+      content: String!
+    ): HotTake!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Update relationship status
+    """
+    adminUpdateRelationshipStatus(
+      character1: String!
+      character2: String!
+      status: String!
+    ): RelationshipStatus!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+    Admin: Create a new magazine issue
+    """
+    adminCreateMagazineIssue(
+      issueNumber: Int!
+      title: String!
+      theme: String!
+      coverImageKey: String!
+    ): PrimeMagazine!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Add article to magazine
+    """
+    adminAddArticle(
+      magazineId: ID!
+      title: String!
+      author: String!
+      category: ArticleCategory!
+      content: String!
+    ): Article!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Create fashion editorial
+    """
+    adminCreateFashionEditorial(
+      magazineId: ID!
+      title: String!
+      photographyCredit: String!
+      stylist: String!
+    ): FashionEditorial!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Publish magazine issue
+    """
+    adminPublishMagazine(
+      magazineId: ID!
+    ): PrimeMagazine!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+    Admin: Generate creator forecast
+    """
+    adminGenerateCreatorForecast(
+      creatorId: ID!
+      forecastPeriod: ForecastPeriod!
+    ): CreatorForecast!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Update analytics for forecast model
+    """
+    adminUpdateAnalyticsSnapshot(
+      creatorId: ID!
+      metrics: AnalyticsMetricsInput!
+    ): AnalyticsMetrics!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+  
+    """
+    Admin: Generate platform-wide trend predictions
+    """
+    adminGeneratePlatformTrends: [TrendPrediction!]!
+      @aws_cognito_user_pools
+      @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  # Add a reaction to an episode
+    addReaction(episodeId: ID!, reactionType: ReactionType!, comment: String): BestieReaction!
+  
+    # Remove a reaction
+    removeReaction(reactionId: ID!): Boolean!
+  
+    # Submit a theory
+    submitTheory(
+      category: TheoryCategory!
+      title: String!
+      description: String!
+      evidenceLinks: [String!]
+    ): BestieTheory!
+  
+    # Like/upvote a theory
+    upvoteTheory(theoryId: ID!): BestieTheory!
+  
+    # Downvote a theory
+    downvoteTheory(theoryId: ID!): BestieTheory!
+  
+    # Admin: Feature a theory for cross-platform promotion
+    adminFeatureTheory(theoryId: ID!): BestieTheory!
+  
+    # Admin: Feature a Bestie for spotlight
+    adminFeatureBestie(bestieId: ID!, platforms: [String!]): BestieSpotlight!
+  
+    # Admin: Generate weekly spotlight report
+    adminGenerateSpotlightReport: BestieSpotlight!
+
+    # Game events: Daily login, watch episode, etc.
+    logGameEvent(input: LogGameEventInput!): GameEventResult! @aws_cognito_user_pools
 }
 
 # -----------------------------------------------
@@ -65,19 +626,41 @@ type RoleResult {
   role: String!
 }
 
-extend type Query {
-  # Simple healthcheck (used by hello.graphql in site/src/graphql)
-  hello: String
+# ─────────────────────────────────────────
+# Game Events
+# ─────────────────────────────────────────
 
-  # Current user basic info
-  me: Me! @aws_cognito_user_pools
+type GameEventResult {
+  success: Boolean!
+  xp: Int
+  coins: Int
+  newXP: Int
+  newCoins: Int
+  lastEventAt: AWSDateTime
 }
 
-extend type Mutation {
-  setUserRole(userId: ID!, role: String!): RoleResult!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+# ─────────────────────────────────────────
+# Game Profile
+# ─────────────────────────────────────────
+
+type GameProfile {
+  userId: ID!
+  level: Int!
+  xp: Int!
+  coins: Int!
+  badges: [String!]
+  displayName: String
+  avatarUrl: String
+  bio: String
+  lastEventAt: AWSDateTime
+  streakCount: Int
+  lastLoginAt: AWSDateTime
+  pinnedClosetItems: [ClosetItem!]
 }
+
+
+
+
 
 # -----------------------------------------------
 # 20_closet.graphql
@@ -142,7 +725,7 @@ type ClosetItem {
   season: String
   vibes: String
   notes: String
-  visibility: ClosetVisibility!
+  visibility: ClosetVisibility
   affiliateUrl: String
   episodeIds: [ID!]
   status: ClosetStatus!
@@ -297,137 +880,13 @@ input AdminUpdateClosetItemInput {
 # Query operations
 # ─────────────────────────────────────────
 
-extend type Query {
-  myCloset(limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  myWishlist(limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  closetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
-    @aws_cognito_user_pools
-
-  adminClosetItemLikes(itemId: ID!, limit: Int, nextToken: String): LikeConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminClosetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminListPending(limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminListClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminListBestieClosetItems(status: ClosetStatus, limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  closetFeed(sort: ClosetFeedSort, limit: Int, nextToken: String): ClosetConnection!
-    @aws_cognito_user_pools
-
-  pinnedClosetItems: [ClosetItem!]!
-    @aws_cognito_user_pools
-}
 
 # ─────────────────────────────────────────
 # Mutation operations
 # ─────────────────────────────────────────
 
-extend type Mutation {
-  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  requestClosetApproval(itemId: ID!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  likeClosetItem(itemId: ID!): ClosetItem!
-    @aws_cognito_user_pools
-
-  toggleFavoriteClosetItem(id: ID!, favoriteOn: Boolean): ClosetItem!
-    @aws_cognito_user_pools
-
-  commentOnClosetItem(input: CommentOnClosetItemInput!): Comment!
-    @aws_cognito_user_pools
-
-  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  bestieDeleteClosetItem(id: ID!): Boolean!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminApproveItem(closetItemId: ID!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminPublishClosetItem(closetItemId: ID!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminSetClosetAudience(closetItemId: ID!, audience: ClosetAudience!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  # ─────────────────────────────────────────
-  # ✅ Added to match ApiStack resolvers
-  # ─────────────────────────────────────────
-
-  pinHighlight(id: ID!, pinned: Boolean): ClosetItem!
-    @aws_cognito_user_pools
-
-  toggleWishlistItem(id: ID!, wishlistOn: Boolean): ClosetItem!
-    @aws_cognito_user_pools
-
-  addClosetItemToCommunityFeed(id: ID!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  removeClosetItemFromCommunityFeed(id: ID!): ClosetItem!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  shareClosetItemToPinterest(id: ID!): AWSJSON!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-}
 
 # -----------------------------------------------
 # 25_bg-change.graphql
@@ -471,52 +930,9 @@ type BgChangeRequestResult {
   requestId: ID
 }
 
-extend type Query {
-  """
-  Get background change requests for a closet item
-  """
-  closetItemBackgroundChanges(closetItemId: ID!): [BackgroundChangeRequest!]!
 
-  """
-  Get user's pending background change requests
-  """
-  myBackgroundChangeRequests: [BackgroundChangeRequest!]!
 
-  """
-  Admin: List all pending background change requests
-  """
-  adminListBackgroundChangeRequests(
-    status: BackgroundChangeStatus
-    limit: Int
-    nextToken: String
-  ): BackgroundChangeRequestConnection!
-}
 
-extend type Mutation {
-  """
-  Request a background change for a closet item
-  """
-  requestClosetBackgroundChangeExtended(
-    closetItemId: ID!
-    requestedBackground: String!
-    notes: String
-  ): BackgroundChangeRequest!
-
-  """
-  Admin: Approve a background change request
-  """
-  adminApproveBackgroundChange(
-    requestId: ID!
-  ): BackgroundChangeRequest!
-
-  """
-  Admin: Reject a background change request
-  """
-  adminRejectBackgroundChange(
-    requestId: ID!
-    reason: String!
-  ): BackgroundChangeRequest!
-}
 
 type BackgroundChangeRequestConnection {
   items: [BackgroundChangeRequest!]!
@@ -544,14 +960,7 @@ type BestieCheckoutSession {
   checkoutUrl: String!
 }
 
-extend type Mutation {
-  """
-  Bestie workflow: request a background swap for a closet item.
-  """
-  requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-}
+
 
 # -----------------------------------------------
 # 40_stories.graphql
@@ -595,24 +1004,9 @@ input CreateStoryInput {
   closetItemIds: [ID!]
 }
 
-extend type Query {
-  stories(limit: Int, nextToken: String): BestieStoryConnection
-    @aws_cognito_user_pools
 
-  myStories(limit: Int, nextToken: String): BestieStoryConnection
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-}
 
-extend type Mutation {
-  createStory(input: CreateStoryInput!): Story!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  publishStory(storyId: ID!): Story!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
-}
 
 # -----------------------------------------------
 # 44_music.graphql
@@ -692,64 +1086,9 @@ enum ReleaseStatus {
   ARCHIVED
 }
 
-extend type Query {
-  """
-  Get all music eras
-  """
-  musicEras: [MusicEra!]!
 
-  """
-  Get a specific music era
-  """
-  musicEra(id: ID!): MusicEra
 
-  """
-  Get songs from an era
-  """
-  eraSongs(eraId: ID!): [Song!]!
 
-  """
-  Get music videos for a song
-  """
-  songMusicVideos(songId: ID!): [MusicVideo!]!
-
-  """
-  Get music video details (with shoppable items)
-  """
-  musicVideo(id: ID!): MusicVideo
-}
-
-extend type Mutation {
-  """
-  Admin: Create a new music era
-  """
-  adminCreateMusicEra(
-    name: String!
-    description: String!
-    aesthetic: String!
-    releaseDate: AWSDateTime!
-  ): MusicEra!
-
-  """
-  Admin: Add a song to an era
-  """
-  adminCreateSong(
-    eraId: ID!
-    title: String!
-    inspirationStory: String!
-    spotifyUrl: String
-    audioUrl: String!
-  ): Song!
-
-  """
-  Admin: Release a music video
-  """
-  adminCreateMusicVideo(
-    songId: ID!
-    title: String!
-    s3Key: String!
-  ): MusicVideo!
-}
 
 # -----------------------------------------------
 # 45_shopping.graphql
@@ -800,65 +1139,9 @@ type ShoppingCart {
   affiliateCredit: Float!
 }
 
-extend type Query {
-  """
-  Search for exact item match
-  """
-  findExactItem(
-    brandName: String!
-    itemName: String!
-    category: String
-  ): [ExactMatchResult!]!
 
-  """
-  Get shoppable items from a scene
-  """
-  sceneShoppableItems(sceneId: ID!): [ShoppableItem!]!
 
-  """
-  Get shoppable items from a music video
-  """
-  videoShoppableItems(videoId: ID!): [ShoppableItem!]!
 
-  """
-  Get user's shopping cart
-  """
-  myShoppingCart: ShoppingCart
-}
-
-extend type Mutation {
-  """
-  Add item to shopping cart
-  """
-  addToCart(itemId: ID!): ShoppingCart!
-
-  """
-  Remove item from shopping cart
-  """
-  removeFromCart(itemId: ID!): ShoppingCart!
-
-  """
-  Admin: Create shoppable item
-  """
-  adminCreateShoppableItem(
-    brand: String!
-    name: String!
-    category: String!
-    sku: String!
-    imageUrl: String!
-    price: Float!
-  ): ShoppableItem!
-
-  """
-  Admin: Add affiliate link
-  """
-  adminAddAffiliateLink(
-    itemId: ID!
-    retailer: String!
-    url: String!
-    commissionRate: Float!
-  ): AffiliateLink!
-}
 
 # -----------------------------------------------
 # 46_prime-tea-report.graphql
@@ -937,69 +1220,9 @@ type TeaReportConnection {
   nextToken: String
 }
 
-extend type Query {
-  """
-  Get the latest Prime Tea Report
-  """
-  latestTeaReport: TeaReport @aws_cognito_user_pools
 
-  """
-  Get historical Tea Reports
-  """
-  teaReportHistory(
-    period: TeaPeriod
-    limit: Int
-    nextToken: String
-  ): TeaReportConnection! @aws_cognito_user_pools
 
-  """
-  Get drama details for a specific character
-  """
-  characterDrama(characterName: String!): [TeaItem!]! @aws_cognito_user_pools
 
-  """
-  Get relationship status between two characters
-  """
-  relationshipStatus(
-    character1: String!
-    character2: String!
-  ): RelationshipStatus @aws_cognito_user_pools
-}
-
-extend type Mutation {
-  """
-  Admin: Generate a new Tea Report
-  """
-  adminGenerateTeaReport(
-    period: TeaPeriod!
-    sourceEpisodes: [String!]
-    sourceMusic: [String!]
-  ): TeaReport!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Add a hot take to a report
-  """
-  adminAddHotTake(
-    reportId: ID!
-    authorCharacter: String!
-    content: String!
-  ): HotTake!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Update relationship status
-  """
-  adminUpdateRelationshipStatus(
-    character1: String!
-    character2: String!
-    status: String!
-  ): RelationshipStatus!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-}
 
 # -----------------------------------------------
 # 47_prime-magazine.graphql
@@ -1122,81 +1345,9 @@ type PrimeMagazineConnection {
   nextToken: String
 }
 
-extend type Query {
-  """
-  Get the current/latest Prime Magazine issue
-  """
-  currentPrimeMagazine: PrimeMagazine @aws_cognito_user_pools
 
-  """
-  Get all published Prime Magazine issues
-  """
-  primeMagazineArchive(
-    limit: Int
-    nextToken: String
-  ): PrimeMagazineConnection! @aws_cognito_user_pools
 
-  """
-  Get a specific magazine issue
-  """
-  primeMagazine(issueNumber: Int!): PrimeMagazine @aws_cognito_user_pools
 
-  """
-  Get articles from a magazine
-  """
-  magazineArticles(
-    magazineId: ID!
-    category: ArticleCategory
-  ): [Article!]! @aws_cognito_user_pools
-}
-
-extend type Mutation {
-  """
-  Admin: Create a new magazine issue
-  """
-  adminCreateMagazineIssue(
-    issueNumber: Int!
-    title: String!
-    theme: String!
-    coverImageKey: String!
-  ): PrimeMagazine!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Add article to magazine
-  """
-  adminAddArticle(
-    magazineId: ID!
-    title: String!
-    author: String!
-    category: ArticleCategory!
-    content: String!
-  ): Article!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Create fashion editorial
-  """
-  adminCreateFashionEditorial(
-    magazineId: ID!
-    title: String!
-    photographyCredit: String!
-    stylist: String!
-  ): FashionEditorial!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Publish magazine issue
-  """
-  adminPublishMagazine(
-    magazineId: ID!
-  ): PrimeMagazine!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-}
 
 # -----------------------------------------------
 # 48_creator-forecast.graphql
@@ -1349,75 +1500,9 @@ type CreatorForecastConnection {
   nextToken: String
 }
 
-extend type Query {
-  """
-  Get latest forecast for a creator
-  """
-  creatorLatestForecast(creatorId: ID!): CreatorForecast
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  """
-  Get forecast history for a creator
-  """
-  creatorForecastHistory(
-    creatorId: ID!
-    limit: Int
-    nextToken: String
-  ): CreatorForecastConnection!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  """
-  Get comprehensive creator report with analytics and forecasts
-  """
-  creatorReport(creatorId: ID!): CreatorReport
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
 
-  """
-  Get trend predictions for the platform
-  """
-  platformTrendPredictions: [TrendPrediction!]!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
-
-  """
-  Get growth recommendations for a creator
-  """
-  creatorGrowthRecommendations(creatorId: ID!): [Recommendation!]!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["CREATOR", "COLLAB", "ADMIN", "PRIME"])
-}
-
-extend type Mutation {
-  """
-  Admin: Generate creator forecast
-  """
-  adminGenerateCreatorForecast(
-    creatorId: ID!
-    forecastPeriod: ForecastPeriod!
-  ): CreatorForecast!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Update analytics for forecast model
-  """
-  adminUpdateAnalyticsSnapshot(
-    creatorId: ID!
-    metrics: AnalyticsMetricsInput!
-  ): AnalyticsMetrics!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-
-  """
-  Admin: Generate platform-wide trend predictions
-  """
-  adminGeneratePlatformTrends: [TrendPrediction!]!
-    @aws_cognito_user_pools
-    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
-}
 
 enum ForecastPeriod {
   WEEKLY
@@ -1505,57 +1590,11 @@ type BestieSpotlightPage {
   nextToken: String
 }
 
-extend type Query {
-  # Fetch all active Bestie Spotlights (with pagination)
-  bestieSpotlights(limit: Int, nextToken: String): BestieSpotlightPage!
 
-  # Fetch a specific Bestie's spotlight profile
-  bestieSpotlight(bestieId: ID!): BestieSpotlight
 
-  # Fetch theories for an episode
-  episodeTheories(episodeId: ID!, limit: Int): [BestieTheory!]!
 
-  # Fetch reactions for an episode
-  episodeReactions(episodeId: ID!, limit: Int): [BestieReaction!]!
 
-  # Search theories by category or keyword
-  searchTheories(query: String!, category: TheoryCategory, limit: Int): [BestieTheory!]!
-
-  # Top trending theories (24h)
-  trendingTheories(limit: Int): [BestieTheory!]!
-
-  # Top trending reactions (24h)
-  trendingReactions(limit: Int): [BestieReaction!]!
+input LogGameEventInput {
+  type: String!
+  metadata: AWSJSON
 }
-
-extend type Mutation {
-  # Add a reaction to an episode
-  addReaction(episodeId: ID!, reactionType: ReactionType!, comment: String): BestieReaction!
-
-  # Remove a reaction
-  removeReaction(reactionId: ID!): Boolean!
-
-  # Submit a theory
-  submitTheory(
-    category: TheoryCategory!
-    title: String!
-    description: String!
-    evidenceLinks: [String!]
-  ): BestieTheory!
-
-  # Like/upvote a theory
-  upvoteTheory(theoryId: ID!): BestieTheory!
-
-  # Downvote a theory
-  downvoteTheory(theoryId: ID!): BestieTheory!
-
-  # Admin: Feature a theory for cross-platform promotion
-  adminFeatureTheory(theoryId: ID!): BestieTheory!
-
-  # Admin: Feature a Bestie for spotlight
-  adminFeatureBestie(bestieId: ID!, platforms: [String!]): BestieSpotlight!
-
-  # Admin: Generate weekly spotlight report
-  adminGenerateSpotlightReport: BestieSpotlight!
-}
-

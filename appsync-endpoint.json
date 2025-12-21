@@ -1,0 +1,37 @@
+{
+    "graphqlApi": {
+        "name": "stylingadventures-api",
+        "apiId": "khi2trzjgndmvgucgh42oishuu",
+        "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+        "userPoolConfig": {
+            "userPoolId": "us-east-1_ibGaRX7ry",
+            "awsRegion": "us-east-1",
+            "defaultAction": "ALLOW"
+        },
+        "arn": "arn:aws:appsync:us-east-1:637423256673:apis/khi2trzjgndmvgucgh42oishuu",
+        "uris": {
+            "REALTIME": "wss://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-realtime-api.us-east-1.amazonaws.com/graphql",
+            "GRAPHQL": "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql"
+        },
+        "tags": {
+            "App": "stylingadventures",
+            "Env": "dev"
+        },
+        "additionalAuthenticationProviders": [
+            {
+                "authenticationType": "AWS_IAM"
+            }
+        ],
+        "xrayEnabled": true,
+        "dns": {
+            "REALTIME": "z6cqsgghgvg3jd5vyv3xpyia7y.appsync-realtime-api.us-east-1.amazonaws.com",
+            "GRAPHQL": "z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com"
+        },
+        "visibility": "GLOBAL",
+        "apiType": "GRAPHQL",
+        "owner": "637423256673",
+        "introspectionConfig": "ENABLED",
+        "queryDepthLimit": 0,
+        "resolverCountLimit": 0
+    }
+}

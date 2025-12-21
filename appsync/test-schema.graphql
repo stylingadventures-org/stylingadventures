@@ -1,0 +1,32 @@
+type Query {
+  myCloset(limit: Int, nextToken: String): ClosetConnection!
+  hello: String
+}
+
+type Mutation {
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem!
+}
+
+scalar AWSDateTime
+
+type ClosetItem {
+  id: ID!
+  title: String
+  visibility: ClosetVisibility
+}
+
+enum ClosetVisibility {
+  PRIVATE
+  BESTIE
+  PUBLIC
+}
+
+type ClosetConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+input CreateClosetItemInput {
+  title: String
+  visibility: ClosetVisibility
+}
