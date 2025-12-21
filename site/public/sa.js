@@ -173,36 +173,28 @@
 
   function setIdToken(tok) {
     if (!tok) return;
-    // Store in both legacy + new keys so older code still works
+    // ⚠️ SECURITY: Store only in sessionStorage (tab-local memory)
+    // Do NOT persist to localStorage (XSS vulnerability)
     sessionStorage.setItem("id_token", tok);
-    localStorage.setItem("sa_id_token", tok);
-    localStorage.setItem("sa:idToken", tok);
     const email = parseJwt(tok).email || "";
     syncSaSession({ idToken: tok, email });
   }
 
   function setAccessToken(tok) {
     if (!tok) return;
+    // ⚠️ SECURITY: Store only in sessionStorage (tab-local memory)
     sessionStorage.setItem("access_token", tok);
-    localStorage.setItem("sa:accessToken", tok);
     syncSaSession({ accessToken: tok });
   }
 
   function getStoredIdToken() {
-    return (
-      sessionStorage.getItem("id_token") ||
-      localStorage.getItem("sa_id_token") ||
-      localStorage.getItem("sa:idToken") ||
-      ""
-    );
+    // ⚠️ SECURITY: Only read from sessionStorage, never from localStorage
+    return sessionStorage.getItem("id_token") || "";
   }
 
   function getStoredAccessToken() {
-    return (
-      sessionStorage.getItem("access_token") ||
-      localStorage.getItem("sa:accessToken") ||
-      ""
-    );
+    // ⚠️ SECURITY: Only read from sessionStorage, never from localStorage
+    return sessionStorage.getItem("access_token") || "";
   }
 
   // Simple “fresh enough” check for the id_token
@@ -303,6 +295,8 @@
       },
 
       logoutLocal: () => {
+        // ⚠️ SECURITY: Only clear sessionStorage
+        // localStorage should never have contained tokens anyway
         ["id_token", "access_token", "refresh_token"].forEach((k) => {
           try {
             sessionStorage.removeItem(k);
@@ -310,11 +304,13 @@
             void err;
           }
         });
+        // Clean up any legacy localStorage entries (migration/cleanup)
         try {
           localStorage.removeItem("sa_id_token");
           localStorage.removeItem("sa:idToken");
           localStorage.removeItem("sa:accessToken");
           localStorage.removeItem("sa:expiresAt");
+          localStorage.removeItem("sa_refresh_token");
         } catch (err) {
           void err;
         }

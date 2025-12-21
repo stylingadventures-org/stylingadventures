@@ -7,6 +7,7 @@ import {
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
@@ -17,6 +18,7 @@ import * as path from "path";
 
 export interface WorkflowsV2StackProps extends StackProps {
   table: dynamodb.ITable; // used for approvals + Social Pulse + analytics DDB access
+  userPool?: cognito.IUserPool; // optional: for securing admin API with Cognito auth
 }
 
 /**
@@ -389,7 +391,14 @@ export class WorkflowsV2Stack extends Stack {
     completeApprovalFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
-        resources: ["*"], // you can scope to specific SM ARNs later
+        // 🔒 SECURITY: Scope to specific state machines instead of "*"
+        // This prevents the lambda from interfering with other workflows
+        resources: [
+          this.approvalStateMachine.stateMachineArn,
+          this.bgChangeStateMachine.stateMachineArn,
+          this.storyPublishStateMachine.stateMachineArn,
+          // Add other state machine ARNs as needed
+        ],
       }),
     );
 
@@ -402,12 +411,29 @@ export class WorkflowsV2Stack extends Stack {
 
     const approvals = adminApi.root.addResource("approvals");
 
+    // 🔒 SECURITY: Require Cognito auth if userPool is provided
+    let authorizer: apigw.IAuthorizer | undefined;
+    let authConfig: apigw.MethodOptions = {};
+
+    if (props.userPool) {
+      authorizer = new apigw.CognitoUserPoolAuthorizer(this, "AdminCognitoAuth", {
+        cognitoUserPools: [props.userPool],
+      });
+      authConfig = {
+        authorizer,
+        authorizationType: apigw.AuthorizationType.COGNITO,
+      };
+    } else {
+      console.warn(
+        "[WorkflowsV2Stack] WARNING: No userPool provided; admin API will be public. " +
+        "This is only acceptable for dev/testing.",
+      );
+    }
+
     approvals.addMethod(
       "POST",
       new apigw.LambdaIntegration(completeApprovalFn),
-      {
-        // TODO: add auth later (IAM / Cognito / API key)
-      },
+      authConfig,
     );
   }
 }

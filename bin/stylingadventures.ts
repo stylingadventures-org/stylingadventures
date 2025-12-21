@@ -141,6 +141,7 @@ const identity = new IdentityV2Stack(app, "IdentityV2Stack", {
 const workflows = new WorkflowsV2Stack(app, "WorkflowsV2Stack", {
   env,
   table: data.table,
+  userPool: identity.userPool,
   description: `Closet, story, and creator workflow state machines - ${envName}`,
 });
 

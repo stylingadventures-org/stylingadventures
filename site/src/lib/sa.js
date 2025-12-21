@@ -123,25 +123,37 @@ function homeUri() {
 
 function saveTokens(tokens) {
   const { id_token, access_token, refresh_token, expires_in } = tokens || {};
+  
+  // ⚠️ SECURITY: Never store refresh tokens in localStorage (XSS vulnerability)
+  // Refresh tokens should only be stored server-side in httpOnly cookies if possible,
+  // or use the Cognito Hosted UI for token refresh flows.
+  // See: https://owasp.org/www-community/attacks/xss/
+  
   if (id_token) {
+    // Store id_token only in sessionStorage (cleared on browser close)
+    // Do NOT persist to localStorage
     sessionStorage.setItem("id_token", id_token);
-    localStorage.setItem("sa_id_token", id_token);
   }
+  
   if (access_token) {
+    // Store access_token only in sessionStorage (cleared on browser close)
+    // Do NOT persist to localStorage
     sessionStorage.setItem("access_token", access_token);
-    localStorage.setItem("sa_access_token", access_token);
   }
-  if (refresh_token) {
-    sessionStorage.setItem("refresh_token", refresh_token);
-    localStorage.setItem("sa_refresh_token", refresh_token);
-  }
+  
+  // ⚠️ SECURITY: refresh_token intentionally NOT stored
+  // If you need refresh capability, implement server-side token refresh
+  // via a backend endpoint that uses httpOnly cookies
+  
   if (expires_in) {
     sessionStorage.setItem("token_exp_at", String(Date.now() + Number(expires_in) * 1000));
   }
 }
 
 function readToken(name) {
-  return sessionStorage.getItem(name) || localStorage.getItem(`sa_${name}`) || "";
+  // ⚠️ SECURITY: Only read from sessionStorage (memory/tab-local)
+  // Never restore tokens from localStorage - they're too exposed to XSS
+  return sessionStorage.getItem(name) || "";
 }
 
 /**

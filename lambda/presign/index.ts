@@ -29,6 +29,51 @@ const DISABLE_UPLOAD_AUTH =
 
 const s3 = new S3Client({});
 
+// ----- Security guardrails -----
+
+// Allowed MIME types for uploads (image + video + documents only)
+const ALLOWED_CONTENT_TYPES = new Set([
+  // Images
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  // Videos (for stories/episodes)
+  "video/mp4",
+  "video/webm",
+  // Documents (for resources, guides)
+  "application/pdf",
+  "text/csv",
+]);
+
+// Max file size: 500 MB
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
+
+// Key validation: only alphanumeric, slash, underscore, hyphen, dot
+// No spaces, control chars, or weird unicode
+const VALID_KEY_PATTERN = /^[a-zA-Z0-9\/_\-.]+$/;
+
+function sanitizeKey(key: string): string | null {
+  // Remove leading/trailing slashes
+  let clean = key.trim().replace(/^\/+/, "").replace(/\/+$/, "");
+  
+  // Reject empty
+  if (!clean) return null;
+  
+  // Reject path traversal
+  if (clean.includes("..")) return null;
+  
+  // Reject invalid characters
+  if (!VALID_KEY_PATTERN.test(clean)) return null;
+  
+  return clean;
+}
+
+function isValidContentType(contentType: string): boolean {
+  return ALLOWED_CONTENT_TYPES.has(contentType.toLowerCase());
+}
+
 // ----- helpers -----
 
 type AnyEvent = APIGatewayProxyEventV2 & { requestContext: any };
@@ -38,12 +83,17 @@ function resolveOrigin(event: AnyEvent): string {
   const reqOrigin = (hdrs.origin || hdrs.Origin || "").trim();
   if (!reqOrigin) return WEB_ORIGIN;
 
-  // 🔓 Dev convenience: always allow localhost / 127.0.0.1
-  if (
-    reqOrigin.startsWith("http://localhost") ||
-    reqOrigin.startsWith("http://127.0.0.1")
-  ) {
-    return reqOrigin;
+  // Dev convenience: only allow localhost when NOT in production
+  const envName = process.env.ENV_NAME || "dev";
+  const isProd = envName === "prd" || envName === "prod";
+  
+  if (!isProd) {
+    if (
+      reqOrigin.startsWith("http://localhost") ||
+      reqOrigin.startsWith("http://127.0.0.1")
+    ) {
+      return reqOrigin;
+    }
   }
 
   // Normal prod path: only if explicitly allowed
@@ -173,7 +223,7 @@ export const handler = async (
       });
     }
 
-    // --- POST /presign --- (uploads; you already had this)
+    // --- POST /presign --- (uploads with security guardrails)
     if (method === "POST" && /\/presign$/.test(path)) {
       const body = parseBody<{
         key: string;
@@ -190,13 +240,25 @@ export const handler = async (
       if (!contentType || typeof contentType !== "string") {
         return err(headers, 400, 'Invalid "contentType"');
       }
-      if (key.includes("..")) {
-        return err(headers, 400, "Illegal key");
+
+      // 🔒 SECURITY: Validate content type against allowlist
+      if (!isValidContentType(contentType)) {
+        return err(
+          headers,
+          400,
+          `Content type not allowed. Allowed: ${Array.from(ALLOWED_CONTENT_TYPES).join(", ")}`,
+        );
       }
 
-      // Normalise leading slashes
-      key = key.replace(/^\/+/, "");
+      // 🔒 SECURITY: Sanitize and validate key
+      const sanitized = sanitizeKey(key);
+      if (!sanitized) {
+        return err(headers, 400, "Invalid key: contains illegal characters or is empty");
+      }
+      key = sanitized;
 
+      // 🔒 SECURITY: Enforce user-scoped keys for non-admins
+      // Only closet uploads can bypass user prefix, and only if explicitly marked
       const isClosetUpload = kind === "closet";
 
       if (isClosetUpload) {
@@ -205,14 +267,20 @@ export const handler = async (
           key = `closet/${key}`;
         }
       } else if (sub && !key.startsWith("users/")) {
-        // Normal user-scoped uploads.
+        // Normal user-scoped uploads: users/{sub}/{key}
         key = `users/${sub}/${key}`;
+      } else if (!sub) {
+        // No claims = no user context = forbid upload
+        return err(headers, 401, "Unauthorized: no user context");
       }
 
       const put = new PutObjectCommand({
         Bucket: BUCKET,
         Key: key,
         ContentType: contentType,
+        // Note: S3 presigned URLs cannot enforce size limits.
+        // Consider adding post-upload validation in your resolver/lambda
+        // or switching to Presigned POST with policy for size enforcement.
       });
 
       const url = await getSignedUrl(s3, put, { expiresIn: 900 });

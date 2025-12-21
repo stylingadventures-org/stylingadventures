@@ -23,11 +23,12 @@ export interface UploadsStackProps extends StackProps {
 
 export class UploadsStack extends Stack {
   public readonly uploadsBucket: s3.Bucket;
+  public readonly presignApi: apigw.RestApi;
 
   constructor(scope: Construct, id: string, props: UploadsStackProps) {
     super(scope, id, props);
 
-    const { webOrigin } = props;
+    const { webOrigin, userPool } = props;
     const envName = this.node.tryGetContext("env") ?? "dev";
 
     // In dev we want to allow local Vite origin as well as the deployed origin.
@@ -70,30 +71,38 @@ export class UploadsStack extends Stack {
     });
 
     //
-    // 2) Lambda using existing upload-api/index.js
+    // 2) Presign Lambda with security hardening
+    //    (Uses lambda/presign/index.ts with:
+    //     - Content-type allowlist
+    //     - Key sanitization
+    //     - User-scoped uploads
+    //     - Conditional localhost in dev only)
     //
-    const uploadApiFn = new NodejsFunction(this, "UploadApiFn", {
-      entry: "lambda/upload-api/index.js",
+    const presignFn = new NodejsFunction(this, "PresignFn", {
+      entry: "lambda/presign/index.ts",
       runtime: lambda.Runtime.NODEJS_20_X,
       bundling: {
         format: OutputFormat.CJS,
         minify: true,
         sourceMap: true,
+        externalModules: ["@aws-sdk"],
       },
       environment: {
-        // 👈 match what the lambda code expects
-        UPLOADS_BUCKET_NAME: this.uploadsBucket.bucketName,
+        BUCKET: this.uploadsBucket.bucketName,
+        WEB_ORIGIN: webOrigin,
+        ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
+        ENV_NAME: envName,
       },
     });
 
-    // Allow Lambda to PUT (and sign for GET) objects into the uploads bucket
-    this.uploadsBucket.grantReadWrite(uploadApiFn);
+    // Allow Lambda to read/write objects for presigning
+    this.uploadsBucket.grantReadWrite(presignFn);
 
     //
-    // 3) REST API exposing POST /presign
+    // 3) REST API with JWT Cognito authorizer
     //
-    const api = new apigw.RestApi(this, "UploadsApi", {
-      restApiName: `SA-UploadsApi-${envName}`,
+    this.presignApi = new apigw.RestApi(this, "PresignApi", {
+      restApiName: `SA-PresignApi-${envName}`,
       defaultCorsPreflightOptions: {
         allowOrigins: corsAllowedOrigins,
         allowMethods: apigw.Cors.ALL_METHODS,
@@ -101,29 +110,58 @@ export class UploadsStack extends Stack {
       },
     });
 
-    const presignResource = api.root.addResource("presign");
+    // Create JWT authorizer from Cognito user pool
+    const authorizer = new apigw.CognitoUserPoolAuthorizer(this, "CognitoAuth", {
+      cognitoUserPools: [userPool],
+    });
+
+    // Mount presign lambda with JWT authorization
+    const presignResource = this.presignApi.root.addResource("presign");
     presignResource.addMethod(
       "POST",
-      new apigw.LambdaIntegration(uploadApiFn),
+      new apigw.LambdaIntegration(presignFn),
       {
-        authorizationType: apigw.AuthorizationType.NONE,
+        authorizer,
+        authorizationType: apigw.AuthorizationType.COGNITO,
       },
     );
 
-    // (Optional) /get route if we ever want signed GETs from the API
-    const getResource = api.root.addResource("get");
-    getResource.addMethod(
-      "POST",
-      new apigw.LambdaIntegration(uploadApiFn),
+    // GET presign (for viewing/listing)
+    presignResource.addMethod(
+      "GET",
+      new apigw.LambdaIntegration(presignFn),
       {
-        authorizationType: apigw.AuthorizationType.NONE,
+        authorizer,
+        authorizationType: apigw.AuthorizationType.COGNITO,
       },
     );
 
-    // Output the root URL (e.g. https://xxxx.execute-api.us-east-1.amazonaws.com/prod/)
-    new CfnOutput(this, "UploadsApiUrl", {
-      value: api.url,
-      exportName: `SA-UploadsApiUrl-${envName}`,
+    // LIST endpoint (for fetching user's own uploads)
+    const listResource = this.presignApi.root.addResource("list");
+    listResource.addMethod(
+      "GET",
+      new apigw.LambdaIntegration(presignFn),
+      {
+        authorizer,
+        authorizationType: apigw.AuthorizationType.COGNITO,
+      },
+    );
+
+    // DELETE endpoint (for removing uploads)
+    const deleteResource = this.presignApi.root.addResource("delete");
+    deleteResource.addMethod(
+      "DELETE",
+      new apigw.LambdaIntegration(presignFn),
+      {
+        authorizer,
+        authorizationType: apigw.AuthorizationType.COGNITO,
+      },
+    );
+
+    // Output the root URL
+    new CfnOutput(this, "PresignApiUrl", {
+      value: this.presignApi.url,
+      exportName: `SA-PresignApiUrl-${envName}`,
     });
 
     //
