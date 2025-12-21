@@ -1,30 +1,77 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import AnalyticsService from "../../../lib/services/analytics.service";
 
-const s3 = new S3Client({});
-const BUCKET = process.env.ANALYTICS_BUCKET_NAME!;
-const TABLE_NAME = process.env.TABLE_NAME || "";
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+const analyticsService = new AnalyticsService(docClient);
 
-export const handler = async (event: any) => {
-  console.log("AnalyticsIngestFn event", JSON.stringify(event));
+interface AnalyticsEvent {
+  eventType: "engagement" | "content" | "financial" | "creator";
+  userId: string;
+  details: any;
+}
 
-  const records = Array.isArray(event?.Records)
-    ? event.Records
-    : [event];
+export const handler = async (
+  event: APIGatewayProxyEventV2
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    console.log("[analytics-ingest] Event:", JSON.stringify(event));
 
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const key = `events/date=${date}/${now.getTime()}.json`;
+    const body = JSON.parse(event.body || "{}") as AnalyticsEvent;
 
-  const body = JSON.stringify(records, null, 2);
+    if (!body.eventType || !body.userId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          ok: false,
+          error: "Missing eventType or userId",
+        }),
+      };
+    }
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: body,
-      ContentType: "application/json",
-    }),
-  );
+    switch (body.eventType) {
+      case "engagement":
+        await analyticsService.recordEngagementEvent(
+          body.userId,
+          body.details.type,
+          body.details.metadata
+        );
+        break;
+      case "content":
+        await analyticsService.recordContentMetric(
+          body.userId,
+          body.details.contentType,
+          body.details.status,
+          body.details.metadata
+        );
+        break;
+      case "financial":
+        await analyticsService.recordFinancialMetric(
+          body.userId,
+          body.details.type,
+          body.details.amount,
+          body.details.source,
+          body.details.metadata
+        );
+        break;
+      default:
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ ok: false, error: "Unknown event type" }),
+        };
+    }
 
-  return { ok: true, bucket: BUCKET, key };
+    return {
+      statusCode: 201,
+      body: JSON.stringify({ ok: true, eventType: body.eventType }),
+    };
+  } catch (error) {
+    console.error("[analytics-ingest] Error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: "Failed to ingest analytics" }),
+    };
+  }
 };
