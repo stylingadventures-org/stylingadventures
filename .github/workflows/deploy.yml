@@ -63,7 +63,10 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # Configure AWS via OIDC. You’ll set ROLE_ARN per environment as a secret.
+      - name: Build Vite Site
+        run: npm run build:site
+
+      # Configure AWS via OIDC. You'll set ROLE_ARN per environment as a secret.
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -75,3 +78,49 @@ jobs:
           STAGE: ${{ github.event.inputs.env }}
         run: |
           npx cdk deploy --all --require-approval never
+
+      - name: Get S3 Bucket and CloudFront ID
+        id: cdk-outputs
+        env:
+          STAGE: ${{ github.event.inputs.env }}
+        run: |
+          # Parse CDK outputs from stack outputs
+          BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name WebStack-${{ github.event.inputs.env }} --query 'Stacks[0].Outputs[?OutputKey==`WebBucketName`].OutputValue' --output text 2>/dev/null || echo "")
+          CF_ID=$(aws cloudformation describe-stacks --stack-name WebStack-${{ github.event.inputs.env }} --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || echo "")
+          
+          if [ -z "$BUCKET_NAME" ] || [ -z "$CF_ID" ]; then
+            echo "Warning: Could not retrieve S3 bucket or CloudFront ID from stack outputs"
+            echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_OUTPUT
+            echo "CF_ID=$CF_ID" >> $GITHUB_OUTPUT
+          else
+            echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_OUTPUT
+            echo "CF_ID=$CF_ID" >> $GITHUB_OUTPUT
+            echo "S3 Bucket: $BUCKET_NAME"
+            echo "CloudFront ID: $CF_ID"
+          fi
+
+      - name: Upload Site to S3
+        if: steps.cdk-outputs.outputs.BUCKET_NAME != ''
+        run: |
+          aws s3 sync site/dist s3://${{ steps.cdk-outputs.outputs.BUCKET_NAME }}/ \
+            --delete \
+            --cache-control "public, max-age=3600" \
+            --exclude ".git/*"
+          echo "✅ Site uploaded to S3"
+
+      - name: Invalidate CloudFront Cache
+        if: steps.cdk-outputs.outputs.CF_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cdk-outputs.outputs.CF_ID }} \
+            --paths "/*"
+          echo "✅ CloudFront invalidation requested"
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.env }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket**: ${{ steps.cdk-outputs.outputs.BUCKET_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront ID**: ${{ steps.cdk-outputs.outputs.CF_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Site URL**: https://$(aws cloudformation describe-stacks --stack-name WebStack-${{ github.event.inputs.env }} --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' --output text 2>/dev/null)" >> $GITHUB_STEP_SUMMARY

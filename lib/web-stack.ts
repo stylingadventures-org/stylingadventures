@@ -1,8 +1,10 @@
 import { Stack, StackProps, CfnOutput, RemovalPolicy, Duration } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as path from "path";
 
 export interface WebStackProps extends StackProps {
   envName: string;
@@ -72,6 +74,18 @@ export class WebStack extends Stack {
           responsePagePath: "/index.html",
           ttl: Duration.minutes(5),
         },
+      ],
+    });
+
+    // Deploy Vite build output to S3 and invalidate CloudFront
+    new s3deploy.BucketDeployment(this, "WebDeployment", {
+      sources: [s3deploy.Source.asset(path.join(__dirname, "..", "site", "dist"))],
+      destinationBucket: this.bucket,
+      distribution: this.distribution,
+      distributionPaths: ["/*"],
+      cacheControl: [
+        s3deploy.CacheControl.setPublic(),
+        s3deploy.CacheControl.maxAge(Duration.hours(1)),
       ],
     });
 
