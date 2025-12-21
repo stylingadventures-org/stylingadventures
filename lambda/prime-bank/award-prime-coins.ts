@@ -1,67 +1,76 @@
-// lambda/prime-bank/award-prime-coins.ts
-import {
-  DynamoDBClient,
-  UpdateItemCommand,
-  PutItemCommand,
-} from "@aws-sdk/client-dynamodb";
-import { Handler } from "aws-lambda";
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import PrimeBankService from "../../../lib/services/prime-bank.service";
+import { AwardCoinsRequest } from "../../../lib/types/prime-bank";
 
-const ACCOUNT_TABLE_NAME = process.env.PRIME_BANK_ACCOUNT_TABLE_NAME!;
-const TRANSACTION_TABLE_NAME = process.env.PRIME_BANK_TRANSACTION_TABLE_NAME!;
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+const primeBankService = new PrimeBankService(docClient);
 
-const ddb = new DynamoDBClient({});
+export const handler = async (
+  event: APIGatewayProxyEventV2
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    console.log("[award-prime-coins] Event:", JSON.stringify(event));
 
-// Simple shape for now – you can expand later
-interface AwardPrimeCoinsEvent {
-  userId: string;
-  amount: number;
-  source: string; // e.g. "dailyLogin"
-  notes?: string;
-}
+    const claims = event.requestContext.authorizer?.claims;
+    const userId = claims?.sub;
 
-export const handler: Handler<AwardPrimeCoinsEvent, any> = async (event) => {
-  console.log("AwardPrimeCoins event:", JSON.stringify(event));
+    if (!userId) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ ok: false, error: "Not authenticated" }),
+      };
+    }
 
-  const { userId, amount, source, notes } = event;
+    const body = JSON.parse(event.body || "{}") as AwardCoinsRequest;
 
-  // TODO: add validation, caps, etc.
+    if (!body.amount || body.amount < 1 || body.amount > 1000) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          ok: false,
+          error: "Amount must be between 1 and 1000",
+        }),
+      };
+    }
 
-  // 1) Update PrimeBankAccount.balance
-  await ddb.send(
-    new UpdateItemCommand({
-      TableName: ACCOUNT_TABLE_NAME,
-      Key: { userId: { S: userId } },
-      UpdateExpression: "ADD primeCoins :delta",
-      ExpressionAttributeValues: {
-        ":delta": { N: String(amount) },
-      },
-    })
-  );
+    if (!body.source) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ ok: false, error: "Missing coin source" }),
+      };
+    }
 
-  // 2) Insert a transaction record
-  const timestamp = new Date().toISOString();
-  const transactionId = `txn_${Date.now()}`;
+    const result = await primeBankService.awardCoins({
+      userId,
+      amount: body.amount,
+      source: body.source as any,
+      reason: body.reason,
+    });
 
-  await ddb.send(
-    new PutItemCommand({
-      TableName: TRANSACTION_TABLE_NAME,
-      Item: {
-        userId: { S: userId },
-        timestamp: { S: timestamp },
-        transactionId: { S: transactionId },
-        type: { S: "earn" },
-        currency: { S: "primeCoins" },
-        amount: { N: String(amount) },
-        source: { S: source },
-        ...(notes ? { notes: { S: notes } } : {}),
-      },
-    })
-  );
+    if (!result.ok) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ ok: false, error: result.error }),
+      };
+    }
 
-  return {
-    ok: true,
-    userId,
-    amount,
-    transactionId,
-  };
+    return {
+      statusCode: 201,
+      body: JSON.stringify({
+        ok: true,
+        transactionId: result.transactionId,
+        newBalance: result.newBalance,
+        remainingCaps: result.remainingCaps,
+      }),
+    };
+  } catch (error) {
+    console.error("[award-prime-coins] Error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: "Failed to award coins" }),
+    };
+  }
 };

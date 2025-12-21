@@ -1,19 +1,46 @@
-// lambda/prime-bank/calculate-bank-meter.ts
-import {
-  DynamoDBClient,
-  UpdateItemCommand,
-  GetItemCommand,
-} from "@aws-sdk/client-dynamodb";
-import { Handler } from "aws-lambda";
+import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import PrimeBankService from "../../../lib/services/prime-bank.service";
 
-const ACCOUNT_TABLE_NAME = process.env.PRIME_BANK_ACCOUNT_TABLE_NAME!;
-const ddb = new DynamoDBClient({});
+const dynamoClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+const primeBankService = new PrimeBankService(docClient);
 
-interface CalculateBankMeterEvent {
-  userId: string;
-}
+export const handler = async (
+  event: APIGatewayProxyEventV2
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    console.log("[calculate-bank-meter] Event:", JSON.stringify(event));
 
-export const handler: Handler<CalculateBankMeterEvent, any> = async (event) => {
+    const claims = event.requestContext.authorizer?.claims;
+    const userId = claims?.sub;
+
+    if (!userId) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ ok: false, error: "Not authenticated" }),
+      };
+    }
+
+    const result = await primeBankService.calculateBankMeter(userId);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        ok: true,
+        userId,
+        ...result,
+      }),
+    };
+  } catch (error) {
+    console.error("[calculate-bank-meter] Error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: "Failed to calculate meter" }),
+    };
+  }
+};export const handler: Handler<CalculateBankMeterEvent, any> = async (event) => {
   console.log("CalculateBankMeter event:", JSON.stringify(event));
 
   const { userId } = event;
