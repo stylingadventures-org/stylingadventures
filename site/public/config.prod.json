@@ -1,0 +1,25 @@
+{
+  "env": "prod",
+  "region": "us-east-1",
+
+  "appsyncUrl": "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  "presignApiUrl": "https://to-be-deployed.execute-api.us-east-1.amazonaws.com/prod",
+  "adminApiUrl": "https://to-be-deployed.execute-api.us-east-1.amazonaws.com/v1",
+
+  "redirectUri": "https://stylingadventures.com/callback",
+  "logoutUri": "https://stylingadventures.com/",
+
+  "userPoolId": "us-east-1_aXLKIxbqK",
+  "userPoolWebClientId": "51uc25i7ob3otirvgi66mpht79",
+  "clientId": "51uc25i7ob3otirvgi66mpht79",
+
+  "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
+  "cognitoDomainPrefix": "sa-prod-637423256673",
+  "cognitoDomain": "https://sa-prod-637423256673.auth.us-east-1.amazoncognito.com",
+  "hostedUiDomain": "sa-prod-637423256673",
+
+  "scopes": ["openid", "email", "profile"],
+
+  "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-xxxxxxxxx",
+  "uploadsCdn": "https://d3fghr37bcpbig.cloudfront.net"
+}
