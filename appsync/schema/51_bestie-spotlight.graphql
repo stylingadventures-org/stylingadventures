@@ -1,0 +1,119 @@
+# Bestie Spotlight System
+# Celebrates fan reactions, theories, and community engagement
+# Cross-platform promotion of top fans and theories
+
+enum ReactionType {
+  LOVE
+  FIRE
+  SHOCKED
+  CRYING
+  LAUGHING
+  TEA
+}
+
+enum TheoryCategory {
+  DRAMA
+  FASHION
+  MUSIC
+  LORE
+  SHIP
+  PREDICTION
+}
+
+type BestieReaction {
+  id: ID!
+  bestieId: ID!
+  episodeId: ID!
+  reactionType: ReactionType!
+  comment: String
+  timestamp: AWSDateTime!
+  likes: Int!
+}
+
+type BestieTheory {
+  id: ID!
+  bestieId: ID!
+  category: TheoryCategory!
+  title: String!
+  description: String!
+  evidenceLinks: [String!]
+  upvotes: Int!
+  downvotes: Int!
+  isFeatured: Boolean!
+  featuredAt: AWSDateTime
+  timestamp: AWSDateTime!
+}
+
+type BestieSpotlight {
+  id: ID!
+  bestieId: ID!
+  bestieUsername: String!
+  bestieAvatar: String
+  reactionCount: Int!
+  theoryCount: Int!
+  topReactions: [BestieReaction!]!
+  topTheories: [BestieTheory!]!
+  totalEngagement: Int!
+  spotlightRank: Int!
+  featuredOn: AWSDate
+  platforms: [String!]
+}
+
+type BestieSpotlightPage {
+  spots: [BestieSpotlight!]!
+  nextToken: String
+}
+
+extend type Query {
+  # Fetch all active Bestie Spotlights (with pagination)
+  bestieSpotlights(limit: Int, nextToken: String): BestieSpotlightPage!
+
+  # Fetch a specific Bestie's spotlight profile
+  bestieSpotlight(bestieId: ID!): BestieSpotlight
+
+  # Fetch theories for an episode
+  episodeTheories(episodeId: ID!, limit: Int): [BestieTheory!]!
+
+  # Fetch reactions for an episode
+  episodeReactions(episodeId: ID!, limit: Int): [BestieReaction!]!
+
+  # Search theories by category or keyword
+  searchTheories(query: String!, category: TheoryCategory, limit: Int): [BestieTheory!]!
+
+  # Top trending theories (24h)
+  trendingTheories(limit: Int): [BestieTheory!]!
+
+  # Top trending reactions (24h)
+  trendingReactions(limit: Int): [BestieReaction!]!
+}
+
+extend type Mutation {
+  # Add a reaction to an episode
+  addReaction(episodeId: ID!, reactionType: ReactionType!, comment: String): BestieReaction!
+
+  # Remove a reaction
+  removeReaction(reactionId: ID!): Boolean!
+
+  # Submit a theory
+  submitTheory(
+    category: TheoryCategory!
+    title: String!
+    description: String!
+    evidenceLinks: [String!]
+  ): BestieTheory!
+
+  # Like/upvote a theory
+  upvoteTheory(theoryId: ID!): BestieTheory!
+
+  # Downvote a theory
+  downvoteTheory(theoryId: ID!): BestieTheory!
+
+  # Admin: Feature a theory for cross-platform promotion
+  adminFeatureTheory(theoryId: ID!): BestieTheory!
+
+  # Admin: Feature a Bestie for spotlight
+  adminFeatureBestie(bestieId: ID!, platforms: [String!]): BestieSpotlight!
+
+  # Admin: Generate weekly spotlight report
+  adminGenerateSpotlightReport: BestieSpotlight!
+}

@@ -1,0 +1,104 @@
+"""
+Shopping & Affiliate System
+Powers "Shop Lala's Look" and exact item finder across all surfaces.
+"""
+
+type ShoppableItem {
+  id: ID!
+  closetItemId: ID
+  musicVideoId: ID
+  episodeId: ID
+  brand: String!
+  name: String!
+  category: String!
+  sku: String!
+  imageUrl: String!
+  price: Float!
+  affiliateLinks: [AffiliateLink!]!
+  alternativeProducts: [ShoppableItem!]
+  lastSeenInScene: AWSDateTime!
+  likeCount: Int!
+}
+
+type AffiliateLink {
+  id: ID!
+  retailer: String!
+  url: String!
+  commissionRate: Float!
+  isActive: Boolean!
+}
+
+type ExactMatchResult {
+  item: ShoppableItem!
+  confidence: Float!
+  matchType: String!
+  source: String!
+}
+
+type ShoppingCart {
+  id: ID!
+  userId: ID!
+  items: [ShoppableItem!]!
+  total: Float!
+  affiliateCredit: Float!
+}
+
+extend type Query {
+  """
+  Search for exact item match
+  """
+  findExactItem(
+    brandName: String!
+    itemName: String!
+    category: String
+  ): [ExactMatchResult!]!
+
+  """
+  Get shoppable items from a scene
+  """
+  sceneShoppableItems(sceneId: ID!): [ShoppableItem!]!
+
+  """
+  Get shoppable items from a music video
+  """
+  videoShoppableItems(videoId: ID!): [ShoppableItem!]!
+
+  """
+  Get user's shopping cart
+  """
+  myShoppingCart: ShoppingCart
+}
+
+extend type Mutation {
+  """
+  Add item to shopping cart
+  """
+  addToCart(itemId: ID!): ShoppingCart!
+
+  """
+  Remove item from shopping cart
+  """
+  removeFromCart(itemId: ID!): ShoppingCart!
+
+  """
+  Admin: Create shoppable item
+  """
+  adminCreateShoppableItem(
+    brand: String!
+    name: String!
+    category: String!
+    sku: String!
+    imageUrl: String!
+    price: Float!
+  ): ShoppableItem!
+
+  """
+  Admin: Add affiliate link
+  """
+  adminAddAffiliateLink(
+    itemId: ID!
+    retailer: String!
+    url: String!
+    commissionRate: Float!
+  ): AffiliateLink!
+}

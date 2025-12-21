@@ -464,6 +464,187 @@ $util.toJson({
     createResolver(closetAdminSource, "AdminPublishClosetItem", { typeName: "Mutation", fieldName: "adminPublishClosetItem" });
 
     // ────────────────────────────────────────────────────────────
+    // PHASE 3: TEA REPORT RESOLVER (PRIME-ONLY)
+    // ────────────────────────────────────────────────────────────
+    const teaReportFn = new NodejsFunction(this, "TeaReportResolverFn", {
+      entry: "lambda/prime/tea-report-resolver.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(teaReportFn);
+
+    const teaReportAlias = new lambda.Alias(this, "TeaReportResolverFnLive", {
+      aliasName: "live",
+      version: teaReportFn.currentVersion,
+    });
+
+    const teaReportDs = this.api.addLambdaDataSource("TeaReportDs", teaReportAlias);
+
+    // Queries
+    createResolver(teaReportDs, "LatestTeaReportResolver", { typeName: "Query", fieldName: "latestTeaReport" });
+    createResolver(teaReportDs, "TeaReportHistoryResolver", { typeName: "Query", fieldName: "teaReportHistory" });
+    createResolver(teaReportDs, "CharacterDramaResolver", { typeName: "Query", fieldName: "characterDrama" });
+    createResolver(teaReportDs, "RelationshipStatusResolver", { typeName: "Query", fieldName: "relationshipStatus" });
+
+    // Admin Mutations
+    createResolver(teaReportDs, "AdminGenerateTeaReportResolver", { typeName: "Mutation", fieldName: "adminGenerateTeaReport" });
+    createResolver(teaReportDs, "AdminAddHotTakeResolver", { typeName: "Mutation", fieldName: "adminAddHotTake" });
+    createResolver(teaReportDs, "AdminUpdateRelationshipStatusResolver", { typeName: "Mutation", fieldName: "adminUpdateRelationshipStatus" });
+
+    // ────────────────────────────────────────────────────────────
+    // PHASE 3: PRIME MAGAZINE RESOLVER (PRIME-ONLY)
+    // ────────────────────────────────────────────────────────────
+    const magazineFn = new NodejsFunction(this, "MagazineResolverFn", {
+      entry: "lambda/prime/magazine-resolver.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(magazineFn);
+
+    const magazineAlias = new lambda.Alias(this, "MagazineResolverFnLive", {
+      aliasName: "live",
+      version: magazineFn.currentVersion,
+    });
+
+    const magazineDs = this.api.addLambdaDataSource("MagazineDs", magazineAlias);
+
+    // Queries
+    createResolver(magazineDs, "CurrentPrimeMagazineResolver", { typeName: "Query", fieldName: "currentPrimeMagazine" });
+    createResolver(magazineDs, "PrimeMagazineArchiveResolver", { typeName: "Query", fieldName: "primeMagazineArchive" });
+    createResolver(magazineDs, "PrimeMagazineResolver", { typeName: "Query", fieldName: "primeMagazine" });
+    createResolver(magazineDs, "MagazineArticlesResolver", { typeName: "Query", fieldName: "magazineArticles" });
+
+    // Admin Mutations
+    createResolver(magazineDs, "AdminCreateMagazineIssueResolver", { typeName: "Mutation", fieldName: "adminCreateMagazineIssue" });
+    createResolver(magazineDs, "AdminAddArticleResolver", { typeName: "Mutation", fieldName: "adminAddArticle" });
+    createResolver(magazineDs, "AdminCreateFashionEditorialResolver", { typeName: "Mutation", fieldName: "adminCreateFashionEditorial" });
+    createResolver(magazineDs, "AdminPublishMagazineResolver", { typeName: "Mutation", fieldName: "adminPublishMagazine" });
+
+    // ────────────────────────────────────────────────────────────
+    // PHASE 3: CREATOR FORECAST RESOLVER (CREATOR+)
+    // ────────────────────────────────────────────────────────────
+    const forecastFn = new NodejsFunction(this, "CreatorForecastResolverFn", {
+      entry: "lambda/creator/forecast-resolver.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(forecastFn);
+
+    const forecastAlias = new lambda.Alias(this, "CreatorForecastResolverFnLive", {
+      aliasName: "live",
+      version: forecastFn.currentVersion,
+    });
+
+    const forecastDs = this.api.addLambdaDataSource("ForecastDs", forecastAlias);
+
+    // Queries
+    createResolver(forecastDs, "CreatorLatestForecastResolver", { typeName: "Query", fieldName: "creatorLatestForecast" });
+    createResolver(forecastDs, "CreatorForecastHistoryResolver", { typeName: "Query", fieldName: "creatorForecastHistory" });
+    createResolver(forecastDs, "CreatorReportResolver", { typeName: "Query", fieldName: "creatorReport" });
+    createResolver(forecastDs, "PlatformTrendPredictionsResolver", { typeName: "Query", fieldName: "platformTrendPredictions" });
+    createResolver(forecastDs, "CreatorGrowthRecommendationsResolver", { typeName: "Query", fieldName: "creatorGrowthRecommendations" });
+
+    // Admin Mutations
+    createResolver(forecastDs, "AdminGenerateCreatorForecastResolver", { typeName: "Mutation", fieldName: "adminGenerateCreatorForecast" });
+    createResolver(forecastDs, "AdminUpdateAnalyticsSnapshotResolver", { typeName: "Mutation", fieldName: "adminUpdateAnalyticsSnapshot" });
+    createResolver(forecastDs, "AdminGeneratePlatformTrendsResolver", { typeName: "Mutation", fieldName: "adminGeneratePlatformTrends" });
+
+    // ────────────────────────────────────────────────────────────
+    // PHASE 3: SHOPPING RESOLVER
+    // ────────────────────────────────────────────────────────────
+    const shoppingFn = new NodejsFunction(this, "ShoppingResolverFn", {
+      entry: "lambda/commerce/shopping-resolver.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(shoppingFn);
+
+    const shoppingAlias = new lambda.Alias(this, "ShoppingResolverFnLive", {
+      aliasName: "live",
+      version: shoppingFn.currentVersion,
+    });
+
+    const shoppingDs = this.api.addLambdaDataSource("ShoppingDs", shoppingAlias);
+
+    // Queries
+    createResolver(shoppingDs, "FindExactItemResolver", { typeName: "Query", fieldName: "findExactItem" });
+    createResolver(shoppingDs, "SceneShoppableItemsResolver", { typeName: "Query", fieldName: "sceneShoppableItems" });
+    createResolver(shoppingDs, "VideoShoppableItemsResolver", { typeName: "Query", fieldName: "videoShoppableItems" });
+    createResolver(shoppingDs, "MyShoppingCartResolver", { typeName: "Query", fieldName: "myShoppingCart" });
+
+    // Mutations
+    createResolver(shoppingDs, "AddToCartResolver", { typeName: "Mutation", fieldName: "addToCart" });
+    createResolver(shoppingDs, "RemoveFromCartResolver", { typeName: "Mutation", fieldName: "removeFromCart" });
+
+    // Admin Mutations
+    createResolver(shoppingDs, "AdminCreateShoppableItemResolver", { typeName: "Mutation", fieldName: "adminCreateShoppableItem" });
+    createResolver(shoppingDs, "AdminAddAffiliateLinkResolver", { typeName: "Mutation", fieldName: "adminAddAffiliateLink" });
+
+    // ────────────────────────────────────────────────────────────
+    // PHASE 3: MUSIC RESOLVER
+    // ────────────────────────────────────────────────────────────
+    const musicFn = new NodejsFunction(this, "MusicResolverFn", {
+      entry: "lambda/episodes/music-resolver.ts",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true },
+      environment: {
+        ...DDB_ENV,
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+      timeout: Duration.seconds(10),
+      memorySize: 256,
+    });
+
+    table.grantReadWriteData(musicFn);
+
+    const musicAlias = new lambda.Alias(this, "MusicResolverFnLive", {
+      aliasName: "live",
+      version: musicFn.currentVersion,
+    });
+
+    const musicDs = this.api.addLambdaDataSource("MusicDs", musicAlias);
+
+    // Queries
+    createResolver(musicDs, "MusicErasResolver", { typeName: "Query", fieldName: "musicEras" });
+    createResolver(musicDs, "MusicEraResolver", { typeName: "Query", fieldName: "musicEra" });
+    createResolver(musicDs, "EraSongsResolver", { typeName: "Query", fieldName: "eraSongs" });
+    createResolver(musicDs, "SongMusicVideosResolver", { typeName: "Query", fieldName: "songMusicVideos" });
+    createResolver(musicDs, "MusicVideoResolver", { typeName: "Query", fieldName: "musicVideo" });
+
+    // Admin Mutations
+    createResolver(musicDs, "AdminCreateMusicEraResolver", { typeName: "Mutation", fieldName: "adminCreateMusicEra" });
+    createResolver(musicDs, "AdminCreateSongResolver", { typeName: "Mutation", fieldName: "adminCreateSong" });
+    createResolver(musicDs, "AdminCreateMusicVideoResolver", { typeName: "Mutation", fieldName: "adminCreateMusicVideo" });
+
+    // ────────────────────────────────────────────────────────────
     // ... everything else unchanged (admin settings, bestie, episodes, game, shopping, creator tools)
     // Keep using createResolver(...) everywhere so dependencies apply.
     // ────────────────────────────────────────────────────────────

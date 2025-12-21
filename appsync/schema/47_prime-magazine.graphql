@@ -1,0 +1,192 @@
+"""
+Prime Magazine System
+Premium digital magazine with exclusive editorials, photoshoots, and behind-the-scenes content.
+Only accessible to PRIME members.
+"""
+
+type PrimeMagazine {
+  id: ID!
+  issueNumber: Int!
+  title: String!
+  theme: String!
+  coverImageKey: String!
+  coverStory: String!
+  publishedAt: AWSDateTime!
+  articles: [Article!]!
+  exclusiveContent: [ExclusiveFeature!]!
+  fashionEditorial: FashionEditorial
+  musicFeature: MusicFeature
+  viewCount: Int!
+  likeCount: Int!
+  status: MagazineStatus!
+}
+
+type Article {
+  id: ID!
+  magazineId: ID!
+  title: String!
+  author: String!
+  category: ArticleCategory!
+  content: String!
+  featuredImages: [String!]!
+  wordCount: Int!
+  readTime: Int!
+  createdAt: AWSDateTime!
+}
+
+enum ArticleCategory {
+  EDITORIAL
+  INTERVIEW
+  BEHIND_THE_SCENES
+  LIFESTYLE
+  WELLNESS
+  BUSINESS
+  CREATOR_SPOTLIGHT
+}
+
+type ExclusiveFeature {
+  id: ID!
+  magazineId: ID!
+  title: String!
+  description: String!
+  mediaFiles: [MediaFile!]!
+  exclusivityLevel: String!
+  viewsCount: Int!
+}
+
+type MediaFile {
+  id: ID!
+  featureId: ID!
+  type: MediaType!
+  s3Key: String!
+  thumbnailKey: String
+  duration: Int
+  title: String!
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+type FashionEditorial {
+  id: ID!
+  magazineId: ID!
+  title: String!
+  description: String!
+  photographyCredit: String!
+  stylist: String!
+  looks: [EditorialLook!]!
+  behindTheScenes: [String!]
+}
+
+type EditorialLook {
+  id: ID!
+  editorialId: ID!
+  name: String!
+  description: String!
+  imageKey: String!
+  items: [ShoppableItem!]!
+  inspirationStory: String
+}
+
+type MusicFeature {
+  id: ID!
+  magazineId: ID!
+  title: String!
+  featuredArtist: String!
+  eraFocus: String
+  songs: [Song!]!
+  producerInterview: String
+  studio: StudioSession
+}
+
+enum MagazineStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+type PrimeMagazineConnection {
+  items: [PrimeMagazine!]!
+  nextToken: String
+}
+
+extend type Query {
+  """
+  Get the current/latest Prime Magazine issue
+  """
+  currentPrimeMagazine: PrimeMagazine @aws_cognito_user_pools
+
+  """
+  Get all published Prime Magazine issues
+  """
+  primeMagazineArchive(
+    limit: Int
+    nextToken: String
+  ): PrimeMagazineConnection! @aws_cognito_user_pools
+
+  """
+  Get a specific magazine issue
+  """
+  primeMagazine(issueNumber: Int!): PrimeMagazine @aws_cognito_user_pools
+
+  """
+  Get articles from a magazine
+  """
+  magazineArticles(
+    magazineId: ID!
+    category: ArticleCategory
+  ): [Article!]! @aws_cognito_user_pools
+}
+
+extend type Mutation {
+  """
+  Admin: Create a new magazine issue
+  """
+  adminCreateMagazineIssue(
+    issueNumber: Int!
+    title: String!
+    theme: String!
+    coverImageKey: String!
+  ): PrimeMagazine!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Add article to magazine
+  """
+  adminAddArticle(
+    magazineId: ID!
+    title: String!
+    author: String!
+    category: ArticleCategory!
+    content: String!
+  ): Article!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Create fashion editorial
+  """
+  adminCreateFashionEditorial(
+    magazineId: ID!
+    title: String!
+    photographyCredit: String!
+    stylist: String!
+  ): FashionEditorial!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Publish magazine issue
+  """
+  adminPublishMagazine(
+    magazineId: ID!
+  ): PrimeMagazine!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+}

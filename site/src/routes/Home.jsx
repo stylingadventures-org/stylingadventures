@@ -1,29 +1,44 @@
 // site/src/routes/Home.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Auth } from "../lib/sa";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Home() {
   const nav = useNavigate();
+  const { isAuthenticated, userTier } = useAuth();
 
   const handleSignIn = () => {
-    Auth.login();
+    window.dispatchEvent(new CustomEvent("openLoginModal"));
   };
 
-  const handleGuest = () => {
-    nav("/fan");
+  const goToSection = () => {
+    // Navigate to user's primary section based on tier
+    const sectionMap = {
+      ADMIN: "/admin",
+      PRIME: "/prime",
+      CREATOR: "/creator",
+      BESTIE: "/bestie",
+      COLLAB: "/creator", // Collaborators go to creator section
+      FAN: "/fan",
+    };
+    const targetSection = sectionMap[userTier] || "/fan";
+    nav(targetSection);
   };
 
   const goToFan = () => {
-    nav("/fan");
+    nav("/signup/fan");
   };
 
   const goToBestie = () => {
-    handleSignIn();
+    nav("/signup/bestie");
   };
 
   const goToCreator = () => {
-    handleSignIn();
+    nav("/signup/creator");
+  };
+
+  const goToCollab = () => {
+    nav("/signup/collab");
   };
 
   return (
@@ -332,20 +347,41 @@ export default function Home() {
           </div>
 
           <div className="home-hero-cta">
-            <button
-              type="button"
-              className="home-btn home-btn-primary"
-              onClick={handleSignIn}
-            >
-              Sign in to start styling
-            </button>
-            <button
-              type="button"
+            {isAuthenticated ? (
+              <>
+                <button
+                  type="button"
+                  className="home-btn home-btn-primary"
+                  onClick={goToSection}
+                >
+                  Go to my section ({userTier || "FAN"})
+                </button>
+                <button
+                  type="button"
+                  className="home-btn home-btn-ghost"
+                  onClick={() => nav("/profile")}
+                >
+                  View my profile
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="home-btn home-btn-primary"
+                  onClick={handleSignIn}
+                >
+                  Sign in to start styling
+                </button>
+                <button
+                  type="button"
               className="home-btn home-btn-ghost"
-              onClick={handleGuest}
+              onClick={goToFan}
             >
               Browse as guest
             </button>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -443,8 +479,45 @@ export default function Home() {
               </button>
             </div>
           </article>
+
+          {/* COLLABORATOR */}
+          <article className="home-plan">
+            <span className="home-plan-chip">Partner • Brand collabs</span>
+            <div className="home-plan-head">
+              <div className="home-plan-name">Collaborator</div>
+              <span className="home-plan-icon">🤝</span>
+            </div>
+            <p className="home-plan-tagline">
+              Manage brand partnerships and co-branded campaigns with creators.
+            </p>
+            <ul className="home-plan-list">
+              <li>Creator collaboration tools</li>
+              <li>Campaign management suite</li>
+              <li>Brand partnership analytics</li>
+            </ul>
+            <div className="home-plan-footer">
+              <span>For brand partners & collaborators.</span>
+              <button
+                type="button"
+                className="home-plan-cta"
+                onClick={goToCollab}
+              >
+                Enter Collaborator Hub
+              </button>
+            </div>
+          </article>
         </div>
       </section>
+
+      {/* Admin & Prime Studio Links (subtle, at bottom) */}
+      <footer style={{ textAlign: "center", marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
+        <p style={{ margin: "0 0 12px", color: "#999", fontSize: "0.9rem" }}>
+          Company admin? <a href="#" onClick={(e) => { e.preventDefault(); nav("/signup/admin"); }} style={{ color: "#667eea", textDecoration: "none", fontWeight: "600" }}>Access admin panel</a>
+        </p>
+        <p style={{ margin: "0", color: "#999", fontSize: "0.9rem" }}>
+          Production team? <a href="#" onClick={(e) => { e.preventDefault(); nav("/prime-studio"); }} style={{ color: "#d4af37", textDecoration: "none", fontWeight: "600" }}>Enter Prime Studio</a>
+        </p>
+      </footer>
     </div>
   );
 }

@@ -65,11 +65,22 @@ async function callGraphQL(query, variables = {}) {
 function reviveSettings(obj) {
   const revived = { ...obj };
   if (Array.isArray(revived.badgeRules)) {
-    revived.badgeRules = revived.badgeRules.map((rule) => ({
-      ...rule,
-      // trigger is stored as a string; revive as a function
-      trigger: eval("(" + rule.trigger + ")"),
-    }));
+    revived.badgeRules = revived.badgeRules.map((rule) => {
+      // Safely create function from stored string representation
+      try {
+        const fn = new Function('p', 'return ' + rule.trigger);
+        return {
+          ...rule,
+          trigger: fn,
+        };
+      } catch (e) {
+        console.warn('[settingsStore] Failed to revive trigger function:', e);
+        return {
+          ...rule,
+          trigger: () => false, // Safe fallback
+        };
+      }
+    });
   }
   return revived;
 }

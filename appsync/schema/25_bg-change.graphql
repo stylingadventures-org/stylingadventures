@@ -1,0 +1,89 @@
+"""
+Background Change System
+Allows creators to request and manage background changes for closet items.
+"""
+
+type BackgroundChangeRequest {
+  id: ID!
+  closetItemId: ID!
+  userId: ID!
+  creatorId: ID!
+  originalS3Key: String!
+  requestedBackground: String!
+  status: BackgroundChangeStatus!
+  processedS3Key: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  notes: String
+}
+
+enum BackgroundChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+}
+
+input BgChangeRequestInput {
+  itemId: ID!
+  newBackgroundKey: String!
+  notes: String
+}
+
+type BgChangeRequestResult {
+  ok: Boolean!
+  requestId: ID
+}
+
+extend type Query {
+  """
+  Get background change requests for a closet item
+  """
+  closetItemBackgroundChanges(closetItemId: ID!): [BackgroundChangeRequest!]!
+
+  """
+  Get user's pending background change requests
+  """
+  myBackgroundChangeRequests: [BackgroundChangeRequest!]!
+
+  """
+  Admin: List all pending background change requests
+  """
+  adminListBackgroundChangeRequests(
+    status: BackgroundChangeStatus
+    limit: Int
+    nextToken: String
+  ): BackgroundChangeRequestConnection!
+}
+
+extend type Mutation {
+  """
+  Request a background change for a closet item
+  """
+  requestClosetBackgroundChangeExtended(
+    closetItemId: ID!
+    requestedBackground: String!
+    notes: String
+  ): BackgroundChangeRequest!
+
+  """
+  Admin: Approve a background change request
+  """
+  adminApproveBackgroundChange(
+    requestId: ID!
+  ): BackgroundChangeRequest!
+
+  """
+  Admin: Reject a background change request
+  """
+  adminRejectBackgroundChange(
+    requestId: ID!
+    reason: String!
+  ): BackgroundChangeRequest!
+}
+
+type BackgroundChangeRequestConnection {
+  items: [BackgroundChangeRequest!]!
+  nextToken: String
+}
