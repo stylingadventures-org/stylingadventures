@@ -1,0 +1,131 @@
+What “Conditions in Admin” Should Control
+
+Your admin system should let you set:
+
+✔ A. How many coins can be earned per action
+
+(Watch, chat, trivia, sharing, etc.)
+
+✔ B. Maximum coins per day/week
+
+To prevent whales or spam earners from breaking the system.
+
+✔ C. Requirements to earn a coin
+
+Examples:
+
+Must watch for 3 minutes before gaining 1 LC
+
+Only meaningful chat messages earn LC
+
+Trivia points only count if players get 3 answers right
+
+Daily bonus requires a login streak
+
+Social share must include a hashtag
+
+✔ D. Cooldowns
+
+Example:
+
+Chat coins: max 1 LC every 5 minutes
+
+Trivia coins: max 10 LC per stream
+
+Watch-time coins: 1 LC every 10 minutes
+
+This stops spam and makes earning feel legit.
+
+🌟 2. Why Conditions Are Essential
+
+Without conditions:
+
+Fans could type random messages to farm coins
+
+Coins would lose value
+
+Rewards would become too easy
+
+You’d have to raise prices constantly (inflation)
+
+Serious fans would feel cheated
+
+With conditions:
+
+You control the pace
+
+Every coin has real value
+
+Fans feel PROUD of earning
+
+Your economy lasts long-term
+
+Prizes remain exciting
+
+🌟 3. Recommended Conditions to Add in Admin
+
+You can use this as your checklist:
+
+✔ Daily Max Coins:
+
+10 LC/day
+
+✔ Weekly Max Coins:
+
+60–70 LC/week
+
+✔ Chat Coins Condition:
+
+Must send meaningful messages (not spam)
+
+1 LC for every 5–10 active minutes in chat
+
+Max 5 LC/day from chat
+
+✔ Watch-Time Coins Condition:
+
+Earns 1 LC per 10 minutes watched
+
+Must be active (not muted, not background tab)
+
+Max 4 LC/day from watch time
+
+✔ Trivia/Quiz Conditions:
+
+Only correct answers count
+
+Must answer 3–5 questions
+
+Max 3–5 LC/day
+
+✔ Social Sharing Conditions:
+
+Must tag @you or use a hashtag
+
+Max 10 LC/day
+
+One share per platform per day
+
+✔ Streak Conditions:
+
+Bonus only if days are consecutive
+
+Streak resets on missed day
+
+3-day streak = +3 LC
+
+7-day streak = +10 LC
+
+🌟 4. Should You Add Conditions for Cashing In?
+
+YES — this prevents people from instantly blowing coins on raffles.
+
+Examples:
+
+Can only redeem 1 raffle entry per week
+
+Must have earned at least 20 LC from engagement (not gifts)
+
+Must be a follower/member
+
+This keeps your giveaways sustainable.

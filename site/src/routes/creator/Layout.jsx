@@ -1,162 +1,220 @@
 // site/src/routes/creator/Layout.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { decodeJWT } from "../../lib/jwtDecoder.js";
 import LalaWidget from "../../components/LalaWidget";
 
+// Creator sidebar modeled after FanLayout:
+// - desktop: sidebar + main panel
+// - mobile: "CREATOR PAGES" chip opens a drawer
+
 const NAV_SECTIONS = [
+  // CREATOR HQ
   {
-    groupLabel: "Creator Home",
-    groupKey: "home",
+    groupLabel: "Creator HQ",
+    groupKey: "hq",
     items: [
       {
         to: "/creator",
         label: "Creator Home",
+        icon: "🏠",
         end: true,
         description: "What to do next, at a glance.",
       },
     ],
   },
 
+  // CREATE
   {
-    groupLabel: "Profile & Strategy",
-    groupKey: "profile",
-    items: [
-      {
-        to: "/creator/brand-profile",
-        label: "Brand Profile",
-        description: "Your voice, pillars, audience, offers.",
-      },
-      {
-        to: "/creator/content-strategy",
-        label: "Content Strategy",
-        description: "Themes, campaigns, and annual roadmap.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Create & Optimize",
+    groupLabel: "Create",
     groupKey: "create",
     items: [
       {
-        to: "/creator/ai-content-studio",
-        label: "AI Content Studio",
-        description: "Generate posts, emails, scripts, ideas.",
-      },
-      {
-        to: "/creator/scheduling",
-        label: "Content Scheduler",
-        description: "Schedule and publish across platforms.",
-      },
-      {
         to: "/creator/create/director-suite",
         label: "Director Suite",
+        icon: "🎬",
         description: "Plan shoots, scenes, and production days.",
       },
       {
         to: "/creator/create/scene-packs",
         label: "Scene Packs",
+        icon: "📦",
         description: "Reusable shot recipes & content templates.",
+      },
+      // Optional: keep if/when routes exist
+      {
+        to: "/creator/create/niche-directors",
+        label: "Niche Directors",
+        icon: "💅",
+        description: "Hair, nails, makeup, fashion, lifestyle.",
+      },
+      {
+        to: "/creator/create/on-set-assistant",
+        label: "On-Set Assistant",
+        icon: "🎙️",
+        description: "Live checklist and filming prompts.",
+      },
+
+      // If you want to keep these here for now:
+      {
+        to: "/creator/ai-content-studio",
+        label: "AI Content Studio",
+        icon: "✨",
+        description: "Generate posts, emails, scripts, ideas.",
       },
     ],
   },
 
+  // BRAND & IP (replaces "Story")
   {
-    groupLabel: "Monetize & Automate",
+    groupLabel: "Brand & IP",
+    groupKey: "brand",
+    items: [
+      {
+        to: "/creator/brand-profile",
+        label: "Brand Profile",
+        icon: "🧠",
+        description: "Your voice, pillars, audience, offers.",
+      },
+      // These are new labels that match business-owner language.
+      // Swap routes if you already have different ones.
+      {
+        to: "/creator/brand/eras-seasons",
+        label: "Eras & Seasons",
+        icon: "🌿",
+        description: "Define your current era and goals.",
+      },
+      {
+        to: "/creator/brand/shows-series",
+        label: "Shows & Series",
+        icon: "📺",
+        description: "Recurring series and episode structure.",
+      },
+      {
+        to: "/creator/content-strategy",
+        label: "Content Strategy",
+        icon: "🧭",
+        description: "Themes, campaigns, and annual roadmap.",
+      },
+    ],
+  },
+
+  // ALIGN (brand direction + goals)
+  {
+    groupLabel: "Align",
+    groupKey: "align",
+    items: [
+      {
+        to: "/creator/align/goal-compass",
+        label: "Goal Compass",
+        icon: "🎯",
+        description: "Set goals and keep every post on-path.",
+      },
+      {
+        to: "/creator/align/aesthetic-studio",
+        label: "Aesthetic & Brand Studio",
+        icon: "🎨",
+        description: "Aesthetic health score and brand identity.",
+      },
+    ],
+  },
+
+  // IMPROVE
+  {
+    groupLabel: "Improve",
+    groupKey: "improve",
+    items: [
+      {
+        to: "/creator/optimization",
+        label: "Business Content Fixer",
+        icon: "🛠️",
+        description: "Hooks, CTAs, structure, and messaging.",
+      },
+      {
+        to: "/creator/grow/social-pulse",
+        label: "Social Pulse",
+        icon: "📈",
+        description: "Trend briefings and niche insights.",
+      },
+      // Keep analytics/growth here if you want “Improve” to include measurement
+      {
+        to: "/creator/analytics",
+        label: "Analytics",
+        icon: "📊",
+        description: "Real-time performance metrics.",
+      },
+    ],
+  },
+
+  // PLAN
+  {
+    groupLabel: "Plan",
+    groupKey: "plan",
+    items: [
+      {
+        to: "/creator/scheduling",
+        label: "Planner & Calendar",
+        icon: "🗓️",
+        description: "Full content calendar and posting plan.",
+      },
+    ],
+  },
+
+  // MONETIZE
+  {
+    groupLabel: "Monetize",
     groupKey: "monetize",
     items: [
       {
-        to: "/creator/funnel-automation",
-        label: "Funnel & Automation",
-        description: "Email sequences, lead magnets, flows.",
-      },
-      {
         to: "/creator/monetization/overview",
         label: "Revenue Overview",
+        icon: "💰",
         description: "Earnings across all channels.",
       },
       {
         to: "/creator/monetization/brand-deals",
         label: "Brand Deals",
+        icon: "🤝",
         description: "Pipeline, rates, contracts.",
       },
       {
         to: "/creator/monetization/product-sales",
         label: "Product Sales",
+        icon: "🛍️",
         description: "Shopify, Etsy, Stan Store.",
+      },
+      {
+        to: "/creator/funnel-automation",
+        label: "Automations",
+        icon: "⚡",
+        description: "Lead magnets, sequences, flows.",
       },
       {
         to: "/creator/upgrade",
         label: "Upgrade Plans",
+        icon: "⬆️",
         description: "Creator tiers and pricing.",
       },
     ],
   },
 
+  // LIBRARY + SETTINGS (keep it light)
   {
-    groupLabel: "Grow & Analytics",
-    groupKey: "grow",
+    groupLabel: "Library & Settings",
+    groupKey: "manage",
     items: [
-      {
-        to: "/creator/analytics",
-        label: "Analytics Dashboard",
-        description: "Real-time performance metrics.",
-      },
-      {
-        to: "/creator/growth-tracker",
-        label: "Growth Tracker",
-        description: "Track progress toward your goals.",
-      },
-      {
-        to: "/creator/optimization",
-        label: "AI Growth Engine",
-        description: "Personalized growth recommendations.",
-      },
-      {
-        to: "/creator/grow/social-pulse",
-        label: "Social Pulse",
-        description: "Trend briefings and niche insights.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Community & Support",
-    groupKey: "community",
-    items: [
-      {
-        to: "/creator/creator-circle",
-        label: "Creator Circle",
-        description: "Network with 1000+ creators.",
-      },
-      {
-        to: "/creator/education",
-        label: "Education Hub",
-        description: "Courses, guides, and templates.",
-      },
-      {
-        to: "/creator/resources",
-        label: "Resource Library",
-        description: "Free tools and templates.",
-      },
-    ],
-  },
-
-  {
-    groupLabel: "Settings & Manage",
-    groupKey: "settings",
-    items: [
-      {
-        to: "/creator/settings",
-        label: "Account Settings",
-        description: "Profile, privacy, integrations.",
-      },
       {
         to: "/creator/library",
         label: "Asset Library",
+        icon: "🗂️",
         description: "Cabinets, folders, uploads, media.",
+      },
+      {
+        to: "/creator/settings",
+        label: "Account Settings",
+        icon: "⚙️",
+        description: "Profile, privacy, integrations.",
       },
     ],
   },
@@ -165,8 +223,12 @@ const NAV_SECTIONS = [
 export default function CreatorLayout() {
   const navigate = useNavigate();
   const { idToken } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [isCreator, setIsCreator] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+
+  const closeNav = () => setNavOpen(false);
 
   // Check if user has CREATOR group in token
   useEffect(() => {
@@ -196,15 +258,57 @@ export default function CreatorLayout() {
     }
   }, [loading, isCreator, navigate]);
 
+  // Optional: keep drawer from staying open after route changes (simple)
+  useEffect(() => {
+    if (!isCreator) setNavOpen(false);
+  }, [isCreator]);
+
+  const sidebarNav = useMemo(() => {
+    return (
+      <nav className="creator-sidebar-nav" aria-label="Creator navigation">
+        {NAV_SECTIONS.map((group) => (
+          <div key={group.groupKey} className="creator-sidebar-group">
+            <div className="creator-sidebar-group-label">{group.groupLabel}</div>
+            <div className="creator-sidebar-group-items">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    "creator-sidebar-link" + (isActive ? " creator-sidebar-link--active" : "")
+                  }
+                  title={item.description}
+                  onClick={closeNav}
+                >
+                  <span className="creator-sidebar-link-main">
+                    <span className="creator-sidebar-icon" aria-hidden="true">
+                      {item.icon || "•"}
+                    </span>
+                    <span>{item.label}</span>
+                  </span>
+
+                  {item.description && (
+                    <span className="creator-sidebar-link-desc">{item.description}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+    );
+  }, []);
+
   if (loading) {
     return (
-      <div className="creator-shell">
+      <div className="creator-layout-page">
         <style>{styles}</style>
-        <div className="creator-layout">
-          <div style={{ padding: "20px" }}>
+        <div className="creator-layout-shell">
+          <section className="creator-main-panel">
             <div className="sa-card-title">Loading Creator Studio…</div>
             <p className="sa-muted">Getting everything ready for you.</p>
-          </div>
+          </section>
         </div>
       </div>
     );
@@ -212,437 +316,435 @@ export default function CreatorLayout() {
 
   if (!isCreator) {
     return (
-      <div className="creator-shell">
+      <div className="creator-layout-page">
         <style>{styles}</style>
-        <div className="creator-layout">
-          <div style={{ padding: "20px" }}>
+        <div className="creator-layout-shell">
+          <section className="creator-main-panel">
             <div className="sa-card-title">Creator Access Required</div>
             <p className="sa-muted">This section is for creators only. Taking you back…</p>
-          </div>
+          </section>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="creator-shell">
+    <div className="creator-layout-page">
       <style>{styles}</style>
 
-      <div className="creator-layout">
-        {/* Sidebar */}
-        <aside className="creator-sidebar">
-          <div className="creator-sidebar-header">
-            <div className="creator-sidebar-pill">Creator HQ</div>
-            <div className="creator-sidebar-title">Pro Studio</div>
-            <div className="creator-sidebar-sub">
-              Plan, film, improve, and monetize — all in one place.
+      {/* Mobile-only “Creator Pages” chip to open the drawer */}
+      <div className="creator-header-row">
+        <button
+          type="button"
+          className="creator-pages-chip"
+          onClick={() => setNavOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={navOpen ? "true" : "false"}
+        >
+          <span className="creator-pages-label">CREATOR PAGES</span>
+        </button>
+      </div>
+
+      {/* Desktop shell: sidebar + main */}
+      <div className="creator-layout-shell">
+        <aside className="creator-sidebar" aria-label="Creator navigation">
+          <div className="creator-sidebar-head">
+            <img
+              src="/lala-logo.png"
+              alt="Lala logo"
+              className="creator-sidebar-logo"
+            />
+            <div>
+              <div className="creator-sidebar-brand-title">Styling Adventures</div>
+              <div className="creator-sidebar-brand-sub">Creator Studio</div>
             </div>
           </div>
 
-          <nav className="creator-side-nav" aria-label="Creator navigation">
-            {NAV_SECTIONS.map((section) => (
-              <div key={section.groupKey} className="creator-side-section">
-                <div className="creator-side-section-label">
-                  {section.groupLabel}
-                </div>
-                <div className="creator-side-section-items">
-                  {section.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      className={({ isActive }) =>
-                        "creator-side-link" +
-                        (isActive ? " creator-side-link--active" : "")
-                      }
-                    >
-                      <div className="creator-side-link-main">
-                        <span className="creator-side-link-label">
-                          {item.label}
-                        </span>
-                        {item.description && (
-                          <span className="creator-side-link-desc">
-                            {item.description}
-                          </span>
-                        )}
-                      </div>
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </nav>
+          {sidebarNav}
 
-          {/* LALA WIDGET - Portrait mode for Business Lala */}
+          {/* LALA WIDGET - Creator/business mode */}
           <LalaWidget visualMode="portrait" />
         </aside>
 
-        {/* Main content column */}
-        <main className="creator-main-column">
+        <section className="creator-main-panel">
           <Outlet />
-        </main>
+        </section>
       </div>
+
+      {/* Mobile drawer overlay */}
+      {navOpen && (
+        <>
+          <button
+            type="button"
+            className="creator-drawer-backdrop"
+            onClick={closeNav}
+            aria-label="Close creator navigation backdrop"
+          />
+          <aside className="creator-drawer" aria-label="Creator navigation" role="dialog">
+            <div className="creator-drawer__header">
+              <div className="creator-drawer__brand">
+                <img
+                  src="/lala-logo.png"
+                  alt="Lala logo"
+                  className="creator-drawer-logo"
+                />
+                <div>
+                  <div className="creator-drawer__title">Styling Adventures</div>
+                  <div className="creator-drawer__subtitle">Creator Studio</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="creator-drawer__close"
+                onClick={closeNav}
+                aria-label="Close creator navigation"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="creator-drawer__nav">{sidebarNav}</div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }
 
 const styles = `
-.creator-shell {
-  max-width: 1200px;
-  margin: 24px auto 40px;
-  padding: 18px 18px 26px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #F9FAFB 0%, #E5E7EB 100%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-}
-
-/* Layout: sidebar + main column */
-.creator-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-/* Sidebar ------------------------------------------------- */
-
-.creator-sidebar {
-  width: 260px;
-  background: #F7F8FA;
-  border-radius: 18px;
-  border: 1px solid #E5E7EB;
-  padding: 16px 14px;
-  box-shadow: 2px 0 12px rgba(15, 23, 42, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.creator-sidebar-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.creator-sidebar-pill {
-  align-self: flex-start;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: #EEF2FF;
-  color: #4F46E5;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-weight: 600;
-}
-
-.creator-sidebar-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #111827;
-}
-
-.creator-sidebar-sub {
-  font-size: 0.8rem;
-  color: #6B7280;
-}
-
-/* Nav groups */
-
-.creator-side-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.creator-side-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.creator-side-section-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #9CA3AF;
-  padding: 2px 2px;
-}
-
-.creator-side-section-items {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.creator-side-link {
-  border-radius: 12px;
-  padding: 7px 8px;
-  font-size: 0.86rem;
-  color: #4B5563;
-  text-decoration: none;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.05s ease;
-}
-
-.creator-side-link:hover {
-  background: #E5E7EB;
-  color: #111827;
-  transform: translateY(-1px);
-}
-
-.creator-side-link--active {
-  background: #E0ECFF;
-  color: #1D4ED8;
-  font-weight: 600;
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
-}
-
-.creator-side-link-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.creator-side-link-label {
-  font-size: 0.86rem;
-}
-
-.creator-side-link-desc {
-  font-size: 0.7rem;
-  color: #6B7280;
-}
-
-/* Main column --------------------------------------------- */
-
-.creator-main-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* Prevent content from being glued to top edge */
-.creator-main-column > *:first-child {
-  margin-top: 4px;
-}
-
-/* Shared page styles for all Creator pages ---------------- */
-
-.creator-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.creator-page__header {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid #E5E7EB;
-  background: radial-gradient(circle at top left, #EEF2FF, #F9FAFB);
-  box-shadow: 0 10px 24px rgba(148, 163, 184, 0.3);
-}
-
-.creator-page__kicker {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: #9CA3AF;
-  font-weight: 600;
-}
-
-.creator-page__title {
-  margin: 4px 0 2px;
-  font-size: 1.4rem;
-  letter-spacing: -0.02em;
-  color: #111827;
-}
-
-.creator-page__subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #4B5563;
-}
-
-.creator-page__header-meta {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 0.78rem;
-  color: #6B7280;
-}
-
-.creator-page__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* Generic pill / chip */
-.creator-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  border: 1px solid #E5E7EB;
-  background: #FFFFFF;
-  color: #4B5563;
-}
-
-/* Page body + cards */
-
-.creator-page__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.creator-page__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.creator-page__col {
-  flex: 1;
-  min-width: 220px;
-}
-
-.creator-page__card {
-  border-radius: 16px;
-  border: 1px solid #E5E7EB;
-  background: #FFFFFF;
-  padding: 12px 14px;
-  box-shadow: 0 8px 20px rgba(148, 163, 184, 0.25);
-}
-
-.creator-page__card-title {
-  margin: 0 0 4px;
-  font-size: 0.98rem;
-  font-weight: 600;
-}
-
-.creator-page__card-subtitle {
-  margin: 0 0 8px;
-  font-size: 0.8rem;
-  color: #6B7280;
-}
-
-.creator-page__card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-}
-
-/* Simple badge */
-.creator-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  background: #ECFEFF;
-  color: #0369A1;
-  border: 1px solid #BAE6FD;
-}
-
-/* Simple input styling */
-.creator-input,
-.creator-textarea,
-.creator-select {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid #D1D5DB;
-  padding: 7px 9px;
-  font-size: 0.88rem;
-  background: #F9FAFB;
-}
-
-.creator-input:focus,
-.creator-textarea:focus,
-.creator-select:focus {
-  outline: none;
-  border-color: #4F46E5;
-  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
-}
-
-.creator-textarea {
-  min-height: 70px;
-  resize: vertical;
-}
-
-/* Tiny label */
-.creator-field-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #9CA3AF;
-  margin-bottom: 3px;
-}
-
-/* Inline button style to reuse inside creator pages */
-.creator-btn {
-  appearance: none;
-  border-radius: 999px;
-  border: 1px solid #E5E7EB;
-  background: #FFFFFF;
-  color: #111827;
-  padding: 7px 12px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition:
-    background 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.05s ease,
-    border-color 0.15s ease;
-}
-
-.creator-btn:hover {
-  background: #F5F3FF;
-  border-color: #E0E7FF;
-  box-shadow: 0 6px 14px rgba(129, 140, 248, 0.3);
-}
-
-.creator-btn:active {
-  transform: translateY(1px);
-}
-
-.creator-btn--primary {
-  background: linear-gradient(135deg, #6366F1, #EC4899);
-  border-color: #6366F1;
-  color: #FFFFFF;
-  box-shadow: 0 8px 18px rgba(236, 72, 153, 0.5);
-}
-
-.creator-btn--ghost {
-  background: #FFFFFF;
-  color: #374151;
-}
-
-/* Responsive ---------------------------------------------- */
-
-@media (max-width: 900px) {
-  .creator-layout {
-    flex-direction: column;
+  :root {
+    /* Keep it close to Fan look but slightly more “studio” neutral */
+    --creator-primary-soft: #eef2ff;
+    --creator-bg: #f1f5ff;
+    --creator-accent: #7f9bff;
+    --creator-secondary: #a855f7;
+    --creator-primary: #4f46e5;
   }
 
+  .creator-layout-page {
+    min-height: calc(100vh - 64px);
+    background:
+      radial-gradient(circle at top left, var(--creator-primary-soft), var(--creator-bg)),
+      linear-gradient(120deg, #eef2ff 0%, #f3e8ff 40%, #e2e7ff 100%);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 24px 16px 32px;
+  }
+
+  /* Mobile row – drawer trigger */
+  .creator-header-row {
+    display: flex;
+    justify-content: flex-start;
+    margin: 0 auto 12px;
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  .creator-pages-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(209,213,219,1);
+    background: rgba(255,255,255,0.96);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #4b5563;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.12);
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.04s ease;
+  }
+  .creator-pages-chip:hover {
+    background: #f5f3ff;
+    border-color: #e0e7ff;
+    box-shadow: 0 14px 40px rgba(79,70,229,0.18);
+    transform: translateY(-1px);
+  }
+  .creator-pages-chip:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 22px rgba(148,163,184,0.4);
+  }
+
+  .creator-layout-shell {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  /* Sidebar */
   .creator-sidebar {
+    background: rgba(255,255,255,0.97);
+    border-radius: 26px;
+    padding: 16px 14px 18px;
+    box-shadow: 0 20px 50px rgba(15,23,42,0.18);
+    border: 1px solid rgba(226,232,240,0.95);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .creator-sidebar-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .creator-sidebar-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.95),
+      0 12px 30px rgba(79,70,229,0.25);
+  }
+
+  .creator-sidebar-brand-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .creator-sidebar-brand-sub {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #9ca3af;
+  }
+
+  .creator-sidebar-nav {
+    margin-top: 4px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .creator-sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .creator-sidebar-group-label {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    font-weight: 600;
+    padding: 0 8px;
+    margin-top: 4px;
+  }
+
+  .creator-sidebar-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .creator-sidebar-link {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #e5e7ff;
+    background: #f8fafc;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.04s ease;
+  }
+
+  .creator-sidebar-link-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
   }
 
-  .creator-page__row {
-    flex-direction: column;
+  .creator-sidebar-icon {
+    font-size: 18px;
   }
-}
+
+  .creator-sidebar-link-desc {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 400;
+    line-height: 1.3;
+  }
+
+  .creator-sidebar-link:hover {
+    background: #ffffff;
+    border-color: #c7d2fe;
+    box-shadow: 0 8px 24px rgba(148,163,184,0.2);
+  }
+
+  .creator-sidebar-link:active {
+    transform: translateY(1px);
+  }
+
+  .creator-sidebar-link--active {
+    background: linear-gradient(135deg, var(--creator-primary), var(--creator-secondary));
+    color: #f9fafb;
+    border-color: transparent;
+    box-shadow: 0 12px 32px rgba(79,70,229,0.22);
+  }
+  .creator-sidebar-link--active .creator-sidebar-link-desc {
+    color: rgba(255,255,255,0.72);
+  }
+
+  /* Main */
+  .creator-main-panel {
+    background: rgba(255,255,255,0.98);
+    border-radius: 28px;
+    padding: 28px 28px 30px;
+    box-shadow: 0 22px 55px rgba(15,23,42,0.11);
+    box-sizing: border-box;
+  }
+
+  /* ===== Drawer (mobile) ===== */
+  .creator-drawer-backdrop {
+    position: fixed;
+    inset: 72px 0 0 0;
+    background: rgba(15,23,42,0.4);
+    backdrop-filter: blur(3px);
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    z-index: 39;
+  }
+
+  .creator-drawer {
+    position: fixed;
+    top: 72px;
+    bottom: 0;
+    left: 0;
+    width: 320px;
+    max-width: calc(100% - 40px);
+    background:
+      radial-gradient(circle at top left, var(--creator-primary-soft), #ffffff 55%),
+      radial-gradient(circle at bottom right, #e0f2fe, #ffffff 60%);
+    border-radius: 0 24px 24px 0;
+    box-shadow: 0 24px 70px rgba(15,23,42,0.55);
+    border: 1px solid rgba(255,255,255,0.9);
+    padding: 16px 16px 20px;
+    box-sizing: border-box;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .creator-drawer__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .creator-drawer__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .creator-drawer-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.95),
+      0 10px 26px rgba(79,70,229,0.25);
+  }
+
+  .creator-drawer__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .creator-drawer__subtitle {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #9ca3af;
+  }
+
+  .creator-drawer__close {
+    border: none;
+    background: rgba(255,255,255,0.9);
+    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+    transition: background 0.12s ease, transform 0.04s ease;
+  }
+  .creator-drawer__close:hover {
+    background: #e5e7eb;
+  }
+  .creator-drawer__close:active {
+    transform: translateY(1px);
+  }
+
+  .creator-drawer__nav {
+    margin-top: 4px;
+  }
+
+  /* ===== Responsive ===== */
+  @media (min-width: 900px) {
+    .creator-header-row {
+      display: none;
+    }
+  }
+
+  @media (max-width: 899px) {
+    .creator-layout-shell {
+      display: block;
+    }
+    .creator-sidebar {
+      display: none;
+    }
+    .creator-main-panel {
+      border-radius: 24px;
+      padding: 20px 16px 22px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .creator-layout-page {
+      padding-inline: 12px;
+    }
+    .creator-drawer {
+      width: 100%;
+      max-width: 100%;
+      border-radius: 0 0 24px 24px;
+      left: 0;
+      right: 0;
+    }
+    .creator-drawer-backdrop {
+      inset: 56px 0 0 0;
+    }
+  }
 `;

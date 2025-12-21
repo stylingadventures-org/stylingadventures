@@ -1,4 +1,4 @@
-import LayoutValidationService from "../../lib/services/layout-validation.service";
+import LayoutValidationService from "../layout-validation.service";
 
 describe("LayoutValidationService", () => {
   let service: LayoutValidationService;
@@ -71,7 +71,7 @@ describe("LayoutValidationService", () => {
 
       const issues = await service.validateAccessibility(layout);
 
-      expect(issues.some((i) => i.code === "wcag_button_label")).toBe(true);
+      expect(issues.some((i: any) => i.code === "wcag_button_label")).toBe(true);
     });
 
     it("should accept buttons with aria-label", async () => {

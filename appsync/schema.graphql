@@ -272,10 +272,6 @@ type Query {
   
     # Top trending reactions (24h)
     trendingReactions(limit: Int): [BestieReaction!]!
-
-    # Fetch current user's game profile (level, coins, badges, etc.)
-    getMyProfile: GameProfile!
-      @aws_cognito_user_pools
 }
 
 type Mutation {
@@ -601,9 +597,6 @@ type Mutation {
   
     # Admin: Generate weekly spotlight report
     adminGenerateSpotlightReport: BestieSpotlight!
-
-    # Game events: Daily login, watch episode, etc.
-    logGameEvent(input: LogGameEventInput!): GameEventResult! @aws_cognito_user_pools
 }
 
 # -----------------------------------------------
@@ -624,38 +617,6 @@ type Me {
 type RoleResult {
   userId: ID!
   role: String!
-}
-
-# ─────────────────────────────────────────
-# Game Events
-# ─────────────────────────────────────────
-
-type GameEventResult {
-  success: Boolean!
-  xp: Int
-  coins: Int
-  newXP: Int
-  newCoins: Int
-  lastEventAt: AWSDateTime
-}
-
-# ─────────────────────────────────────────
-# Game Profile
-# ─────────────────────────────────────────
-
-type GameProfile {
-  userId: ID!
-  level: Int!
-  xp: Int!
-  coins: Int!
-  badges: [String!]
-  displayName: String
-  avatarUrl: String
-  bio: String
-  lastEventAt: AWSDateTime
-  streakCount: Int
-  lastLoginAt: AWSDateTime
-  pinnedClosetItems: [ClosetItem!]
 }
 
 
@@ -725,7 +686,7 @@ type ClosetItem {
   season: String
   vibes: String
   notes: String
-  visibility: ClosetVisibility
+  visibility: ClosetVisibility!
   affiliateUrl: String
   episodeIds: [ID!]
   status: ClosetStatus!
@@ -1594,7 +1555,3 @@ type BestieSpotlightPage {
 
 
 
-input LogGameEventInput {
-  type: String!
-  metadata: AWSJSON
-}

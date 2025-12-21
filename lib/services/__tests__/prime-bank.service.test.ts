@@ -1,6 +1,6 @@
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import PrimeBankService from "../../lib/services/prime-bank.service";
-import { UserTier } from "../../lib/types/prime-bank";
+import PrimeBankService from "../prime-bank.service";
+import { UserTier } from "../../types/prime-bank";
 
 const mockDocClient = {
   send: jest.fn(),

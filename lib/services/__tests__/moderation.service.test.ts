@@ -1,5 +1,5 @@
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import ModerationService from "../../lib/services/moderation.service";
+import ModerationService from "../moderation.service";
 
 const mockDocClient = {
   send: jest.fn(),

@@ -1,6 +1,6 @@
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import CollaborationService from "../../lib/services/collaboration.service";
-import { ProjectAddendum } from "../../lib/types/collaboration";
+import CollaborationService from "../collaboration.service";
+import { ProjectAddendum } from "../../types/collaboration";
 
 // Mock DynamoDB
 const mockDocClient = {

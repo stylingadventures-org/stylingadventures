@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv, { ValidateFunction } from "ajv";
 
 export interface ValidationIssue {
   level: "error" | "warning";
@@ -27,7 +27,7 @@ export interface LayoutSchema {
 }
 
 export class LayoutValidationService {
-  private ajv: Ajv;
+  private ajv: any;
   private wcagCheckCache: Map<string, ValidationResult> = new Map();
 
   constructor() {

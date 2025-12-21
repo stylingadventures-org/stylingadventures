@@ -1,0 +1,166 @@
+ADMIN CONDITIONS SHEET
+
+(This is your master control document.)
+
+🎛 ECONOMY SETTINGS
+Setting	Value	Notes
+Coin-to-USD Ratio	1 LC = $1	Fixed, simple, fan-friendly
+Daily Coin Cap	10 LC/day	Keeps inflation low
+Weekly Coin Cap	60 LC/week	Encourages consistent engagement
+Monthly Bonus Event Limit	2 events/month	e.g., Double Coin Weekend
+🎛 CHAT CONDITIONS
+Action	Coin Reward	Conditions
+Meaningful Message	1 LC per 5 minutes	Must be at least 5 words, no spam
+Chat Participation	Max 5 LC/day	Automatically stops once max reached
+Cooldown	1 LC/5 min	Prevents spam farming
+🎛 WATCH TIME CONDITIONS
+Action	Coin Reward	Conditions
+Watch Stream	1 LC per 10 minutes	Must be active window, not muted
+Max per Day	4 LC/day	Encourages daily viewership
+🎛 TRIVIA / GAME CONDITIONS
+Action	Coin Reward	Conditions
+Correct Trivia Answer	+1 LC	Up to 5 LC per stream
+Trivia Challenge Complete	+3 LC	Must answer 3/5 correctly
+Max	5 LC/day	Prevents high farming
+🎛 STREAK CONDITIONS
+Streak Length	Bonus LC	Conditions
+3 days	+3 LC	Must watch at least 10 min/day
+7 days	+10 LC	Missed day resets streak
+30 days	+40 LC	Elite bonus for loyal fans
+🎛 SOCIAL / SHARE CONDITIONS
+Action	Coin Reward	Conditions
+Share the show	+5 LC	Must tag creator
+Duet/Stitch/Post clip	+20 LC (weekly)	Once per week
+Bring a friend	+15 LC	Friend must watch 5+ minutes
+🎛 EVENT CONDITIONS
+Event Type	Reward	Conditions
+Double Coin Day	x2 multiplier	Admin-triggered
+Surprise Drop	+3–5 LC	Random, during stream
+Big Event Bonus	+20 LC	Max twice per month
+⭐ 2. COIN DISTRIBUTION RULES (How Fans Earn Coins)
+
+Use this document as a “rules of the road” for the whole economy.
+
+📘 GENERAL RULES
+1. Fans earn coins ONLY through approved engagement actions
+
+No free-for-all earning.
+
+2. Coins cannot be traded between users
+
+This prevents farming or exploiting the system.
+
+3. Admin controls all multipliers and events
+
+No automated outside triggers.
+
+4. Coins earned are final unless fraud/spam is detected
+
+Spam accounts can have coins revoked.
+
+📘 COIN SOURCES (With Reward Amounts)
+A. Watch-Time
+
+1 LC every 10 minutes
+
+Max 4/day
+
+B. Chatting
+
+1 LC every 5 minutes of meaningful chat
+
+Max 5/day
+
+C. Trivia & Games
+
++1 LC per correct answer
+
++3 LC for completing trivia challenge (3 correct answers minimum)
+
+Max 5/day
+
+D. Streaks
+
+3-day streak = +3 LC
+
+7-day streak = +10 LC
+
+30-day streak = +40 LC
+
+E. Sharing & Social Boosts
+
+Share the stream = +5 LC
+
+Clip/Post = +20 LC per week
+
+Bring a friend = +15 LC
+
+F. Events
+
+Double Coin Day: all earnings x2
+
+Surprise Bestie Drop: +3–5 LC
+
+Special Event Week: +10–20 LC bonus
+
+⭐ 3. REDEMPTION CONDITIONS LIST
+
+(These define what fans must do BEFORE spending coins.)
+
+🎁 REDEMPTION RULES
+1. Minimum Earned-Engagement Requirement
+
+Users must earn:
+
+At least 20 LC from engagement,
+
+Not purchased or gifted
+
+This ensures real fans win the prizes.
+
+2. Weekly Redemption Limit
+
+Users may redeem only 1 prize per week
+
+Prevents draining the economy
+
+3. Raffle Entry Conditions
+Coffee Raffle (Bestie Coffee: You + Me)
+
+Cost: 50 LC per entry
+
+Limit: 1 entry per week
+
+Must be following you
+
+4. Mid-Level Prize Conditions
+Prize	Cost	Conditions
+BTS Video	100 LC	Earned at least 30 LC from engagement
+Merch Discount	200 LC	1 redemption per month
+Personalized Audio Note	150 LC	Must have a 7-day streak
+5. High-Level Prize Conditions
+Prize	Cost	Conditions
+La’s Land Box	350–400 LC	Must have a 30-day streak OR 10 streams watched
+Virtual Hangout	500 LC	Monthly limit: 1 winner
+$250 Prize Raffle	250 LC	Entry only; 1 per month
+6. Fraud Prevention
+
+Auto-flags:
+
+Spam messages
+
+Bot-like rapid earning
+
+Duplicate account behavior
+
+Sudden spikes in coin gains
+
+Admin can:
+
+Freeze coins
+
+Reset coins
+
+Ban user
+
+Undo redemptions

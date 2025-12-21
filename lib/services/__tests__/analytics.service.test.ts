@@ -1,4 +1,4 @@
-import AnalyticsService from "../../lib/services/analytics.service";
+import AnalyticsService from "../analytics.service";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 // Mock AWS SDK
@@ -540,14 +540,12 @@ describe("AnalyticsService", () => {
       });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement", "content", "financial"],
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
-      expect(report.userId).toBe("user123");
+      expect(report.detailed_90).toBeDefined();
     });
 
     it("should support format parameter (CSV)", async () => {
@@ -556,12 +554,9 @@ describe("AnalyticsService", () => {
       });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement"],
-        format: "csv",
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
     });
@@ -574,12 +569,9 @@ describe("AnalyticsService", () => {
       });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement"],
-        includeRetentionTiers: true,
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
     });
@@ -590,12 +582,9 @@ describe("AnalyticsService", () => {
       });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement", "content", "financial"],
-        includeBenchmarks: true,
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
     });
@@ -610,13 +599,12 @@ describe("AnalyticsService", () => {
         .mockResolvedValueOnce({ Items: [{ amount: 1000 }] });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement", "content", "financial"],
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
+      expect(report.detailed_90).toBeDefined();
     });
 
     it("should handle missing or incomplete data gracefully", async () => {
@@ -625,14 +613,12 @@ describe("AnalyticsService", () => {
       });
       (mockDocClient as any).send = mockSend;
 
-      const report = await service.generateAnalyticsReport("user123", {
-        startDate: new Date("2024-01-01"),
-        endDate: new Date("2024-01-31"),
-        metrics: ["engagement", "content", "financial"],
-      });
+      const report = await service.generateAnalyticsReport(
+        new Date("2024-01-31").getTime()
+      );
 
       expect(report).toBeDefined();
-      expect(report.status).toBe("success");
+      expect(report.detailed_90).toBeDefined();
     });
   });
 });

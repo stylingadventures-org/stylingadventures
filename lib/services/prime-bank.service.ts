@@ -108,9 +108,9 @@ export class PrimeBankService {
       // Reset counters if needed
       account = this.resetCapCounters(account);
 
-      // Get caps for user's tier
-      const dailyCap = DEFAULT_CONFIG.dailyCaps[account.tier];
-      const weeklyCap = DEFAULT_CONFIG.weeklyCaps[account.tier];
+      // Get caps for user's tier (default to FREE if tier not in config)
+      const dailyCap = (DEFAULT_CONFIG.dailyCaps as any)[account.tier] || DEFAULT_CONFIG.dailyCaps[UserTier.FREE];
+      const weeklyCap = (DEFAULT_CONFIG.weeklyCaps as any)[account.tier] || DEFAULT_CONFIG.weeklyCaps[UserTier.FREE];
 
       // Check caps
       if (account.dailyCoins + amount > dailyCap) {
@@ -299,8 +299,8 @@ export class PrimeBankService {
       // Reset if needed
       account = this.resetCapCounters(account);
 
-      const dailyCap = DEFAULT_CONFIG.dailyCaps[account.tier];
-      const weeklyCap = DEFAULT_CONFIG.weeklyCaps[account.tier];
+      const dailyCap = (DEFAULT_CONFIG.dailyCaps as any)[account.tier] || DEFAULT_CONFIG.dailyCaps[UserTier.FREE];
+      const weeklyCap = (DEFAULT_CONFIG.weeklyCaps as any)[account.tier] || DEFAULT_CONFIG.weeklyCaps[UserTier.FREE];
 
       return {
         userId,

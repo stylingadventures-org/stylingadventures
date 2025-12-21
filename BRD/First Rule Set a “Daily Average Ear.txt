@@ -1,0 +1,156 @@
+First Rule: Set a “Daily Average Earning Rate”
+
+Before pricing anything, decide:
+
+How many coins should an average fan earn per day?
+
+Recommended for engagement:
+
+👉 5–10 LC/day for an active participant
+
+(through watching, chat, trivia, streaks, etc.)
+
+This becomes the anchor for pricing.
+
+🌟 2. Use the 10x Rule for Prize Pricing
+
+A good economy uses a 10x multiplier:
+
+Fans should need 10 days of engagement to reach Tier 1 rewards
+20–30 days for mid-tier
+60–90 days for big prizes
+
+This makes rewards feel valuable and increases retention.
+
+🌟 3. Recommended Pricing Tiers
+⭐ Tier 1: Small Rewards (should take 7–14 days)
+
+These are fun, low-stakes rewards that keep fans hooked.
+
+Examples:
+
+Coffee Raffle Entry (Bestie Coffee: You + Me)
+Price: 50 LC
+
+Why 50?
+
+Fans earning ~5–10 LC/day will need 5–10 days → perfect difficulty.
+
+Other Tier 1:
+
+Digital badges → 25 LC
+
+Shoutout on stream → 30 LC
+
+⭐ Tier 2: Medium Rewards (20–40 days)
+
+These should feel like real achievements.
+
+Merch discount coupon → 200 LC
+
+Personal voice memo → 150 LC
+
+Exclusive BTS video → 100 LC
+
+Early access to a big announcement → 100 LC
+
+⭐ Tier 3: High-Value Rewards (60–90+ days)
+
+These should feel elite and keep big fans grinding.
+
+“La’s Land Box” → 350–400 LC
+
+Virtual hangout → 500 LC
+
+$250 prize → 250 LC entry + must win the raffle
+
+“Super Bestie Badge” → 300 LC
+
+These take effort but are reachable for dedicated fans.
+
+🌟 4. How to Make Coins Harder to Get (the Secret Sauce)
+
+If you want fans to REALLY work for coins:
+
+🔥 A. Cap the maximum daily earnings
+
+Example:
+
+Daily max = 10 LC
+
+Weekly max = 60 LC
+
+Keeps the system fair and prevents whales from breaking it.
+
+🔥 B. Add conditions
+
+Instead of giving coins for everything, require tasks:
+
+Examples:
+
+Chatting only earns coins if you send meaningful messages
+
+Trivia only counts if you get 3 correct questions
+
+Watch-time coins only unlock after watching 5 minutes
+
+Streak bonuses require consecutive days
+
+This makes coins feel earned instead of given.
+
+🔥 C. Use “quest missions” as the main coin source
+
+This makes fans work intentionally.
+
+Examples:
+
+Weekly “Bestie Challenge”: 15 LC
+
+Share the stream: 10 LC
+
+Show up to 3 streams: 10 LC
+
+Bring a friend: 20 LC
+
+Fans LOVE goals.
+
+🔥 D. Limit big coin drops to special events
+
+Only do:
+
+Double Coin Weekend
+
+Monthly Bestie Bonus
+
+Birthday coin drop
+
+Seasonal events
+
+If big drops are frequent → inflation kills the economy.
+
+🌟 5. Visualizing the Effort Required
+
+Here’s how long fans must grind:
+
+Reward	Price	Days Needed	Effort Level
+Coffee Raffle	50 LC	5–10 days	⭐ Easy/Medium
+BTS Video	100 LC	10–20 days	⭐⭐ Medium
+Merch Discount	200 LC	20–40 days	⭐⭐⭐ Medium/Hard
+Super Bestie Badge	300 LC	30–60 days	⭐⭐⭐⭐ Hard
+Hangout	500 LC	50–100 days	🌟🌟 Elite
+
+This pacing is PERFECT for a show.
+
+🌟 6. The Secret to Making Fans Want to Work Hard?
+
+You anchor everything with progress bars + milestones.
+
+Examples:
+
+“You're 35% of the way to your Bestie Coffee!”
+
+“Earn 15 LC more to unlock your first raffle!”
+
+“Only 2 badges away from Elite Bestie!”
+
+People LOVE watching a bar fill.
