@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
-import { cognitoConfig } from "../lib/appSyncConfig";
-import { decodeJWT } from "../lib/jwtDecoder";
+import { cognitoConfig } from "../lib/appSyncConfig.js";
+import { decodeJWT } from "../lib/jwtDecoder.js";
 
 const AuthContext = createContext(null);
 
