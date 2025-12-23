@@ -55,12 +55,4 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ENEIEJY5P0XQA \
             --paths "/*"
-
-      - name: Notify Slack (optional)
-        if: always()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Frontend deployment ${{ job.status }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         continue-on-error: true
