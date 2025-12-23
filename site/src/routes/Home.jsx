@@ -26,19 +26,19 @@ export default function Home() {
   };
 
   const goToFan = () => {
-    nav("/signup/fan");
+    nav("/fan");
   };
 
   const goToBestie = () => {
-    nav("/signup/bestie");
+    nav("/bestie");
   };
 
   const goToCreator = () => {
-    nav("/signup/creator");
+    nav("/creator");
   };
 
   const goToCollab = () => {
-    nav("/signup/collab");
+    nav("/creator");
   };
 
   return (
@@ -512,7 +512,7 @@ export default function Home() {
       {/* Admin & Prime Studio Links (subtle, at bottom) */}
       <footer style={{ textAlign: "center", marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
         <p style={{ margin: "0 0 12px", color: "#999", fontSize: "0.9rem" }}>
-          Company admin? <a href="#" onClick={(e) => { e.preventDefault(); nav("/signup/admin"); }} style={{ color: "#667eea", textDecoration: "none", fontWeight: "600" }}>Access admin panel</a>
+          Company admin? <a href="#" onClick={(e) => { e.preventDefault(); nav("/admin"); }} style={{ color: "#667eea", textDecoration: "none", fontWeight: "600" }}>Access admin panel</a>
         </p>
         <p style={{ margin: "0", color: "#999", fontSize: "0.9rem" }}>
           Production team? <a href="#" onClick={(e) => { e.preventDefault(); nav("/prime-studio"); }} style={{ color: "#d4af37", textDecoration: "none", fontWeight: "600" }}>Enter Prime Studio</a>
