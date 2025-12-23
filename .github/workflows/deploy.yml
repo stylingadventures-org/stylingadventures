@@ -70,8 +70,32 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      - name: Build frontend
+        run: npm -w site run build
+
       - name: CDK Deploy
         env:
           STAGE: ${{ github.event.inputs.env }}
         run: |
-          npx cdk deploy --all --require-approval never
+          npx cdk deploy --all --require-approval never --outputs-file cdk-outputs.json
+
+      - name: Deploy frontend to S3 and invalidate CloudFront
+        run: |
+          # Extract bucket name and distribution ID from CDK outputs
+          BUCKET=$(node -e "const outputs = require('./cdk-outputs.json'); const key = Object.keys(outputs).find(k => outputs[k].WebBucketName); console.log(outputs[key].WebBucketName)")
+          DIST=$(node -e "const outputs = require('./cdk-outputs.json'); const key = Object.keys(outputs).find(k => outputs[k].CloudFrontDistributionId); console.log(outputs[key].CloudFrontDistributionId)")
+
+          echo "Deploying to bucket: $BUCKET"
+          echo "CloudFront distribution: $DIST"
+
+          # Sync frontend to S3 with delete flag to remove old files
+          aws s3 sync site/dist s3://$BUCKET \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --region ${{ vars.AWS_REGION }}
+
+          # Create CloudFront invalidation to purge all edges
+          aws cloudfront create-invalidation \
+            --distribution-id $DIST \
+            --paths "/*" \
+            --region ${{ vars.AWS_REGION }}

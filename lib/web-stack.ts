@@ -41,6 +41,15 @@ export class WebStack extends Stack {
         origin: new cloudfrontOrigins.S3Origin(this.bucket),
         viewerProtocolPolicy:
           cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      },
+      additionalBehaviors: {
+        "/assets/*": {
+          origin: new cloudfrontOrigins.S3Origin(this.bucket),
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        },
       },
       defaultRootObject: "index.html",
     });

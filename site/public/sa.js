@@ -5,7 +5,7 @@
   "use strict";
 
   const FALLBACK_APPSYNC_URL =
-    "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql";
+    "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql";
 
   // ⚠️ REPLACE abc123def4 WITH YOUR REAL API ID (UploadsStack.UploadsApiUrl)
   const FALLBACK_UPLOADS_API_URL =
@@ -30,10 +30,25 @@
       return null;
     }
 
-    const raw =
-      (await tryJson("/config.v2.json")) ||
-      (await tryJson("/config.json")) ||
-      {};
+    // Determine if we're in production based on hostname
+    const isProd = 
+      location.hostname === "app.stylingadventures.com" ||
+      location.hostname === "staging.stylingadventures.com";
+
+    // Try production config first if we're on a production domain, otherwise dev config
+    const configUrls = isProd
+      ? ["/config.prod.json", "/config.v2.json", "/config.json"]
+      : ["/config.v2.json", "/config.json", "/config.prod.json"];
+
+    let raw;
+    for (const url of configUrls) {
+      raw = await tryJson(url);
+      if (raw) {
+        console.log("[sa] loaded config from:", url);
+        break;
+      }
+    }
+    raw = raw || {};
 
     const cfg = { ...raw };
 
