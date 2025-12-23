@@ -14,7 +14,7 @@ export const cognitoConfig = {
 
 // Export AppSync configuration
 export const appSyncConfig = {
-  url: "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  url: "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
   region: "us-east-1",
 };
 
@@ -22,7 +22,7 @@ export const appSyncConfig = {
 export const appConfig = {
   env: "dev",
   region: "us-east-1",
-  appsyncUrl: "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  appsyncUrl: "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
   uploadsApiUrl: "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
   uploadsBucket: "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5",
 };

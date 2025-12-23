@@ -2,7 +2,7 @@
   "env": "dev",
   "region": "us-east-1",
 
-  "appsyncUrl": "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  "appsyncUrl": "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
 
   "redirectUri": "http://localhost:5173/callback",
   "logoutUri": "http://localhost:5173/",
