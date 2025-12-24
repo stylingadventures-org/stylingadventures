@@ -76,16 +76,91 @@
         }
       }
     },
-    "b3d338ae91039bb7da56796256783428f9fe52edd34dd086521d74fe778b2fe2": {
+    "8287e08e6a5b402d38f4e439e0da95af0cab750e699b10ba20a818c314066c4e": {
+      "displayName": "TeaReportResolverFn/Code",
+      "source": {
+        "path": "asset.8287e08e6a5b402d38f4e439e0da95af0cab750e699b10ba20a818c314066c4e",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-1f6cf8d4": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "8287e08e6a5b402d38f4e439e0da95af0cab750e699b10ba20a818c314066c4e.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "4b4d8713f19a60ac3034c6259b1c020f15a605888ddacecb89df05440f581215": {
+      "displayName": "MagazineResolverFn/Code",
+      "source": {
+        "path": "asset.4b4d8713f19a60ac3034c6259b1c020f15a605888ddacecb89df05440f581215",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-98fcc3a4": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "4b4d8713f19a60ac3034c6259b1c020f15a605888ddacecb89df05440f581215.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "40c7f140d3c225212603a89dadfddbf29b972c14427ab7ca4276ce2c3ed62314": {
+      "displayName": "CreatorForecastResolverFn/Code",
+      "source": {
+        "path": "asset.40c7f140d3c225212603a89dadfddbf29b972c14427ab7ca4276ce2c3ed62314",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-15b430ff": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "40c7f140d3c225212603a89dadfddbf29b972c14427ab7ca4276ce2c3ed62314.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "e6c26fc08685e312abde8994f964dfbc1ba9eb488874b0d48a6b4de7a5b83cf6": {
+      "displayName": "ShoppingResolverFn/Code",
+      "source": {
+        "path": "asset.e6c26fc08685e312abde8994f964dfbc1ba9eb488874b0d48a6b4de7a5b83cf6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-93a16d74": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "e6c26fc08685e312abde8994f964dfbc1ba9eb488874b0d48a6b4de7a5b83cf6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "bbf83a06ca7e515e55e2a9e363f04ee10c12b1388ba9df94780b0268c678711e": {
+      "displayName": "MusicResolverFn/Code",
+      "source": {
+        "path": "asset.bbf83a06ca7e515e55e2a9e363f04ee10c12b1388ba9df94780b0268c678711e",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-aa10c252": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "bbf83a06ca7e515e55e2a9e363f04ee10c12b1388ba9df94780b0268c678711e.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
+    "009f29122bca00fec9b58febe960062110096be510fd8fc799bba77d5c66d91c": {
       "displayName": "ApiStack Template",
       "source": {
         "path": "ApiStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-d5117f81": {
+        "637423256673-us-east-1-27a27766": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "b3d338ae91039bb7da56796256783428f9fe52edd34dd086521d74fe778b2fe2.json",
+          "objectKey": "009f29122bca00fec9b58febe960062110096be510fd8fc799bba77d5c66d91c.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

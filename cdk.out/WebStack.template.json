@@ -146,6 +146,32 @@
          ]
         ]
        }
+      },
+      {
+       "Action": "s3:GetObject",
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "WebDistributionOrigin2S3Origin9210B142",
+          "S3CanonicalUserId"
+         ]
+        }
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "WebBucket12880F5B",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
       }
      ],
      "Version": "2012-10-17"
@@ -252,12 +278,32 @@
     "aws:cdk:path": "WebStack/WebDistribution/Origin1/S3Origin/Resource"
    }
   },
+  "WebDistributionOrigin2S3Origin9210B142": {
+   "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+   "Properties": {
+    "CloudFrontOriginAccessIdentityConfig": {
+     "Comment": "Identity for WebStackWebDistributionOrigin264D15FE5"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebStack/WebDistribution/Origin2/S3Origin/Resource"
+   }
+  },
   "WebDistribution59C46482": {
    "Type": "AWS::CloudFront::Distribution",
    "Properties": {
     "DistributionConfig": {
+     "CacheBehaviors": [
+      {
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "PathPattern": "/assets/*",
+       "TargetOriginId": "WebStackWebDistributionOrigin264D15FE5",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
      "DefaultCacheBehavior": {
-      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
       "Compress": true,
       "TargetOriginId": "WebStackWebDistributionOrigin1AAF54134",
       "ViewerProtocolPolicy": "redirect-to-https"
@@ -283,6 +329,28 @@
            "origin-access-identity/cloudfront/",
            {
             "Ref": "WebDistributionOrigin1S3Origin242B188A"
+           }
+          ]
+         ]
+        }
+       }
+      },
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "WebBucket12880F5B",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "WebStackWebDistributionOrigin264D15FE5",
+       "S3OriginConfig": {
+        "OriginAccessIdentity": {
+         "Fn::Join": [
+          "",
+          [
+           "origin-access-identity/cloudfront/",
+           {
+            "Ref": "WebDistributionOrigin2S3Origin9210B142"
            }
           ]
          ]

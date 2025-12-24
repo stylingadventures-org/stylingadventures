@@ -45,10 +45,19 @@ jobs:
 
       - name: Deploy to S3
         run: |
+          # Deploy HTML files with no-cache
           aws s3 sync site/dist s3://webstack-webbucket12880f5b-wxfjj0fkn4ax \
             --region us-east-1 \
             --delete \
+            --exclude "*" \
+            --include "*.html" \
             --cache-control 'max-age=0,no-cache,no-store,must-revalidate'
+          
+          # Deploy JS/CSS/assets with long cache
+          aws s3 sync site/dist s3://webstack-webbucket12880f5b-wxfjj0fkn4ax \
+            --region us-east-1 \
+            --exclude "*.html" \
+            --cache-control 'max-age=31536000,public,immutable'
 
       - name: Invalidate CloudFront cache
         run: |

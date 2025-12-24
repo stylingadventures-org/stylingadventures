@@ -11,8 +11,8 @@
   const FALLBACK_UPLOADS_API_URL =
     "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod";
 
-  // Hardcoded production config - fallback if all config files fail to load
-  // This prevents being stuck with old CloudFront-cached configs
+  // Hardcoded production config - used directly, no external config files
+  // This completely bypasses CloudFront cache poisoning issues
   const PRODUCTION_CONFIG = {
     env: "prd",
     region: "us-east-1",
@@ -27,95 +27,17 @@
     scopes: ["openid", "email", "profile"],
   };
 
-  const BAD_UPLOAD_HOSTS = [
-    // Old dead endpoint we never want to use again
-    "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
-    // Old dead AppSync endpoint
-    "3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com",
-  ];
-
   // ---------- configuration ----------
   async function loadCfg() {
-    async function tryJson(url) {
-      try {
-        const r = await fetch(`${url}?ts=${Date.now()}`, {
-          cache: "no-store",
-        });
-        if (r.ok) {
-          const data = r.json();
-          console.log(`[sa] ✓ Successfully loaded config from: ${url}`);
-          return data;
-        } else {
-          console.debug(`[sa] Config not found at: ${url} (status ${r.status})`);
-        }
-      } catch (e) {
-        console.debug("[sa] config fetch failed", url, e.message);
-      }
-      return null;
-    }
+    // IMPORTANT: Due to CloudFront cache poisoning, we skip config file loading entirely
+    // and rely on the hardcoded PRODUCTION_CONFIG below.
+    // Config files would return HTML (index.html) instead of JSON due to edge cache issues.
+    
+    const raw = {};
 
-    // Determine if we're in production based on hostname
-    const hostname = location.hostname.toLowerCase();
-    const isProd = 
-      hostname === "app.stylingadventures.com" ||
-      hostname === "staging.stylingadventures.com" ||
-      hostname === "stylingadventures.com";
-
-    console.log(`[sa] Hostname: ${hostname}, isProd: ${isProd}`);
-
-    // Try production config first if we're on a production domain, otherwise dev config
-    const configUrls = isProd
-      ? ["/config.prod.json", "/config.v2.json", "/config.json"]
-      : ["/config.v2.json", "/config.json", "/config.prod.json"];
-
-    console.log(`[sa] Trying configs in order: ${configUrls.join(", ")}`);
-
-    let raw;
-    for (const url of configUrls) {
-      raw = await tryJson(url);
-      if (raw) {
-        console.log("[sa] ✓ Using config:", raw);
-        break;
-      }
-    }
-    raw = raw || {};
-
-    const cfg = { ...raw };
-
-    // GraphQL endpoint normalization
-    cfg.appsyncUrl =
-      cfg.appsyncUrl ||
-      cfg.aws_appsync_graphqlEndpoint ||
-      cfg.graphqlEndpoint ||
-      cfg.graphQLEndpoint ||
-      cfg.apiUrl ||
-      cfg.apiURL ||
-      "";
-
-    console.log(`[sa] Raw appsyncUrl from config: ${cfg.appsyncUrl}`);
-
-    // Check if the URL is known to be BAD (old/deleted endpoints)
-    const isKnownBadHost = BAD_UPLOAD_HOSTS.some(host => cfg.appsyncUrl.includes(host));
-    if (isKnownBadHost) {
-      console.error(`[sa] ⚠️ Config contains KNOWN BAD AppSync endpoint: ${cfg.appsyncUrl}`);
-      console.error(`[sa] This endpoint no longer exists. Using hardcoded production config.`);
-      cfg = { ...PRODUCTION_CONFIG };
-    }
-
-    // 🔐 Hard override if missing / not an AppSync URL
-    if (
-      !cfg.appsyncUrl ||
-      typeof cfg.appsyncUrl !== "string" ||
-      !cfg.appsyncUrl.includes("appsync-api.us-east-1.amazonaws.com")
-    ) {
-      console.warn(
-        "[sa] appsyncUrl missing, invalid, or suspicious in config; using fallback",
-        FALLBACK_APPSYNC_URL,
-      );
-      cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
-    }
-
-    console.log(`[sa] ✓ Final appsyncUrl: ${cfg.appsyncUrl}`);
+    
+    const cfg = { ...PRODUCTION_CONFIG };
+    console.log(`[sa] ✓ Using hardcoded PRODUCTION_CONFIG with appsyncUrl: ${cfg.appsyncUrl}`);
 
     // ClientId normalization
     cfg.clientId = cfg.clientId || cfg.userPoolWebClientId || "";
