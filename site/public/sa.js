@@ -23,28 +23,40 @@
         const r = await fetch(`${url}?ts=${Date.now()}`, {
           cache: "no-store",
         });
-        if (r.ok) return r.json();
+        if (r.ok) {
+          const data = r.json();
+          console.log(`[sa] ✓ Successfully loaded config from: ${url}`);
+          return data;
+        } else {
+          console.debug(`[sa] Config not found at: ${url} (status ${r.status})`);
+        }
       } catch (e) {
-        console.debug("[sa] config fetch failed", url, e);
+        console.debug("[sa] config fetch failed", url, e.message);
       }
       return null;
     }
 
     // Determine if we're in production based on hostname
+    const hostname = location.hostname.toLowerCase();
     const isProd = 
-      location.hostname === "app.stylingadventures.com" ||
-      location.hostname === "staging.stylingadventures.com";
+      hostname === "app.stylingadventures.com" ||
+      hostname === "staging.stylingadventures.com" ||
+      hostname === "stylingadventures.com";
+
+    console.log(`[sa] Hostname: ${hostname}, isProd: ${isProd}`);
 
     // Try production config first if we're on a production domain, otherwise dev config
     const configUrls = isProd
       ? ["/config.prod.json", "/config.v2.json", "/config.json"]
       : ["/config.v2.json", "/config.json", "/config.prod.json"];
 
+    console.log(`[sa] Trying configs in order: ${configUrls.join(", ")}`);
+
     let raw;
     for (const url of configUrls) {
       raw = await tryJson(url);
       if (raw) {
-        console.log("[sa] loaded config from:", url);
+        console.log("[sa] ✓ Using config:", raw);
         break;
       }
     }
@@ -62,6 +74,8 @@
       cfg.apiURL ||
       "";
 
+    console.log(`[sa] Raw appsyncUrl from config: ${cfg.appsyncUrl}`);
+
     // 🔐 Hard override if missing / not an AppSync URL
     if (
       !cfg.appsyncUrl ||
@@ -74,6 +88,8 @@
       );
       cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
     }
+
+    console.log(`[sa] ✓ Final appsyncUrl: ${cfg.appsyncUrl}`);
 
     // ClientId normalization
     cfg.clientId = cfg.clientId || cfg.userPoolWebClientId || "";
@@ -523,27 +539,43 @@
   let resolveReady;
   window.SAReady = new Promise((r) => (resolveReady = r));
 
-  document.addEventListener("DOMContentLoaded", async () => {
-    const cfg = await loadCfg();
+  // Load config IMMEDIATELY (don't wait for DOMContentLoaded)
+  // This ensures window.__cfg is available before React app initializes
+  async function initializeSA() {
+    try {
+      const cfg = await loadCfg();
 
-    const saApi = installSA();
-    installWindowSaAlias(cfg);
+      const saApi = installSA();
+      installWindowSaAlias(cfg);
 
-    const t = getStoredIdToken();
-    if (t) {
-      setIdToken(t);
-      const at = getStoredAccessToken();
-      if (at) setAccessToken(at);
+      const t = getStoredIdToken();
+      if (t) {
+        setIdToken(t);
+        const at = getStoredAccessToken();
+        if (at) setAccessToken(at);
+      }
+
+      if (resolveReady) resolveReady(saApi);
+      window.dispatchEvent(new Event("sa:ready"));
+
+      console.log(
+        "[app] ready; role =",
+        saApi.getRole(),
+        "cfg.appsyncUrl =",
+        cfg.appsyncUrl || "(missing)",
+      );
+    } catch (err) {
+      console.error("[sa] Initialization failed:", err);
+      if (resolveReady) resolveReady(null);
     }
+  }
 
-    if (resolveReady) resolveReady(saApi);
-    window.dispatchEvent(new Event("sa:ready"));
-
-    console.log(
-      "[app] ready; role =",
-      saApi.getRole(),
-      "cfg.appsyncUrl =",
-      cfg.appsyncUrl || "(missing)",
-    );
-  });
+  // Start initialization immediately (don't wait for DOMContentLoaded)
+  // This prevents race conditions where React tries to use config before it's loaded
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeSA);
+  } else {
+    // If DOM is already ready, initialize immediately
+    initializeSA();
+  }
 })();
