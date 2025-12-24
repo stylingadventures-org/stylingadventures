@@ -11,9 +11,27 @@
   const FALLBACK_UPLOADS_API_URL =
     "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod";
 
+  // Hardcoded production config - fallback if all config files fail to load
+  // This prevents being stuck with old CloudFront-cached configs
+  const PRODUCTION_CONFIG = {
+    env: "prd",
+    region: "us-east-1",
+    appsyncUrl: "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
+    uploadsApiUrl: "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
+    userPoolId: "us-east-1_aXLKIxbqK",
+    userPoolWebClientId: "51uc25i7ob3otirvgi66mpht79",
+    clientId: "51uc25i7ob3otirvgi66mpht79",
+    identityPoolId: "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
+    cognitoDomainPrefix: "sa-dev-637423256673",
+    cognitoDomain: "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+    scopes: ["openid", "email", "profile"],
+  };
+
   const BAD_UPLOAD_HOSTS = [
     // Old dead endpoint we never want to use again
     "r9mrarhdxa.execute-api.us-east-1.amazonaws.com",
+    // Old dead AppSync endpoint
+    "3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com",
   ];
 
   // ---------- configuration ----------
@@ -76,6 +94,14 @@
 
     console.log(`[sa] Raw appsyncUrl from config: ${cfg.appsyncUrl}`);
 
+    // Check if the URL is known to be BAD (old/deleted endpoints)
+    const isKnownBadHost = BAD_UPLOAD_HOSTS.some(host => cfg.appsyncUrl.includes(host));
+    if (isKnownBadHost) {
+      console.error(`[sa] ⚠️ Config contains KNOWN BAD AppSync endpoint: ${cfg.appsyncUrl}`);
+      console.error(`[sa] This endpoint no longer exists. Using hardcoded production config.`);
+      cfg = { ...PRODUCTION_CONFIG };
+    }
+
     // 🔐 Hard override if missing / not an AppSync URL
     if (
       !cfg.appsyncUrl ||
@@ -83,7 +109,7 @@
       !cfg.appsyncUrl.includes("appsync-api.us-east-1.amazonaws.com")
     ) {
       console.warn(
-        "[sa] appsyncUrl missing or suspicious in config; using fallback",
+        "[sa] appsyncUrl missing, invalid, or suspicious in config; using fallback",
         FALLBACK_APPSYNC_URL,
       );
       cfg.appsyncUrl = FALLBACK_APPSYNC_URL;
