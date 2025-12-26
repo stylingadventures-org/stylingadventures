@@ -7,6 +7,7 @@ import './index.css';
 // Workflow fixed to only deploy frontend
 // Fixed npm cache configuration
 // Fixed react-router-dom dependency
+// Updated lock file
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
