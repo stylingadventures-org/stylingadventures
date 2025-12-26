@@ -1,0 +1,198 @@
+/* FanMagazine Component Styles */
+
+.fan-magazine {
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Hero Section */
+.fm-hero {
+  background: linear-gradient(135deg, var(--brand-hot-pink) 0%, var(--brand-purple) 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+  color: white;
+}
+
+.fm-hero-content {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.fm-hero-emoji {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-sm);
+  display: block;
+}
+
+.fm-hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fm-hero-issue {
+  font-size: 1.125rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.95;
+}
+
+.fm-featured-label {
+  font-size: 0.9375rem;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.fm-featured-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--spacing-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fm-featured-list li {
+  font-size: 0.9375rem;
+  padding-left: 24px;
+  position: relative;
+}
+
+.fm-featured-list li::before {
+  content: '✨';
+  position: absolute;
+  left: 0;
+}
+
+.fm-btn-primary {
+  background: white;
+  color: var(--brand-hot-pink);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+  font-size: 1rem;
+}
+
+.fm-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+/* Section Styles */
+.fm-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.fm-section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  color: #1a1a1a;
+  position: relative;
+  padding-left: var(--spacing-sm);
+}
+
+.fm-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(180deg, var(--brand-hot-pink), var(--brand-purple));
+  border-radius: 2px;
+}
+
+/* Magazine Grid */
+.fm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.fm-mag-card {
+  background: white;
+  border: 2px solid #f0f0f0;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+.fm-mag-card:hover {
+  border-color: var(--brand-warm-pink);
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-4px);
+}
+
+.fm-mag-card.active {
+  border-color: var(--brand-hot-pink);
+  background: var(--brand-light-pink);
+  box-shadow: var(--shadow-medium);
+}
+
+.fm-mag-emoji {
+  font-size: 2.5rem;
+  margin-bottom: var(--spacing-sm);
+  display: block;
+}
+
+.fm-mag-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.fm-mag-issue {
+  font-size: 0.875rem;
+  color: var(--brand-hot-pink);
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fm-mag-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: #666;
+}
+
+.fm-mag-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fan-magazine {
+    padding: var(--spacing-md);
+  }
+
+  .fm-hero-title {
+    font-size: 2rem;
+  }
+
+  .fm-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-hero-title {
+    font-size: 1.5rem;
+  }
+
+  .fm-grid {
+    grid-template-columns: 1fr;
+  }
+}

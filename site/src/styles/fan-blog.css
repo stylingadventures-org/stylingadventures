@@ -1,0 +1,182 @@
+/* FanBlog Component Styles */
+
+.fan-blog {
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Hero Section */
+.fb-hero {
+  background: linear-gradient(135deg, var(--brand-hot-pink) 0%, var(--brand-purple) 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+  color: white;
+}
+
+.fb-hero-content {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.fb-hero-emoji {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-sm);
+  display: block;
+}
+
+.fb-hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fb-hero-desc {
+  font-size: 1.125rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.95;
+}
+
+.fb-hero-meta {
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.9;
+}
+
+.fb-btn-primary {
+  background: white;
+  color: var(--brand-hot-pink);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+  font-size: 1rem;
+}
+
+.fb-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+/* Section Styles */
+.fb-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.fb-section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  color: #1a1a1a;
+  position: relative;
+  padding-left: var(--spacing-sm);
+}
+
+.fb-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(180deg, var(--brand-hot-pink), var(--brand-purple));
+  border-radius: 2px;
+}
+
+/* Blog Grid */
+.fb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.fb-post-card {
+  background: white;
+  border: 2px solid #f0f0f0;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-post-card:hover {
+  border-color: var(--brand-warm-pink);
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-4px);
+}
+
+.fb-post-card.active {
+  border-color: var(--brand-hot-pink);
+  background: var(--brand-light-pink);
+  box-shadow: var(--shadow-medium);
+}
+
+.fb-post-emoji {
+  font-size: 2.5rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fb-post-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: var(--spacing-xs);
+}
+
+.fb-post-excerpt {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: auto;
+  padding-bottom: var(--spacing-sm);
+}
+
+.fb-post-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.8125rem;
+}
+
+.fb-post-author {
+  color: var(--brand-hot-pink);
+  font-weight: 600;
+}
+
+.fb-post-readtime {
+  color: #999;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fan-blog {
+    padding: var(--spacing-md);
+  }
+
+  .fb-hero-title {
+    font-size: 2rem;
+  }
+
+  .fb-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .fb-hero-title {
+    font-size: 1.5rem;
+  }
+
+  .fb-grid {
+    grid-template-columns: 1fr;
+  }
+}
