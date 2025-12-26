@@ -13,6 +13,7 @@ export default function Discover() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGenres, setSelectedGenres] = useState([])
   const [sortBy, setSortBy] = useState('followers')
+  const [filterView, setFilterView] = useState('all')
 
   useEffect(() => {
     const fetchCreators = async () => {
@@ -31,7 +32,6 @@ export default function Discover() {
         console.error('Error fetching creators:', err.message)
         setUsingDemoData(true)
 
-        // Demo fallback
         setCreators([
           {
             id: 'lala',
@@ -41,6 +41,9 @@ export default function Discover() {
             followers: 1250,
             tracks: 847,
             genres: ['Fashion', 'Lifestyle'],
+            isVerified: true,
+            isTrending: true,
+            isNew: false,
           },
           {
             id: 'marcus',
@@ -50,6 +53,9 @@ export default function Discover() {
             followers: 892,
             tracks: 156,
             genres: ['Art', 'Animation'],
+            isVerified: false,
+            isTrending: true,
+            isNew: false,
           },
           {
             id: 'sophie',
@@ -59,6 +65,9 @@ export default function Discover() {
             followers: 648,
             tracks: 342,
             genres: ['Music', 'Lo-Fi'],
+            isVerified: true,
+            isTrending: false,
+            isNew: false,
           },
           {
             id: 'alex',
@@ -68,6 +77,9 @@ export default function Discover() {
             followers: 542,
             tracks: 89,
             genres: ['Gaming', 'Music'],
+            isVerified: false,
+            isTrending: false,
+            isNew: true,
           },
           {
             id: 'jade',
@@ -77,6 +89,9 @@ export default function Discover() {
             followers: 734,
             tracks: 203,
             genres: ['Design', 'Art'],
+            isVerified: true,
+            isTrending: true,
+            isNew: false,
           },
         ])
       } finally {
@@ -95,6 +110,7 @@ export default function Discover() {
     setSearchQuery('')
     setSelectedGenres([])
     setSortBy('followers')
+    setFilterView('all')
   }
 
   const filteredCreators = useMemo(() => {
@@ -107,7 +123,12 @@ export default function Discover() {
       const matchesGenre =
         selectedGenres.length === 0 || selectedGenres.some((g) => (creator.genres || []).includes(g))
 
-      return matchesSearch && matchesGenre
+      let matchesView = true
+      if (filterView === 'trending') matchesView = creator.isTrending
+      if (filterView === 'new') matchesView = creator.isNew
+      if (filterView === 'verified') matchesView = creator.isVerified
+
+      return matchesSearch && matchesGenre && matchesView
     })
 
     result.sort((a, b) => {
@@ -122,16 +143,18 @@ export default function Discover() {
     })
 
     return result
-  }, [creators, searchQuery, selectedGenres, sortBy])
+  }, [creators, searchQuery, selectedGenres, sortBy, filterView])
 
   const totalCreators = creators.length
   const totalFollowers = creators.reduce((sum, c) => sum + (c.followers || 0), 0)
   const totalTracks = creators.reduce((sum, c) => sum + (c.tracks || 0), 0)
+  const trendingCount = creators.filter(c => c.isTrending).length
 
   return (
     <div className="discover-container">
-      {/* HERO SECTION - Pink to Purple Gradient */}
+      {/* ENHANCED HERO SECTION */}
       <section className="discover-hero">
+        <div className="hero-background"></div>
         <div className="hero-content">
           <h1 className="hero-title">Creator District</h1>
           <p className="hero-subtitle">
@@ -151,32 +174,64 @@ export default function Discover() {
               <span className="stat-emoji">🎧</span>
               <span className="stat-text">{totalTracks.toLocaleString()} tracks</span>
             </div>
+            <div className="stat-pill">
+              <span className="stat-emoji">🔥</span>
+              <span className="stat-text">{trendingCount} trending</span>
+            </div>
             {usingDemoData && <div className="stat-pill demo-mode">Preview mode</div>}
           </div>
 
           <div className="hero-actions">
             <button className="btn btn-primary" onClick={() => navigate('/signup/creator')}>
-              Become a Creator
+              ✨ Become a Creator
             </button>
             <button className="btn btn-secondary" onClick={() => navigate('/become-bestie')}>
-              Become a Bestie
+              💜 Become a Bestie
             </button>
           </div>
         </div>
       </section>
 
-      {/* MAIN CONTENT - Card-based layout */}
+      {/* MAIN CONTENT */}
       <div className="discover-main">
         {/* FILTERS SIDEBAR */}
         <aside className="discover-filters">
           <div className="filter-card">
             <div className="filter-header">
-              <h3>Search & Filter</h3>
-              {(searchQuery || selectedGenres.length > 0) && (
+              <h3>Explore</h3>
+              {(searchQuery || selectedGenres.length > 0 || filterView !== 'all') && (
                 <button className="filter-reset" onClick={clearFilters}>
-                  Reset
+                  ✕ Reset
                 </button>
               )}
+            </div>
+
+            {/* View Tabs */}
+            <div className="filter-tabs">
+              <button
+                className={`filter-tab ${filterView === 'all' ? 'active' : ''}`}
+                onClick={() => setFilterView('all')}
+              >
+                All Creators
+              </button>
+              <button
+                className={`filter-tab ${filterView === 'trending' ? 'active' : ''}`}
+                onClick={() => setFilterView('trending')}
+              >
+                🔥 Trending
+              </button>
+              <button
+                className={`filter-tab ${filterView === 'new' ? 'active' : ''}`}
+                onClick={() => setFilterView('new')}
+              >
+                ✨ New
+              </button>
+              <button
+                className={`filter-tab ${filterView === 'verified' ? 'active' : ''}`}
+                onClick={() => setFilterView('verified')}
+              >
+                ✅ Verified
+              </button>
             </div>
 
             <input
@@ -194,8 +249,8 @@ export default function Discover() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="discover-select"
               >
-                <option value="followers">Most Followers</option>
-                <option value="tracks">Most Tracks</option>
+                <option value="followers">👥 Most Followers</option>
+                <option value="tracks">🎧 Most Tracks</option>
               </select>
             </div>
 
@@ -262,20 +317,30 @@ export default function Discover() {
                     role="button"
                     tabIndex={0}
                   >
-                    <div className="creator-avatar">
+                    {/* Badges */}
+                    <div className="creator-badges">
+                      {creator.isVerified && <span className="badge-verified" title="Verified">✅</span>}
+                      {creator.isTrending && <span className="badge-trending" title="Trending">🔥</span>}
+                      {creator.isNew && <span className="badge-new" title="New Creator">✨</span>}
+                    </div>
+
+                    {/* Avatar */}
+                    <div className="creator-avatar" data-tier={creator.tier}>
                       {creator.displayName?.charAt(0).toUpperCase() || '👤'}
                     </div>
                     
                     <h3 className="creator-name">{creator.displayName || 'Unknown'}</h3>
                     
+                    {/* Tier Badge */}
                     {creator.tier && (
-                      <div className="creator-tier">
+                      <div className={`creator-tier tier-${creator.tier}`}>
                         {creator.tier.toUpperCase()}
                       </div>
                     )}
                     
                     <p className="creator-bio">{creator.bio || 'No bio'}</p>
                     
+                    {/* Genres */}
                     {creator.genres && creator.genres.length > 0 && (
                       <div className="creator-genres">
                         {creator.genres.slice(0, 2).map((genre) => (
@@ -289,6 +354,7 @@ export default function Discover() {
                       </div>
                     )}
                     
+                    {/* Stats */}
                     <div className="creator-stats">
                       <div className="stat">
                         <span className="stat-value">{(creator.followers || 0).toLocaleString()}</span>
@@ -300,15 +366,24 @@ export default function Discover() {
                       </div>
                     </div>
                     
-                    <button
-                      className="creator-action"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/creator/${creator.id}`)
-                      }}
-                    >
-                      View Profile →
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="creator-actions">
+                      <button
+                        className="btn-action btn-follow"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        💜 Follow
+                      </button>
+                      <button
+                        className="btn-action btn-view"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/creator/${creator.id}`)
+                        }}
+                      >
+                        View →
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
