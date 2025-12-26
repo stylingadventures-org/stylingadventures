@@ -9,6 +9,7 @@ import './App.css'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
 import CreatorProfile from './pages/CreatorProfile'
+import CreatorSettings from './pages/CreatorSettings'
 import SignupBestie from './pages/SignupBestie'
 import SignupCreator from './pages/SignupCreator'
 import Callback from './pages/Callback'
@@ -49,6 +50,16 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/discover" element={<Discover />} />
           <Route path="/creator/:id" element={<CreatorProfile />} />
+          
+          {/* Creator settings - protected route */}
+          <Route
+            path="/creator-settings"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <CreatorSettings />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Signup routes */}
           <Route path="/signup/bestie" element={<SignupBestie />} />
