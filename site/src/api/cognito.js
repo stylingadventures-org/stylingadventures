@@ -48,7 +48,7 @@ async function getConfig() {
  */
 export async function redirectToSignup(userType = 'player') {
   const cfg = await getConfig()
-  const redirectUri = window.location.origin + '/callback'
+  const redirectUri = cfg.redirectUri || (window.location.origin + '/callback')
   const clientId = cfg.userPoolWebClientId
   const domain = cfg.cognitoDomain
   
@@ -83,7 +83,7 @@ export async function redirectToSignup(userType = 'player') {
  */
 export async function redirectToLogin() {
   const cfg = await getConfig()
-  const redirectUri = window.location.origin + '/callback'
+  const redirectUri = cfg.redirectUri || (window.location.origin + '/callback')
   const clientId = cfg.userPoolWebClientId
   const domain = cfg.cognitoDomain
 
@@ -118,7 +118,7 @@ export async function redirectToLogin() {
 export async function handleOAuthCallback(code) {
   try {
     const cfg = await getConfig()
-    const redirectUri = window.location.origin + '/callback'
+    const redirectUri = cfg.redirectUri || (window.location.origin + '/callback')
     const clientId = cfg.userPoolWebClientId
     const domain = cfg.cognitoDomain
     
