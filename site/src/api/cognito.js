@@ -42,18 +42,31 @@ async function getConfig() {
   return configData
 }
 
+// Helper to determine if running in development
+function isDevelopment() {
+  const hostname = window.location.hostname
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
 /**
  * Redirect to Cognito Hosted UI for signup
  * Uses PKCE for secure code exchange without backend secret
  */
 export async function redirectToSignup(userType = 'player') {
   const cfg = await getConfig()
-  // Use current origin in development (localhost), production URI from config for deployed
-  const redirectUri = window.location.hostname === 'localhost' 
+  // Use current origin in development, production URI from config for deployed
+  const redirectUri = isDevelopment()
     ? (window.location.origin + '/callback')
     : (cfg.redirectUri || (window.location.origin + '/callback'))
   const clientId = cfg.userPoolWebClientId
   const domain = cfg.cognitoDomain
+  
+  console.log('=== Cognito Signup Debug ===')
+  console.log('Hostname:', window.location.hostname)
+  console.log('Origin:', window.location.origin)
+  console.log('Redirect URI:', redirectUri)
+  console.log('Client ID:', clientId)
+  console.log('Domain:', domain)
   
   // Generate PKCE code verifier and challenge
   const codeVerifier = generateCodeVerifier()
@@ -66,6 +79,10 @@ export async function redirectToSignup(userType = 'player') {
   sessionStorage.setItem('oauth_state', state)
   sessionStorage.setItem('code_verifier', codeVerifier)
   
+  console.log('Code Verifier length:', codeVerifier.length)
+  console.log('Code Challenge:', codeChallenge)
+  console.log('State:', state)
+  
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
@@ -77,7 +94,7 @@ export async function redirectToSignup(userType = 'player') {
   })
 
   const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
-  console.log('Redirecting to Cognito signup:', authUrl)
+  console.log('Full auth URL:', authUrl)
   window.location.href = authUrl
 }
 
@@ -87,12 +104,19 @@ export async function redirectToSignup(userType = 'player') {
  */
 export async function redirectToLogin() {
   const cfg = await getConfig()
-  // Use current origin in development (localhost), production URI from config for deployed
-  const redirectUri = window.location.hostname === 'localhost' 
+  // Use current origin in development, production URI from config for deployed
+  const redirectUri = isDevelopment()
     ? (window.location.origin + '/callback')
     : (cfg.redirectUri || (window.location.origin + '/callback'))
   const clientId = cfg.userPoolWebClientId
   const domain = cfg.cognitoDomain
+
+  console.log('=== Cognito Login Debug ===')
+  console.log('Hostname:', window.location.hostname)
+  console.log('Origin:', window.location.origin)
+  console.log('Redirect URI:', redirectUri)
+  console.log('Client ID:', clientId)
+  console.log('Domain:', domain)
 
   // Generate PKCE code verifier and challenge
   const codeVerifier = generateCodeVerifier()
@@ -105,6 +129,10 @@ export async function redirectToLogin() {
   sessionStorage.setItem('oauth_state', state)
   sessionStorage.setItem('code_verifier', codeVerifier)
 
+  console.log('Code Verifier length:', codeVerifier.length)
+  console.log('Code Challenge:', codeChallenge)
+  console.log('State:', state)
+
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
@@ -116,7 +144,7 @@ export async function redirectToLogin() {
   })
 
   const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
-  console.log('Redirecting to Cognito login:', authUrl)
+  console.log('Full auth URL:', authUrl)
   window.location.href = authUrl
 }
 
@@ -127,8 +155,8 @@ export async function redirectToLogin() {
 export async function handleOAuthCallback(code) {
   try {
     const cfg = await getConfig()
-    // Use current origin in development (localhost), production URI from config for deployed
-    const redirectUri = window.location.hostname === 'localhost' 
+    // Use current origin in development, production URI from config for deployed
+    const redirectUri = isDevelopment()
       ? (window.location.origin + '/callback')
       : (cfg.redirectUri || (window.location.origin + '/callback'))
     const clientId = cfg.userPoolWebClientId
