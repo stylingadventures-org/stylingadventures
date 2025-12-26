@@ -33,6 +33,8 @@ import FanMagazine from './pages/FanMagazine'
 import BestieHome from './pages/Bestie/BestieHome'
 import BestieCloset from './pages/Bestie/BestieCloset'
 import BestieStudio from './pages/Bestie/BestieStudio'
+import BestieChallenges from './pages/Bestie/BestieChallenges'
+import BestieVote from './pages/Bestie/BestieVote'
 import SceneClub from './pages/Bestie/SceneClub'
 import TrendStudio from './pages/Bestie/TrendStudio'
 import BestieStories from './pages/Bestie/BestieStories'
@@ -131,6 +133,8 @@ function App() {
           <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />
           <Route path="/bestie/closet" element={<ProtectedRoute><BestieCloset /></ProtectedRoute>} />
           <Route path="/bestie/studio" element={<ProtectedRoute><BestieStudio /></ProtectedRoute>} />
+          <Route path="/bestie/challenges" element={<ProtectedRoute><BestieChallenges /></ProtectedRoute>} />
+          <Route path="/bestie/vote" element={<ProtectedRoute><BestieVote /></ProtectedRoute>} />
           <Route path="/bestie/scene-club" element={<ProtectedRoute><SceneClub /></ProtectedRoute>} />
           <Route path="/bestie/trends" element={<ProtectedRoute><TrendStudio /></ProtectedRoute>} />
           <Route path="/bestie/stories" element={<ProtectedRoute><BestieStories /></ProtectedRoute>} />
