@@ -20,26 +20,45 @@ async function generateCodeChallenge(codeVerifier) {
 
 // Get config from window or fetch it fresh
 async function getConfig() {
+  console.log('🔐 getConfig: Starting')
+  
   // Wait for config promise if it exists
   if (window.__CONFIG_LOADED__) {
+    console.log('🔐 getConfig: Waiting for CONFIG_LOADED promise')
     await window.__CONFIG_LOADED__
   }
   
   if (window.__CONFIG__) {
+    console.log('🔐 getConfig: Using cached config', window.__CONFIG__)
     return window.__CONFIG__
   }
   
+  console.log('🔐 getConfig: Fetching fresh config')
   // If not loaded yet, fetch it fresh (no caching)
   const configUrl = '/config.json?v=' + Math.random() + '&t=' + Date.now()
-  const response = await fetch(configUrl, {
-    cache: 'no-store',
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+  console.log('🔐 getConfig: Fetching from:', configUrl)
+  
+  try {
+    const response = await fetch(configUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+    console.log('🔐 getConfig: Response status:', response.status)
+    
+    if (!response.ok) {
+      throw new Error(`Config fetch failed: ${response.status} ${response.statusText}`)
     }
-  })
-  const configData = await response.json()
-  window.__CONFIG__ = configData
-  return configData
+    
+    const configData = await response.json()
+    console.log('🔐 getConfig: Config loaded successfully', configData)
+    window.__CONFIG__ = configData
+    return configData
+  } catch (err) {
+    console.error('🔐 getConfig: ERROR fetching config', err)
+    throw err
+  }
 }
 
 // Helper to determine if running in development
