@@ -3,9 +3,9 @@
  * Bulk upload, AI tagging, asset organization, versioning
  */
 
-import { createLogger } from '../infrastructure/logger';
-import { createAPIError, ErrorCode } from '../infrastructure/error-codes';
-import { uploadLimiter } from '../infrastructure/rate-limiter';
+import { createLogger } from '../../infrastructure/logger';
+import { createAPIError, ErrorCode } from '../../infrastructure/error-codes';
+import { uploadLimiter } from '../../infrastructure/rate-limiter';
 
 const logger = createLogger('CreatorCabinet');
 

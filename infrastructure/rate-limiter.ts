@@ -29,7 +29,7 @@ export interface RateLimitStore {
  */
 export class InMemoryRateLimitStore implements RateLimitStore {
   private store = new Map<string, number>();
-  private timers = new Map<string, NodeJS.Timer>();
+  private timers = new Map<string, NodeJS.Timeout>();
 
   get(key: string): number | undefined {
     return this.store.get(key);

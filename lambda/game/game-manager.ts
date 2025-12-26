@@ -3,7 +3,7 @@
  * Difficulty levels, achievements, seasonal challenges, leaderboard caching
  */
 
-import { createLogger } from '../infrastructure/logger';
+import { createLogger } from '../../infrastructure/logger';
 
 const logger = createLogger('FashionGame');
 

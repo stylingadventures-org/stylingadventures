@@ -3,9 +3,9 @@
  * Implements 2FA, session timeout, password reset, and advanced security
  */
 
-import { createLogger } from '../infrastructure/logger';
-import { createAPIError, ErrorCode } from '../infrastructure/error-codes';
-import { passwordResetLimiter } from '../infrastructure/rate-limiter';
+import { createLogger } from '../../infrastructure/logger';
+import { createAPIError, ErrorCode } from '../../infrastructure/error-codes';
+import { passwordResetLimiter } from '../../infrastructure/rate-limiter';
 
 const logger = createLogger('Auth');
 

@@ -3,7 +3,7 @@
  * Video quality tiers, captions, chapters, watch history, recommendations
  */
 
-import { createLogger } from '../infrastructure/logger';
+import { createLogger } from '../../infrastructure/logger';
 
 const logger = createLogger('EpisodeTheater');
 
