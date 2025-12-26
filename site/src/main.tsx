@@ -6,6 +6,7 @@ import './index.css';
 // Cognito callback URL fix deployed to support root domain
 // Workflow fixed to only deploy frontend
 // Fixed npm cache configuration
+// Fixed react-router-dom dependency
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
