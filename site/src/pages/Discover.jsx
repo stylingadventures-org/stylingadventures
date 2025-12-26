@@ -38,15 +38,19 @@ export default function Discover() {
         setLoading(true)
         setUsingDemoData(false)
 
-        // TODO: Deploy CDK to create resolvers for listCreators
-        // Schema is defined but resolvers aren't deployed yet
-        // For now, use demo data
-        throw new Error('Resolvers not deployed yet - using demo data')
+        // Query creators from AppSync
+        const data = await graphqlQuery(GET_CREATORS, { limit: 100 })
+        
+        if (data?.listCreators?.items) {
+          setCreators(data.listCreators.items)
+        } else {
+          throw new Error('No creators found')
+        }
       } catch (err) {
-        console.warn('Fetching creators:', err.message)
+        console.error('Error fetching creators:', err.message)
         setUsingDemoData(true)
 
-        // Demo fallback
+        // Demo fallback - for testing/offline mode
         setCreators([
           {
             id: 'lala',
