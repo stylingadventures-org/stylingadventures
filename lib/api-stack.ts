@@ -99,12 +99,11 @@ export class ApiStack extends Stack {
     };
 
     // ────────────────────────────────────────────────────────────
-    // GRAPHQL API - USING MINIMAL SCHEMA FOR RESOLVER TESTING
+    // GRAPHQL API - USING FULL SCHEMA
     // ────────────────────────────────────────────────────────────
-    // Start with minimal schema to test resolver creation
-    // Full schema (37KB) will be deployed via CLI after resolvers are created
+    // Deploy the complete schema with all resolvers and types
     
-    const schemaPath = path.resolve(process.cwd(), "appsync", "schema-minimal.graphql");
+    const schemaPath = path.resolve(process.cwd(), "appsync", "schema.graphql");
     
     this.api = new appsync.GraphqlApi(this, "StylingApi", {
       name: "stylingadventures-api",
