@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────
+# Creator Profiles for Discover & Public Pages
+# ─────────────────────────────────────────
+
+type Creator {
+  id: ID!
+  cognitoSub: ID!
+  displayName: String!
+  handle: String
+  bio: String
+  avatarUrl: String
+  coverUrl: String
+  followers: Int!
+  posts: Int!
+  tracks: Int!
+  genres: [String!]
+  tier: String! # CREATOR, COLLABORATOR, PRIME, etc
+  isFollowing: Boolean
+  collabAvailability: String # OPEN, CLOSED, SELECTIVE
+  socialLinks: SocialLinks
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+}
+
+type SocialLinks {
+  instagram: String
+  tiktok: String
+  twitter: String
+  youtube: String
+  shopLink: String
+}
+
+type CreatorConnection {
+  items: [Creator!]!
+  nextToken: String
+}
+
+extend type Query {
+  # List all creators with pagination and filtering
+  listCreators(limit: Int, nextToken: String): CreatorConnection
+    @aws_api_key
+
+  # Get a specific creator by ID
+  getCreator(id: ID!): Creator
+    @aws_api_key
+
+  # Get current user's profile as creator
+  meAsCreator: Creator
+    @aws_cognito_user_pools
+}
+
+extend type Mutation {
+  # Update creator profile (name, bio, avatar, etc)
+  updateCreatorProfile(
+    displayName: String
+    handle: String
+    bio: String
+    avatarUrl: String
+    coverUrl: String
+    genres: [String!]
+    socialLinks: SocialLinksInput
+    collabAvailability: String
+  ): Creator!
+    @aws_cognito_user_pools
+
+  # Follow/unfollow a creator
+  followCreator(creatorId: ID!): Boolean!
+    @aws_cognito_user_pools
+
+  # Unfollow a creator
+  unfollowCreator(creatorId: ID!): Boolean!
+    @aws_cognito_user_pools
+}
+
+input SocialLinksInput {
+  instagram: String
+  tiktok: String
+  twitter: String
+  youtube: String
+  shopLink: String
+}

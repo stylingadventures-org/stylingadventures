@@ -39,6 +39,7 @@ const MODULE_ORDER = [
 
   "10_root.graphql",
   "15_core.graphql",
+  "16_creators.graphql",
 
   "20_closet.graphql",
   "25_bg-change.graphql",
@@ -82,7 +83,7 @@ function layerOf(fileName) {
   if (n === 0) return "scalars";
   if (n === 1) return "directives";
   if (n === 10) return "root";
-  if (n === 15) return "core";
+  if (n === 15 || n === 16) return "core"; // 16_creators is part of core layer
   if (n >= 20) return "domain";
 
   return "unknown";
