@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { redirectToStripeCheckout } from '../../api/payment';
 import '../../styles/upgrade.css';
 
 export default function UpgradeBestie() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedBillingCycle, setSelectedBillingCycle] = useState('monthly');
 
   const monthlyPrice = 9.99;
@@ -42,31 +44,20 @@ export default function UpgradeBestie() {
     }
 
     setIsProcessing(true);
+    setError(null);
+    
     try {
-      // TODO: Integrate Stripe/Square payment
-      // For now, simulate subscription
-      console.log('Subscribing to Bestie tier:', {
+      console.log('[UpgradeBestie] Initiating checkout for:', {
         email: user.email,
         billingCycle: selectedBillingCycle,
-        amount: priceToShow,
+        tier: 'BESTIE',
       });
 
-      // Call payment service when ready
-      // const result = await initiatePayment({
-      //   tier: 'BESTIE',
-      //   email: user.email,
-      //   billingCycle: selectedBillingCycle,
-      //   amount: priceToShow,
-      // });
-
-      // For demo: redirect to dashboard
-      setTimeout(() => {
-        navigate('/bestie/home');
-      }, 1500);
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
-    } finally {
+      // Redirect to Stripe Checkout
+      await redirectToStripeCheckout('BESTIE', selectedBillingCycle, user);
+    } catch (err) {
+      console.error('[UpgradeBestie] Payment error:', err);
+      setError(err.message || 'Payment failed. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -122,8 +113,14 @@ export default function UpgradeBestie() {
             onClick={handleSubscribe}
             disabled={isProcessing}
           >
-            {isProcessing ? 'Processing...' : 'Subscribe to Bestie'}
+            {isProcessing ? 'Redirecting to Payment...' : 'Subscribe to Bestie'}
           </button>
+
+          {error && (
+            <p className="error-message">
+              ⚠️ {error}
+            </p>
+          )}
 
           <p className="payment-note">
             Cancel anytime. No long-term commitment.

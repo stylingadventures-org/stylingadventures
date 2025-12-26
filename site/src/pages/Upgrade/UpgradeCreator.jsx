@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { redirectToStripeCheckout } from '../../api/payment';
 import '../../styles/upgrade.css';
 
 export default function UpgradeCreator() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedBillingCycle, setSelectedBillingCycle] = useState('monthly');
 
   const monthlyPrice = 24.99;
@@ -44,29 +46,20 @@ export default function UpgradeCreator() {
     }
 
     setIsProcessing(true);
+    setError(null);
+    
     try {
-      // TODO: Integrate Stripe/Square payment
-      console.log('Subscribing to Creator tier:', {
+      console.log('[UpgradeCreator] Initiating checkout for:', {
         email: user.email,
         billingCycle: selectedBillingCycle,
-        amount: priceToShow,
+        tier: 'CREATOR',
       });
 
-      // Call payment service when ready
-      // const result = await initiatePayment({
-      //   tier: 'CREATOR',
-      //   email: user.email,
-      //   billingCycle: selectedBillingCycle,
-      //   amount: priceToShow,
-      // });
-
-      setTimeout(() => {
-        navigate('/creator/studio');
-      }, 1500);
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
-    } finally {
+      // Redirect to Stripe Checkout
+      await redirectToStripeCheckout('CREATOR', selectedBillingCycle, user);
+    } catch (err) {
+      console.error('[UpgradeCreator] Payment error:', err);
+      setError(err.message || 'Payment failed. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -123,8 +116,14 @@ export default function UpgradeCreator() {
             onClick={handleSubscribe}
             disabled={isProcessing}
           >
-            {isProcessing ? 'Processing...' : 'Subscribe to Creator'}
+            {isProcessing ? 'Redirecting to Payment...' : 'Subscribe to Creator'}
           </button>
+
+          {error && (
+            <p className="error-message">
+              ⚠️ {error}
+            </p>
+          )}
 
           <p className="payment-note">
             Start monetizing immediately. Cancel anytime.
