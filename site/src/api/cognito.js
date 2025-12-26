@@ -75,52 +75,35 @@ export async function redirectToSignup(userType = 'player') {
   try {
     console.log('🔐 redirectToSignup: Starting')
     const cfg = await getConfig()
-    console.log('🔐 redirectToSignup: Config loaded', cfg)
     
-    // Use current origin in development, production URI from config for deployed
-    const isDev = isDevelopment()
-    console.log('🔐 redirectToSignup: isDevelopment =', isDev)
+    const redirectUri = isDevelopment()
+      ? 'http://localhost:5173/callback'
+      : 'https://stylingadventures.com/callback'
     
-    const redirectUri = isDev
-      ? (window.location.origin + '/callback')
-      : (cfg.redirectUri || (window.location.origin + '/callback'))
-    const clientId = cfg.userPoolWebClientId
-    const domain = cfg.cognitoDomain
+    const clientId = '7u9k85rh5h74eretn9hlsme0rl'
+    const domain = 'https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com'
     
-    console.log('=== Cognito Signup Debug ===')
-    console.log('Hostname:', window.location.hostname)
-    console.log('Origin:', window.location.origin)
-    console.log('Redirect URI:', redirectUri)
+    console.log('=== OAuth Parameters ===')
     console.log('Client ID:', clientId)
     console.log('Domain:', domain)
+    console.log('Redirect URI:', redirectUri)
     
-    // Generate random state for CSRF protection
-    const state = Math.random().toString(36).substring(7)
+    // Build URL manually to ensure it's correct
+    const params = [
+      'client_id=' + encodeURIComponent(clientId),
+      'response_type=code',
+      'scope=' + encodeURIComponent('openid email profile'),
+      'redirect_uri=' + encodeURIComponent(redirectUri)
+    ].join('&')
     
-    // Store state for later use
-    sessionStorage.setItem('oauth_state', state)
+    const authUrl = domain + '/oauth2/authorize?' + params
+    console.log('Auth URL:', authUrl)
+    console.log('🔐 About to redirect...')
     
-    console.log('State:', state)
-    
-    // Try WITHOUT PKCE first to see if that's the issue
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      scope: 'openid email profile',
-      redirect_uri: redirectUri,
-      state: state
-    })
-
-    const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
-    console.log('Full auth URL:', authUrl)
-    console.log('🔐 redirectToSignup: About to redirect to Cognito')
-    
-    // Redirect after a short delay to ensure logs are captured
-    await new Promise(resolve => setTimeout(resolve, 100))
     window.location.href = authUrl
   } catch (err) {
-    console.error('🔐 redirectToSignup ERROR:', err)
-    throw err
+    console.error('🔐 ERROR:', err)
+    alert('OAuth Error: ' + err.message)
   }
 }
 
@@ -131,54 +114,36 @@ export async function redirectToLogin() {
   try {
     console.log('🔐 redirectToLogin: Starting')
     const cfg = await getConfig()
-    console.log('🔐 redirectToLogin: Config loaded', cfg)
     
-    // Use current origin in development, production URI from config for deployed
-    const isDev = isDevelopment()
-    console.log('🔐 redirectToLogin: isDevelopment =', isDev)
+    const redirectUri = isDevelopment()
+      ? 'http://localhost:5173/callback'
+      : 'https://stylingadventures.com/callback'
     
-    const redirectUri = isDev
-      ? (window.location.origin + '/callback')
-      : (cfg.redirectUri || (window.location.origin + '/callback'))
-    const clientId = cfg.userPoolWebClientId
-    const domain = cfg.cognitoDomain
-
-    console.log('=== Cognito Login Debug ===')
-    console.log('Hostname:', window.location.hostname)
-    console.log('Origin:', window.location.origin)
-    console.log('Redirect URI:', redirectUri)
+    const clientId = '7u9k85rh5h74eretn9hlsme0rl'
+    const domain = 'https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com'
+    
+    console.log('=== OAuth Parameters ===')
     console.log('Client ID:', clientId)
     console.log('Domain:', domain)
-
-    // Generate random state for CSRF protection
-    const state = Math.random().toString(36).substring(7)
+    console.log('Redirect URI:', redirectUri)
     
-    // Store state for later use
-    sessionStorage.setItem('oauth_state', state)
-
-    console.log('State:', state)
-
-    // Try WITHOUT PKCE first to see if that's the issue
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      scope: 'openid email profile',
-      redirect_uri: redirectUri,
-      state: state
-    })
-
-    const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
-    console.log('Full auth URL:', authUrl)
-    console.log('🔐 redirectToLogin: About to redirect to Cognito')
+    // Build URL manually to ensure it's correct
+    const params = [
+      'client_id=' + encodeURIComponent(clientId),
+      'response_type=code',
+      'scope=' + encodeURIComponent('openid email profile'),
+      'redirect_uri=' + encodeURIComponent(redirectUri)
+    ].join('&')
     
-    // Redirect after a short delay to ensure logs are captured
-    await new Promise(resolve => setTimeout(resolve, 100))
+    const authUrl = domain + '/oauth2/authorize?' + params
+    console.log('Auth URL:', authUrl)
+    console.log('🔐 About to redirect...')
+    
     window.location.href = authUrl
   } catch (err) {
-    console.error('🔐 redirectToLogin ERROR:', err)
-    throw err
+    console.error('🔐 ERROR:', err)
+    alert('OAuth Error: ' + err.message)
   }
-  window.location.href = authUrl
 }
 
 /**
