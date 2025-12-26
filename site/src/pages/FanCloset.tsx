@@ -1,155 +1,240 @@
 /**
- * FAN Tier - Closet Page
- * Features: Browse Lala's signature outfits with affiliate links
+ * FAN Tier - Lala's Closet Page
+ * Features: Browse Lala's signature outfits, mood selector, hearts, styling inspiration
  */
 
 import React, { useState } from 'react';
-import FanLayout from '../components/FanLayout';
 import { Card, StatCard } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
 import { getMockUserCloset } from '../utils/mockData';
+import '../styles/lalas-closet.css';
+
+const CLOSET_MOODS = [
+  { id: 'all', label: '✨ All', color: '#FFB6E1' },
+  { id: 'pastel-barbiecore', label: '💕 Pastel Barbiecore', color: '#FFB6E1' },
+  { id: 'preppy', label: '👗 Preppy Chic', color: '#B6D7FF' },
+  { id: 'indie', label: '🎸 Indie Aesthetic', color: '#D4A5FF' },
+  { id: 'maximalist', label: '🌟 Maximalist', color: '#FFD4A5' },
+];
+
+const SORT_OPTIONS = [
+  { id: 'newest', label: 'Newest' },
+  { id: 'loved', label: 'Most Loved' },
+  { id: 'lala-pick', label: "Lala's Pick" },
+  { id: 'partel', label: 'Pastel' },
+];
 
 export function FanCloset() {
-  const [user] = useState({
-    id: 'user_123',
-    name: 'Sarah',
-    tier: 'fan' as const,
-  });
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState('pastel-barbiecore');
+  const [selectedSort, setSelectedSort] = useState('loved');
+  const [heartedItems, setHeartedItems] = useState<Set<string>>(new Set());
 
   const closetItems = getMockUserCloset();
   const selectedItemData = closetItems.find((item) => item.id === selectedItem);
 
+  const toggleHeart = (itemId: string) => {
+    const newHearted = new Set(heartedItems);
+    if (newHearted.has(itemId)) {
+      newHearted.delete(itemId);
+    } else {
+      newHearted.add(itemId);
+    }
+    setHeartedItems(newHearted);
+  };
+
+  // Sort items
+  let sortedItems = [...closetItems];
+  if (selectedSort === 'loved') {
+    sortedItems.sort((a, b) => b.likes - a.likes);
+  }
+
   const stats = {
     totalOutfits: closetItems.length,
     totalLikes: closetItems.reduce((sum, item) => sum + item.likes, 0),
-    colors: ['Red', 'Black', 'Gold', 'Blue'],
+    yourHearts: heartedItems.size,
   };
 
   return (
-    <FanLayout currentPage="closet">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">✨ Lala's Closet</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
-          Explore Lala's iconic outfits and find affiliate shopping links!
-        </p>
-      </div>
+    <>
+      {/* HERO SECTION */}
+      <section className="closet-hero">
+        <div className="closet-hero-content">
+          <h1 className="closet-hero-title">Come style me, bestie 💜</h1>
+          <p className="closet-hero-subtitle">
+            Heart your fave looks and I'll use them to inspire future drops & Style Lab combos.
+          </p>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <StatCard
-          label="Iconic Outfits"
-          value={stats.totalOutfits}
-          icon="👗"
-          color="purple"
-        />
-        <StatCard
-          label="Total Likes"
-          value={stats.totalLikes.toLocaleString()}
-          icon="❤️"
-          color="pink"
-        />
-        <StatCard
-          label="Colors Used"
-          value={stats.colors.length}
-          icon="🎨"
-          color="blue"
-        />
-      </div>
-
-      {/* Selected Item Detail */}
-      {selectedItemData && (
-        <div className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 border-2 border-purple-600">
-          <div className="grid grid-cols-1 md:grid-cols-3">
-            <div className="md:col-span-1 bg-gradient-to-br from-purple-200 to-pink-200 aspect-square flex items-center justify-center text-8xl rounded-lg">
-              {selectedItemData.image}
+        <div className="closet-hero-sidebar">
+          <div className="mood-card">
+            <div className="mood-card-label">Closet mood</div>
+            <div className="mood-selector">
+              {CLOSET_MOODS.map((mood) => (
+                <button
+                  key={mood.id}
+                  className={`mood-option ${selectedMood === mood.id ? 'active' : ''}`}
+                  onClick={() => setSelectedMood(mood.id)}
+                  style={{ 
+                    backgroundColor: selectedMood === mood.id ? mood.color : 'transparent',
+                  }}
+                  title={mood.label}
+                >
+                  {mood.label}
+                </button>
+              ))}
             </div>
-            <div className="md:col-span-2 md:pl-6 mt-4 md:mt-0">
-              <h2 className="text-3xl font-bold mb-2">{selectedItemData.name}</h2>
-              <Badge variant="info" className="mb-4">{selectedItemData.type}</Badge>
-              
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Colors</p>
-                <div className="flex gap-2">
+            <Button variant="secondary" size="sm" className="mt-4 w-full">
+              Open Style Lab
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* FILTER & SORT */}
+      <section className="closet-controls">
+        <div className="filter-tabs">
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              className={`filter-tab ${selectedSort === option.id ? 'active' : ''}`}
+              onClick={() => setSelectedSort(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+          <span className="filter-count">Showing {sortedItems.length} of {closetItems.length} looks</span>
+        </div>
+      </section>
+
+      {/* DETAILED VIEW */}
+      {selectedItemData && (
+        <section className="closet-detail">
+          <div className="detail-container">
+            <div className="detail-visual">
+              <div className="detail-image">
+                {selectedItemData.image}
+              </div>
+            </div>
+
+            <div className="detail-info">
+              <div className="detail-header">
+                <div>
+                  <h2 className="detail-name">{selectedItemData.name}</h2>
+                  <p className="detail-subtitle">Closet look • Fan + Bestie</p>
+                </div>
+                <button 
+                  className={`heart-button ${heartedItems.has(selectedItem!) ? 'hearted' : ''}`}
+                  onClick={() => setSelectedItem(selectedItem!)}
+                >
+                  ❤️
+                </button>
+              </div>
+
+              <div className="detail-stats">
+                <div className="stat">
+                  <span className="stat-count">❤️ {selectedItemData.likes}</span>
+                  <span className="stat-label">Hearts</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-count">{selectedItemData.type}</span>
+                  <span className="stat-label">Style Type</span>
+                </div>
+              </div>
+
+              <p className="detail-description">
+                I'd wear this to brunch or a picnic.
+              </p>
+
+              <div className="detail-colors">
+                <p className="detail-label">Colors</p>
+                <div className="color-chips">
                   {selectedItemData.colors.map((color) => (
-                    <div
-                      key={color}
-                      className="px-3 py-1 rounded-lg bg-gray-200 dark:bg-slate-600 text-sm"
-                    >
-                      {color}
-                    </div>
+                    <span key={color} className="color-chip">{color}</span>
                   ))}
                 </div>
               </div>
 
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Community Love</p>
-                <p className="text-3xl font-bold text-pink-600">❤️ {selectedItemData.likes.toLocaleString()}</p>
-              </div>
-
-              <div className="space-y-2">
+              <div className="detail-actions">
                 <Button variant="primary" size="lg" className="w-full">
-                  Shop This Outfit
-                </Button>
-                <Button variant="ghost" size="lg" className="w-full">
-                  Get Styling Tips
+                  Shop This Look
                 </Button>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* All Closet Items */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">All Items</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {closetItems.map((item) => (
-            <Card
+      {/* GRID OF LOOKS */}
+      <section className="closet-grid-section">
+        <h2 className="grid-title">Lala's Closet Feed</h2>
+        <p className="grid-subtitle">
+          Tap a look to heart it and save inspo. The most-loved looks help decer futurebestrops.
+        </p>
+
+        <div className="closet-grid">
+          {sortedItems.map((item) => (
+            <div
               key={item.id}
-              hoverable
+              className={`closet-card ${selectedItem === item.id ? 'selected' : ''}`}
               onClick={() => setSelectedItem(item.id)}
-              className={`p-4 cursor-pointer ${selectedItem === item.id ? 'ring-2 ring-purple-600' : ''}`}
             >
-              <div className="bg-gradient-to-br from-purple-200 to-pink-200 aspect-square flex items-center justify-center text-6xl rounded-lg mb-3">
-                {item.image}
+              <div className="card-image">
+                <div className="image-content">{item.image}</div>
+
+                <button
+                  className={`card-heart ${heartedItems.has(item.id) ? 'hearted' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleHeart(item.id);
+                  }}
+                >
+                  ❤️ {item.likes + (heartedItems.has(item.id) ? 1 : 0)}
+                </button>
               </div>
-              <h3 className="font-bold text-lg mb-1">{item.name}</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 uppercase">
-                {item.type}
-              </p>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {item.colors.map((color) => (
-                  <Badge key={color} variant="default">{color}</Badge>
-                ))}
+
+              <div className="card-details">
+                <h3 className="card-name">{item.name}</h3>
+                <p className="card-note">Heart this if you'd wear it</p>
+                <p className="card-social">You and {Math.floor(Math.random() * 50)} others love it</p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-pink-600 font-bold">❤️ {item.likes}</span>
-                <Button variant="primary" size="sm">
-                  View
-                </Button>
-              </div>
-            </Card>
+            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Create Your Own CTA */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-8 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Create Your Own Outfits 🎨</h2>
-            <p className="text-lg opacity-90">
-              Upgrade to Bestie and design your own looks in the Styling Studio!
+      {/* STATS BAR */}
+      <section className="closet-stats">
+        <div className="stat-item">
+          <span className="stat-number">{stats.totalOutfits}</span>
+          <span className="stat-text">Looks in Lala's closet</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{stats.totalLikes.toLocaleString()}</span>
+          <span className="stat-text">Total hearts</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{stats.yourHearts}</span>
+          <span className="stat-text">Your hearts</span>
+        </div>
+      </section>
+
+      {/* UPGRADE CTA */}
+      <section className="closet-cta">
+        <div className="cta-card">
+          <div className="cta-content">
+            <h2 className="cta-title">Upgrade to Bestie 💎</h2>
+            <p className="cta-description">
+              Create your own outfits, access the Style Lab, and get early drops.
             </p>
           </div>
           <Button variant="secondary" size="lg">
-            Upgrade →
+            Become a Bestie →
           </Button>
         </div>
-      </div>
-    </FanLayout>
+      </section>
+    </>
   );
 }
 

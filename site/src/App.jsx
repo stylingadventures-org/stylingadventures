@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardRouter } from './pages/DashboardRouter'
+import FanLayout from './components/FanLayout'
 import Header from './components/Header'
 import './App.css'
 
@@ -112,13 +113,15 @@ function App() {
             }
           />
           
-          {/* FAN Tier Routes - PUBLIC, no authentication required */}
-          <Route path="/fan/home" element={<FanHome />} />
-          <Route path="/fan/episodes" element={<FanEpisodes />} />
-          <Route path="/fan/styling" element={<FanStyling />} />
-          <Route path="/fan/closet" element={<FanCloset />} />
-          <Route path="/fan/blog" element={<FanBlog />} />
-          <Route path="/fan/magazine" element={<FanMagazine />} />
+          {/* FAN Tier Routes - PUBLIC, nested under FanLayout (renders ONCE) */}
+          <Route path="/fan" element={<FanLayout />}>
+            <Route path="home" element={<FanHome />} />
+            <Route path="episodes" element={<FanEpisodes />} />
+            <Route path="styling" element={<FanStyling />} />
+            <Route path="closet" element={<FanCloset />} />
+            <Route path="blog" element={<FanBlog />} />
+            <Route path="magazine" element={<FanMagazine />} />
+          </Route>
           
           {/* BESTIE Tier Routes */}
           <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />

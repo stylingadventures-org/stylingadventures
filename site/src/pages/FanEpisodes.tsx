@@ -1,105 +1,192 @@
 /**
- * FAN Tier - Episodes Page
- * Features: Episode grid with filtering, watch teaser previews
+ * FAN Tier - Episodes Page (Netflix-style)
+ * Features: Hero banner, continue watching, episode carousels, trending section
  */
 
-import React, { useState } from 'react';
-import FanLayout from '../components/FanLayout';
-import { ContentCard } from '../components/DataDisplay';
+import React, { useState, useRef } from 'react';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
 import { getMockEpisodes } from '../utils/mockData';
+import '../styles/episodes-netflix.css';
 
 export function FanEpisodes() {
-  const [currentPage, setCurrentPage] = useState('episodes');
-  const [user] = useState({
-    id: 'user_123',
-    name: 'Sarah',
-    tier: 'fan' as const,
-  });
   const [selectedEpisode, setSelectedEpisode] = useState<string | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   const episodes = getMockEpisodes();
-  const selectedEp = episodes.find((ep) => ep.id === selectedEpisode);
+  const selectedEp = episodes.find((ep) => ep.id === selectedEpisode) || episodes[0];
+  
+  // Continue watching (first 3 episodes)
+  const continueWatching = episodes.slice(0, 3);
+  // New releases
+  const newReleases = episodes.slice(0, 6);
+  // Trending
+  const trending = episodes.filter((_, i) => i % 2 === 0);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const scrollAmount = 400;
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   return (
-    <FanLayout currentPage="episodes">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">LALA Episodes</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
-          Watch free episode previews. Upgrade to Bestie to unlock full episodes!
-        </p>
-      </div>
-
-      {/* Selected Episode Preview */}
-      {selectedEp && (
-        <div className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 border-2 border-purple-600">
-          <div className="grid grid-cols-1 md:grid-cols-3">
-            <div className="md:col-span-1 bg-gradient-to-br from-purple-200 to-pink-200 aspect-video flex items-center justify-center text-6xl rounded-lg">
-              {selectedEp.thumbnail}
+    <>
+      {/* NETFLIX-STYLE HERO */}
+      <div className="episode-hero" style={{
+        backgroundImage: `linear-gradient(135deg, rgba(162, 74, 255, 0.8), rgba(255, 105, 180, 0.8))`,
+      }}>
+        <div className="episode-hero-content">
+          <div className="episode-hero-title">
+            <div className="episode-hero-season">
+              <Badge variant="success">SEASON 1 • EPISODE {selectedEp.id}</Badge>
             </div>
-            <div className="md:col-span-2 md:pl-6 mt-4 md:mt-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className="text-3xl font-bold">{selectedEp.title}</h2>
-                <Badge variant="success">FREE PREVIEW</Badge>
+            <h1 className="episode-hero-name">{selectedEp.title}</h1>
+            <p className="episode-hero-description">{selectedEp.description}</p>
+            
+            <div className="episode-hero-stats">
+              <div className="stat">
+                <span className="stat-label">Duration</span>
+                <span className="stat-value">{(selectedEp.duration / 60).toFixed(0)}min</span>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{selectedEp.description}</p>
-              <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Duration</p>
-                  <p className="font-bold">{selectedEp.duration / 60}min</p>
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Views</p>
-                  <p className="font-bold">{selectedEp.views.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Quality</p>
-                  <p className="font-bold">{selectedEp.quality}</p>
-                </div>
+              <div className="stat">
+                <span className="stat-label">Views</span>
+                <span className="stat-value">{(selectedEp.views / 1000).toFixed(0)}K</span>
               </div>
-              <Button variant="primary" size="lg">
-                Watch Preview (5min)
+              <div className="stat">
+                <span className="stat-label">Quality</span>
+                <span className="stat-value">{selectedEp.quality}</span>
+              </div>
+            </div>
+
+            <div className="episode-hero-buttons">
+              <Button variant="primary" size="lg" className="btn-play">
+                ▶ Watch Preview (5 min)
+              </Button>
+              <Button variant="ghost" size="lg" className="btn-info">
+                ℹ More Info
               </Button>
             </div>
           </div>
+
+          <div className="episode-hero-poster">
+            <div className="poster-frame">
+              {selectedEp.thumbnail}
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* CONTINUE WATCHING */}
+      {continueWatching.length > 0 && (
+        <section className="episode-carousel-section">
+          <h2 className="carousel-title">Continue Watching</h2>
+          <div className="carousel-wrapper">
+            <button className="carousel-arrow left" onClick={() => scroll('left')}>‹</button>
+            <div className="carousel-container" ref={carouselRef}>
+              {continueWatching.map((ep) => (
+                <div 
+                  key={ep.id} 
+                  className={`carousel-item ${selectedEpisode === ep.id ? 'active' : ''}`}
+                  onClick={() => setSelectedEpisode(ep.id)}
+                >
+                  <div className="carousel-card">
+                    <div className="card-thumbnail">
+                      {ep.thumbnail}
+                    </div>
+                    <div className="card-progress">
+                      <div className="progress-bar"></div>
+                    </div>
+                    <div className="card-info">
+                      <p className="card-title">{ep.title}</p>
+                      <p className="card-duration">{(ep.duration / 60).toFixed(0)} min</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="carousel-arrow right" onClick={() => scroll('right')}>›</button>
+          </div>
+        </section>
       )}
 
-      {/* Episodes Grid */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">All Episodes</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {episodes.map((episode) => (
-            <div key={episode.id}>
-              <ContentCard
-                title={episode.title}
-                description={episode.description}
-                emoji={episode.thumbnail}
-                image=""
-                views={episode.views}
-                likes={episode.likes}
-                onClick={() => setSelectedEpisode(episode.id)}
-              />
-              <div className="mt-2">
-                <Badge variant={selectedEpisode === episode.id ? 'success' : 'info'}>
-                  Preview Available
-                </Badge>
+      {/* NEW RELEASES */}
+      <section className="episode-carousel-section">
+        <h2 className="carousel-title">Latest Episodes</h2>
+        <div className="carousel-wrapper">
+          <button className="carousel-arrow left" onClick={() => scroll('left')}>‹</button>
+          <div className="carousel-container" ref={carouselRef}>
+            {newReleases.map((ep) => (
+              <div 
+                key={ep.id}
+                className={`carousel-item ${selectedEpisode === ep.id ? 'active' : ''}`}
+                onClick={() => setSelectedEpisode(ep.id)}
+              >
+                <div className="carousel-card">
+                  <div className="card-thumbnail">
+                    {ep.thumbnail}
+                  </div>
+                  <div className="card-badge">NEW</div>
+                  <div className="card-info">
+                    <p className="card-title">{ep.title}</p>
+                    <p className="card-duration">{(ep.duration / 60).toFixed(0)} min</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          <button className="carousel-arrow right" onClick={() => scroll('right')}>›</button>
         </div>
-      </div>
+      </section>
 
-      {/* Upgrade CTA */}
-      <div className="mt-12 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl p-8 text-white text-center">
-        <h2 className="text-3xl font-bold mb-3">Want Full Episodes? 🎬</h2>
-        <p className="text-lg opacity-90 mb-6">Upgrade to Bestie to watch complete episodes with bonus content.</p>
-        <Button variant="secondary" size="lg">
-          Upgrade Now →
-        </Button>
-      </div>
-    </FanLayout>
+      {/* TRENDING NOW */}
+      <section className="episode-carousel-section">
+        <h2 className="carousel-title">Trending Now</h2>
+        <div className="carousel-wrapper">
+          <button className="carousel-arrow left" onClick={() => scroll('left')}>‹</button>
+          <div className="carousel-container" ref={carouselRef}>
+            {trending.map((ep, idx) => (
+              <div 
+                key={ep.id}
+                className={`carousel-item trending ${selectedEpisode === ep.id ? 'active' : ''}`}
+                onClick={() => setSelectedEpisode(ep.id)}
+              >
+                <div className="carousel-card trending-card">
+                  <div className="trending-number">#{idx + 1}</div>
+                  <div className="card-thumbnail">
+                    {ep.thumbnail}
+                  </div>
+                  <div className="card-info">
+                    <p className="card-title">{ep.title}</p>
+                    <p className="card-duration">👁 {(ep.views / 1000).toFixed(0)}K views</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="carousel-arrow right" onClick={() => scroll('right')}>›</button>
+        </div>
+      </section>
+
+      {/* UPGRADE CTA */}
+      <section className="upgrade-cta-section">
+        <div className="upgrade-card">
+          <div className="upgrade-content">
+            <h2 className="upgrade-title">🎬 Want Full Episodes?</h2>
+            <p className="upgrade-description">
+              Upgrade to Bestie to watch complete episodes with exclusive bonus content, behind-the-scenes, and early releases.
+            </p>
+            <Button variant="secondary" size="lg">
+              Upgrade to Bestie →
+            </Button>
+          </div>
+          <div className="upgrade-visual">✨</div>
+        </div>
+      </section>
+    </>
   );
 }
 

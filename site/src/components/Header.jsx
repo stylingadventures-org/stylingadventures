@@ -50,10 +50,10 @@ export default function Header() {
 
   const navItems = useMemo(() => {
     const items = [
-      { label: 'Discover', to: '/discover', gated: true }, // gated feels better than silent nav
+      { label: 'Discover', to: '/discover', gated: false }, // FAN pages are PUBLIC
       { label: 'Episodes', to: '/fan/home', gated: false },
-      { label: 'Styling', to: '/fan/styling', gated: true },
-      { label: 'Closet', to: '/fan/closet', gated: true },
+      { label: 'Styling', to: '/fan/styling', gated: false },
+      { label: 'Closet', to: '/fan/closet', gated: false },
       { label: 'Blog', to: '/fan/blog', gated: false },
     ]
 

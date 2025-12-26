@@ -368,3 +368,562 @@
     grid-template-columns: 1fr;
   }
 }
+/* =========================================================
+   Enhancements: Layout, Discover polish, tiers, a11y, skeletons
+   Paste at END of pages.css
+========================================================= */
+
+/* --- Global helpers (safe additions) --- */
+.btn-block {
+  width: 100%;
+}
+
+.btn-tertiary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.btn-tertiary:hover {
+  border-color: var(--primary);
+}
+
+.btn:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.35); /* indigo-ish glow */
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Slightly nicer hero on large screens */
+.hero {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Make page-container not feel too wide or too cramped */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* --- Discover: make it feel like a "district" & improve layout --- */
+.discover-hero.discover-hero--district {
+  padding: 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(162, 74, 255, 0.18), rgba(255, 105, 180, 0.14));
+  border: 1px solid rgba(0,0,0,0.06);
+  margin-bottom: 18px;
+}
+
+.discover-hero-meta {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.06);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.pill-warn {
+  background: rgba(255, 193, 7, 0.18);
+  border-color: rgba(255, 193, 7, 0.35);
+}
+
+/* Sticky filters so users don’t scroll back up */
+.discover-filters.discover-filters--sticky {
+  position: sticky;
+  top: 84px; /* adjust if your top bar differs */
+  z-index: 10;
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.filters-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.sort-wrap {
+  min-width: 160px;
+}
+
+.small-label {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.select {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0 12px;
+  background: white;
+  font-size: 14px;
+}
+
+.filter-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 6px 0 10px;
+}
+
+.small-muted {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* Discover grid: tighter + more consistent */
+.creators-grid.creators-grid--tight {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Clickable + hover polish */
+.creator-card.creator-card--hover {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.creator-card.creator-card--hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.10);
+}
+
+.creator-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 28px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(0,0,0,0.06);
+  margin: 18px 0;
+}
+
+.empty-state h3 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+/* Loading feel: skeletons */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.skeleton-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.10), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  margin-bottom: 10px;
+}
+
+.skeleton-line.lg { height: 18px; width: 65%; }
+.skeleton-line.md { width: 85%; }
+.skeleton-line.sm { width: 55%; }
+
+@keyframes shimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* --- Tier badge fallbacks & normalization --- */
+/* Existing: pro/indie/independent already in your CSS. Add more safe defaults: */
+.tier-creator,
+.tier-default {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.tier-collaborator {
+  background-color: #fde68a;
+  color: #92400e;
+}
+
+.tier-admin {
+  background-color: #fecaca;
+  color: #7f1d1d;
+}
+
+/* If you ever get "bestie" as tier on creator cards */
+.tier-bestie {
+  background-color: #fbcfe8;
+  color: #831843;
+}
+
+/* --- Genre badge polish for consistency --- */
+.genre-badge {
+  border: 1px solid rgba(79, 70, 229, 0.18);
+}
+
+/* --- Responsive improvements --- */
+@media (max-width: 1100px) {
+  .creators-grid.creators-grid--tight,
+  .skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .filters-row {
+    grid-template-columns: 1fr;
+  }
+  .sort-wrap {
+    min-width: unset;
+  }
+  .creators-grid.creators-grid--tight,
+  .skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* =========================================================
+   Discover: Facebook-profile style layout (Creator District)
+========================================================= */
+
+/* A simple “shell” like FB profile top */
+.profile-shell {
+  background: transparent;
+  margin-bottom: 18px;
+}
+
+.profile-cover {
+  height: 220px;
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: linear-gradient(135deg, rgba(162, 74, 255, 0.20), rgba(255, 105, 180, 0.16));
+}
+
+.profile-cover-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35), transparent 55%);
+}
+
+.profile-cover-sparkles {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  opacity: 0.6;
+  letter-spacing: 8px;
+}
+
+.profile-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: end;
+  padding: 0 16px;
+  margin-top: -42px; /* avatar overlap */
+}
+
+.profile-avatar {
+  width: 104px;
+  height: 104px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  background: rgba(255,255,255,0.9);
+  border: 4px solid rgba(255,255,255,0.95);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.profile-subtitle {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+}
+
+.profile-badges {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.profile-tabs {
+  margin-top: 14px;
+  padding: 0 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.tab {
+  padding: 10px 14px;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.tab.active {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(0,0,0,0.06);
+}
+
+/* Body like FB: left sidebar cards + right feed */
+.profile-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-left {
+  position: sticky;
+  top: 92px; /* below topbar */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Cards (left column) */
+.card {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.card-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.card-text {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.quick-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.filter-mini-row {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.small-heading {
+  font-size: 13px;
+  font-weight: 900;
+  margin: 0;
+}
+
+/* Feed header card */
+.feed-card {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.feed-card--header {
+  padding: 14px 16px;
+}
+
+.feed-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.feed-text {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.feed-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+}
+
+/* A “post” like FB */
+.feed-post {
+  background: rgba(255,255,255,0.90);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.feed-post:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.10);
+}
+
+.post-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.post-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.10);
+  display: grid;
+  place-items: center;
+}
+
+.post-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.post-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.post-sub {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dot {
+  opacity: 0.7;
+}
+
+.post-bio {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.post-genres {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.post-footer {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Small button sizing */
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .profile-body {
+    grid-template-columns: 1fr;
+  }
+  .profile-left {
+    position: static;
+  }
+  .profile-header {
+    grid-template-columns: auto 1fr;
+  }
+  .profile-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+}

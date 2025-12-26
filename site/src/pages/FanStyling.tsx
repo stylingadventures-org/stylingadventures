@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from 'react';
-import FanLayout from '../components/FanLayout';
 import { Card, StatCard } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -36,7 +35,7 @@ export function FanStyling() {
   };
 
   return (
-    <FanLayout currentPage="styling">
+    <>
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Styling Adventures 👗</h1>
         <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -150,7 +149,7 @@ export function FanStyling() {
           </Button>
         </div>
       </div>
-    </FanLayout>
+    </>
   );
 }
 

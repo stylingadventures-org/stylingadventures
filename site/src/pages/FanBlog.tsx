@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from 'react';
-import FanLayout from '../components/FanLayout';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -64,7 +63,7 @@ export function FanBlog() {
   const selected = blogPosts.find((post) => post.id === selectedPost);
 
   return (
-    <FanLayout currentPage="blog">
+    <>
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">✨ LALA Blog</h1>
         <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -165,7 +164,7 @@ export function FanBlog() {
           </div>
         </>
       )}
-    </FanLayout>
+    </>
   );
 }
 

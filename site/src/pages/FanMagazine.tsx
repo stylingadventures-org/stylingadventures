@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from 'react';
-import FanLayout from '../components/FanLayout';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -70,7 +69,7 @@ export function FanMagazine() {
   const selected = magazines.find((mag) => mag.id === selectedMag);
 
   return (
-    <FanLayout currentPage="magazine">
+    <>
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">📰 LALA Magazine</h1>
         <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -195,7 +194,7 @@ export function FanMagazine() {
           </div>
         </>
       )}
-    </FanLayout>
+    </>
   );
 }
 

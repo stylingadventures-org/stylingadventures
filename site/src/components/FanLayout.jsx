@@ -1,15 +1,17 @@
-import { useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import '../styles/fan-layout.css'
+import '../styles/fan-components.css'
 
-export default function FanLayout({ children, currentPage }) {
+export default function FanLayout() {
+  const location = useLocation()
   const navigate = useNavigate()
   const { userContext } = useAuth()
 
   // Determine user tier
   const userTier = userContext?.tier || 'guest'
   const isLoggedIn = !!userContext?.email
-  
+
   // FAN Tier pages (visible to all, public)
   const fanPages = [
     { id: 'home', label: '🏠 Home', path: '/fan/home' },
@@ -39,16 +41,19 @@ export default function FanLayout({ children, currentPage }) {
     ...(isLoggedIn ? [{ id: 'profile', label: '👤 Profile', path: '/fan/profile' }] : []),
   ]
 
+  // Determine active nav item based on current route
+  const isActive = (path) => location.pathname === path
+
   return (
     <div className="fan-layout">
-      {/* Sidebar */}
+      {/* Sidebar - Hidden < 900px */}
       <aside className="fan-sidebar">
         <div className="sidebar-header">
           <div className="creator-avatar">
             <span>{isLoggedIn && userTier === 'bestie' ? '💎' : '👑'}</span>
           </div>
           <div className="creator-info">
-            <h3>{userContext?.name || 'Guest'}</h3>
+            <h3>{userContext?.name || 'Fan Tier'}</h3>
             <p className="tier-badge">
               {isLoggedIn ? (userTier === 'bestie' ? 'BESTIE' : 'FAN') : 'PUBLIC'}
             </p>
@@ -56,10 +61,10 @@ export default function FanLayout({ children, currentPage }) {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map(item => (
+          {navItems.map((item) => (
             <button
               key={item.id}
-              className={`sidebar-nav-item ${currentPage === item.id ? 'active' : ''}`}
+              className={`sidebar-nav-item ${isActive(item.path) ? 'active' : ''}`}
               onClick={() => navigate(item.path)}
             >
               {item.label}
@@ -69,22 +74,22 @@ export default function FanLayout({ children, currentPage }) {
 
         <div className="sidebar-footer">
           <p className="user-email">
-            {isLoggedIn ? userContext?.email : 'Not logged in'}
+            {isLoggedIn ? userContext?.email : 'Fan Community'}
           </p>
           {!isLoggedIn && (
-            <button 
+            <button
               onClick={() => navigate('/')}
               style={{
                 width: '100%',
                 padding: '8px 12px',
                 marginTop: '10px',
-                background: 'linear-gradient(135deg, #ff69b4, #ff1493)',
+                background: 'linear-gradient(135deg, var(--brand-hot-pink), var(--brand-purple))',
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-pill)',
                 cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '600'
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: '600',
               }}
             >
               Login / Sign Up
@@ -93,9 +98,9 @@ export default function FanLayout({ children, currentPage }) {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area - Renders fan page via <Outlet /> */}
       <main className="fan-main">
-        {children}
+        <Outlet />
       </main>
     </div>
   )

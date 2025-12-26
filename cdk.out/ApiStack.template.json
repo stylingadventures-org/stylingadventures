@@ -890,7 +890,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "772e0816cff52b48c16c465d56334c01850dc72557ff97dcc9c8cb868a7c2143.zip"
+     "S3Key": "850de1b3b64f45e898f12936592939f999c697fea2f5fe4f4f3acfdc50fa96df.zip"
     },
     "Environment": {
      "Variables": {
@@ -945,7 +945,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "ApiStack/ClosetResolverFn/Resource",
-    "aws:asset:path": "asset.772e0816cff52b48c16c465d56334c01850dc72557ff97dcc9c8cb868a7c2143",
+    "aws:asset:path": "asset.850de1b3b64f45e898f12936592939f999c697fea2f5fe4f4f3acfdc50fa96df",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
