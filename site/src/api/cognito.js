@@ -70,11 +70,12 @@ export async function redirectToSignup(userType = 'player') {
     redirect_uri: redirectUri,
     state: state,
     code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    login_type: userType
+    code_challenge_method: 'S256'
   })
 
-  window.location.href = `${domain}/oauth2/authorize?${params.toString()}`
+  const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
+  console.log('Redirecting to Cognito signup:', authUrl)
+  window.location.href = authUrl
 }
 
 /**
@@ -108,7 +109,9 @@ export async function redirectToLogin() {
     code_challenge_method: 'S256'
   })
 
-  window.location.href = `${domain}/oauth2/authorize?${params.toString()}`
+  const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
+  console.log('Redirecting to Cognito login:', authUrl)
+  window.location.href = authUrl
 }
 
 /**
