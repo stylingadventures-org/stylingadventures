@@ -1,0 +1,496 @@
+/* FanHome Component Styles */
+
+.fan-home {
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Hero Section
+   ============================================ */
+
+.fh-hero {
+  background: linear-gradient(135deg, var(--brand-hot-pink) 0%, var(--brand-purple) 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-medium);
+}
+
+.fh-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(20px);
+  }
+}
+
+.fh-hero-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.fh-hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.2;
+}
+
+.fh-hero-subtitle {
+  font-size: 1.125rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.95;
+  font-weight: 500;
+}
+
+.fh-hero-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.fh-btn-primary,
+.fh-btn-secondary,
+.fh-btn-tertiary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.fh-btn-primary {
+  background: white;
+  color: var(--brand-hot-pink);
+  box-shadow: var(--shadow-soft);
+}
+
+.fh-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-high);
+}
+
+.fh-btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid white;
+}
+
+.fh-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.fh-btn-tertiary {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.fh-btn-tertiary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: white;
+}
+
+/* ============================================
+   Section Styles
+   ============================================ */
+
+.fh-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.fh-section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  color: #1a1a1a;
+  position: relative;
+  padding-left: var(--spacing-sm);
+}
+
+.fh-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(180deg, var(--brand-hot-pink), var(--brand-purple));
+  border-radius: 2px;
+}
+
+/* ============================================
+   Stats Grid
+   ============================================ */
+
+.fh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.fh-stat-card {
+  background: white;
+  border: 2px solid #f0f0f0;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+}
+
+.fh-stat-card:hover {
+  border-color: var(--brand-hot-pink);
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-4px);
+}
+
+.fh-stat-icon {
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 60px;
+  background: var(--brand-light-pink);
+  border-radius: var(--radius-md);
+}
+
+.fh-stat-content {
+  flex: 1;
+}
+
+.fh-stat-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--brand-hot-pink);
+  line-height: 1;
+}
+
+.fh-stat-label {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* ============================================
+   Content Grid
+   ============================================ */
+
+.fh-content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.fh-content-card {
+  background: white;
+  border: 2px solid #f0f0f0;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-soft);
+}
+
+.fh-content-card:hover {
+  border-color: var(--brand-warm-pink);
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-4px);
+}
+
+.fh-card-icon {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fh-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  color: #1a1a1a;
+}
+
+.fh-card-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--spacing-md) 0;
+  flex: 1;
+}
+
+.fh-card-list li {
+  font-size: 0.9375rem;
+  color: #666;
+  padding: 6px 0;
+  padding-left: 24px;
+  position: relative;
+}
+
+.fh-card-list li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--brand-hot-pink);
+  font-weight: 700;
+}
+
+.fh-card-button {
+  align-self: flex-start;
+  background: linear-gradient(135deg, var(--brand-hot-pink), var(--brand-purple));
+  color: white;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+}
+
+.fh-card-button:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-medium);
+}
+
+.fh-card-button:active {
+  transform: translateX(2px);
+}
+
+/* ============================================
+   Lala Says Section
+   ============================================ */
+
+.fh-lala-card {
+  background: linear-gradient(135deg, #fffbf0 0%, #fff5f9 100%);
+  border: 2px solid var(--brand-light-pink);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  text-align: center;
+  position: relative;
+  box-shadow: var(--shadow-soft);
+}
+
+.fh-lala-quote-icon {
+  font-size: 3rem;
+  color: var(--brand-hot-pink);
+  opacity: 0.3;
+  line-height: 1;
+  margin-bottom: var(--spacing-sm);
+}
+
+.fh-lala-quote {
+  font-size: 1.125rem;
+  font-style: italic;
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: var(--spacing-md);
+  font-weight: 500;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.fh-lala-badges {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.fh-badge-primary,
+.fh-badge-secondary,
+.fh-badge-tertiary {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.fh-badge-primary {
+  background: var(--brand-light-pink);
+  color: var(--brand-hot-pink);
+}
+
+.fh-badge-secondary {
+  background: #fff0fb;
+  color: var(--brand-warm-pink);
+  border: 1px solid var(--brand-warm-pink);
+}
+
+.fh-badge-tertiary {
+  background: #f3e8ff;
+  color: var(--brand-purple);
+  border: 1px solid var(--brand-purple);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .fan-home {
+    padding: var(--spacing-md);
+  }
+
+  .fh-hero {
+    padding: var(--spacing-md);
+  }
+
+  .fh-hero-title {
+    font-size: 2rem;
+  }
+
+  .fh-hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .fh-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-sm);
+  }
+
+  .fh-content-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fh-lala-card {
+    padding: var(--spacing-md);
+  }
+
+  .fh-lala-quote {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .fan-home {
+    padding: var(--spacing-md);
+  }
+
+  .fh-hero-title {
+    font-size: 1.75rem;
+  }
+
+  .fh-hero-subtitle {
+    font-size: 0.9375rem;
+  }
+
+  .fh-hero-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fh-btn-primary,
+  .fh-btn-secondary,
+  .fh-btn-tertiary {
+    width: 100%;
+  }
+
+  .fh-section-title {
+    font-size: 1.5rem;
+  }
+
+  .fh-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fh-stat-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .fh-stat-icon {
+    width: 100%;
+  }
+
+  .fh-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fh-lala-badges {
+    flex-direction: column;
+  }
+
+  .fh-badge-primary,
+  .fh-badge-secondary,
+  .fh-badge-tertiary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .fan-home {
+    padding: var(--spacing-sm);
+  }
+
+  .fh-hero {
+    padding: var(--spacing-md);
+  }
+
+  .fh-hero-title {
+    font-size: 1.5rem;
+  }
+
+  .fh-section-title {
+    font-size: 1.25rem;
+  }
+
+  .fh-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fh-stat-number {
+    font-size: 1.5rem;
+  }
+
+  .fh-card-title {
+    font-size: 1.125rem;
+  }
+
+  .fh-lala-quote {
+    font-size: 0.9375rem;
+  }
+}
