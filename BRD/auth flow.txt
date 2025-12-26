@@ -1,0 +1,275 @@
+I’ll lay it out as:
+
+What identities/roles you actually have
+
+The recommended sign-up / login flow
+
+How upgrades work (Fan → Bestie → Creator)
+
+How Creator Portal + Collab access should authenticate (SSO)
+
+The exact screens/routes you’ll want
+
+A few “gotchas” to avoid
+
+1) Core Identity Model (keep it simple)
+
+One account. Many roles.
+
+User Account (single identity)
+
+Role(s) assigned to that account:
+
+Fan
+
+Bestie
+
+Creator (Starter / Plus / Pro)
+
+Collaborator (scoped access)
+
+Admin
+
+Prime Studios (internal)
+
+A user can have multiple roles. Example:
+
+Bestie + Creator
+
+Creator + Collaborator
+
+Admin + Prime Studios
+
+Rule: Roles control feature access, not separate accounts.
+
+2) Recommended Auth Flow (User Facing)
+A) Entry (Unauthenticated)
+
+Landing / Welcome
+
+Options:
+
+Continue as Guest (optional)
+
+Sign up
+
+Log in
+
+If you allow guest mode:
+
+Guest can play a tiny demo but can’t earn Prime Coins or save anything.
+
+B) Sign Up
+
+Choose sign-up method:
+
+Email + password
+
+Apple
+
+Google
+
+Minimum info at signup:
+
+Display name (can be changed)
+
+Birth confirmation: “18+” (since you have adult themes)
+
+Accept Terms + Privacy
+
+Then drop them into:
+
+✅ Role selection screen (important)
+
+“How do you want to use Lalaverse today?”
+
+Fan (Free)
+
+Bestie (Paid)
+
+Creator (Paid – Business tools)
+
+If they pick Fan: create Fan role, send to Fan Home
+If they pick Bestie: take payment → then Bestie onboarding
+If they pick Creator: explain Creator Portal is separate experience → payment → Creator onboarding
+
+Key UX note: Most people won’t understand “Creator Portal is separate” unless you tell them here.
+
+3) Tier Upgrades & Payments (Fan → Bestie → Creator)
+
+Upgrades should be within the same account, no re-signups.
+
+Fan → Bestie
+
+CTA appears in-app
+
+When user subscribes:
+
+add role: bestie=true
+
+unlock Bestie pages instantly
+
+preserve profile + coins
+
+Bestie → Creator
+
+show fairness perks:
+
+convert a portion of Prime Bank to Creator Credits
+
+keep closet items + progress
+
+after payment:
+
+add creator tier role:
+
+creator_tier=starter|plus|pro
+
+Creator Portal becomes available (same login)
+
+✅ Best practice: Creator Portal can be a separate domain/app, but should use SSO so it feels seamless.
+
+4) Creator Portal + Collab Portal Authentication (SSO)
+
+You want:
+
+Lalaverse app
+
+Creator Portal (business)
+
+Collaboration portal access
+
+Internal Studio tools
+
+All under one identity.
+
+Recommended:
+
+One auth provider + one token system (JWT/OAuth)
+
+Use:
+
+Access token (short lived)
+
+Refresh token (secure, httpOnly cookie if web)
+
+Creator Portal login experience:
+
+If user is logged into Lalaverse:
+
+“Open Creator Portal” button → SSO redirect → auto logged in
+
+If not logged in:
+
+Creator Portal login page → login → checks role
+
+If no creator role:
+
+show paywall or “apply” screen
+
+Collaborator Access:
+
+Collaborators are often invited.
+Use magic link invites + forced account creation if they don’t exist.
+
+Flow:
+
+Invite email → “Accept Collab”
+
+If user has account → verify login
+
+If not → create account → assign collaborator role scoped to that collab package
+
+Land on Collab Dashboard
+
+5) Auth Screens You Should Have (Clean IA)
+Common screens
+
+/welcome
+
+/signup
+
+/login
+
+/verify-email (if using email verification)
+
+/forgot-password
+
+/reset-password
+
+Post-login routing (role-based)
+
+/app (main Lalaverse)
+
+/creator (Creator Portal)
+
+/collab (Collaborator portal)
+
+/admin (Admin console)
+
+/studio (Prime Studios console)
+
+Tier selection (very helpful)
+
+/choose-your-path
+Fan | Bestie | Creator
+
+Paywall flows
+
+/upgrade/bestie
+
+/upgrade/creator
+
+6) Role-Based Routing Logic (codable rules)
+
+On login, backend returns:
+
+user profile
+
+roles
+
+tier status
+
+entitlements
+
+Then route:
+
+If user has admin → allow /admin
+
+If user has prime_studios → allow /studio
+
+If user has creator_tier → allow /creator
+
+If user has collaborator → allow /collab
+
+Everyone → allow /app
+
+If they try to access a page without role:
+
+show:
+
+“You don’t have access”
+
+“Upgrade” or “Request invite” CTA
+
+7) Security + Policy Must-Haves (since your content is 18+)
+
+Age gate: 18+ confirmation required at signup
+
+Session/device management
+
+2FA optional (Creator, Admin, Prime Studios recommended)
+
+Rate limit login endpoints
+
+Audit logs for Admin + Studio actions
+
+8) Gotchas to Avoid
+
+❌ Separate accounts for Creator Portal (causes confusion and lost users)
+
+❌ Unlimited roles without clear entitlements (be explicit)
+
+❌ No “Choose your path” screen (people won’t understand what they’re joining)
+
+❌ Letting collaborators wander into lore/game pages (keep scoped)

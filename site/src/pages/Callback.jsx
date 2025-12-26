@@ -32,18 +32,19 @@ export default function Callback() {
           // Dispatch custom event to trigger AuthContext re-check
           window.dispatchEvent(new CustomEvent('authChanged'))
           
-          // Check if user signed up intending to be Bestie
-          const signupIntent = sessionStorage.getItem('signupIntent')
+          // Check if this is a NEW signup or existing login
+          const isNewSignup = sessionStorage.getItem('isNewSignup')
+          sessionStorage.removeItem('isNewSignup')
           sessionStorage.removeItem('signupIntent')
           
-          if (signupIntent === 'bestie') {
-            // Redirect to payment page instead of dashboard
-            await new Promise(resolve => setTimeout(resolve, 100))
-            navigate('/become-bestie', { replace: true })
+          // Give browser time to process localStorage updates before navigation
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          if (isNewSignup === 'true') {
+            // New signup → show role selection
+            navigate('/choose-your-path', { replace: true })
           } else {
-            // Give browser time to process localStorage updates before navigation
-            await new Promise(resolve => setTimeout(resolve, 100))
-            // Redirect to dashboard - AuthContext will handle role detection from JWT
+            // Existing user login → go to home/dashboard
             navigate('/dashboard', { replace: true })
           }
         }

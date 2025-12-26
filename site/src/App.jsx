@@ -6,6 +6,12 @@ import FanLayout from './components/FanLayout'
 import Header from './components/Header'
 import './App.css'
 
+// Auth Pages
+import Signup from './pages/Signup'
+import Login from './pages/Login'
+import Callback from './pages/Callback'
+import ChooseYourPath from './pages/ChooseYourPath'
+
 // Pages
 import Home from './pages/Home'
 import Discover from './pages/Discover'
@@ -13,7 +19,6 @@ import CreatorProfile from './pages/CreatorProfile'
 import CreatorSettings from './pages/CreatorSettings'
 import SignupBestie from './pages/SignupBestie'
 import SignupCreator from './pages/SignupCreator'
-import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
 import BecomeBestie from './pages/BecomeBestie'
@@ -49,14 +54,20 @@ function App() {
       <AuthProvider>
         <Header />
         <Routes>
-          {/* Public routes (no sidebar) */}
+          {/* Auth Routes - PUBLIC, no header */}
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/callback" element={<Callback />} />
+          <Route path="/choose-your-path" element={<ChooseYourPath />} />
+          
+          {/* Public routes (with sidebar) */}
           <Route path="/creator/:id" element={<CreatorProfile />} />
           
           {/* Creator settings - protected route */}
           <Route
             path="/creator-settings"
             element={
-              <ProtectedRoute requiredRole="CREATOR">
+              <ProtectedRoute roles={['creator']}>
                 <CreatorSettings />
               </ProtectedRoute>
             }
@@ -67,9 +78,6 @@ function App() {
           <Route path="/signup/creator" element={<SignupCreator />} />
           <Route path="/become-bestie" element={<BecomeBestie />} />
           
-          {/* OAuth callback */}
-          <Route path="/callback" element={<Callback />} />
-          
           {/* Smart dashboard router - routes to correct dashboard based on user role */}
           <Route path="/dashboard" element={<DashboardRouter />} />
           
@@ -77,7 +85,7 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute requiredRole="ADMIN">
+              <ProtectedRoute roles={['admin']}>
                 <Admin />
               </ProtectedRoute>
             } 
@@ -87,7 +95,7 @@ function App() {
           <Route
             path="/creator/cabinet"
             element={
-              <ProtectedRoute requiredRole="CREATOR">
+              <ProtectedRoute roles={['creator']}>
                 <CreatorCabinet />
               </ProtectedRoute>
             }
@@ -97,7 +105,7 @@ function App() {
           <Route
             path="/game"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={['fan', 'bestie', 'creator']}>
                 <FashionGame />
               </ProtectedRoute>
             }
@@ -107,7 +115,7 @@ function App() {
           <Route
             path="/episodes/:episodeId"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute roles={['fan', 'bestie', 'creator']}>
                 <EpisodeTheater />
               </ProtectedRoute>
             }
@@ -130,18 +138,18 @@ function App() {
           </Route>
           
           {/* BESTIE Tier Routes */}
-          <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />
-          <Route path="/bestie/closet" element={<ProtectedRoute><BestieCloset /></ProtectedRoute>} />
-          <Route path="/bestie/studio" element={<ProtectedRoute><BestieStudio /></ProtectedRoute>} />
-          <Route path="/bestie/challenges" element={<ProtectedRoute><BestieChallenges /></ProtectedRoute>} />
-          <Route path="/bestie/vote" element={<ProtectedRoute><BestieVote /></ProtectedRoute>} />
-          <Route path="/bestie/scene-club" element={<ProtectedRoute><SceneClub /></ProtectedRoute>} />
-          <Route path="/bestie/trends" element={<ProtectedRoute><TrendStudio /></ProtectedRoute>} />
-          <Route path="/bestie/stories" element={<ProtectedRoute><BestieStories /></ProtectedRoute>} />
-          <Route path="/bestie/inbox" element={<ProtectedRoute><BestieInbox /></ProtectedRoute>} />
-          <Route path="/bestie/primebank" element={<ProtectedRoute><PrimeBank /></ProtectedRoute>} />
-          <Route path="/bestie/profile" element={<ProtectedRoute><BestieProfile /></ProtectedRoute>} />
-          <Route path="/bestie/achievements" element={<ProtectedRoute><AchievementCenter /></ProtectedRoute>} />
+          <Route path="/bestie/home" element={<ProtectedRoute roles={['bestie']}><BestieHome /></ProtectedRoute>} />
+          <Route path="/bestie/closet" element={<ProtectedRoute roles={['bestie']}><BestieCloset /></ProtectedRoute>} />
+          <Route path="/bestie/studio" element={<ProtectedRoute roles={['bestie']}><BestieStudio /></ProtectedRoute>} />
+          <Route path="/bestie/challenges" element={<ProtectedRoute roles={['bestie']}><BestieChallenges /></ProtectedRoute>} />
+          <Route path="/bestie/vote" element={<ProtectedRoute roles={['bestie']}><BestieVote /></ProtectedRoute>} />
+          <Route path="/bestie/scene-club" element={<ProtectedRoute roles={['bestie']}><SceneClub /></ProtectedRoute>} />
+          <Route path="/bestie/trends" element={<ProtectedRoute roles={['bestie']}><TrendStudio /></ProtectedRoute>} />
+          <Route path="/bestie/stories" element={<ProtectedRoute roles={['bestie']}><BestieStories /></ProtectedRoute>} />
+          <Route path="/bestie/inbox" element={<ProtectedRoute roles={['bestie']}><BestieInbox /></ProtectedRoute>} />
+          <Route path="/bestie/primebank" element={<ProtectedRoute roles={['bestie']}><PrimeBank /></ProtectedRoute>} />
+          <Route path="/bestie/profile" element={<ProtectedRoute roles={['bestie']}><BestieProfile /></ProtectedRoute>} />
+          <Route path="/bestie/achievements" element={<ProtectedRoute roles={['bestie']}><AchievementCenter /></ProtectedRoute>} />
           
           {/* Catch-all fallback */}
           <Route path="*" element={<Home />} />

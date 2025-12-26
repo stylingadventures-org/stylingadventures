@@ -61,26 +61,50 @@ export const handler: PreTokenGenerationTriggerHandler = async (
   event: PreTokenGenerationTriggerEvent,
 ) => {
   const sub = event.request.userAttributes.sub;
+  console.log(`🔐 Pre-token-generation for user: ${sub}`)
+  
   if (!sub) {
     // No sub means we can't look up the user; just pass through
+    console.log('⚠️ No sub found, returning event unchanged')
     return event;
   }
 
-  const tier = await getTierFromDynamo(sub);
-  const groupsFromDb = deriveGroupsFromTier(tier);
+  try {
+    const tier = await getTierFromDynamo(sub);
+    const groupsFromDb = deriveGroupsFromTier(tier);
+    
+    console.log(`✅ User tier: ${tier}, groups: ${groupsFromDb.join(', ')}`)
 
-  // Dynamo is source of truth here — override with our groups
-  event.response = {
-    claimsOverrideDetails: {
-      claimsToAddOrOverride: {
-        // 👇 This 'tier' claim is what your resolvers read
-        tier,
+    // Dynamo is source of truth here — override with our groups
+    event.response = {
+      claimsOverrideDetails: {
+        claimsToAddOrOverride: {
+          // 👇 This 'tier' claim is what your resolvers read
+          tier,
+        },
+        groupOverrideDetails: {
+          groupsToOverride: groupsFromDb,
+        },
       },
-      groupOverrideDetails: {
-        groupsToOverride: groupsFromDb,
-      },
-    },
-  };
+    };
 
-  return event;
+    return event;
+  } catch (error) {
+    console.error('❌ Error in pre-token-generation:', error)
+    
+    // If DynamoDB lookup fails (new user), default to FAN
+    console.log('🆕 Likely new user, defaulting to FAN tier')
+    event.response = {
+      claimsOverrideDetails: {
+        claimsToAddOrOverride: {
+          tier: 'FREE'
+        },
+        groupOverrideDetails: {
+          groupsToOverride: ['FAN'],
+        },
+      },
+    };
+
+    return event;
+  }
 };

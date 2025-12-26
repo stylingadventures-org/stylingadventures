@@ -180,23 +180,26 @@
 
   .fan-sidebar {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm);
     border-right: none;
     border-bottom: 1px solid #e0c0d5;
     flex-shrink: 0;
+    max-height: auto;
+    overflow-y: visible;
   }
 
   .sidebar-header {
-    flex: 1;
-    min-width: 200px;
+    width: 100%;
+    flex: none;
+    min-width: unset;
   }
 
   .sidebar-nav {
-    flex: 1;
+    flex: none;
     flex-direction: row;
     gap: var(--spacing-xs);
     margin-bottom: 0;
@@ -205,20 +208,25 @@
   }
 
   .sidebar-nav-item {
-    flex: 0 1 calc(33% - 7px);
-    padding: var(--spacing-xs) var(--spacing-sm);
+    flex: 0 1 calc(50% - 5px);
+    padding: var(--spacing-xs) var(--spacing-xs);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .sidebar-footer {
     width: 100%;
     padding: var(--spacing-sm);
+    flex: none;
   }
 
   .fan-main {
     padding: var(--spacing-sm);
     margin: 0;
     width: 100%;
+    border-radius: 0;
   }
 }
 
@@ -227,10 +235,27 @@
     min-height: calc(100vh - var(--header-height));
   }
 
+  .fan-sidebar {
+    padding: var(--spacing-xs);
+    gap: var(--spacing-xs);
+  }
+
+  .sidebar-header {
+    padding: var(--spacing-xs);
+  }
+
   .sidebar-nav-item {
-    flex: 0 1 calc(50% - 5px);
-    padding: var(--spacing-xs) var(--spacing-xs);
-    font-size: var(--font-size-xs);
+    flex: 0 1 calc(50% - 4px);
+    padding: 6px var(--spacing-xs);
+    font-size: 11px;
+  }
+
+  .sidebar-footer {
+    padding: 8px var(--spacing-xs);
+  }
+
+  .user-email {
+    font-size: 11px;
   }
 
   .fan-main {

@@ -3,17 +3,26 @@ import { redirectToSignup, redirectToLogin, handleOAuthCallback, getCurrentUser,
 
 export const AuthContext = createContext(null)
 
-function deriveRole(claims) {
+/**
+ * Core Identity Model:
+ * - One account, many roles
+ * - Roles control feature access
+ * - User can have multiple roles
+ */
+function deriveRoles(claims) {
   // Extract Cognito groups from JWT claims
   const groups = claims['cognito:groups'] || []
 
-  // Map groups to roles
-  if (groups.includes('ADMIN')) return 'ADMIN'
-  if (groups.includes('CREATOR')) return 'CREATOR'
-  if (groups.includes('BESTIE')) return 'BESTIE'
-  if (groups.includes('PRIME')) return 'PRIME'
-  // Default to FAN for any authenticated user
-  return 'FAN'
+  return {
+    isFan: groups.includes('FAN') || groups.length === 0, // Default to FAN if no groups
+    isBestie: groups.includes('BESTIE'),
+    isCreator: groups.includes('CREATOR'),
+    isCollaborator: groups.includes('COLLAB'),
+    isAdmin: groups.includes('ADMIN'),
+    isPrimeStudio: groups.includes('PRIME'),
+    // All groups for reference
+    allGroups: groups,
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -32,18 +41,25 @@ export function AuthProvider({ children }) {
         const accessClaims = parseJwt(accessTokenJwt) || {}
         
         const groups = claims['cognito:groups'] || accessClaims['cognito:groups'] || []
-        const role = deriveRole(claims)
+        const roles = deriveRoles(claims)
 
         const context = {
+          // User identity
           sub: currentUser.sub,
           email: currentUser.email,
-          isAdmin: groups.includes('ADMIN'),
-          isCreator: groups.includes('CREATOR'),
-          isPrime: groups.includes('PRIME'),
-          isBestie: groups.includes('BESTIE'),
-          role,
-          loading: false,
-          error: null,
+          name: currentUser.name || claims.name || 'User',
+          
+          // Role flags (replaces old single role system)
+          ...roles,
+          
+          // For backwards compatibility
+          tier: roles.isBestie ? 'bestie' : (roles.isCreator ? 'creator' : 'fan'),
+          
+          // Legacy properties
+          isAdmin: roles.isAdmin,
+          isCreator: roles.isCreator,
+          isPrime: roles.isPrimeStudio,
+          isBestie: roles.isBestie,
         }
 
         setUserContext(context)
