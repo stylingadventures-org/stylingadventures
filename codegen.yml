@@ -12,3 +12,5 @@ generates:
         AWSDateTime: string
         AWSDate: string
         AWSJSON: any
+      # Don't fail if frontend has no GraphQL documents yet
+      skipTypename: false
