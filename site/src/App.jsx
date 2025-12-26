@@ -12,6 +12,10 @@ import Login from './pages/Login'
 import Callback from './pages/Callback'
 import ChooseYourPath from './pages/ChooseYourPath'
 
+// Upgrade Pages
+import UpgradeBestie from './pages/Upgrade/UpgradeBestie'
+import UpgradeCreator from './pages/Upgrade/UpgradeCreator'
+
 // Pages
 import Home from './pages/Home'
 import Discover from './pages/Discover'
@@ -59,6 +63,10 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
           <Route path="/choose-your-path" element={<ChooseYourPath />} />
+          
+          {/* Upgrade Routes */}
+          <Route path="/upgrade/bestie" element={<UpgradeBestie />} />
+          <Route path="/upgrade/creator" element={<UpgradeCreator />} />
           
           {/* Public routes (with sidebar) */}
           <Route path="/creator/:id" element={<CreatorProfile />} />

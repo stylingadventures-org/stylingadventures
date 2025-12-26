@@ -1,221 +1,269 @@
-import { useNavigate } from 'react-router-dom'
-import { useContext } from 'react'
-import { AuthContext } from '../../context/AuthContext'
-import '../../styles/bestie.css'
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import '../../styles/bestie-home.css';
 
 export default function BestieHome() {
-  const navigate = useNavigate()
-  const authContext = useContext(AuthContext)
-  const isAuthenticated = !!authContext?.sub
+  const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState('feed');
+
+  // Mock data for demonstration
+  const stats = {
+    stylingStreak: 42,
+    lookCount: 247,
+    collabCount: 18,
+    followerCount: 1250,
+    thisMonthEarnings: 0,
+  };
+
+  const recentLooks = [
+    { id: 1, title: 'Summer Casual', image: '☀️', likes: 342, collabs: 2 },
+    { id: 2, title: 'Evening Glam', image: '✨', likes: 521, collabs: 1 },
+    { id: 3, title: 'Weekend Vibes', image: '🌿', likes: 198, collabs: 0 },
+  ];
+
+  const recentCollabs = [
+    { id: 1, creator: 'Emma Style', role: 'Paired with', status: 'Active', earnings: '$0' },
+    { id: 2, creator: 'Fashion Forward', role: 'Invited by', status: 'Pending', earnings: '$0' },
+  ];
+
+  const challenges = [
+    { id: 1, title: 'Color Challenge', description: 'Build an outfit around one color', prize: '$50', participants: 342, status: 'Active' },
+    { id: 2, title: 'Season Shift', description: 'Transition your style for fall', prize: '$75', participants: 567, status: 'Active' },
+    { id: 3, title: 'Thrift Find', description: 'Style your best thrifted piece', prize: '$100', participants: 289, status: 'Ending Soon' },
+  ];
+
+  const dailyQuests = [
+    { id: 1, title: 'Create a Look', reward: 10, icon: '✨', completed: true },
+    { id: 2, title: 'Give Feedback', reward: 5, icon: '💬', completed: false },
+    { id: 3, title: 'Visit a Creator', reward: 5, icon: '👀', completed: false },
+  ];
 
   return (
-    <div className="bestie-wrapper">
-      {/* WELCOME HEADER */}
-      <section className="bestie-welcome">
-        <div className="welcome-card">
-          <div className="welcome-badge">💜 Bestie Hub</div>
-          <h1 className="welcome-title">Welcome back, Bestie!</h1>
-          <p className="welcome-subtitle">You're front row in the LaLaVerse adventure</p>
+    <div className="bestie-home">
+      {/* Header */}
+      <div className="bestie-header">
+        <div className="header-content">
+          <div className="welcome-section">
+            <h1>Welcome back, {user?.email?.split('@')[0]}! 👋</h1>
+            <p>Your personal style hub is ready to explore</p>
+          </div>
+          <div className="header-actions">
+            <Link to="/bestie/studio" className="action-btn primary">
+              ✨ Create Look
+            </Link>
+            <Link to="/bestie/closet" className="action-btn secondary">
+              👗 My Closet
+            </Link>
+          </div>
         </div>
-      </section>
+      </div>
 
-      {/* REWARDS & STATUS */}
-      <section className="bestie-status">
-        <div className="status-grid">
-          <div className="status-card">
-            <div className="status-icon">⭐</div>
-            <div className="status-content">
-              <div className="status-label">XP Progress</div>
-              <div className="status-value">2,450 / 5,000</div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{width: '49%'}}></div>
+      {/* Stats Grid */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon">🔥</div>
+          <div className="stat-content">
+            <div className="stat-value">{stats.stylingStreak}</div>
+            <div className="stat-label">Day Streak</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">👗</div>
+          <div className="stat-content">
+            <div className="stat-value">{stats.lookCount}</div>
+            <div className="stat-label">Looks Created</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">🤝</div>
+          <div className="stat-content">
+            <div className="stat-value">{stats.collabCount}</div>
+            <div className="stat-label">Collaborations</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">👥</div>
+          <div className="stat-content">
+            <div className="stat-value">{stats.followerCount}</div>
+            <div className="stat-label">Followers</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="quick-actions-section">
+        <h2>Quick Actions</h2>
+        <div className="quick-actions-grid">
+          <Link to="/bestie/studio" className="quick-action-card">
+            <span className="qa-icon">✨</span>
+            <span className="qa-text">Start Styling</span>
+            <span className="qa-arrow">→</span>
+          </Link>
+          <Link to="/bestie/challenges" className="quick-action-card">
+            <span className="qa-icon">🏆</span>
+            <span className="qa-text">Join Challenge</span>
+            <span className="qa-arrow">→</span>
+          </Link>
+          <Link to="/bestie/studio" className="quick-action-card">
+            <span className="qa-icon">👥</span>
+            <span className="qa-text">Find Collab</span>
+            <span className="qa-arrow">→</span>
+          </Link>
+          <Link to="/bestie/profile" className="quick-action-card">
+            <span className="qa-icon">⚙️</span>
+            <span className="qa-text">My Profile</span>
+            <span className="qa-arrow">→</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Daily Quests */}
+      <div className="daily-quests-section">
+        <h2>Today's Quests</h2>
+        <div className="quests-list">
+          {dailyQuests.map((quest) => (
+            <div key={quest.id} className={`quest-card ${quest.completed ? 'completed' : ''}`}>
+              <div className="quest-content">
+                <span className="quest-icon">{quest.icon}</span>
+                <div className="quest-info">
+                  <div className="quest-title">{quest.title}</div>
+                  <div className="quest-reward">+{quest.reward} XP</div>
+                </div>
               </div>
+              {quest.completed ? (
+                <div className="quest-badge completed">✓</div>
+              ) : (
+                <div className="quest-badge pending">→</div>
+              )}
             </div>
-          </div>
-
-          <div className="status-card">
-            <div className="status-icon">💰</div>
-            <div className="status-content">
-              <div className="status-label">LaLa Coins</div>
-              <div className="status-value">1,280</div>
-              <div className="status-hint">+150 this week</div>
-            </div>
-          </div>
-
-          <div className="status-card">
-            <div className="status-icon">🔥</div>
-            <div className="status-content">
-              <div className="status-label">Streak</div>
-              <div className="status-value">12 Days</div>
-              <div className="status-hint">Keep it up!</div>
-            </div>
-          </div>
-
-          <div className="status-card">
-            <div className="status-icon">🏆</div>
-            <div className="status-content">
-              <div className="status-label">Badges</div>
-              <div className="status-value">8</div>
-              <div className="status-hint">1 new unlocked</div>
-            </div>
-          </div>
+          ))}
         </div>
-      </section>
+      </div>
 
-      {/* QUICK ACTIONS */}
-      <section className="bestie-actions">
-        <h2 className="section-title">What Would You Like to Do?</h2>
-        <div className="actions-grid">
-          <div className="action-card" onClick={() => navigate('/bestie/studio')}>
-            <div className="action-icon">🎨</div>
-            <h3>Create a Look</h3>
-            <p>Build and upload your latest styling</p>
-            <span className="action-arrow">→</span>
-          </div>
-
-          <div className="action-card" onClick={() => navigate('/bestie/challenges')}>
-            <div className="action-icon">🎯</div>
-            <h3>Take a Challenge</h3>
-            <p>Style prompts with rewards waiting</p>
-            <span className="action-arrow">→</span>
-          </div>
-
-          <div className="action-card" onClick={() => navigate('/bestie/vote')}>
-            <div className="action-icon">✅</div>
-            <h3>Vote & Influence</h3>
-            <p>Shape the next featured looks</p>
-            <span className="action-arrow">→</span>
-          </div>
-
-          <div className="action-card" onClick={() => navigate('/bestie/closet')}>
-            <div className="action-icon">👗</div>
-            <h3>Manage Closet</h3>
-            <p>Collections, drafts, and seasonal looks</p>
-            <span className="action-arrow">→</span>
-          </div>
+      {/* Tabs */}
+      <div className="bestie-tabs">
+        <div className="tabs-header">
+          <button
+            className={`tab-btn ${selectedTab === 'feed' ? 'active' : ''}`}
+            onClick={() => setSelectedTab('feed')}
+          >
+            🎬 Feed
+          </button>
+          <button
+            className={`tab-btn ${selectedTab === 'challenges' ? 'active' : ''}`}
+            onClick={() => setSelectedTab('challenges')}
+          >
+            🏆 Challenges
+          </button>
+          <button
+            className={`tab-btn ${selectedTab === 'collabs' ? 'active' : ''}`}
+            onClick={() => setSelectedTab('collabs')}
+          >
+            🤝 Collabs
+          </button>
         </div>
-      </section>
 
-      {/* THIS WEEK'S HIGHLIGHTS */}
-      <section className="bestie-highlights">
-        <h2 className="section-title">This Week's Highlights</h2>
-        <div className="highlights-grid">
-          <div className="highlight-card">
-            <div className="highlight-badge">🔥 Trending</div>
-            <h3>Pink Fantasy Week</h3>
-            <p>Besties are obsessed with hot pink looks right now</p>
-            <div className="highlight-stat">2,340 votes</div>
-            <button className="btn btn-secondary">See Looks</button>
+        {/* Feed Tab */}
+        {selectedTab === 'feed' && (
+          <div className="tab-content">
+            <h3>Your Recent Looks</h3>
+            <div className="looks-grid">
+              {recentLooks.map((look) => (
+                <div key={look.id} className="look-card">
+                  <div className="look-image">{look.image}</div>
+                  <div className="look-info">
+                    <h4>{look.title}</h4>
+                    <div className="look-stats">
+                      <span>❤️ {look.likes}</span>
+                      <span>🤝 {look.collabs}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Link to="/bestie/studio" className="view-all-link">
+              View All Looks →
+            </Link>
           </div>
+        )}
 
-          <div className="highlight-card">
-            <div className="highlight-badge">⭐ Featured</div>
-            <h3>Episode 8: The Ball</h3>
-            <p>New episode drops tomorrow — style picks needed!</p>
-            <div className="highlight-stat">48h to vote</div>
-            <button className="btn btn-primary">Vote Now</button>
+        {/* Challenges Tab */}
+        {selectedTab === 'challenges' && (
+          <div className="tab-content">
+            <h3>Active Challenges</h3>
+            <div className="challenges-list">
+              {challenges.map((challenge) => (
+                <div key={challenge.id} className="challenge-card">
+                  <div className="challenge-header">
+                    <h4>{challenge.title}</h4>
+                    <span className={`challenge-status ${challenge.status.toLowerCase().replace(' ', '-')}`}>
+                      {challenge.status}
+                    </span>
+                  </div>
+                  <p className="challenge-description">{challenge.description}</p>
+                  <div className="challenge-footer">
+                    <div className="challenge-stats">
+                      <span>🏆 Prize: {challenge.prize}</span>
+                      <span>👥 {challenge.participants} participants</span>
+                    </div>
+                    <Link to="/bestie/challenges" className="challenge-btn">
+                      View Challenge →
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div className="highlight-card">
-            <div className="highlight-badge">🏆 Leaderboard</div>
-            <h3>You're #4!</h3>
-            <p>Just 3 Besties ahead — earn 200 more coins to rank up</p>
-            <div className="highlight-stat">Top 5</div>
-            <button className="btn btn-secondary">View Rankings</button>
+        {/* Collabs Tab */}
+        {selectedTab === 'collabs' && (
+          <div className="tab-content">
+            <h3>Your Collaborations</h3>
+            <div className="collabs-list">
+              {recentCollabs.length > 0 ? (
+                recentCollabs.map((collab) => (
+                  <div key={collab.id} className="collab-card">
+                    <div className="collab-avatar">👤</div>
+                    <div className="collab-info">
+                      <h4>{collab.creator}</h4>
+                      <p>{collab.role}</p>
+                    </div>
+                    <div className="collab-meta">
+                      <span className={`status ${collab.status.toLowerCase()}`}>
+                        {collab.status}
+                      </span>
+                      <span className="earnings">{collab.earnings}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">
+                  <p>👀 No collaborations yet</p>
+                  <Link to="/bestie/studio" className="cta-link">
+                    Start a collaboration →
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Promotions */}
+      <div className="promo-section">
+        <div className="promo-card creator-promo">
+          <div className="promo-content">
+            <h3>Ready to earn?</h3>
+            <p>Join Creator tier and start monetizing your style expertise</p>
+            <Link to="/upgrade/creator" className="promo-btn">
+              Upgrade to Creator →
+            </Link>
+          </div>
+          <div className="promo-icon">💰</div>
         </div>
-      </section>
-
-      {/* PERKS & UNLOCKS */}
-      <section className="bestie-perks">
-        <h2 className="section-title">Your Bestie Perks</h2>
-        <div className="perks-grid">
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Early Access</h3>
-            <p>See new episodes 24h before Fans</p>
-          </div>
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Private Collections</h3>
-            <p>Save draft looks only visible to you</p>
-          </div>
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Voting Power</h3>
-            <p>Your votes help decide featured looks</p>
-          </div>
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Exclusive Reactions</h3>
-            <p>React with limited-edition emojis</p>
-          </div>
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Challenge Rewards</h3>
-            <p>Earn coins and badges from style prompts</p>
-          </div>
-          <div className="perk-card">
-            <div className="perk-check">✓</div>
-            <h3>Bestie Badge</h3>
-            <p>Show your status on your profile</p>
-          </div>
-        </div>
-      </section>
-
-      {/* LEADERBOARD PREVIEW */}
-      <section className="bestie-leaderboard">
-        <h2 className="section-title">Top Besties This Week</h2>
-        <div className="leaderboard-list">
-          <div className="leaderboard-item">
-            <div className="leaderboard-rank">1</div>
-            <div className="leaderboard-user">
-              <div className="leaderboard-avatar">🌟</div>
-              <div className="leaderboard-info">
-                <div className="leaderboard-name">Maya</div>
-                <div className="leaderboard-score">3,850 pts</div>
-              </div>
-            </div>
-            <div className="leaderboard-medal">🥇</div>
-          </div>
-
-          <div className="leaderboard-item">
-            <div className="leaderboard-rank">2</div>
-            <div className="leaderboard-user">
-              <div className="leaderboard-avatar">✨</div>
-              <div className="leaderboard-info">
-                <div className="leaderboard-name">Zara</div>
-                <div className="leaderboard-score">3,620 pts</div>
-              </div>
-            </div>
-            <div className="leaderboard-medal">🥈</div>
-          </div>
-
-          <div className="leaderboard-item">
-            <div className="leaderboard-rank">3</div>
-            <div className="leaderboard-user">
-              <div className="leaderboard-avatar">💎</div>
-              <div className="leaderboard-info">
-                <div className="leaderboard-name">Sofia</div>
-                <div className="leaderboard-score">3,410 pts</div>
-              </div>
-            </div>
-            <div className="leaderboard-medal">🥉</div>
-          </div>
-
-          <div className="leaderboard-item highlight">
-            <div className="leaderboard-rank">4</div>
-            <div className="leaderboard-user">
-              <div className="leaderboard-avatar">👑</div>
-              <div className="leaderboard-info">
-                <div className="leaderboard-name">You</div>
-                <div className="leaderboard-score">3,280 pts</div>
-              </div>
-            </div>
-            <div className="leaderboard-medal">+3</div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
-  )
+  );
 }
