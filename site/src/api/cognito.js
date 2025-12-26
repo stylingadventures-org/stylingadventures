@@ -128,8 +128,7 @@ export async function handleOAuthCallback(code) {
       throw new Error('Code verifier not found - PKCE flow broken')
     }
 
-    // Exchange authorization code for tokens using PKCE + client secret
-    // Client secret is safe to include since code is short-lived and one-time use
+    // Exchange authorization code for tokens using PKCE (no client secret needed for browser clients)
     const tokenResponse = await fetch(`${domain}/oauth2/token`, {
       method: 'POST',
       headers: {
@@ -138,7 +137,6 @@ export async function handleOAuthCallback(code) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: clientId,
-        client_secret: cfg.clientSecret,
         code: code,
         redirect_uri: redirectUri,
         code_verifier: codeVerifier,
