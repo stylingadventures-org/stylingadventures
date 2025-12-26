@@ -2,8 +2,12 @@ name: Verify
 
 on:
   pull_request:
+    paths-ignore:
+      - 'site/**'
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'site/**'
 
 permissions:
   contents: read
