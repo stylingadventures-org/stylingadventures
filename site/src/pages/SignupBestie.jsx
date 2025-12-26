@@ -7,10 +7,18 @@ export default function SignupBestie() {
   const navigate = useNavigate()
 
   const handleSignup = async () => {
-    // Store signup intent in sessionStorage so Callback can handle it
-    sessionStorage.setItem('signupIntent', 'bestie')
-    // Redirect to Cognito Hosted UI for signup as Bestie
-    await startSignup('bestie')
+    try {
+      console.log('🎬 SignupBestie: handleSignup called')
+      // Store signup intent in sessionStorage so Callback can handle it
+      sessionStorage.setItem('signupIntent', 'bestie')
+      console.log('🎬 SignupBestie: signupIntent set')
+      // Redirect to Cognito Hosted UI for signup as Bestie
+      console.log('🎬 SignupBestie: calling startSignup')
+      await startSignup('bestie')
+      console.log('🎬 SignupBestie: startSignup returned (should have redirected)')
+    } catch (err) {
+      console.error('🎬 SignupBestie error:', err)
+    }
   }
 
   return (
