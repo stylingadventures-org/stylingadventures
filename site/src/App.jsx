@@ -8,6 +8,7 @@ import './App.css'
 // Pages
 import Home from './pages/Home'
 import Discover from './pages/Discover'
+import CreatorProfile from './pages/CreatorProfile'
 import SignupBestie from './pages/SignupBestie'
 import SignupCreator from './pages/SignupCreator'
 import Callback from './pages/Callback'
@@ -47,6 +48,7 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<Home />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/creator/:id" element={<CreatorProfile />} />
           
           {/* Signup routes */}
           <Route path="/signup/bestie" element={<SignupBestie />} />
