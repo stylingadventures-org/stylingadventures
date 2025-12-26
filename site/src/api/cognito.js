@@ -78,10 +78,10 @@ export async function redirectToSignup(userType = 'player') {
     
     const redirectUri = isDevelopment()
       ? 'http://localhost:5173/callback'
-      : 'https://stylingadventures.com/callback'
+      : (cfg.redirectUri || 'https://stylingadventures.com/callback')
     
-    const clientId = '12hajdhq8gurfpfqieenrlsek8'
-    const domain = 'https://stylingadventures.auth.us-east-1.amazoncognito.com'
+    const clientId = cfg.clientId
+    const domain = cfg.cognitoDomain
     
     console.log('=== OAuth Parameters ===')
     console.log('Client ID:', clientId)
@@ -117,10 +117,10 @@ export async function redirectToLogin() {
     
     const redirectUri = isDevelopment()
       ? 'http://localhost:5173/callback'
-      : 'https://stylingadventures.com/callback'
+      : (cfg.redirectUri || 'https://stylingadventures.com/callback')
     
-    const clientId = '12hajdhq8gurfpfqieenrlsek8'
-    const domain = 'https://stylingadventures.auth.us-east-1.amazoncognito.com'
+    const clientId = cfg.clientId
+    const domain = cfg.cognitoDomain
     
     console.log('=== OAuth Parameters ===')
     console.log('Client ID:', clientId)
