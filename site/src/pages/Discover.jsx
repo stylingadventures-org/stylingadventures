@@ -38,11 +38,16 @@ export default function Discover() {
         setLoading(true)
         setUsingDemoData(false)
 
-        const result = await graphqlQuery(GET_CREATORS, { limit: 50 })
-        const creatorsList = result?.listCreators?.items || []
-        setCreators(creatorsList)
+        // TODO: Enable this when listCreators resolver is deployed
+        // For now, use demo data to avoid GraphQL errors
+        // const result = await graphqlQuery(GET_CREATORS, { limit: 50 })
+        // const creatorsList = result?.listCreators?.items || []
+        // setCreators(creatorsList)
+
+        // Use demo data for v1
+        throw new Error('Using demo data - listCreators resolver not yet deployed')
       } catch (err) {
-        console.error('Failed to fetch creators:', err)
+        console.warn('Fetching creators:', err.message)
         setUsingDemoData(true)
 
         // Demo fallback
