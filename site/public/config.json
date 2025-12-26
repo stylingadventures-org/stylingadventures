@@ -17,9 +17,9 @@
   "clientId": "7bkph1q2q1dgpk0497gk41t7tc",
 
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
-  "cognitoDomainPrefix": "stylingadventures-256673",
-  "cognitoDomain": "https://stylingadventures-256673.auth.us-east-1.amazoncognito.com",
-  "hostedUiDomain": "stylingadventures-256673",
+  "cognitoDomainPrefix": "sa-dev-637423256673",
+  "cognitoDomain": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+  "hostedUiDomain": "sa-dev-637423256673",
 
   "scopes": ["openid", "email", "profile"],
   "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
