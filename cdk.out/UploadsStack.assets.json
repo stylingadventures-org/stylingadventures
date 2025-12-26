@@ -31,6 +31,21 @@
         }
       }
     },
+    "61cf9a5bde4b46a4bb8eec07b9ed978624a9bed54b853351f37b2d9f1f35155b": {
+      "displayName": "TokenExchangeFn/Code",
+      "source": {
+        "path": "asset.61cf9a5bde4b46a4bb8eec07b9ed978624a9bed54b853351f37b2d9f1f35155b",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "637423256673-us-east-1-dbb01d5e": {
+          "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
+          "objectKey": "61cf9a5bde4b46a4bb8eec07b9ed978624a9bed54b853351f37b2d9f1f35155b.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
+        }
+      }
+    },
     "d7c829a309feef4b67b7376df7f4d187061d7c336128eeaa9fb9cca1d4a4885e": {
       "displayName": "ClosetBgWorkerFn/Code",
       "source": {
@@ -46,16 +61,16 @@
         }
       }
     },
-    "95b47229571ea82b93b2dd9dc43c0618a2464997493ecf5ee713da7edb778e42": {
+    "6f2bdf1596eecda3adfc91b883058f7778706cb3469090f2f05d8f09b1a2de85": {
       "displayName": "UploadsStack Template",
       "source": {
         "path": "UploadsStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "637423256673-us-east-1-7757dbda": {
+        "637423256673-us-east-1-0da9ef48": {
           "bucketName": "cdk-hnb659fds-assets-637423256673-us-east-1",
-          "objectKey": "95b47229571ea82b93b2dd9dc43c0618a2464997493ecf5ee713da7edb778e42.json",
+          "objectKey": "6f2bdf1596eecda3adfc91b883058f7778706cb3469090f2f05d8f09b1a2de85.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-file-publishing-role-637423256673-us-east-1"
         }

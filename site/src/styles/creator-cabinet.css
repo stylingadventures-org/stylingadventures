@@ -1,0 +1,52 @@
+.creator-cabinet {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.cabinet-header {
+  margin-bottom: 30px;
+}
+
+.cabinet-header h1 {
+  margin: 0 0 5px 0;
+  font-size: 2.5rem;
+}
+
+.cabinet-header p {
+  margin: 0;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.cabinet-nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.cabinet-nav button {
+  padding: 10px 20px;
+  border: 2px solid #ddd;
+  background-color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.cabinet-nav button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.cabinet-nav button.active {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.cabinet-nav button.active:hover {
+  background-color: #1d4ed8;
+}

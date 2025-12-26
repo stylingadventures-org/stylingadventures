@@ -1,0 +1,30 @@
+type Query {
+  # Closet queries
+  myCloset(limit: Int, nextToken: String): String!
+  myWishlist(limit: Int, nextToken: String): String!
+  bestieClosetItems(limit: Int, nextToken: String): String!
+  closetFeed(limit: Int, nextToken: String): String!
+  stories(limit: Int, nextToken: String): String!
+  myStories(limit: Int, nextToken: String): String!
+  closetItemComments(itemId: ID!, limit: Int, nextToken: String): String!
+  adminClosetItemLikes(itemId: ID!, limit: Int, nextToken: String): String!
+  adminClosetItemComments(itemId: ID!, limit: Int, nextToken: String): String!
+  pinnedClosetItems(limit: Int, nextToken: String): String!
+}
+
+type Mutation {
+  # Closet mutations
+  createClosetItem(input: String!): String!
+  requestClosetApproval(itemId: ID!): String!
+  updateClosetMediaKey(itemId: ID!, mediaKey: String!): String!
+  updateClosetItemStory(itemId: ID!, story: String): String!
+  likeClosetItem(itemId: ID!): String!
+  toggleFavoriteClosetItem(itemId: ID!): String!
+  commentOnClosetItem(itemId: ID!, comment: String!): String!
+  pinHighlight(itemId: ID!): String!
+  toggleWishlistItem(itemId: ID!): String!
+  requestClosetBackgroundChange(backgroundUrl: String!): String!
+  createStory(input: String!): String!
+  publishStory(storyId: ID!): String!
+}
+

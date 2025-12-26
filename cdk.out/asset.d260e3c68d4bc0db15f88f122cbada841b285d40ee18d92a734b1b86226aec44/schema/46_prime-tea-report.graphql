@@ -1,0 +1,136 @@
+"""
+Prime Tea Report System
+Generates daily/weekly gossip reports about Lala & The Crew's drama, relationships, and hot takes.
+Exclusive content for PRIME members.
+"""
+
+type TeaReport {
+  id: ID!
+  reportId: String!
+  generatedAt: AWSDateTime!
+  period: TeaPeriod!
+  headline: String!
+  summary: String!
+  teaItems: [TeaItem!]!
+  dramaMeter: Int!
+  relationshipUpdates: [RelationshipStatus!]!
+  hotTakes: [HotTake!]!
+  viewCount: Int!
+  shareCount: Int!
+}
+
+type TeaItem {
+  id: ID!
+  reportId: ID!
+  title: String!
+  description: String!
+  teaLevel: Int!
+  category: TeaCategory!
+  characters: [String!]!
+  relatedEpisode: String
+  relatedMusic: String
+  timestamp: AWSDateTime!
+}
+
+enum TeaCategory {
+  ROMANCE
+  FRIENDSHIP
+  CREATIVE_TENSION
+  FAN_DRAMA
+  BEHIND_THE_SCENES
+  TOUR_LIFE
+  MUSIC_BEEF
+  FASHION_TAKE
+}
+
+enum TeaPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+type RelationshipStatus {
+  character1: String!
+  character2: String!
+  status: String!
+  confidence: Float!
+  lastUpdated: AWSDateTime!
+}
+
+type HotTake {
+  id: ID!
+  author: String!
+  content: String!
+  sentiment: String!
+  reactionCount: Int!
+  timestamp: AWSDateTime!
+}
+
+type TeaReportConnection {
+  items: [TeaReport!]!
+  nextToken: String
+}
+
+extend type Query {
+  """
+  Get the latest Prime Tea Report
+  """
+  latestTeaReport: TeaReport @aws_cognito_user_pools
+
+  """
+  Get historical Tea Reports
+  """
+  teaReportHistory(
+    period: TeaPeriod
+    limit: Int
+    nextToken: String
+  ): TeaReportConnection! @aws_cognito_user_pools
+
+  """
+  Get drama details for a specific character
+  """
+  characterDrama(characterName: String!): [TeaItem!]! @aws_cognito_user_pools
+
+  """
+  Get relationship status between two characters
+  """
+  relationshipStatus(
+    character1: String!
+    character2: String!
+  ): RelationshipStatus @aws_cognito_user_pools
+}
+
+extend type Mutation {
+  """
+  Admin: Generate a new Tea Report
+  """
+  adminGenerateTeaReport(
+    period: TeaPeriod!
+    sourceEpisodes: [String!]
+    sourceMusic: [String!]
+  ): TeaReport!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Add a hot take to a report
+  """
+  adminAddHotTake(
+    reportId: ID!
+    authorCharacter: String!
+    content: String!
+  ): HotTake!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+
+  """
+  Admin: Update relationship status
+  """
+  adminUpdateRelationshipStatus(
+    character1: String!
+    character2: String!
+    status: String!
+  ): RelationshipStatus!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["ADMIN", "PRIME"])
+}

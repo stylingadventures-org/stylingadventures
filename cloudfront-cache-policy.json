@@ -1,0 +1,101 @@
+{
+  "Version": "2021-06-15",
+  "Comment": "Cache policy for Styling Adventures frontend - optimized for performance",
+  "Items": [
+    {
+      "Name": "Optimized-Frontend-Cache",
+      "Type": "managed",
+      "Settings": {
+        "CachePolicies": {
+          "HTML": {
+            "Name": "HTML-Cache-Policy",
+            "MinTTL": 0,
+            "DefaultTTL": 300,
+            "MaxTTL": 3600,
+            "Headers": [
+              "Accept-Encoding"
+            ]
+          },
+          "Static-Assets": {
+            "Name": "Static-Assets-Policy",
+            "MinTTL": 86400,
+            "DefaultTTL": 31536000,
+            "MaxTTL": 31536000,
+            "Headers": []
+          },
+          "API": {
+            "Name": "API-Cache-Policy",
+            "MinTTL": 0,
+            "DefaultTTL": 60,
+            "MaxTTL": 300,
+            "Headers": [
+              "Authorization",
+              "CloudFront-Is-Mobile-Viewer",
+              "CloudFront-Is-Desktop-Viewer"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "Behaviors": [
+    {
+      "PathPattern": "*.html",
+      "Compress": true,
+      "ViewerProtocolPolicy": "redirect-to-https",
+      "CachePolicyId": "HTML-Cache-Policy",
+      "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+      "ForwardedValues": {
+        "QueryString": false,
+        "Headers": ["Accept-Encoding"],
+        "Cookies": { "Forward": "none" }
+      }
+    },
+    {
+      "PathPattern": "*.js",
+      "Compress": true,
+      "ViewerProtocolPolicy": "https-only",
+      "CachePolicyId": "Static-Assets-Policy",
+      "AllowedMethods": ["GET", "HEAD"],
+      "ForwardedValues": {
+        "QueryString": false,
+        "Headers": []
+      }
+    },
+    {
+      "PathPattern": "*.css",
+      "Compress": true,
+      "ViewerProtocolPolicy": "https-only",
+      "CachePolicyId": "Static-Assets-Policy",
+      "AllowedMethods": ["GET", "HEAD"],
+      "ForwardedValues": {
+        "QueryString": false,
+        "Headers": []
+      }
+    },
+    {
+      "PathPattern": "/api/*",
+      "ViewerProtocolPolicy": "https-only",
+      "CachePolicyId": "API-Cache-Policy",
+      "AllowedMethods": ["GET", "HEAD", "POST", "OPTIONS"],
+      "ForwardedValues": {
+        "QueryString": true,
+        "Headers": [
+          "Authorization",
+          "CloudFront-Is-Mobile-Viewer",
+          "Accept-Encoding"
+        ]
+      }
+    }
+  ],
+  "DefaultBehavior": {
+    "Compress": true,
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "CachePolicyId": "HTML-Cache-Policy",
+    "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+    "ForwardedValues": {
+      "QueryString": false,
+      "Headers": ["Accept-Encoding"]
+    }
+  }
+}

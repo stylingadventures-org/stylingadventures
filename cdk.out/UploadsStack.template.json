@@ -28,6 +28,7 @@
           ]
          ]
         },
+        "https://app.stylingadventures.com",
         "http://localhost:5173"
        ],
        "ExposedHeaders": [
@@ -419,6 +420,94 @@
     "aws:asset:property": "Code"
    }
   },
+  "TokenExchangeFnServiceRole26C9B262": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/TokenExchangeFn/ServiceRole/Resource"
+   }
+  },
+  "TokenExchangeFn8FB829AA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
+     "S3Key": "61cf9a5bde4b46a4bb8eec07b9ed978624a9bed54b853351f37b2d9f1f35155b.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "COGNITO_DOMAIN": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+      "CLIENT_ID": "7u9k85rh5h74eretn9hlsme0rl",
+      "CLIENT_SECRET": "123lrr85uu513pvqrstludgf2bvci4krka29pkt08k8jflhrr39",
+      "REDIRECT_URI": "https://app.stylingadventures.com/callback"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "TokenExchangeFnServiceRole26C9B262",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Tags": [
+     {
+      "Key": "App",
+      "Value": "stylingadventures"
+     },
+     {
+      "Key": "Env",
+      "Value": "dev"
+     }
+    ]
+   },
+   "DependsOn": [
+    "TokenExchangeFnServiceRole26C9B262"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/TokenExchangeFn/Resource",
+    "aws:asset:path": "asset.61cf9a5bde4b46a4bb8eec07b9ed978624a9bed54b853351f37b2d9f1f35155b",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
   "UploadsApiF6E592E7": {
    "Type": "AWS::ApiGateway::RestApi",
    "Properties": {
@@ -503,7 +592,7 @@
     "aws:cdk:path": "UploadsStack/UploadsApi/Account"
    }
   },
-  "UploadsApiDeployment4A67E04Cd75a0206d7f9f939ebfbac2326b899ea": {
+  "UploadsApiDeployment4A67E04Ce06fe59338d29b0abdcfafeb7a88877c": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "Automatically created by the RestApi construct",
@@ -515,6 +604,11 @@
     "UploadsApigetOPTIONSB2A81AAF",
     "UploadsApigetPOSTFFB1099B",
     "UploadsApiget25FE2824",
+    "UploadsApioauthOPTIONS4D47BEB4",
+    "UploadsApioauthE16262ED",
+    "UploadsApioauthtokenOPTIONS057DEF13",
+    "UploadsApioauthtokenPOSTBBC67937",
+    "UploadsApioauthtokenDBB8DE95",
     "UploadsApiOPTIONS016D7C40",
     "UploadsApipresignOPTIONSB65EB223",
     "UploadsApipresignPOSTD80E85B8",
@@ -529,7 +623,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "UploadsApiDeployment4A67E04Cd75a0206d7f9f939ebfbac2326b899ea"
+     "Ref": "UploadsApiDeployment4A67E04Ce06fe59338d29b0abdcfafeb7a88877c"
     },
     "RestApiId": {
      "Ref": "UploadsApiF6E592E7"
@@ -580,7 +674,7 @@
         "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://app.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
        },
        "StatusCode": "204"
       }
@@ -660,7 +754,7 @@
         "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://app.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
        },
        "StatusCode": "204"
       }
@@ -844,7 +938,7 @@
         "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
        },
        "ResponseTemplates": {
-        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://app.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
        },
        "StatusCode": "204"
       }
@@ -981,6 +1075,264 @@
    },
    "Metadata": {
     "aws:cdk:path": "UploadsStack/UploadsApi/Default/get/POST/Resource"
+   }
+  },
+  "UploadsApioauthE16262ED": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "UploadsApiF6E592E7",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "oauth",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/Resource"
+   }
+  },
+  "UploadsApioauthOPTIONS4D47BEB4": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": {
+         "Fn::Join": [
+          "",
+          [
+           "'https://",
+           {
+            "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+           },
+           "'"
+          ]
+         ]
+        },
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://app.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "UploadsApioauthE16262ED"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/OPTIONS/Resource"
+   }
+  },
+  "UploadsApioauthtokenDBB8DE95": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "UploadsApioauthE16262ED"
+    },
+    "PathPart": "token",
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/token/Resource"
+   }
+  },
+  "UploadsApioauthtokenOPTIONS057DEF13": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": {
+         "Fn::Join": [
+          "",
+          [
+           "'https://",
+           {
+            "Fn::ImportValue": "WebStack:ExportsOutputFnGetAttWebDistribution59C46482DomainNameC09D0E36"
+           },
+           "'"
+          ]
+         ]
+        },
+        "method.response.header.Vary": "'Origin'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "ResponseTemplates": {
+        "application/json": "#set($origin = $input.params().header.get(\"Origin\"))\n#if($origin == \"\")\n  #set($origin = $input.params().header.get(\"origin\"))\n#end\n#if($origin == \"https://app.stylingadventures.com\" || $origin == \"http://localhost:5173\")\n  #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin)\n#end"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Vary": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "UploadsApioauthtokenDBB8DE95"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/token/OPTIONS/Resource"
+   }
+  },
+  "UploadsApioauthtokenPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSToauthtokenCF84A0EF": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "TokenExchangeFn8FB829AA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/",
+       {
+        "Ref": "UploadsApiDeploymentStageprod1839106B"
+       },
+       "/POST/oauth/token"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/token/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..oauth.token"
+   }
+  },
+  "UploadsApioauthtokenPOSTApiPermissionTestUploadsStackUploadsApiC6DB0904POSToauthtoken63AB926B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "TokenExchangeFn8FB829AA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:637423256673:",
+       {
+        "Ref": "UploadsApiF6E592E7"
+       },
+       "/test-invoke-stage/POST/oauth/token"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/token/POST/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.POST..oauth.token"
+   }
+  },
+  "UploadsApioauthtokenPOSTBBC67937": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "TokenExchangeFn8FB829AA",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "UploadsApioauthtokenDBB8DE95"
+    },
+    "RestApiId": {
+     "Ref": "UploadsApiF6E592E7"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "UploadsStack/UploadsApi/Default/oauth/token/POST/Resource"
    }
   },
   "ClosetBgWorkerFnServiceRole4798FE70": {

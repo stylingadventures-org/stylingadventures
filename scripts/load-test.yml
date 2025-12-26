@@ -1,0 +1,136 @@
+# Phase 5: Load Testing Configuration
+# Run with: npx artillery run scripts/load-test.yml
+#
+# This tests the AppSync GraphQL API under realistic load conditions
+# Measures Lambda performance, DynamoDB throughput, and resolver latency
+
+config:
+  target: "{{ $processEnvironment.APPSYNC_ENDPOINT }}"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 10
+      name: "Ramp up"
+    - duration: 120
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 5
+      name: "Cool down"
+
+  processor: "./scripts/load-test-processor.js"
+  variables:
+    authToken: "{{ $processEnvironment.AUTH_TOKEN }}"
+    userId: "{{ $processEnvironment.TEST_USER_ID }}"
+
+  http:
+    timeout: 10
+
+scenarios:
+  - name: "Query Operations - 40%"
+    flow:
+      - think: 2
+      - post:
+          url: "/"
+          json:
+            query: |
+              query MyCloset($limit: Int, $nextToken: String) {
+                myCloset(limit: $limit, nextToken: $nextToken) {
+                  items {
+                    id
+                    title
+                    status
+                    createdAt
+                  }
+                  nextToken
+                }
+              }
+            variables:
+              limit: 10
+              nextToken: null
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          capture:
+            json: "$.data.myCloset.nextToken"
+            as: "nextToken"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: data.myCloset
+
+  - name: "Query Feed - 30%"
+    flow:
+      - think: 1
+      - post:
+          url: "/"
+          json:
+            query: |
+              query ClosetFeed($limit: Int) {
+                closetFeed(limit: $limit) {
+                  items {
+                    id
+                    userId
+                    title
+                    audience
+                  }
+                }
+              }
+            variables:
+              limit: 20
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: data.closetFeed
+
+  - name: "Like Mutation - 20%"
+    flow:
+      - think: 1
+      - post:
+          url: "/"
+          json:
+            query: |
+              mutation LikeItem($itemId: String!) {
+                likeClosetItem(itemId: $itemId) {
+                  id
+                  likeCount
+                }
+              }
+            variables:
+              itemId: "{{ randomString(16) }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          expect:
+            - statusCode: 200
+
+  - name: "Comment Mutation - 10%"
+    flow:
+      - think: 2
+      - post:
+          url: "/"
+          json:
+            query: |
+              mutation CommentOnItem($itemId: String!, $text: String!) {
+                commentOnClosetItem(itemId: $itemId, text: $text) {
+                  id
+                  commentCount
+                }
+              }
+            variables:
+              itemId: "{{ randomString(16) }}"
+              text: "Great item! {{ randomString(10) }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+            Content-Type: "application/json"
+          expect:
+            - statusCode: 200
+
+after:
+  - log: "Load test completed"
+  - log: "Check results in artillery-report.json"

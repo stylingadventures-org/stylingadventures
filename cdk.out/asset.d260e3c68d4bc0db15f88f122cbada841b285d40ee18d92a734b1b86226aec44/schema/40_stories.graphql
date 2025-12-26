@@ -1,0 +1,56 @@
+type BestieStory {
+  id: ID!
+  title: String!
+  body: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+  status: BestieStoryStatus!
+  episodeId: ID
+  closetItemIds: [ID!]
+  mediaKeys: [String!]
+}
+
+enum BestieStoryStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+type BestieStoryConnection {
+  items: [BestieStory!]!
+  nextToken: String
+}
+
+type Story {
+  id: ID!
+  ownerId: ID!
+  title: String
+  status: String
+  createdAt: AWSDateTime
+  publishedAt: AWSDateTime
+}
+
+input CreateStoryInput {
+  title: String!
+  closetItemIds: [ID!]
+}
+
+extend type Query {
+  stories(limit: Int, nextToken: String): BestieStoryConnection
+    @aws_cognito_user_pools
+
+  myStories(limit: Int, nextToken: String): BestieStoryConnection
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+}
+
+extend type Mutation {
+  createStory(input: CreateStoryInput!): Story!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+
+  publishStory(storyId: ID!): Story!
+    @aws_cognito_user_pools
+    @aws_auth(cognito_groups: ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"])
+}

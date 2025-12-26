@@ -1,0 +1,1233 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+#  ─────────────────────────────────────────
+# Admin Settings Types
+# ─────────────────────────────────────────
+type AdminSettings {
+  animationsEnabled: Boolean!
+  autoBadgeGrant: Boolean!
+  badgeRules: [BadgeRule!]!
+  soundsEnabled: Boolean!
+}
+
+type AffiliateClickResult {
+  ok: Boolean!
+}
+
+#  ─────────────────────────────────────────
+# Shopping / Affiliate types
+# ─────────────────────────────────────────
+type AffiliateLink {
+  affiliateLinkId: ID!
+  commissionRate: Float
+  retailerName: String!
+  url: String!
+}
+
+type BadgeRule {
+  id: ID!
+  label: String!
+  trigger: String!
+}
+
+type BestieCheckoutSession {
+  checkoutUrl: String!
+}
+
+type BestieStatus {
+  isBestie: Boolean!
+  renewsAt: AWSDateTime
+  tier: String
+  trialActive: Boolean
+  trialEndsAt: AWSDateTime
+  userId: ID!
+}
+
+type BestieStory {
+  body: String
+  closetItemIds: [ID!]
+  createdAt: AWSDateTime!
+  episodeId: ID
+  id: ID!
+  mediaKeys: [String!]
+  status: BestieStoryStatus!
+  title: String!
+  updatedAt: AWSDateTime
+}
+
+type BestieStoryConnection {
+  items: [BestieStory!]!
+  nextToken: String
+}
+
+type BgChangeRequestResult {
+  ok: Boolean!
+  requestId: ID
+}
+
+type ClosetConnection {
+  items: [ClosetItem!]!
+  nextToken: String
+}
+
+#  ─────────────────────────────────────────
+# Closet core types
+# ─────────────────────────────────────────
+type ClosetItem {
+  affiliateUrl: String
+  audience: ClosetAudience
+  backgroundStatus: String
+  category: String
+  coinValue: Int
+  colorTags: [String!]
+  createdAt: AWSDateTime
+  episodeIds: [ID!]
+  favoriteCount: Int
+  id: ID!
+  mediaKey: String
+  notes: String
+  ownerId: ID
+  ownerSub: ID
+  pinned: Boolean
+  rawMediaKey: String
+  scheduledAt: AWSDateTime
+  season: String
+  status: ClosetStatus!
+  subcategory: String
+  title: String
+  updatedAt: AWSDateTime
+  vibes: String
+  visibility: ClosetVisibility!
+}
+
+type Comment {
+  createdAt: AWSDateTime!
+  id: ID!
+  itemId: ID!
+  text: String!
+  userId: ID!
+}
+
+type CommentConnection {
+  items: [Comment!]!
+  nextToken: String
+}
+
+#  ---------- Director Suite: Emotion preview ----------
+type ContentMix {
+  authority: Int!
+  conversion: Int!
+  nurture: Int!
+  personality: Int!
+}
+
+type CreatorAiSuggestionResult {
+  suggestions: [String!]!
+}
+
+type CreatorAsset {
+  cabinetId: ID!
+  category: CreatorCabinetCategory
+  contentType: String
+  createdAt: AWSDateTime!
+  folderId: ID
+  id: ID!
+  kind: CreatorAssetKind!
+  moderatedAt: AWSDateTime
+  moderatedBy: String
+  #  default ACTIVE
+  moderationReason: String
+  #  NEW moderation/admin fields:
+  moderationStatus: CreatorAssetModerationStatus!
+  notes: String
+  ownerSub: ID!
+  s3Key: String!
+  #  If this asset was imported from a Bestie closet item
+  sourceClosetItemId: ID
+  tags: [String!]
+  title: String
+  updatedAt: AWSDateTime!
+}
+
+type CreatorAssetConnection {
+  items: [CreatorAsset!]!
+  nextToken: String
+}
+
+type CreatorCabinet {
+  assetCount: Int!
+  createdAt: AWSDateTime!
+  defaultCategory: CreatorCabinetCategory
+  description: String
+  id: ID!
+  name: String!
+  ownerSub: ID!
+  tags: [String!]
+  updatedAt: AWSDateTime!
+}
+
+type CreatorContentIdea {
+  hook: String
+  id: ID!
+  outline: [String!]
+  recommendedLengthSec: Int
+  recommendedPlatform: String
+  title: String!
+}
+
+type CreatorContentMix {
+  authority: Int
+  conversion: Int
+  nurture: Int
+  personality: Int
+}
+
+type CreatorEmotionPreview {
+  actual: ContentMix!
+  lastWeeklyCheckAt: AWSDateTime
+  target: ContentMix!
+  weeklyPathStatus: WeeklyPathStatus!
+}
+
+type CreatorFolder {
+  cabinetId: ID!
+  createdAt: AWSDateTime!
+  id: ID!
+  name: String!
+  specialKind: String
+  updatedAt: AWSDateTime!
+}
+
+type CreatorGoalCompass {
+  contentMixActual: CreatorContentMix
+  contentMixTarget: CreatorContentMix
+  focusAreas: [String!]!
+  lastWeeklyCheckAt: AWSDateTime
+  notes: String
+  primaryGoal: String!
+  riskTolerance: String!
+  timeHorizon: String!
+  updatedAt: AWSDateTime
+  weeklyCapacity: Int!
+  weeklyPathStatus: String
+}
+
+type CreatorGoalCompassSnapshot {
+  contentMixTarget: CreatorContentMix
+  focusAreas: [String!]
+  primaryGoal: String
+  riskTolerance: String
+  timeHorizon: String
+  weeklyCapacity: Int
+}
+
+#  ─────────────────────────────────────────
+# Creator / Livestream / Commerce / AI + Cabinets
+# ─────────────────────────────────────────
+type CreatorLivestreamInfo {
+  channelArn: String
+  isLive: Boolean!
+  playbackUrl: String
+}
+
+type CreatorPlatformRevenue {
+  amount: Float!
+  currency: String!
+  label: String
+  lastPayoutAt: AWSDateTime
+  platform: String!
+}
+
+#  ─────────────────────────────────────────
+# Creator PR & Content Studio (Planner board) + Social Pulse
+# ─────────────────────────────────────────
+type CreatorPrBoard {
+  createdAt: AWSDateTime!
+  creatorId: ID!
+  description: String
+  goalCompassSnapshot: CreatorGoalCompassSnapshot
+  id: ID!
+  timeHorizonFrom: AWSDateTime
+  timeHorizonTo: AWSDateTime
+  #  Cognito sub (ownerSub)
+  title: String!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorPrItem {
+  audienceResponseLabel: String
+  boardId: ID!
+  brandAlignmentScore: Int
+  contentIdeaId: ID
+  createdAt: AWSDateTime!
+  creatorId: ID!
+  directorAssetIds: [ID!]
+  #  Linking out
+  directorShootPlanId: ID
+  #  Emotional PR Engine fields (V1-friendly)
+  emotionalToneLabels: [String!]
+  id: ID!
+  lastEmotionalReviewAt: AWSDateTime
+  notes: String
+  platform: String!
+  prRiskLevel: String
+  #  Where this idea came from
+  pulseId: ID
+  scheduleSlotId: ID
+  status: CreatorPrItemStatus!
+  title: String!
+  updatedAt: AWSDateTime!
+}
+
+type CreatorRevenueByPlatform {
+  currency: String!
+  platforms: [CreatorPlatformRevenue!]!
+  timeseries: [CreatorRevenueTimeseriesPoint!]!
+  totalRevenue: Float!
+}
+
+type CreatorRevenueByPlatformResult {
+  currency: String!
+  platforms: [CreatorRevenuePlatformBucket!]!
+  timeseries: [CreatorRevenueTimeseriesPoint!]!
+  totalRevenue: Float!
+}
+
+#  ─────────────────────────────────────────
+# Monetization HQ v2 + Director Suite (additive)
+# ─────────────────────────────────────────
+type CreatorRevenuePlatformBucket {
+  amount: Float!
+  currency: String!
+  label: String!
+  lastPayoutAt: AWSDateTime
+  platform: String!
+}
+
+type CreatorRevenueSummary {
+  currency: String!
+  periodEnd: AWSDateTime
+  periodStart: AWSDateTime
+  totalOrders: Int!
+  totalRevenue: Float!
+}
+
+type CreatorRevenueTimeseriesPoint {
+  date: AWSDate!
+  totalRevenue: Float!
+}
+
+#  ─────────────────────────────────────────
+# Creator Social OS – weekly schedule
+# ─────────────────────────────────────────
+type CreatorScheduleSlot {
+  createdAt: AWSDateTime!
+  creatorSub: ID!
+  #  Monday of the week
+  day: String!
+  directorShootId: ID
+  focusHint: String
+  id: ID!
+  #  PLANNED, FILMED, POSTED, SKIPPED
+  notes: String
+  #  "AM" | "PM" | "EVENING" (UI free-form)
+  platformHint: String
+  status: String!
+  #  "Mon"..."Sun"
+  timeOfDay: String!
+  updatedAt: AWSDateTime!
+  weekOf: AWSDate!
+}
+
+type CreatorScheduleWeek {
+  slots: [CreatorScheduleSlot!]!
+  weekOf: AWSDate!
+}
+
+type CreatorSocialPulse {
+  contentIdeas: [CreatorContentIdea!]!
+  createdAt: AWSDateTime!
+  creatorId: ID!
+  id: ID!
+  niche: String
+  platforms: [String!]!
+  trendBriefs: [CreatorTrendBrief!]!
+}
+
+type CreatorTrendBrief {
+  description: String!
+  exampleHashtags: [String!]
+  label: String!
+  riskLevel: String
+}
+
+type CreatorUploadUrl {
+  asset: CreatorAsset!
+  uploadUrl: String!
+}
+
+type DailyLoginResult {
+  awardedCoins: Int!
+  message: String
+  newBalance: Int
+  streak: Int!
+  success: Boolean!
+}
+
+type DirectorShootPlan {
+  id: ID!
+  objective: String
+  primaryPlatform: String
+  scenes: [DirectorShootScene!]!
+  shootName: String
+  updatedAt: AWSDateTime
+}
+
+#  Note: existing Query.creatorRevenueByPlatform(window: CreatorRevenueWindow!): CreatorRevenueByPlatform
+# is left as-is to avoid breaking clients. You can later change its return type to
+# CreatorRevenueByPlatformResult! once the frontend is migrated.
+# --- Director Suite types ---
+type DirectorShootScene {
+  beats: String
+  id: ID!
+  location: String
+  mood: String
+  shotType: String
+  title: String!
+}
+
+type Episode {
+  chatEnabled: Boolean!
+  durationSeconds: Int
+  episodeNumber: Int
+  fullDescription: String
+  id: ID!
+  outfitsLinkedCount: Int
+  publicAt: String!
+  season: Int
+  shortDescription: String
+  showId: String
+  status: EpisodeStatus!
+  thumbnails: [ThumbnailImage!]!
+  title: String!
+  unlockCoinCost: Int
+}
+
+type EpisodeAccess {
+  episodeId: ID!
+  isEarly: Boolean!
+  reason: String
+}
+
+type EpisodeAdminConnection {
+  items: [Episode!]!
+  nextToken: String
+}
+
+type EpisodeUnlock {
+  costCoins: Int!
+  episode: Episode
+  episodeId: ID!
+  source: String
+  unlockedAt: String!
+}
+
+type GameEconomyConfig {
+  #  Global economy knobs
+  coinToUsdRatio: Float
+  dailyCoinCap: Int
+  id: ID!
+  monthlyBonusEventsLimit: Int
+  #  Optional freeform notes for admins
+  notes: String
+  #  Rule list
+  rules: [GameRule!]!
+  updatedAt: AWSDateTime
+  updatedBy: String
+  version: Int!
+  weeklyCoinCap: Int
+}
+
+type GameEventResult {
+  coins: Int
+  lastEventAt: AWSDateTime
+  newCoins: Int
+  newXP: Int
+  success: Boolean!
+  xp: Int
+}
+
+#  ─────────────────────────────────────────
+# Fans / Game types
+# ─────────────────────────────────────────
+type GameProfile {
+  avatarUrl: String
+  badges: [String!]!
+  bio: String
+  coins: Int!
+  displayName: String
+  lastEventAt: AWSDateTime
+  lastLoginAt: AWSDateTime
+  level: Int!
+  pinnedClosetItems: [ClosetItem!]!
+  streakCount: Int
+  userId: ID!
+  xp: Int!
+}
+
+#  ─────────────────────────────────────────
+# Game economy configuration / rules
+# ─────────────────────────────────────────
+type GameRule {
+  category: String!
+  coins: Int!
+  description: String
+  id: ID!
+  label: String!
+  maxPerDay: Int
+  meta: AWSJSON
+  per: String
+}
+
+type LeaderboardEntry {
+  coins: Int
+  displayName: String
+  rank: Int!
+  userId: ID!
+  xp: Int
+}
+
+type Like {
+  createdAt: AWSDateTime!
+  itemId: ID!
+  userId: ID!
+}
+
+type LikeConnection {
+  items: [Like!]!
+  nextToken: String
+}
+
+#  ─────────────────────────────────────────
+# Core / Auth
+# ─────────────────────────────────────────
+type Me {
+  email: String!
+  id: ID!
+  role: String!
+  tier: String!
+}
+
+#  ─────────────────────────────────────────
+# Root mutation type
+# ─────────────────────────────────────────
+type Mutation {
+  addClosetItemToCommunityFeed(itemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminApproveItem(closetItemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Closet admin – argument names match React GQL
+  adminCreateClosetItem(input: AdminCreateClosetItemInput!): ClosetItem! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Episodes admin (admin-only)
+  adminCreateEpisode(input: AdminCreateEpisodeInput!): Episode! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminModerateCreatorAsset(input: AdminModerateCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminPublishClosetItem(closetItemId: ID!): ClosetItem @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminRejectCreatorAsset(input: AdminRejectCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminRejectItem(closetItemId: ID!, reason: String): ClosetItem! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminRestoreCreatorAsset(input: AdminRestoreCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminRevokeBestie(userId: ID!): BestieStatus! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminRevokeBestieByEmail(email: String!): BestieStatus! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminSetBestie(userId: ID!): BestieStatus! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminSetBestieByEmail(email: String!): BestieStatus! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminSetClosetAudience(audience: ClosetAudience!, closetItemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminSoftDeleteCreatorAsset(input: AdminSoftDeleteCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminUpdateClosetItem(input: AdminUpdateClosetItemInput!): ClosetItem! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminUpdateEpisode(episodeId: ID!, input: AdminUpdateEpisodeInput!): Episode! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  NOTE: aligned with lambda/game/gameplay.ts (expects input: { userId, coins, xp? })
+  awardCoins(input: AwardCoinsInput!): GameProfile! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Bestie closet aliases (used by BestieCloset UI)
+  bestieCreateClosetItem(input: BestieCreateClosetItemInput!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  bestieDeleteClosetItem(id: ID!): Boolean! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  bestieUpdateClosetItem(id: ID!, input: BestieUpdateClosetItemInput!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  claimBestieTrial: BestieStatus! @aws_cognito_user_pools
+  commentOnClosetItem(input: CommentOnClosetItemInput!): Comment! @aws_cognito_user_pools
+  #  Closet (Bestie+ core)
+  # Fans cannot own a closet; they can only engage with existing items.
+  createClosetItem(input: CreateClosetItemInput!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  createCreatorAssetUpload(input: CreateCreatorAssetUploadInput!): CreatorUploadUrl! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Creator filing cabinets (mutations)
+  createCreatorCabinet(input: CreateCreatorCabinetInput!): CreatorCabinet! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  createCreatorFolder(input: CreateCreatorFolderInput!): CreatorFolder! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Polls (aligned with lambda/game/polls.ts)
+  createPoll(input: CreatePollInput!): Poll! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  createStory(input: CreateStoryInput!): Story! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Creator AI (Mutation, with new enum / result type)
+  creatorAiSuggest(kind: CreatorAiSuggestionKind, text: String): CreatorAiSuggestionResult! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Prime Bank – daily login + streak rewards
+  dailyLogin: DailyLoginResult! @aws_cognito_user_pools
+  deleteCreatorAsset(cabinetId: ID!, id: ID!): Boolean! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  deleteCreatorCabinet(id: ID!): Boolean! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  deleteCreatorFolder(cabinetId: ID!, id: ID!): Boolean! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Game profile updates
+  grantBadge(badge: String!, userId: ID!): GameProfile! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  importClosetItemToCabinet(input: ImportClosetItemToCabinetInput!): CreatorAsset! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Fan & Bestie engagement
+  likeClosetItem(itemId: ID!): ClosetItem! @aws_cognito_user_pools
+  #  🛍 Link a closet item/photo to a product
+  linkClosetItemToProduct(closetItemId: ID!, matchConfidence: Int, productId: ID!, source: String): Boolean! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Game engine
+  # (Fan vs Bestie persistence is enforced in Lambda by tier, not schema)
+  logGameEvent(input: LogGameEventInput!): GameEventResult! @aws_cognito_user_pools
+  moveCreatorAsset(input: MoveCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Pinned highlights & wishlist are Bestie+ (Fans have no persistent closet/profile)
+  pinHighlight(itemId: ID!): GameProfile! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Creator livestream + commerce
+  pinLivestreamHighlight(highlightId: ID, title: String): PinResult! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  publishStory(storyId: ID!): Story! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  recordAffiliateClick(itemId: ID!, source: String): AffiliateClickResult! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  removeClosetItemFromCommunityFeed(itemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  renameCreatorFolder(input: RenameCreatorFolderInput!): CreatorFolder! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  requestClosetApproval(itemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Bestie workflow: background changes / stories / feed
+  requestClosetBackgroundChange(input: BgChangeRequestInput!): BgChangeRequestResult! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  setCreatorLibraryTab(input: SetCreatorLibraryTabInput!): SetCreatorLibraryTabPayload! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  NOTE: aligned with lambda/game/profile.ts (event.arguments.displayName)
+  setDisplayName(displayName: String!): GameProfile! @aws_cognito_user_pools
+  #  Roles
+  setUserRole(role: String!, userId: ID!): RoleResult! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  shareClosetItemToPinterest(itemId: ID!): ShareResult! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Bestie membership / billing
+  startBestieCheckout: BestieCheckoutSession! @aws_cognito_user_pools
+  toggleWishlistItem(itemId: ID!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Spend coins to unlock an episode early (Besties will actually have coins; Fans likely won't)
+  unlockEpisode(episodeId: ID!): UnlockEpisodeResult! @aws_cognito_user_pools
+  #  Admin Settings
+  updateAdminSettings(input: AdminSettingsInput!): AdminSettings! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  updateClosetItemStory(input: UpdateClosetItemStoryInput!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  updateClosetMediaKey(itemId: ID!, mediaKey: String!): ClosetItem! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools @aws_iam
+  updateCreatorAsset(input: UpdateCreatorAssetInput!): CreatorAsset! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  updateCreatorCabinet(input: UpdateCreatorCabinetInput!): CreatorCabinet! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  updateCreatorGoalCompass(input: UpdateCreatorGoalCompassInput!): CreatorGoalCompass! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Game economy config / rules (admin)
+  updateGameEconomyConfig(input: UpdateGameEconomyConfigInput!): GameEconomyConfig! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  updateProfile(input: UpdateProfileInput!): GameProfile! @aws_cognito_user_pools
+  votePoll(optionIndex: Int!, pollId: ID!): Poll! @aws_cognito_user_pools
+}
+
+type PinResult {
+  ok: Boolean!
+}
+
+#  ─────────────────────────────────────────
+# Polls
+# ─────────────────────────────────────────
+type Poll {
+  createdAt: AWSDateTime
+  createdBy: String
+  options: [String!]!
+  pollId: ID!
+  question: String!
+  totals: [Int!]!
+}
+
+#  ─────────────────────────────────────────
+# Prime Bank – balances + daily login
+# ─────────────────────────────────────────
+type PrimeBankAccount {
+  availableCoins: Int!
+  lastUpdatedAt: AWSDateTime
+  pendingCoins: Int!
+  totalCoins: Int!
+  userId: ID!
+}
+
+#  Styling Adventures GraphQL Schema
+# Root types: Query, Mutation
+# ─────────────────────────────────────────
+# Root query type
+# ─────────────────────────────────────────
+type Query {
+  adminClosetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminClosetItemLikes(itemId: ID!, limit: Int, nextToken: String): LikeConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminGetCreatorAsset(cabinetId: ID!, id: ID!): CreatorAsset @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminListClosetItems(limit: Int, nextToken: String, status: ClosetStatus): ClosetConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  adminListCreatorAssetsByUser(cabinetId: ID, folderId: ID, includeSoftDeleted: Boolean, limit: Int, moderationStatus: CreatorAssetModerationStatus, nextToken: String, ownerSub: ID!): CreatorAssetConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Episodes admin (admin-only)
+  adminListEpisodes(limit: Int, nextToken: String, season: Int, showId: String, status: EpisodeStatus): EpisodeAdminConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Admin / feed views
+  adminListPending(limit: Int, nextToken: String): ClosetConnection! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Bestie-only view (used by BestieCloset UI)
+  bestieClosetItems(limit: Int, nextToken: String): ClosetConnection! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Community feed – all signed-in users (Fans + Besties)
+  closetFeed(limit: Int, nextToken: String, sort: ClosetFeedSort): ClosetConnection! @aws_cognito_user_pools
+  #  Comments & likes (Fans + Besties)
+  closetItemComments(itemId: ID!, limit: Int, nextToken: String): CommentConnection! @aws_cognito_user_pools
+  creatorCabinet(id: ID!): CreatorCabinet @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  creatorCabinetAssets(cabinetId: ID!, category: CreatorCabinetCategory, folderId: ID, limit: Int, nextToken: String, search: String, tag: String): CreatorAssetConnection! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Folders for a given cabinet
+  creatorCabinetFolders(cabinetId: ID!): [CreatorFolder!]! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Creator filing cabinets (personal asset library)
+  creatorCabinets: [CreatorCabinet!]! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  creatorGoalCompass: CreatorGoalCompass @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  creatorRevenueByPlatform(window: CreatorRevenueWindow!): CreatorRevenueByPlatform @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  creatorRevenueSummary: CreatorRevenueSummary! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Admin Settings
+  getAdminSettings: AdminSettings! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Creator / livestream & monetisation
+  getCreatorLivestreamInfo: CreatorLivestreamInfo! @aws_auth(cognito_groups : ["CREATOR", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Game economy config / rules (admin)
+  getGameEconomyConfig: GameEconomyConfig! @aws_auth(cognito_groups : ["ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Game profile
+  getMyProfile: GameProfile! @aws_cognito_user_pools
+  #  Polls
+  getPoll(pollId: ID!): Poll @aws_cognito_user_pools
+  #  Prime Bank – fetch current account/balance
+  getPrimeBankAccount: PrimeBankAccount @aws_cognito_user_pools
+  #  Simple healthcheck
+  hello: String
+  #  Episodes / early access
+  isEpisodeEarlyAccess(episodeId: ID!): EpisodeAccess! @aws_cognito_user_pools
+  #  Current user basic info
+  me: Me! @aws_cognito_user_pools
+  #  Bestie status
+  meBestieStatus: BestieStatus! @aws_cognito_user_pools
+  #  Closet queries
+  # Bestie+ only: Fans do not have a personal closet
+  myCloset(limit: Int, nextToken: String): ClosetConnection! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  myStories(limit: Int, nextToken: String): BestieStoryConnection @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  Fan/Bestie episode unlocks
+  myUnlockedEpisodes: [EpisodeUnlock!]! @aws_cognito_user_pools
+  myWishlist(limit: Int, nextToken: String): ClosetConnection! @aws_auth(cognito_groups : ["BESTIE", "CREATOR", "COLLAB", "ADMIN", "PRIME"]) @aws_cognito_user_pools
+  #  🛍 Shopping
+  shopLalasLook(closetItemId: ID!): [ShopProduct!]! @aws_cognito_user_pools
+  shopThisScene(sceneId: ID!): [ShopProduct!]! @aws_cognito_user_pools
+  stories(limit: Int, nextToken: String): BestieStoryConnection @aws_cognito_user_pools
+  topCoins(limit: Int, season: String): [LeaderboardEntry!]! @aws_cognito_user_pools
+  #  Game / leaderboard
+  topXP(limit: Int, season: String): [LeaderboardEntry!]! @aws_cognito_user_pools
+}
+
+type RoleResult {
+  role: String!
+  userId: ID!
+}
+
+type SetCreatorLibraryTabPayload {
+  ok: Boolean!
+  tab: CreatorLibraryTab!
+}
+
+type ShareResult {
+  ok: Boolean!
+  url: String
+}
+
+type ShopProduct {
+  affiliateLinks: [AffiliateLink!]!
+  brand: String
+  category: String
+  color: String
+  imageUrl: String
+  name: String!
+  price: Float
+  productId: ID!
+  sizeOptions: [String]
+}
+
+type Story {
+  createdAt: AWSDateTime
+  id: ID!
+  ownerId: ID!
+  publishedAt: AWSDateTime
+  status: String
+  title: String
+}
+
+type ThumbnailImage {
+  key: String!
+  primary: Boolean!
+}
+
+type UnlockEpisodeResult {
+  costCoins: Int!
+  episode: Episode!
+  remainingCoins: Int!
+  success: Boolean!
+  unlockedAt: String!
+}
+
+#  ─────────────────────────────────────────
+# Bestie Stories
+# ─────────────────────────────────────────
+enum BestieStoryStatus {
+  ARCHIVED
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+}
+
+#  ─────────────────────────────────────────
+# Closet enums
+# ─────────────────────────────────────────
+enum ClosetAudience {
+  BESTIES
+  EXCLUSIVE
+  PUBLIC
+}
+
+enum ClosetFeedSort {
+  LALAS_PICK
+  MOST_LOVED
+  MY_FAVES
+  NEWEST
+}
+
+enum ClosetStatus {
+  APPROVED
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+enum ClosetVisibility {
+  BESTIE
+  PRIVATE
+  PUBLIC
+}
+
+enum CreatorAiSuggestionKind {
+  CAPTION
+  HASHTAGS
+  OTHER
+}
+
+enum CreatorAssetKind {
+  OTHER
+  PHOTO
+  VIDEO
+}
+
+enum CreatorAssetModerationStatus {
+  ACTIVE
+  INAPPROPRIATE
+  REJECTED
+  SOFT_DELETED
+}
+
+enum CreatorCabinetCategory {
+  BRIEF
+  EPISODE_BTS
+  OTHER
+  OUTFIT_REFS
+  SPONSOR_ASSETS
+  STORYBOARD
+  THUMBNAILS
+}
+
+enum CreatorLibraryTab {
+  LIBRARY
+  STORIES
+  STUDIO
+  TOOLS
+}
+
+enum CreatorPrItemStatus {
+  DRAFT
+  IDEA
+  POSTED
+  READY
+  SCHEDULED
+  SKIPPED
+}
+
+enum CreatorRevenueWindow {
+  LAST_30_DAYS
+  LAST_7_DAYS
+  LAST_90_DAYS
+}
+
+#  ─────────────────────────────────────────
+# Episodes / Bestie access
+# ─────────────────────────────────────────
+enum EpisodeStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+}
+
+enum WeeklyPathStatus {
+  OFF_PATH
+  ON_PATH
+  SLIGHTLY_OFF
+}
+
+input AddContentIdeaToBoardInput {
+  boardId: ID!
+  contentIdeaId: ID!
+  notes: String
+  #  Optional overrides from the UI
+  platform: String
+  pulseId: ID!
+  status: CreatorPrItemStatus
+}
+
+#  ─────────────────────────────────────────
+# Closet inputs – admin
+# ─────────────────────────────────────────
+input AdminCreateClosetItemInput {
+  affiliateUrl: String
+  audience: ClosetAudience
+  backgroundStatus: String
+  category: String
+  coinValue: Int
+  colorTags: [String!]
+  episodeIds: [ID!]
+  mediaKey: String
+  notes: String
+  ownerId: ID
+  pinned: Boolean
+  rawMediaKey: String
+  season: String
+  status: ClosetStatus
+  subcategory: String
+  title: String
+  vibes: String
+  visibility: ClosetVisibility
+}
+
+input AdminCreateEpisodeInput {
+  chatEnabled: Boolean
+  durationSeconds: Int
+  episodeNumber: Int
+  fullDescription: String
+  id: ID
+  publicAt: String!
+  season: Int
+  shortDescription: String
+  showId: String
+  status: EpisodeStatus!
+  thumbnails: [ThumbnailImageInput!]
+  title: String!
+  unlockCoinCost: Int
+}
+
+input AdminModerateCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  moderationReason: String
+  moderationStatus: CreatorAssetModerationStatus!
+  tags: [String!]
+}
+
+input AdminRejectCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  moderationReason: String
+  tags: [String!]
+}
+
+input AdminRestoreCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+}
+
+input AdminSettingsInput {
+  animationsEnabled: Boolean
+  autoBadgeGrant: Boolean
+  badgeRules: [BadgeRuleInput!]
+  soundsEnabled: Boolean
+}
+
+input AdminSoftDeleteCreatorAssetInput {
+  cabinetId: ID!
+  id: ID!
+  reason: String
+}
+
+input AdminUpdateClosetItemInput {
+  affiliateUrl: String
+  audience: ClosetAudience
+  backgroundStatus: String
+  category: String
+  coinValue: Int
+  colorTags: [String!]
+  episodeIds: [ID!]
+  id: ID!
+  mediaKey: String
+  notes: String
+  ownerId: ID
+  pinned: Boolean
+  rawMediaKey: String
+  scheduledAt: AWSDateTime
+  season: String
+  status: ClosetStatus
+  subcategory: String
+  title: String
+  vibes: String
+  visibility: ClosetVisibility
+}
+
+input AdminUpdateEpisodeInput {
+  chatEnabled: Boolean
+  durationSeconds: Int
+  episodeNumber: Int
+  fullDescription: String
+  publicAt: String
+  season: Int
+  shortDescription: String
+  showId: String
+  status: EpisodeStatus
+  thumbnails: [ThumbnailImageInput!]
+  title: String
+  unlockCoinCost: Int
+}
+
+input AwardCoinsInput {
+  coins: Int!
+  userId: ID!
+  xp: Int
+}
+
+input BadgeRuleInput {
+  id: ID!
+  label: String!
+  trigger: String!
+}
+
+input BestieCreateClosetItemInput {
+  affiliateUrl: String
+  category: String
+  colorTags: [String!]
+  episodeIds: [ID!]
+  mediaKey: String
+  notes: String
+  rawMediaKey: String
+  season: String
+  subcategory: String
+  title: String
+  vibes: String
+  visibility: ClosetVisibility
+}
+
+input BestieUpdateClosetItemInput {
+  affiliateUrl: String
+  category: String
+  colorTags: [String!]
+  episodeIds: [ID!]
+  mediaKey: String
+  notes: String
+  rawMediaKey: String
+  season: String
+  subcategory: String
+  title: String
+  vibes: String
+  visibility: ClosetVisibility
+}
+
+input BgChangeRequestInput {
+  itemId: ID!
+  newBackgroundKey: String!
+  notes: String
+}
+
+input CommentOnClosetItemInput {
+  itemId: ID!
+  text: String!
+}
+
+#  ─────────────────────────────────────────
+# Closet inputs – fan / bestie
+# ─────────────────────────────────────────
+input CreateClosetItemInput {
+  affiliateUrl: String
+  category: String
+  colorTags: [String!]
+  episodeIds: [ID!]
+  mediaKey: String
+  notes: String
+  rawMediaKey: String
+  season: String
+  subcategory: String
+  title: String
+  vibes: String
+  visibility: ClosetVisibility
+}
+
+input CreateCreatorAssetUploadInput {
+  cabinetId: ID!
+  category: CreatorCabinetCategory
+  contentType: String!
+  fileName: String!
+  folderId: ID
+  kind: CreatorAssetKind!
+  notes: String
+  tags: [String!]
+  title: String
+}
+
+input CreateCreatorCabinetInput {
+  defaultCategory: CreatorCabinetCategory
+  description: String
+  name: String!
+  tags: [String!]
+}
+
+input CreateCreatorFolderInput {
+  cabinetId: ID!
+  name: String!
+}
+
+input CreateCreatorPrBoardInput {
+  description: String
+  timeHorizonFrom: AWSDateTime
+  timeHorizonTo: AWSDateTime
+  title: String!
+}
+
+input CreatePollInput {
+  options: [String!]!
+  question: String!
+}
+
+input CreateStoryInput {
+  closetItemIds: [ID!]
+  title: String!
+}
+
+input CreatorContentMixInput {
+  authority: Int
+  conversion: Int
+  nurture: Int
+  personality: Int
+}
+
+input DirectorShootSceneInput {
+  beats: String
+  id: ID
+  location: String
+  mood: String
+  shotType: String
+  title: String!
+}
+
+input GameRuleInput {
+  category: String!
+  coins: Int!
+  description: String
+  id: ID
+  label: String!
+  maxPerDay: Int
+  meta: AWSJSON
+  per: String
+}
+
+input GenerateSocialPulseInput {
+  nicheOverride: String
+  platforms: [String!]
+}
+
+input ImportClosetItemToCabinetInput {
+  cabinetId: ID!
+  closetItemId: ID!
+  folderId: ID
+  kind: CreatorAssetKind
+  notes: String
+  tags: [String!]
+  title: String
+}
+
+input LogGameEventInput {
+  metadata: AWSJSON
+  type: String!
+}
+
+input MoveCreatorAssetInput {
+  cabinetId: ID!
+  destinationFolderId: ID
+  id: ID!
+}
+
+input RenameCreatorFolderInput {
+  cabinetId: ID!
+  id: ID!
+  name: String!
+}
+
+input SaveDirectorShootPlanInput {
+  id: ID!
+  objective: String
+  primaryPlatform: String
+  scenes: [DirectorShootSceneInput!]!
+  shootName: String
+}
+
+input SetCreatorLibraryTabInput {
+  tab: CreatorLibraryTab!
+}
+
+input ThumbnailImageInput {
+  key: String!
+  primary: Boolean!
+}
+
+input UpdateClosetItemStoryInput {
+  itemId: ID!
+  storyId: ID
+  storyPosition: Int
+}
+
+input UpdateCreatorAssetInput {
+  cabinetId: ID!
+  category: CreatorCabinetCategory
+  folderId: ID
+  id: ID!
+  notes: String
+  tags: [String!]
+  title: String
+}
+
+input UpdateCreatorCabinetInput {
+  defaultCategory: CreatorCabinetCategory
+  description: String
+  id: ID!
+  name: String
+  tags: [String!]
+}
+
+input UpdateCreatorGoalCompassInput {
+  contentMixTarget: CreatorContentMixInput
+  focusAreas: [String!]!
+  notes: String
+  primaryGoal: String!
+  riskTolerance: String!
+  timeHorizon: String!
+  weeklyCapacity: Int!
+}
+
+input UpdateGameEconomyConfigInput {
+  coinToUsdRatio: Float
+  dailyCoinCap: Int
+  monthlyBonusEventsLimit: Int
+  notes: String
+  rules: [GameRuleInput!]!
+  weeklyCoinCap: Int
+}
+
+input UpdateProfileInput {
+  avatarUrl: String
+  bio: String
+  displayName: String
+}
+
+input UpsertCreatorScheduleSlotInput {
+  day: String!
+  directorShootId: ID
+  focusHint: String
+  id: ID
+  notes: String
+  platformHint: String
+  status: String
+  timeOfDay: String!
+  weekOf: AWSDate!
+}

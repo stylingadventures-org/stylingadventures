@@ -2,18 +2,18 @@
   "env": "dev",
   "region": "us-east-1",
 
-  "appsyncUrl": "https://3ezwfbtqlfh75ge7vwkz7umhbi.appsync-api.us-east-1.amazonaws.com/graphql",
+  "appsyncUrl": "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
 
-  "redirectUri": "http://localhost:5173/callback",
-  "logoutUri": "http://localhost:5173/",
+  "redirectUri": "https://stylingadventures.com/callback",
+  "logoutUri": "https://stylingadventures.com/",
 
   "uploadsApiUrl": "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
 
   "uploadsCdn": "https://d3fghn37bcpbig.cloudfront.net",
 
-  "userPoolId": "us-east-1_aXLKIxbqK",
-  "userPoolWebClientId": "51uc25i7ob3otirvgi66mpht79",
-  "clientId": "51uc25i7ob3otirvgi66mpht79",
+  "userPoolId": "us-east-1_ibGaRX7ry",
+  "userPoolWebClientId": "6qvke3hfg6utjbavkehgo4tf73",
+  "clientId": "6qvke3hfg6utjbavkehgo4tf73",
 
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
   "cognitoDomainPrefix": "sa-dev-637423256673",

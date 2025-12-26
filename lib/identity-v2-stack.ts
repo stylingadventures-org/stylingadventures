@@ -144,14 +144,29 @@ export class IdentityV2Stack extends cdk.Stack {
     //
     // App client
     //
+    // Build callback URLs for all environments
+    const callbackUrls = [
+      webOrigin, // CloudFront URL (production)
+      "https://stylingadventures.com/callback", // Production root domain
+      "https://app.stylingadventures.com/callback", // Production subdomain
+      "http://localhost:5173/callback", // Local development
+    ];
+
+    const logoutUrls = [
+      webOrigin, // CloudFront URL (production)
+      "https://stylingadventures.com", // Production root domain
+      "https://app.stylingadventures.com", // Production subdomain
+      "http://localhost:5173", // Local development
+    ];
+
     this.userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
       userPool: this.userPool,
       userPoolClientName: `sa2-${envName}-web-client`,
       generateSecret: false,
       oAuth: {
         flows: { implicitCodeGrant: true },
-        callbackUrls: [webOrigin],
-        logoutUrls: [webOrigin],
+        callbackUrls,
+        logoutUrls,
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,
@@ -188,6 +203,41 @@ export class IdentityV2Stack extends cdk.Stack {
         resources: [this.userPool.userPoolArn],
       }),
     );
+
+    //
+    // SeedTestUsersFn – creates 5 test users (fan, admin, creator, creator-pending, bestie)
+    // with appropriate Cognito groups and DynamoDB profiles
+    //
+    const seedTestUsersFn = new lambdaNode.NodejsFunction(
+      this,
+      "SeedTestUsersFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(__dirname, "../lambda/auth/seed-test-users.ts"),
+        handler: "handler",
+        timeout: cdk.Duration.minutes(5),
+        environment: {
+          USER_POOL_ID: this.userPool.userPoolId,
+          TABLE_NAME: appTable.tableName,
+        },
+      },
+    );
+
+    // permissions: create users, set passwords, add to groups, and write to DynamoDB
+    seedTestUsersFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:ListUsers",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminAddUserToGroup",
+        ],
+        resources: [this.userPool.userPoolArn],
+      }),
+    );
+
+    appTable.grantReadWriteData(seedTestUsersFn);
 
     //
     // Custom resource to trigger seeding on deploy/update
@@ -238,6 +288,56 @@ export class IdentityV2Stack extends cdk.Stack {
     seedAdminCustomResource.node.addDependency(collabGroup);
     seedAdminCustomResource.node.addDependency(fanGroup);
     seedAdminCustomResource.node.addDependency(primeGroup);
+
+    //
+    // Custom resource to trigger test user seeding on deploy/update
+    //
+    const seedTestUsersCustomResource = new cr.AwsCustomResource(
+      this,
+      "SeedTestUsersCustomResource",
+      {
+        onCreate: {
+          service: "Lambda",
+          action: "invoke",
+          parameters: {
+            FunctionName: seedTestUsersFn.functionName,
+            InvocationType: "RequestResponse",
+            Payload: JSON.stringify({ RequestType: "Create" }),
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(
+            `SeedTestUsers-${envName}-Create`,
+          ),
+        },
+        onUpdate: {
+          service: "Lambda",
+          action: "invoke",
+          parameters: {
+            FunctionName: seedTestUsersFn.functionName,
+            InvocationType: "RequestResponse",
+            Payload: JSON.stringify({ RequestType: "Update" }),
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(
+            `SeedTestUsers-${envName}-Update`,
+          ),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["lambda:InvokeFunction"],
+            resources: [seedTestUsersFn.functionArn],
+          }),
+        ]),
+      },
+    );
+
+    // Make sure test users seeding waits for seedAdmin to complete, userPool, and all groups
+    seedTestUsersCustomResource.node.addDependency(seedAdminCustomResource);
+    seedTestUsersCustomResource.node.addDependency(this.userPool);
+    seedTestUsersCustomResource.node.addDependency(adminGroup);
+    seedTestUsersCustomResource.node.addDependency(creatorGroup);
+    seedTestUsersCustomResource.node.addDependency(bestieGroup);
+    seedTestUsersCustomResource.node.addDependency(collabGroup);
+    seedTestUsersCustomResource.node.addDependency(fanGroup);
+    seedTestUsersCustomResource.node.addDependency(primeGroup);
 
     //
     // Outputs

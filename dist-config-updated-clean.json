@@ -1,0 +1,189 @@
+﻿{
+    "ETag":  "E29PV192SGYFJV",
+    "DistributionConfig":  {
+                               "CallerReference":  "18206d8b-0280-d231-2717-a4867b662001",
+                               "Aliases":  {
+                                               "Quantity":  3,
+                                               "Items":  [
+                                                             "app.stylingadventures.com",
+                                                             "www.stylingadventures.com",
+                                                             "stylingadventures.com"
+                                                         ]
+                                           },
+                               "DefaultRootObject":  "index.html",
+                               "Origins":  {
+                                               "Quantity":  2,
+                                               "Items":  [
+                                                             {
+                                                                 "Id":  "WebStackWebDistributionOrigin1AAF54134",
+                                                                 "DomainName":  "webstack-webbucket12880f5b-wxfjj0fkn4ax.s3.us-east-1.amazonaws.com",
+                                                                 "OriginPath":  "",
+                                                                 "CustomHeaders":  {
+                                                                                       "Quantity":  0
+                                                                                   },
+                                                                 "S3OriginConfig":  {
+                                                                                        "OriginAccessIdentity":  "origin-access-identity/cloudfront/E1TLIWIU1O56MP",
+                                                                                        "OriginReadTimeout":  30
+                                                                                    },
+                                                                 "ConnectionAttempts":  3,
+                                                                 "ConnectionTimeout":  10,
+                                                                 "OriginShield":  {
+                                                                                      "Enabled":  false
+                                                                                  },
+                                                                 "OriginAccessControlId":  ""
+                                                             },
+                                                             {
+                                                                 "Id":  "WebStackWebDistributionOrigin264D15FE5",
+                                                                 "DomainName":  "webstack-webbucket12880f5b-wxfjj0fkn4ax.s3.us-east-1.amazonaws.com",
+                                                                 "OriginPath":  "",
+                                                                 "CustomHeaders":  {
+                                                                                       "Quantity":  0
+                                                                                   },
+                                                                 "S3OriginConfig":  {
+                                                                                        "OriginAccessIdentity":  "origin-access-identity/cloudfront/E9YRW96RX3YYO",
+                                                                                        "OriginReadTimeout":  30
+                                                                                    },
+                                                                 "ConnectionAttempts":  3,
+                                                                 "ConnectionTimeout":  10,
+                                                                 "OriginShield":  {
+                                                                                      "Enabled":  false
+                                                                                  },
+                                                                 "OriginAccessControlId":  ""
+                                                             }
+                                                         ]
+                                           },
+                               "OriginGroups":  {
+                                                    "Quantity":  0
+                                                },
+                               "DefaultCacheBehavior":  {
+                                                            "TargetOriginId":  "WebStackWebDistributionOrigin1AAF54134",
+                                                            "TrustedSigners":  {
+                                                                                   "Enabled":  false,
+                                                                                   "Quantity":  0
+                                                                               },
+                                                            "TrustedKeyGroups":  {
+                                                                                     "Enabled":  false,
+                                                                                     "Quantity":  0
+                                                                                 },
+                                                            "ViewerProtocolPolicy":  "redirect-to-https",
+                                                            "AllowedMethods":  {
+                                                                                   "Quantity":  2,
+                                                                                   "Items":  [
+                                                                                                 "HEAD",
+                                                                                                 "GET"
+                                                                                             ],
+                                                                                   "CachedMethods":  {
+                                                                                                         "Quantity":  2,
+                                                                                                         "Items":  [
+                                                                                                                       "HEAD",
+                                                                                                                       "GET"
+                                                                                                                   ]
+                                                                                                     }
+                                                                               },
+                                                            "SmoothStreaming":  false,
+                                                            "Compress":  true,
+                                                            "LambdaFunctionAssociations":  {
+                                                                                               "Quantity":  0
+                                                                                           },
+                                                            "FunctionAssociations":  {
+                                                                                         "Quantity":  0
+                                                                                     },
+                                                            "FieldLevelEncryptionId":  "",
+                                                            "CachePolicyId":  "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+                                                            "GrpcConfig":  {
+                                                                               "Enabled":  false
+                                                                           }
+                                                        },
+                               "CacheBehaviors":  {
+                                                      "Quantity":  1,
+                                                      "Items":  [
+                                                                    {
+                                                                        "PathPattern":  "/assets/*",
+                                                                        "TargetOriginId":  "WebStackWebDistributionOrigin264D15FE5",
+                                                                        "TrustedSigners":  {
+                                                                                               "Enabled":  false,
+                                                                                               "Quantity":  0
+                                                                                           },
+                                                                        "TrustedKeyGroups":  {
+                                                                                                 "Enabled":  false,
+                                                                                                 "Quantity":  0
+                                                                                             },
+                                                                        "ViewerProtocolPolicy":  "redirect-to-https",
+                                                                        "AllowedMethods":  {
+                                                                                               "Quantity":  2,
+                                                                                               "Items":  [
+                                                                                                             "HEAD",
+                                                                                                             "GET"
+                                                                                                         ],
+                                                                                               "CachedMethods":  {
+                                                                                                                     "Quantity":  2,
+                                                                                                                     "Items":  [
+                                                                                                                                   "HEAD",
+                                                                                                                                   "GET"
+                                                                                                                               ]
+                                                                                                                 }
+                                                                                           },
+                                                                        "SmoothStreaming":  false,
+                                                                        "Compress":  true,
+                                                                        "LambdaFunctionAssociations":  {
+                                                                                                           "Quantity":  0
+                                                                                                       },
+                                                                        "FunctionAssociations":  {
+                                                                                                     "Quantity":  0
+                                                                                                 },
+                                                                        "FieldLevelEncryptionId":  "",
+                                                                        "CachePolicyId":  "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+                                                                        "GrpcConfig":  {
+                                                                                           "Enabled":  false
+                                                                                       }
+                                                                    }
+                                                                ]
+                                                  },
+                               "CustomErrorResponses":  {
+                                                            "Quantity":  2,
+                                                            "Items":  [
+                                                                          {
+                                                                              "ErrorCode":  403,
+                                                                              "ResponsePagePath":  "/index.html",
+                                                                              "ResponseCode":  "200",
+                                                                              "ErrorCachingMinTTL":  1
+                                                                          },
+                                                                          {
+                                                                              "ErrorCode":  404,
+                                                                              "ResponsePagePath":  "/index.html",
+                                                                              "ResponseCode":  "200",
+                                                                              "ErrorCachingMinTTL":  1
+                                                                          }
+                                                                      ]
+                                                        },
+                               "Comment":  "",
+                               "Logging":  {
+                                               "Enabled":  false,
+                                               "IncludeCookies":  false,
+                                               "Bucket":  "",
+                                               "Prefix":  ""
+                                           },
+                               "PriceClass":  "PriceClass_All",
+                               "Enabled":  true,
+                               "ViewerCertificate":  {
+                                                         "CloudFrontDefaultCertificate":  false,
+                                                         "ACMCertificateArn":  "arn:aws:acm:us-east-1:637423256673:certificate/c6ae9e10-3e64-4fe0-9fc9-dd133bc43810",
+                                                         "SSLSupportMethod":  "sni-only",
+                                                         "MinimumProtocolVersion":  "TLSv1.2_2021",
+                                                         "Certificate":  "arn:aws:acm:us-east-1:637423256673:certificate/c6ae9e10-3e64-4fe0-9fc9-dd133bc43810",
+                                                         "CertificateSource":  "acm"
+                                                     },
+                               "Restrictions":  {
+                                                    "GeoRestriction":  {
+                                                                           "RestrictionType":  "none",
+                                                                           "Quantity":  0
+                                                                       }
+                                                },
+                               "WebACLId":  "",
+                               "HttpVersion":  "http2",
+                               "IsIPV6Enabled":  true,
+                               "ContinuousDeploymentPolicyId":  "",
+                               "Staging":  false
+                           }
+}
+

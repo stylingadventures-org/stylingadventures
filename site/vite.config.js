@@ -1,30 +1,43 @@
-// vite.config.js
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-// ESM-compatible __dirname shim
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@components': path.resolve(__dirname, './src/components'),
-      '@features': path.resolve(__dirname, './src/features'),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Vendor chunks for better caching
+          if (id.includes('node_modules/react')) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/react-router')) {
+            return 'vendor-router'
+          }
+          if (id.includes('node_modules/@aws')) {
+            return 'vendor-aws'
+          }
+        }
+      }
     },
+    // Target modern browsers (Rolldown auto-minifies)
+    target: 'esnext',
+    // Generate source maps for production debugging
+    sourcemap: false,
+    // Increase chunk size warning threshold
+    chunkSizeWarningLimit: 500,
   },
-  server: {
-    host: 'localhost',
-    port: 5173,
-    strictPort: true
-  },
-  preview: {
-    host: 'localhost',
-    port: 4173,
-    strictPort: true
+  // Optimize dependencies
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom'
+    ]
   }
-});
+})
+
+
+
+

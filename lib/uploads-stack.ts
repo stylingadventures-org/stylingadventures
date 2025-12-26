@@ -30,14 +30,15 @@ export class UploadsStack extends Stack {
     const { webOrigin } = props;
     const envName = this.node.tryGetContext("env") ?? "dev";
 
-    // In dev we want to allow local Vite origin as well as the deployed origin.
+    // In dev we want to allow local Vite origin as well as the deployed origins.
     const localDevOrigin = "http://localhost:5173";
+    const appDomain = "https://app.stylingadventures.com";
 
     const corsAllowedOrigins = Array.from(
       new Set(
         envName === "prd"
-          ? [webOrigin]
-          : [webOrigin, localDevOrigin]
+          ? [webOrigin, appDomain]
+          : [webOrigin, appDomain, localDevOrigin]
       ),
     ).filter(Boolean) as string[];
 
@@ -90,7 +91,26 @@ export class UploadsStack extends Stack {
     this.uploadsBucket.grantReadWrite(uploadApiFn);
 
     //
-    // 3) REST API exposing POST /presign
+    // 2.5) OAuth Token Exchange Lambda
+    //
+    const tokenExchangeFn = new NodejsFunction(this, "TokenExchangeFn", {
+      entry: "lambda/oauth/token-exchange/index.js",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: {
+        format: OutputFormat.CJS,
+        minify: false,
+        sourceMap: true,
+      },
+      environment: {
+        COGNITO_DOMAIN: "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+        CLIENT_ID: "7u9k85rh5h74eretn9hlsme0rl",
+        CLIENT_SECRET: "123lrr85uu513pvqrstludgf2bvci4krka29pkt08k8jflhrr39",
+        REDIRECT_URI: "https://app.stylingadventures.com/callback",
+      },
+    });
+
+    //
+    // 3) REST API exposing POST /presign, /get, and /oauth/token
     //
     const api = new apigw.RestApi(this, "UploadsApi", {
       restApiName: `SA-UploadsApi-${envName}`,
@@ -115,6 +135,17 @@ export class UploadsStack extends Stack {
     getResource.addMethod(
       "POST",
       new apigw.LambdaIntegration(uploadApiFn),
+      {
+        authorizationType: apigw.AuthorizationType.NONE,
+      },
+    );
+
+    // OAuth token exchange endpoint
+    const oauthResource = api.root.addResource("oauth");
+    const tokenResource = oauthResource.addResource("token");
+    tokenResource.addMethod(
+      "POST",
+      new apigw.LambdaIntegration(tokenExchangeFn),
       {
         authorizationType: apigw.AuthorizationType.NONE,
       },

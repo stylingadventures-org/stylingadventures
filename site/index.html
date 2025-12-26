@@ -2,17 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Styling Adventures</title>
-
-    <!-- load global helper first -->
-    <script src="/sa.js" defer></script>
+    <title>site</title>
+    <script>
+      // Load config globally before app starts - wait for it to complete
+      window.__CONFIG__ = null
+      // Add random version to prevent any caching
+      const configUrl = '/config.json?v=' + Math.random() + '&t=' + Date.now()
+      window.__CONFIG_LOADED__ = new Promise((resolve) => {
+        fetch(configUrl)
+          .then(res => res.json())
+          .then(data => {
+            window.__CONFIG__ = data
+            console.log('Config loaded from:', configUrl, 'Data:', data)
+            resolve(data)
+          })
+          .catch(err => {
+            console.error('Failed to load config:', err)
+            resolve(null)
+          })
+      })
+    </script>
   </head>
   <body>
     <div id="root"></div>
-
-    <!-- then the React app -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-

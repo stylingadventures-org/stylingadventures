@@ -1,0 +1,47 @@
+.episode-theater-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.video-player-wrapper {
+  margin-bottom: 30px;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: #000;
+}
+
+.episode-info {
+  margin-bottom: 30px;
+}
+
+.episode-info h1 {
+  margin: 0 0 10px 0;
+  font-size: 2rem;
+}
+
+.episode-info p {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.comments-section {
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.comments-section h2 {
+  margin: 0 0 20px 0;
+}
+
+@media (max-width: 768px) {
+  .episode-theater-container {
+    padding: 10px;
+  }
+
+  .episode-info h1 {
+    font-size: 1.5rem;
+  }
+}

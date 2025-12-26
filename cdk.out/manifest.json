@@ -272,7 +272,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/fe64f2a40e560c03857e0e7e3309ebdbad5faee0841e7219280f9bb63ecd20f7.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/12c39b5919209970e321d16645c8e2bf777856f68d4b26d3e7146a64540eb2e3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -407,6 +407,24 @@
             "data": "SeedAdminFn71928945"
           }
         ],
+        "/IdentityV2Stack/SeedTestUsersFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SeedTestUsersFnServiceRole07431840"
+          }
+        ],
+        "/IdentityV2Stack/SeedTestUsersFn/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SeedTestUsersFnServiceRoleDefaultPolicyFE76E47E"
+          }
+        ],
+        "/IdentityV2Stack/SeedTestUsersFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SeedTestUsersFn0B4A7EF3"
+          }
+        ],
         "/IdentityV2Stack/SeedAdminCustomResource": [
           {
             "type": "aws:cdk:warning",
@@ -416,7 +434,7 @@
               "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:984)",
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\custom-resources\\lib\\aws-custom-resource\\aws-custom-resource.js:1:7936)",
               "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\prop-injectable.js:1:681)",
-              "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:195:37)",
+              "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:230:37)",
               "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:131:18)",
               "Module._compile (node:internal/modules/cjs/loader:1529:14)",
               "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
@@ -458,6 +476,14 @@
           {
             "type": "aws:cdk:is-custom-resource-handler-runtime-family",
             "data": 0
+          },
+          {
+            "type": "aws:cdk:is-custom-resource-handler-singleton",
+            "data": true
+          },
+          {
+            "type": "aws:cdk:is-custom-resource-handler-runtime-family",
+            "data": 0
           }
         ],
         "/IdentityV2Stack/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource": [
@@ -470,6 +496,49 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "AWS679f53fac002430cb0da5b7982bd22872D164C4C"
+          }
+        ],
+        "/IdentityV2Stack/SeedTestUsersCustomResource": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "installLatestAwsSdk was not specified, and defaults to true. You probably do not want this. Set the global context flag '@aws-cdk/customresources:installLatestAwsSdkDefault' to false to switch this behavior off project-wide, or set the property explicitly to true if you know you need to call APIs that are not in Lambda's built-in SDK version. [ack: @aws-cdk/custom-resources:installLatestAwsSdkNotSpecified]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:2066)",
+              "Annotations.addWarningV2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:984)",
+              "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\custom-resources\\lib\\aws-custom-resource\\aws-custom-resource.js:1:7936)",
+              "new AwsCustomResource2 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\aws-cdk-lib\\core\\lib\\prop-injectable.js:1:681)",
+              "new IdentityV2Stack (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\lib\\identity-v2-stack.ts:280:41)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\bin\\stylingadventures.ts:131:18)",
+              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
+              "Module.m._compile (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1618:23)",
+              "Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
+              "Object.require.extensions.<computed> [as .ts] (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\index.ts:1621:12)",
+              "Module.load (node:internal/modules/cjs/loader:1275:32)",
+              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
+              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
+              "phase4 (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:649:14)",
+              "bootstrap (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:95:10)",
+              "main (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:55:10)",
+              "Object.<anonymous> (C:\\Users\\12483\\Desktop\\stylingadventures\\stylingadventures\\node_modules\\ts-node\\src\\bin.ts:800:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1529:14)",
+              "Object.Module._extensions..js (node:internal/modules/cjs/loader:1613:10)",
+              "Module.load (node:internal/modules/cjs/loader:1275:32)",
+              "Function.Module._load (node:internal/modules/cjs/loader:1096:12)",
+              "Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)",
+              "node:internal/main/run_main_module:28:49"
+            ]
+          }
+        ],
+        "/IdentityV2Stack/SeedTestUsersCustomResource/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SeedTestUsersCustomResource1A4B2AB8"
+          }
+        ],
+        "/IdentityV2Stack/SeedTestUsersCustomResource/CustomResourcePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SeedTestUsersCustomResourceCustomResourcePolicy59B2A2F1"
           }
         ],
         "/IdentityV2Stack/UserPoolId": [
@@ -882,7 +951,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/95b47229571ea82b93b2dd9dc43c0618a2464997493ecf5ee713da7edb778e42.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/6f2bdf1596eecda3adfc91b883058f7778706cb3469090f2f05d8f09b1a2de85.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -987,6 +1056,18 @@
             "data": "UploadApiFn7FE3717E"
           }
         ],
+        "/UploadsStack/TokenExchangeFn/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TokenExchangeFnServiceRole26C9B262"
+          }
+        ],
+        "/UploadsStack/TokenExchangeFn/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TokenExchangeFn8FB829AA"
+          }
+        ],
         "/UploadsStack/UploadsApi/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -1008,7 +1089,7 @@
         "/UploadsStack/UploadsApi/Deployment/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "UploadsApiDeployment4A67E04Cd75a0206d7f9f939ebfbac2326b899ea"
+            "data": "UploadsApiDeployment4A67E04Ce06fe59338d29b0abdcfafeb7a88877c"
           }
         ],
         "/UploadsStack/UploadsApi/DeploymentStage.prod/Resource": [
@@ -1087,6 +1168,48 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsApigetPOSTFFB1099B"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthE16262ED"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthOPTIONS4D47BEB4"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/token/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthtokenDBB8DE95"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/token/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthtokenOPTIONS057DEF13"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/token/POST/ApiPermission.UploadsStackUploadsApiC6DB0904.POST..oauth.token": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthtokenPOSTApiPermissionUploadsStackUploadsApiC6DB0904POSToauthtokenCF84A0EF"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/token/POST/ApiPermission.Test.UploadsStackUploadsApiC6DB0904.POST..oauth.token": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthtokenPOSTApiPermissionTestUploadsStackUploadsApiC6DB0904POSToauthtoken63AB926B"
+          }
+        ],
+        "/UploadsStack/UploadsApi/Default/oauth/token/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsApioauthtokenPOSTBBC67937"
           }
         ],
         "/UploadsStack/UploadsApiUrl": [
@@ -1824,7 +1947,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5a924467121e3c9daa20d8d3d49909fef48ce1b8b1a749c49f2fa7b310b45df7.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/cd52b843404296e815480fc41e793763c9aae5951b30e55ac5299e7a239c132a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2006,7 +2129,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/5524b66299607e3c202db95c20545cd3f0ff78bb9989c742d65001170441902f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d3e48ff1694946fef30b8f959617325b97a0622a467bc1b8985cb7fb0066e47e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2646,7 +2769,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/96a58a2db187dadfa97c7f162d842bc56c6ad2fd862a38c0edee100168161a85.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/0fb78f0fce61911571250f2fbece00766b90bde45a700215c94539506f99fe8f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3413,7 +3536,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/3a179716542fe90fef187f38290a7911c95265d7e6f61e5c24a0066c46ea0b1a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/79d0a32b1a64514c755e6cddef61999b42cb4e94410d38720cac29b4ed8cebd3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3596,7 +3719,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/1bf4bd1dcec54c2a0b4b30c6171073cae58cdcddb1d7b07d7ffa0ec16d5632b5.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/39cdbdcc60c06381a0c8760c767952c356206704d3a3c8de32c9502333558e92.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -3866,7 +3989,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/d397795648f4079f948e6fc178687fb6fb1391a5e23c21f6093d30af950e59d7.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/f1f89a44e195605545cbd2d37c7efbd8afae033212b92e1c437a16e7254dab05.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4251,7 +4374,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-deploy-role-637423256673-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::637423256673:role/cdk-hnb659fds-cfn-exec-role-637423256673-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/009f29122bca00fec9b58febe960062110096be510fd8fc799bba77d5c66d91c.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-637423256673-us-east-1/712f186c35448af2d303718d3dc42a54d6c0dfb08e6f8bd507a510be0f9cafb6.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -4298,40 +4421,10 @@
             "data": "StylingApiSchemaD8A6FBCC"
           }
         ],
-        "/ApiStack/StylingApi/HelloDs/ServiceRole/Resource": [
+        "/ApiStack/StylingApi/DefaultApiKey": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDsServiceRole44626254"
-          }
-        ],
-        "/ApiStack/StylingApi/HelloDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDsServiceRoleDefaultPolicy8C35E727"
-          }
-        ],
-        "/ApiStack/StylingApi/HelloDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHelloDs58F1D645"
-          }
-        ],
-        "/ApiStack/StylingApi/Hello/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiHello5D556CAF"
-          }
-        ],
-        "/ApiStack/StylingApi/NoneDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiNoneDs95A6ABC6"
-          }
-        ],
-        "/ApiStack/StylingApi/QueryMeResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiQueryMeResolverB661C632"
+            "data": "StylingApiDefaultApiKey346A7988"
           }
         ],
         "/ApiStack/StylingApi/ClosetDs/ServiceRole/Resource": [
@@ -4352,628 +4445,142 @@
             "data": "StylingApiClosetDs3024963C"
           }
         ],
-        "/ApiStack/StylingApi/MyCloset/Resource": [
+        "/ApiStack/StylingApi/QuerymyClosetResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiMyClosetC8373A07"
+            "data": "StylingApiQuerymyClosetResolverC26A1F0D"
           }
         ],
-        "/ApiStack/StylingApi/MyWishlistResolver/Resource": [
+        "/ApiStack/StylingApi/QuerymyWishlistResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiMyWishlistResolver426A19B4"
+            "data": "StylingApiQuerymyWishlistResolver4077AAA1"
           }
         ],
-        "/ApiStack/StylingApi/QueryBestieClosetItemsResolver/Resource": [
+        "/ApiStack/StylingApi/QuerybestieClosetItemsResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiQueryBestieClosetItemsResolver9C2DC004"
+            "data": "StylingApiQuerybestieClosetItemsResolver02FE672F"
           }
         ],
-        "/ApiStack/StylingApi/ClosetFeedResolver/Resource": [
+        "/ApiStack/StylingApi/QueryclosetFeedResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetFeedResolverA7586067"
+            "data": "StylingApiQueryclosetFeedResolver80CC3662"
           }
         ],
-        "/ApiStack/StylingApi/StoriesResolver/Resource": [
+        "/ApiStack/StylingApi/QuerystoriesResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiStoriesResolverEA4BABA8"
+            "data": "StylingApiQuerystoriesResolverF36EBA43"
           }
         ],
-        "/ApiStack/StylingApi/MyStoriesResolver/Resource": [
+        "/ApiStack/StylingApi/QuerymyStoriesResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiMyStoriesResolverEB0CC059"
+            "data": "StylingApiQuerymyStoriesResolverD1BD3BBD"
           }
         ],
-        "/ApiStack/StylingApi/CreateClosetItem/Resource": [
+        "/ApiStack/StylingApi/QueryclosetItemCommentsResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreateClosetItemF16DABD7"
+            "data": "StylingApiQueryclosetItemCommentsResolverECF0D097"
           }
         ],
-        "/ApiStack/StylingApi/RequestClosetApproval/Resource": [
+        "/ApiStack/StylingApi/QueryadminClosetItemLikesResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiRequestClosetApproval8385052A"
+            "data": "StylingApiQueryadminClosetItemLikesResolver5CD42270"
           }
         ],
-        "/ApiStack/StylingApi/UpdateClosetMediaKey/Resource": [
+        "/ApiStack/StylingApi/QueryadminClosetItemCommentsResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateClosetMediaKeyD01273A7"
+            "data": "StylingApiQueryadminClosetItemCommentsResolver7F756126"
           }
         ],
-        "/ApiStack/StylingApi/UpdateClosetItemStory/Resource": [
+        "/ApiStack/StylingApi/QuerypinnedClosetItemsResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiUpdateClosetItemStory1E53C9EF"
+            "data": "StylingApiQuerypinnedClosetItemsResolverCB930486"
           }
         ],
-        "/ApiStack/StylingApi/LikeClosetItemResolver/Resource": [
+        "/ApiStack/StylingApi/MutationcreateClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiLikeClosetItemResolverDDD008BD"
+            "data": "StylingApiMutationcreateClosetItemResolver68074AE7"
           }
         ],
-        "/ApiStack/StylingApi/ToggleFavoriteClosetItemResolver/Resource": [
+        "/ApiStack/StylingApi/MutationrequestClosetApprovalResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiToggleFavoriteClosetItemResolverE4293E23"
+            "data": "StylingApiMutationrequestClosetApprovalResolverC4845BF5"
           }
         ],
-        "/ApiStack/StylingApi/CommentOnClosetItemResolver/Resource": [
+        "/ApiStack/StylingApi/MutationupdateClosetMediaKeyResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiCommentOnClosetItemResolver7F7A6E8F"
+            "data": "StylingApiMutationupdateClosetMediaKeyResolver14F7C696"
           }
         ],
-        "/ApiStack/StylingApi/PinHighlightResolver/Resource": [
+        "/ApiStack/StylingApi/MutationupdateClosetItemStoryResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiPinHighlightResolver002B0CAF"
+            "data": "StylingApiMutationupdateClosetItemStoryResolver5F86B2D8"
           }
         ],
-        "/ApiStack/StylingApi/ToggleWishlistItemResolver/Resource": [
+        "/ApiStack/StylingApi/MutationlikeClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiToggleWishlistItemResolverDE94C35B"
+            "data": "StylingApiMutationlikeClosetItemResolver6A8F6FD7"
           }
         ],
-        "/ApiStack/StylingApi/ClosetItemCommentsResolver/Resource": [
+        "/ApiStack/StylingApi/MutationtoggleFavoriteClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetItemCommentsResolver56F9E376"
+            "data": "StylingApiMutationtoggleFavoriteClosetItemResolverC41D8062"
           }
         ],
-        "/ApiStack/StylingApi/AdminClosetItemLikesResolver/Resource": [
+        "/ApiStack/StylingApi/MutationcommentOnClosetItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminClosetItemLikesResolverFC561E87"
+            "data": "StylingApiMutationcommentOnClosetItemResolver2847BFA6"
           }
         ],
-        "/ApiStack/StylingApi/AdminClosetItemCommentsResolver/Resource": [
+        "/ApiStack/StylingApi/MutationpinHighlightResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminClosetItemCommentsResolver42C32439"
+            "data": "StylingApiMutationpinHighlightResolver93089A07"
           }
         ],
-        "/ApiStack/StylingApi/PinnedClosetItemsResolver/Resource": [
+        "/ApiStack/StylingApi/MutationtoggleWishlistItemResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiPinnedClosetItemsResolver5F06D816"
+            "data": "StylingApiMutationtoggleWishlistItemResolver558C94CC"
           }
         ],
-        "/ApiStack/StylingApi/RequestBgChangeResolver/Resource": [
+        "/ApiStack/StylingApi/MutationrequestClosetBackgroundChangeResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiRequestBgChangeResolver4E1C8E8E"
+            "data": "StylingApiMutationrequestClosetBackgroundChangeResolver6E818BEB"
           }
         ],
-        "/ApiStack/StylingApi/CreateStoryResolver/Resource": [
+        "/ApiStack/StylingApi/MutationcreateStoryResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreateStoryResolver6AAA08F7"
+            "data": "StylingApiMutationcreateStoryResolver581248D4"
           }
         ],
-        "/ApiStack/StylingApi/PublishStoryResolver/Resource": [
+        "/ApiStack/StylingApi/MutationpublishStoryResolver/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StylingApiPublishStoryResolver54D7BE63"
-          }
-        ],
-        "/ApiStack/StylingApi/AddClosetItemToFeedResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAddClosetItemToFeedResolverDCFD3423"
-          }
-        ],
-        "/ApiStack/StylingApi/RemoveClosetItemFromFeedResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiRemoveClosetItemFromFeedResolver756772DF"
-          }
-        ],
-        "/ApiStack/StylingApi/ShareClosetItemToPinterestResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShareClosetItemToPinterestResolverE33FBADF"
-          }
-        ],
-        "/ApiStack/StylingApi/BestieCreateClosetItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieCreateClosetItemResolver3803A0EE"
-          }
-        ],
-        "/ApiStack/StylingApi/BestieUpdateClosetItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieUpdateClosetItemResolverEC0BE4C0"
-          }
-        ],
-        "/ApiStack/StylingApi/BestieDeleteClosetItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiBestieDeleteClosetItemResolverEDD9D880"
-          }
-        ],
-        "/ApiStack/StylingApi/ClosetAdminSource/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetAdminSourceServiceRole9EF81003"
-          }
-        ],
-        "/ApiStack/StylingApi/ClosetAdminSource/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetAdminSourceServiceRoleDefaultPolicyDFCEEFAE"
-          }
-        ],
-        "/ApiStack/StylingApi/ClosetAdminSource/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiClosetAdminSource8E9FB41C"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminListPendingResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminListPendingResolver16923FC0"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminListClosetItemsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminListClosetItemsResolver3D611162"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminListBestieClosetItemsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminListBestieClosetItemsResolverB59AFF74"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateClosetItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateClosetItemResolver9A76622F"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminApproveItem/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminApproveItem0F267B42"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminRejectItem/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminRejectItemCC71EBDE"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminSetClosetAudience/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminSetClosetAudienceBD88A9DD"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminUpdateClosetItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminUpdateClosetItemResolver5BCA141E"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminPublishClosetItem/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminPublishClosetItemE70F2535"
-          }
-        ],
-        "/ApiStack/StylingApi/TeaReportDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTeaReportDsServiceRoleFB72DD20"
-          }
-        ],
-        "/ApiStack/StylingApi/TeaReportDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTeaReportDsServiceRoleDefaultPolicyC2434426"
-          }
-        ],
-        "/ApiStack/StylingApi/TeaReportDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTeaReportDs50B8077A"
-          }
-        ],
-        "/ApiStack/StylingApi/LatestTeaReportResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiLatestTeaReportResolver976550CC"
-          }
-        ],
-        "/ApiStack/StylingApi/TeaReportHistoryResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiTeaReportHistoryResolverAC11F15D"
-          }
-        ],
-        "/ApiStack/StylingApi/CharacterDramaResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCharacterDramaResolverDDFF4E79"
-          }
-        ],
-        "/ApiStack/StylingApi/RelationshipStatusResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiRelationshipStatusResolverF836549D"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminGenerateTeaReportResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminGenerateTeaReportResolver01B25C3E"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminAddHotTakeResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminAddHotTakeResolverB002DB35"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminUpdateRelationshipStatusResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminUpdateRelationshipStatusResolverA651865E"
-          }
-        ],
-        "/ApiStack/StylingApi/MagazineDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMagazineDsServiceRole20A37459"
-          }
-        ],
-        "/ApiStack/StylingApi/MagazineDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMagazineDsServiceRoleDefaultPolicy03CDA516"
-          }
-        ],
-        "/ApiStack/StylingApi/MagazineDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMagazineDs92CD3582"
-          }
-        ],
-        "/ApiStack/StylingApi/CurrentPrimeMagazineResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCurrentPrimeMagazineResolverF1C54C2F"
-          }
-        ],
-        "/ApiStack/StylingApi/PrimeMagazineArchiveResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPrimeMagazineArchiveResolver702AF67F"
-          }
-        ],
-        "/ApiStack/StylingApi/PrimeMagazineResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPrimeMagazineResolverBCFD9150"
-          }
-        ],
-        "/ApiStack/StylingApi/MagazineArticlesResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMagazineArticlesResolverA91161C6"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateMagazineIssueResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateMagazineIssueResolver23361108"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminAddArticleResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminAddArticleResolverBB2AD71F"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateFashionEditorialResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateFashionEditorialResolver83B68C63"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminPublishMagazineResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminPublishMagazineResolver1AA2D877"
-          }
-        ],
-        "/ApiStack/StylingApi/ForecastDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiForecastDsServiceRole96202383"
-          }
-        ],
-        "/ApiStack/StylingApi/ForecastDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiForecastDsServiceRoleDefaultPolicy8550977A"
-          }
-        ],
-        "/ApiStack/StylingApi/ForecastDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiForecastDs4D8DE942"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorLatestForecastResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorLatestForecastResolver1F05BA82"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorForecastHistoryResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorForecastHistoryResolverADD6A442"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorReportResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorReportResolver24DDBE88"
-          }
-        ],
-        "/ApiStack/StylingApi/PlatformTrendPredictionsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiPlatformTrendPredictionsResolver8642121C"
-          }
-        ],
-        "/ApiStack/StylingApi/CreatorGrowthRecommendationsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiCreatorGrowthRecommendationsResolverC95DE7CF"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminGenerateCreatorForecastResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminGenerateCreatorForecastResolver344D300A"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminUpdateAnalyticsSnapshotResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminUpdateAnalyticsSnapshotResolver930352DD"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminGeneratePlatformTrendsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminGeneratePlatformTrendsResolverE503E7CB"
-          }
-        ],
-        "/ApiStack/StylingApi/ShoppingDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShoppingDsServiceRole659F5DC8"
-          }
-        ],
-        "/ApiStack/StylingApi/ShoppingDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShoppingDsServiceRoleDefaultPolicyA763AF2F"
-          }
-        ],
-        "/ApiStack/StylingApi/ShoppingDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiShoppingDs346DF74C"
-          }
-        ],
-        "/ApiStack/StylingApi/FindExactItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiFindExactItemResolver2D4AC998"
-          }
-        ],
-        "/ApiStack/StylingApi/SceneShoppableItemsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiSceneShoppableItemsResolver413E40E3"
-          }
-        ],
-        "/ApiStack/StylingApi/VideoShoppableItemsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiVideoShoppableItemsResolver675EAEFA"
-          }
-        ],
-        "/ApiStack/StylingApi/MyShoppingCartResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMyShoppingCartResolver195204BA"
-          }
-        ],
-        "/ApiStack/StylingApi/AddToCartResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAddToCartResolver4EE3B8F3"
-          }
-        ],
-        "/ApiStack/StylingApi/RemoveFromCartResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiRemoveFromCartResolver911A7190"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateShoppableItemResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateShoppableItemResolver8798F3F0"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminAddAffiliateLinkResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminAddAffiliateLinkResolver49CD78B2"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicDs/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicDsServiceRole323B0E3E"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicDs/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicDsServiceRoleDefaultPolicy71BF27E3"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicDs/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicDs5D1A5DD6"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicErasResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicErasResolverD4BA1C4C"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicEraResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicEraResolverC4C996C6"
-          }
-        ],
-        "/ApiStack/StylingApi/EraSongsResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiEraSongsResolver60B2E0BD"
-          }
-        ],
-        "/ApiStack/StylingApi/SongMusicVideosResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiSongMusicVideosResolver486C4502"
-          }
-        ],
-        "/ApiStack/StylingApi/MusicVideoResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiMusicVideoResolverFF3EE169"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateMusicEraResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateMusicEraResolverE9E1C455"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateSongResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateSongResolver2921053A"
-          }
-        ],
-        "/ApiStack/StylingApi/AdminCreateMusicVideoResolver/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StylingApiAdminCreateMusicVideoResolver13E49396"
-          }
-        ],
-        "/ApiStack/AppSyncSchemaReadyFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AppSyncSchemaReadyFnServiceRole62E33748"
-          }
-        ],
-        "/ApiStack/AppSyncSchemaReadyFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AppSyncSchemaReadyFnServiceRoleDefaultPolicyE0925986"
-          }
-        ],
-        "/ApiStack/AppSyncSchemaReadyFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "AppSyncSchemaReadyFnD1C75E51"
-          }
-        ],
-        "/ApiStack/SchemaReadyProvider/framework-onEvent/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SchemaReadyProviderframeworkonEventServiceRole8F2E62B3"
-          }
-        ],
-        "/ApiStack/SchemaReadyProvider/framework-onEvent/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SchemaReadyProviderframeworkonEventServiceRoleDefaultPolicyE2DDA385"
-          }
-        ],
-        "/ApiStack/SchemaReadyProvider/framework-onEvent/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SchemaReadyProviderframeworkonEvent3EBA120F"
-          }
-        ],
-        "/ApiStack/SchemaReady/Default": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SchemaReady"
+            "data": "StylingApiMutationpublishStoryResolver84E6DB01"
           }
         ],
         "/ApiStack/CreatorMediaBucket/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "CreatorMediaBucket07B47A03"
-          }
-        ],
-        "/ApiStack/HelloFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "HelloFnServiceRoleDA97FE56"
-          }
-        ],
-        "/ApiStack/HelloFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "HelloFn7942DF23"
           }
         ],
         "/ApiStack/ClosetResolverFn/ServiceRole/Resource": [
@@ -4992,246 +4599,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ClosetResolverFnDB09D91C"
-          }
-        ],
-        "/ApiStack/ClosetResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnCurrentVersion71AF2A5Ed2865cecae5c37ab5ff06ab6d7239043"
-          }
-        ],
-        "/ApiStack/ClosetResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnLive326F31AD"
-          }
-        ],
-        "/ApiStack/ClosetResolverFnAliasErrorsAlarm/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnAliasErrorsAlarmFFD2E07A"
-          }
-        ],
-        "/ApiStack/ClosetResolverFnDeploymentGroup/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnDeploymentGroupServiceRole3D5952DE"
-          }
-        ],
-        "/ApiStack/ClosetResolverFnDeploymentGroup/Application/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnDeploymentGroupApplication6B92EE45"
-          }
-        ],
-        "/ApiStack/ClosetResolverFnDeploymentGroup/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetResolverFnDeploymentGroupB4ABBE83"
-          }
-        ],
-        "/ApiStack/ClosetAdminFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnServiceRole87F02459"
-          }
-        ],
-        "/ApiStack/ClosetAdminFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnServiceRoleDefaultPolicy08DF50EF"
-          }
-        ],
-        "/ApiStack/ClosetAdminFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnB4D542CC"
-          }
-        ],
-        "/ApiStack/ClosetAdminFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnCurrentVersionFAF5CD3De34e45939ddd1a8606ea184e439ea0f6"
-          }
-        ],
-        "/ApiStack/ClosetAdminFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnLive19204595"
-          }
-        ],
-        "/ApiStack/ClosetAdminFnAliasErrorsAlarm/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnAliasErrorsAlarm510C0B72"
-          }
-        ],
-        "/ApiStack/ClosetAdminFnDeploymentGroup/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnDeploymentGroupServiceRole7FC4FFFE"
-          }
-        ],
-        "/ApiStack/ClosetAdminFnDeploymentGroup/Application/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnDeploymentGroupApplication6B0E5F1B"
-          }
-        ],
-        "/ApiStack/ClosetAdminFnDeploymentGroup/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ClosetAdminFnDeploymentGroup7B95AC28"
-          }
-        ],
-        "/ApiStack/TeaReportResolverFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "TeaReportResolverFnServiceRole0054DC51"
-          }
-        ],
-        "/ApiStack/TeaReportResolverFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "TeaReportResolverFnServiceRoleDefaultPolicy327C169C"
-          }
-        ],
-        "/ApiStack/TeaReportResolverFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "TeaReportResolverFn958F2AF7"
-          }
-        ],
-        "/ApiStack/TeaReportResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "TeaReportResolverFnCurrentVersion6C15656F477e9324c7900782a4f7d18d8a8e3057"
-          }
-        ],
-        "/ApiStack/TeaReportResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "TeaReportResolverFnLive42CFD71D"
-          }
-        ],
-        "/ApiStack/MagazineResolverFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MagazineResolverFnServiceRole0B138DD7"
-          }
-        ],
-        "/ApiStack/MagazineResolverFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MagazineResolverFnServiceRoleDefaultPolicyD2A1013C"
-          }
-        ],
-        "/ApiStack/MagazineResolverFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MagazineResolverFn8F74E50F"
-          }
-        ],
-        "/ApiStack/MagazineResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MagazineResolverFnCurrentVersion716092F7419153cf7f869699407b168e901d46ff"
-          }
-        ],
-        "/ApiStack/MagazineResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MagazineResolverFnLive11513221"
-          }
-        ],
-        "/ApiStack/CreatorForecastResolverFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorForecastResolverFnServiceRole27EC34D2"
-          }
-        ],
-        "/ApiStack/CreatorForecastResolverFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorForecastResolverFnServiceRoleDefaultPolicyC2921257"
-          }
-        ],
-        "/ApiStack/CreatorForecastResolverFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorForecastResolverFn1C205FFB"
-          }
-        ],
-        "/ApiStack/CreatorForecastResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorForecastResolverFnCurrentVersionE0B88023387722688049a926955231c8cadb34f9"
-          }
-        ],
-        "/ApiStack/CreatorForecastResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CreatorForecastResolverFnLive1F4FD253"
-          }
-        ],
-        "/ApiStack/ShoppingResolverFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ShoppingResolverFnServiceRole1B008EA4"
-          }
-        ],
-        "/ApiStack/ShoppingResolverFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ShoppingResolverFnServiceRoleDefaultPolicyF3E2F16E"
-          }
-        ],
-        "/ApiStack/ShoppingResolverFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ShoppingResolverFn3F91F0CB"
-          }
-        ],
-        "/ApiStack/ShoppingResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ShoppingResolverFnCurrentVersion00BD522Bb45b6f9d850b75b80eeb1b9d4504a102"
-          }
-        ],
-        "/ApiStack/ShoppingResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ShoppingResolverFnLiveB4DCD7B7"
-          }
-        ],
-        "/ApiStack/MusicResolverFn/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MusicResolverFnServiceRoleD5BD86C8"
-          }
-        ],
-        "/ApiStack/MusicResolverFn/ServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MusicResolverFnServiceRoleDefaultPolicy73129780"
-          }
-        ],
-        "/ApiStack/MusicResolverFn/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MusicResolverFnC6CFE194"
-          }
-        ],
-        "/ApiStack/MusicResolverFn/CurrentVersion/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MusicResolverFnCurrentVersion914671BE08236fe8ca7b032555c6d7f8de4fcba5"
-          }
-        ],
-        "/ApiStack/MusicResolverFnLive/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MusicResolverFnLive1C55E2DC"
           }
         ],
         "/ApiStack/GraphQlApiUrl": [
