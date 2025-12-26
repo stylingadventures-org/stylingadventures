@@ -68,29 +68,21 @@ export async function redirectToSignup(userType = 'player') {
   console.log('Client ID:', clientId)
   console.log('Domain:', domain)
   
-  // Generate PKCE code verifier and challenge
-  const codeVerifier = generateCodeVerifier()
-  const codeChallenge = await generateCodeChallenge(codeVerifier)
-  
   // Generate random state for CSRF protection
   const state = Math.random().toString(36).substring(7)
   
-  // Store both verifier and state for later use
+  // Store state for later use
   sessionStorage.setItem('oauth_state', state)
-  sessionStorage.setItem('code_verifier', codeVerifier)
   
-  console.log('Code Verifier length:', codeVerifier.length)
-  console.log('Code Challenge:', codeChallenge)
   console.log('State:', state)
   
+  // Try WITHOUT PKCE first to see if that's the issue
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
     scope: 'openid email profile',
     redirect_uri: redirectUri,
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256'
+    state: state
   })
 
   const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
@@ -118,29 +110,21 @@ export async function redirectToLogin() {
   console.log('Client ID:', clientId)
   console.log('Domain:', domain)
 
-  // Generate PKCE code verifier and challenge
-  const codeVerifier = generateCodeVerifier()
-  const codeChallenge = await generateCodeChallenge(codeVerifier)
-  
   // Generate random state for CSRF protection
   const state = Math.random().toString(36).substring(7)
   
-  // Store both verifier and state for later use
+  // Store state for later use
   sessionStorage.setItem('oauth_state', state)
-  sessionStorage.setItem('code_verifier', codeVerifier)
 
-  console.log('Code Verifier length:', codeVerifier.length)
-  console.log('Code Challenge:', codeChallenge)
   console.log('State:', state)
 
+  // Try WITHOUT PKCE first to see if that's the issue
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
     scope: 'openid email profile',
     redirect_uri: redirectUri,
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256'
+    state: state
   })
 
   const authUrl = `${domain}/oauth2/authorize?${params.toString()}`
@@ -162,25 +146,35 @@ export async function handleOAuthCallback(code) {
     const clientId = cfg.userPoolWebClientId
     const domain = cfg.cognitoDomain
     
-    // Get the code verifier that was stored during login
+    // Get the code verifier that was stored during login (optional with PKCE)
     const codeVerifier = sessionStorage.getItem('code_verifier')
-    if (!codeVerifier) {
-      throw new Error('Code verifier not found - PKCE flow broken')
+    
+    console.log('=== Token Exchange Debug ===')
+    console.log('Code:', code.substring(0, 20) + '...')
+    console.log('Client ID:', clientId)
+    console.log('Redirect URI:', redirectUri)
+    console.log('Has code verifier:', !!codeVerifier)
+
+    // Build token exchange body
+    const tokenBody = {
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      code: code,
+      redirect_uri: redirectUri,
+    }
+    
+    // Add code_verifier if available (PKCE)
+    if (codeVerifier) {
+      tokenBody.code_verifier = codeVerifier
     }
 
-    // Exchange authorization code for tokens using PKCE (no client secret needed for browser clients)
+    // Exchange authorization code for tokens
     const tokenResponse = await fetch(`${domain}/oauth2/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        code: code,
-        redirect_uri: redirectUri,
-        code_verifier: codeVerifier,
-      }).toString(),
+      body: new URLSearchParams(tokenBody).toString(),
     })
 
     if (!tokenResponse.ok) {
