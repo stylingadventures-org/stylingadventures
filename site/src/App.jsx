@@ -47,8 +47,7 @@ function App() {
       <AuthProvider>
         <Header />
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
+          {/* Public routes (no sidebar) */}
           <Route path="/creator/:id" element={<CreatorProfile />} />
           
           {/* Creator settings - protected route */}
@@ -123,8 +122,10 @@ function App() {
             <Route path="discover" element={<Discover />} />
           </Route>
           
-          {/* Redirect /discover to /fan/discover for consistency */}
-          <Route path="/discover" element={<Home />} />
+          {/* Home - now nested under FanLayout for sidebar */}
+          <Route path="/" element={<FanLayout />}>
+            <Route index element={<Home />} />
+          </Route>
           
           {/* BESTIE Tier Routes */}
           <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />

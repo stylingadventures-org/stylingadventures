@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import FanLayout from '../components/FanLayout'
 import '../styles/pages.css'
 import '../styles/home.css'
 
@@ -22,7 +21,7 @@ export default function Home() {
   const handleGameClick = () => requireAuthOrLogin(() => navigate('/game'))
   const handleClosetClick = () => requireAuthOrLogin(() => navigate('/fan/closet'))
 
-  const homeContent = (
+  return (
     <div className="home-wrapper">
       {/* HERO SECTION */}
       <section className="home-hero">
@@ -195,7 +194,4 @@ export default function Home() {
       </section>
     </div>
   )
-
-  // Wrap with FanLayout to show sidebar
-  return <FanLayout>{homeContent}</FanLayout>
 }
