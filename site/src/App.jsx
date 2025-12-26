@@ -99,13 +99,13 @@ function App() {
             }
           />
           
-          {/* FAN Tier Routes */}
-          <Route path="/fan/home" element={<ProtectedRoute><FanHome /></ProtectedRoute>} />
-          <Route path="/fan/episodes" element={<ProtectedRoute><FanEpisodes /></ProtectedRoute>} />
-          <Route path="/fan/styling" element={<ProtectedRoute><FanStyling /></ProtectedRoute>} />
-          <Route path="/fan/closet" element={<ProtectedRoute><FanCloset /></ProtectedRoute>} />
-          <Route path="/fan/blog" element={<ProtectedRoute><FanBlog /></ProtectedRoute>} />
-          <Route path="/fan/magazine" element={<ProtectedRoute><FanMagazine /></ProtectedRoute>} />
+          {/* FAN Tier Routes - PUBLIC, no authentication required */}
+          <Route path="/fan/home" element={<FanHome />} />
+          <Route path="/fan/episodes" element={<FanEpisodes />} />
+          <Route path="/fan/styling" element={<FanStyling />} />
+          <Route path="/fan/closet" element={<FanCloset />} />
+          <Route path="/fan/blog" element={<FanBlog />} />
+          <Route path="/fan/magazine" element={<FanMagazine />} />
           
           {/* BESTIE Tier Routes */}
           <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />
