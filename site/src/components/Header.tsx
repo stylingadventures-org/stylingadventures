@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import logo from '../assets/logo.png'
 import '../styles/header.css'
 
 const Header: React.FC = () => {
@@ -12,8 +13,9 @@ const Header: React.FC = () => {
     { label: 'Discover', path: '/discover' },
     { label: 'Episodes', path: '/fan/episodes' },
     { label: 'Styling', path: '/fan/styling' },
-    { label: 'Closet', path: '/fan/closet' },
+    { label: "Lala's Closet", path: '/fan/closet' },
     { label: 'Blog', path: '/fan/blog' },
+    { label: 'Tea Magazine', path: '/fan/magazine' },
   ]
 
   return (
@@ -21,7 +23,7 @@ const Header: React.FC = () => {
       <div className="header-container">
         {/* Logo */}
         <Link to="/" className="header-logo">
-          <span className="logo-icon">✨</span>
+          <img src={logo} alt="Styling Adventures" className="logo-image" />
           <div className="logo-text">
             <h1>Styling Adventures</h1>
             <p>Where Style Becomes an Adventure</p>

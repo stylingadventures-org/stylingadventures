@@ -17,9 +17,9 @@ export default function FanLayout() {
     { id: 'home', label: '🏠 Home', path: '/fan/home' },
     { id: 'episodes', label: '✨ Episodes', path: '/fan/episodes' },
     { id: 'styling', label: '👗 Styling', path: '/fan/styling' },
-    { id: 'closet', label: '❤️ Closet', path: '/fan/closet' },
+    { id: 'closet', label: "❤️ Lala's Closet", path: '/fan/closet' },
     { id: 'blog', label: '📝 Blog', path: '/fan/blog' },
-    { id: 'magazine', label: '📖 Magazine', path: '/fan/magazine' },
+    { id: 'magazine', label: '🍵 Tea Magazine', path: '/fan/magazine' },
   ]
 
   // BESTIE Tier pages (only visible when logged in as Bestie)

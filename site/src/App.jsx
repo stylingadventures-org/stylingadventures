@@ -49,7 +49,6 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
-          <Route path="/discover" element={<Discover />} />
           <Route path="/creator/:id" element={<CreatorProfile />} />
           
           {/* Creator settings - protected route */}
@@ -121,7 +120,11 @@ function App() {
             <Route path="closet" element={<FanCloset />} />
             <Route path="blog" element={<FanBlog />} />
             <Route path="magazine" element={<FanMagazine />} />
+            <Route path="discover" element={<Discover />} />
           </Route>
+          
+          {/* Redirect /discover to /fan/discover for consistency */}
+          <Route path="/discover" element={<Home />} />
           
           {/* BESTIE Tier Routes */}
           <Route path="/bestie/home" element={<ProtectedRoute><BestieHome /></ProtectedRoute>} />
