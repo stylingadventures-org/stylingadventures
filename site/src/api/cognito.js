@@ -149,6 +149,7 @@ export async function redirectToLogin() {
 /**
  * Direct Cognito authentication using InitiateAuth (USER_PASSWORD_AUTH)
  * Bypasses the broken hosted UI login page
+ * Handles NEW_PASSWORD_REQUIRED challenge for temporary passwords
  */
 export async function authenticateUser(username, password) {
   try {
@@ -186,6 +187,23 @@ export async function authenticateUser(username, password) {
 
     const data = await response.json()
 
+    // Check if temporary password challenge is required
+    if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+      console.log('🔐 NEW_PASSWORD_REQUIRED challenge detected - storing session for password change')
+      
+      // Store the session and username for password change flow
+      sessionStorage.setItem('cognito_username', username)
+      sessionStorage.setItem('cognito_session', data.Session)
+      sessionStorage.setItem('cognito_challenge', 'NEW_PASSWORD_REQUIRED')
+      
+      return {
+        success: false,
+        challengeName: 'NEW_PASSWORD_REQUIRED',
+        requiresPasswordChange: true,
+        message: 'This is your first login. Please set a new password.'
+      }
+    }
+
     // Extract tokens
     const idToken = data.AuthenticationResult.IdToken
     const accessToken = data.AuthenticationResult.AccessToken
@@ -218,6 +236,96 @@ export async function authenticateUser(username, password) {
     }
   } catch (error) {
     console.error('🔐 Direct auth error:', error)
+    throw error
+  }
+}
+
+/**
+ * Complete the NEW_PASSWORD_REQUIRED challenge by setting a new password
+ */
+export async function completeNewPasswordChallenge(newPassword) {
+  try {
+    const cfg = await getConfig()
+    const region = cfg.region || 'us-east-1'
+    const clientId = cfg.clientId
+    
+    const username = sessionStorage.getItem('cognito_username')
+    const session = sessionStorage.getItem('cognito_session')
+    
+    if (!username || !session) {
+      throw new Error('No password change session found. Please login again.')
+    }
+
+    console.log('🔐 Completing NEW_PASSWORD_REQUIRED challenge...')
+
+    const response = await fetch(
+      `https://cognito-idp.${region}.amazonaws.com/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.RespondToAuthChallenge'
+        },
+        body: JSON.stringify({
+          ClientId: clientId,
+          ChallengeName: 'NEW_PASSWORD_REQUIRED',
+          Session: session,
+          ChallengeResponses: {
+            USERNAME: username,
+            NEW_PASSWORD: newPassword,
+            userAttributes: {
+              email_verified: 'true'
+            }
+          }
+        })
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('🔐 Challenge response error:', errorData)
+      throw new Error(errorData.__type || 'Failed to set new password')
+    }
+
+    const data = await response.json()
+
+    // Extract tokens
+    const idToken = data.AuthenticationResult.IdToken
+    const accessToken = data.AuthenticationResult.AccessToken
+    const refreshToken = data.AuthenticationResult.RefreshToken || ''
+
+    // Parse JWT to get user info
+    const userData = parseJwt(idToken)
+
+    // Store tokens
+    localStorage.setItem('id_token', idToken)
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('refresh_token', refreshToken)
+
+    const tokens = {
+      idToken,
+      accessToken,
+      refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + (data.AuthenticationResult.ExpiresIn || 3600),
+      sub: userData.sub,
+      email: userData.email
+    }
+
+    localStorage.setItem('cognito_tokens', JSON.stringify(tokens))
+
+    // Clear session data
+    sessionStorage.removeItem('cognito_username')
+    sessionStorage.removeItem('cognito_session')
+    sessionStorage.removeItem('cognito_challenge')
+
+    console.log('🔐 Password changed and login successful!')
+    return {
+      success: true,
+      tokens,
+      userData
+    }
+  } catch (error) {
+    console.error('🔐 Password change error:', error)
     throw error
   }
 }
