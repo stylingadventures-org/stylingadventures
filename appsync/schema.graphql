@@ -435,6 +435,7 @@ extend type Query {
 
   closetFeed(sort: ClosetFeedSort, limit: Int, nextToken: String): ClosetConnection!
     @aws_cognito_user_pools
+    @aws_api_key
 
   pinnedClosetItems: [ClosetItem!]!
     @aws_cognito_user_pools
