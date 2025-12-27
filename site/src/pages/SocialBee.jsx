@@ -37,6 +37,28 @@ export default function SocialBee() {
   // Determine if user can create posts (BESTIE+ only)
   const canCreatePosts = isAuthenticated && ['bestie', 'scene', 'creator'].includes(userTier)
 
+  // Mock creator data (fallback while Creator resolvers are being deployed)
+  const mockCreators = [
+    {
+      id: 'creator-1',
+      displayName: 'Lala Styles',
+      handle: 'lalastyles',
+      avatarUrl: null,
+      tier: 'CREATOR',
+      followers: 5420,
+      posts: 142
+    },
+    {
+      id: 'creator-2',
+      displayName: 'Style Guru',
+      handle: 'styleguru',
+      avatarUrl: null,
+      tier: 'CREATOR',
+      followers: 3200,
+      posts: 87
+    }
+  ]
+
   // Fetch closet feed and creators from AppSync
   useEffect(() => {
     async function fetchData() {
@@ -48,37 +70,50 @@ export default function SocialBee() {
         console.log('✅ Using graphqlQuery to fetch from AppSync...')
 
         // Fetch closet feed (fashion items)
-        const feedData = await graphqlQuery(CLOSET_FEED, {
-          limit: 20,
-          sort: 'NEWEST'
-        })
-
-        console.log('📊 Feed result:', feedData)
+        let feedData = null
+        let creatorsFetched = false
+        
+        try {
+          feedData = await graphqlQuery(CLOSET_FEED, {
+            limit: 20,
+            sort: 'NEWEST'
+          })
+          console.log('📊 Feed result:', feedData)
+        } catch (err) {
+          console.warn('⚠️ Failed to fetch closet feed:', err.message)
+          feedData = { closetFeed: { items: [] } }
+        }
 
         // Fetch creators for sidebar/profiles
-        const creatorsData = await graphqlQuery(LIST_CREATORS_FOR_FEED, {
-          limit: 10
-        })
+        try {
+          const creatorsData = await graphqlQuery(LIST_CREATORS_FOR_FEED, {
+            limit: 10
+          })
 
-        console.log('👥 Creators result:', creatorsData)
+          console.log('👥 Creators result:', creatorsData)
+
+          if (creatorsData?.listCreators?.items) {
+            setCreators(creatorsData.listCreators.items)
+            console.log(`✅ Loaded ${creatorsData.listCreators.items.length} creators`)
+            creatorsFetched = true
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to fetch creators from API:', err.message)
+          console.log('ℹ️ Using mock creator data as fallback (Creator resolvers may still be deploying)')
+          setCreators(mockCreators)
+        }
 
         if (feedData?.closetFeed?.items) {
           setClosetItems(feedData.closetFeed.items)
           console.log(`✅ Loaded ${feedData.closetFeed.items.length} items`)
         } else {
-          console.warn('⚠️ No closetFeed items in response')
-        }
-
-        if (creatorsData?.listCreators?.items) {
-          setCreators(creatorsData.listCreators.items)
-          console.log(`✅ Loaded ${creatorsData.listCreators.items.length} creators`)
-        } else {
-          console.warn('⚠️ No creators in response')
+          console.warn('⚠️ No closetFeed items in response, showing empty state')
+          setClosetItems([])
         }
 
         setError(null)
       } catch (err) {
-        console.error('❌ Error fetching SocialBee data:', err)
+        console.error('❌ Critical error fetching SocialBee data:', err)
         
         // Provide specific error messages
         let errorMessage = 'Failed to load feed'
@@ -86,10 +121,6 @@ export default function SocialBee() {
           errorMessage = 'Authentication error. Please log in again.'
         } else if (err.message?.includes('Network')) {
           errorMessage = 'Network error. Check your connection.'
-        } else if (err.message?.includes('AppSync') || err.message?.includes('GraphQL')) {
-          errorMessage = 'Backend error. Please try again later.'
-        } else if (err.message?.includes('404')) {
-          errorMessage = 'API endpoint not found. Please check AppSync configuration.'
         } else if (err.message?.includes('ENOTFOUND') || err.message?.includes('getaddrinfo')) {
           errorMessage = 'Cannot reach backend. AppSync API may be down.'
         } else {
@@ -97,6 +128,9 @@ export default function SocialBee() {
         }
         
         setError(errorMessage)
+        // Still show the page with empty feed and mock creators
+        setClosetItems([])
+        setCreators(mockCreators)
       } finally {
         setLoading(false)
       }
