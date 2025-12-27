@@ -1,4 +1,114 @@
-/* ===== COMMUNITY PAGE STYLING ===== */
+/* ===== SOCIALBEE PLATFORM STYLING ===== */
+
+.community-container.socialbee-platform {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #f0f4f8, #e5eef7);
+}
+
+/* SocialBee Header */
+.socialbee-header {
+  background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+  color: white;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+  position: sticky;
+  top: 60px;
+  z-index: 40;
+}
+
+.socialbee-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.socialbee-header .bee-icon {
+  font-size: 32px;
+}
+
+.socialbee-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.socialbee-header .create-post-btn {
+  background: white;
+  color: #ec4899;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.socialbee-header .create-post-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+/* Main Content Layout */
+.socialbee-content {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  flex: 1;
+  width: 100%;
+}
+
+.socialbee-feed-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .socialbee-content {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .smart-panel {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .socialbee-header {
+    padding: 16px 12px;
+  }
+
+  .socialbee-header .header-left {
+    font-size: 18px;
+    gap: 8px;
+  }
+
+  .socialbee-header h1 {
+    font-size: 16px;
+  }
+
+  .socialbee-header .create-post-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .socialbee-content {
+    padding: 12px;
+    gap: 16px;
+  }
+}
+
+/* ===== OLD COMMUNITY STYLING (Keep for backward compatibility) ===== */
 
 :root {
   --community-primary: #1f2937;
