@@ -18,14 +18,24 @@ async function createApolloClient() {
     return null
   }
 
-  // Auth link that adds JWT to headers
+  // Auth link that adds JWT to headers OR API key for public access
   const authLink = new ApolloLink((operation, forward) => {
     const idToken = localStorage.getItem('id_token')
     
     if (idToken) {
+      // If user is authenticated, send JWT token
       operation.setContext({
         headers: {
           Authorization: idToken,
+        },
+      })
+    } else {
+      // If not authenticated, AppSync will try API_KEY auth for @aws_api_key queries
+      // No header needed - AppSync defaults to API_KEY for unauthenticated requests
+      // on operations marked with @aws_api_key
+      operation.setContext({
+        headers: {
+          // Empty headers - let AppSync handle public API key auth
         },
       })
     }
