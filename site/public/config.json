@@ -2,24 +2,23 @@
   "env": "dev",
   "region": "us-east-1",
 
-  "appsyncUrl": "https://dbcwd5l3qbh45fmanzpyvp6v4i.appsync-api.us-east-1.amazonaws.com/graphql",
-  "appsyncApiKey": "da2-qou2vcqhh5hmnfqcaieqlkfevi",
+  "appsyncUrl": "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
 
   "redirectUri": "https://stylingadventures.com/callback",
   "logoutUri": "https://stylingadventures.com/",
 
-  "uploadsApiUrl": "https://8gcytidsp9.execute-api.us-east-1.amazonaws.com/prod",
+  "uploadsApiUrl": "https://6bogi2ehy2.execute-api.us-east-1.amazonaws.com/prod",
 
   "uploadsCdn": "https://d3fghn37bcpbig.cloudfront.net",
 
   "userPoolId": "us-east-1_aXLKIxbqK",
-  "userPoolWebClientId": "7u9k85rh5h74eretn9hlsme0rl",
-  "clientId": "7u9k85rh5h74eretn9hlsme0rl",
+  "userPoolWebClientId": "36bstouq11g5oi7acqudfq0bs",
+  "clientId": "36bstouq11g5oi7acqudfq0bs",
 
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
-  "cognitoDomainPrefix": "styling-adventures",
-  "cognitoDomain": "https://styling-adventures.auth.us-east-1.amazoncognito.com",
-  "hostedUiDomain": "styling-adventures",
+  "cognitoDomainPrefix": "sa-dev-637423256673",
+  "cognitoDomain": "https://sa-dev-637423256673.auth.us-east-1.amazoncognito.com",
+  "hostedUiDomain": "sa-dev-637423256673",
 
   "scopes": ["openid", "email", "profile"],
   "uploadsBucket": "uploadsstack-uploadsbucket5e5e9b64-k9dx30tzfgh5"
