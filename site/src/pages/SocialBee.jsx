@@ -5,8 +5,7 @@ import PlatformStrip from '../components/PlatformStrip'
 import UnifiedFeed from '../components/UnifiedFeed'
 import SmartPanel from '../components/SmartPanel'
 import PostingFlow from '../components/PostingFlow'
-import { getApolloClient } from '../api/apollo'
-import { CLOSET_FEED, LIST_CREATORS_FOR_FEED } from '../api/graphql'
+import { graphqlQuery, CLOSET_FEED, LIST_CREATORS_FOR_FEED } from '../api/graphql'
 import '../styles/socialbee.css'
 
 export default function SocialBee() {
@@ -45,48 +44,34 @@ export default function SocialBee() {
         console.log('🐝 SocialBee: Initializing data fetch...')
         setLoading(true)
         setError(null)
-        
-        const client = await getApolloClient()
-        
-        if (!client) {
-          console.error('❌ Apollo Client failed to initialize')
-          setError('Unable to connect to the backend. Please refresh the page.')
-          return
-        }
 
-        console.log('✅ Apollo Client initialized, fetching closet feed...')
+        console.log('✅ Using graphqlQuery to fetch from AppSync...')
 
         // Fetch closet feed (fashion items)
-        const feedResult = await client.query({
-          query: CLOSET_FEED,
-          variables: {
-            limit: 20,
-            sort: 'NEWEST'
-          }
+        const feedData = await graphqlQuery(CLOSET_FEED, {
+          limit: 20,
+          sort: 'NEWEST'
         })
 
-        console.log('📊 Feed result:', feedResult.data)
+        console.log('📊 Feed result:', feedData)
 
         // Fetch creators for sidebar/profiles
-        const creatorsResult = await client.query({
-          query: LIST_CREATORS_FOR_FEED,
-          variables: {
-            limit: 10
-          }
+        const creatorsData = await graphqlQuery(LIST_CREATORS_FOR_FEED, {
+          limit: 10
         })
 
-        console.log('👥 Creators result:', creatorsResult.data)
+        console.log('👥 Creators result:', creatorsData)
 
-        if (feedResult.data?.closetFeed?.items) {
-          setClosetItems(feedResult.data.closetFeed.items)
-          console.log(`✅ Loaded ${feedResult.data.closetFeed.items.length} items`)
+        if (feedData?.closetFeed?.items) {
+          setClosetItems(feedData.closetFeed.items)
+          console.log(`✅ Loaded ${feedData.closetFeed.items.length} items`)
         } else {
           console.warn('⚠️ No closetFeed items in response')
         }
 
-        if (creatorsResult.data?.listCreators?.items) {
-          setCreators(creatorsResult.data.listCreators.items)
-          console.log(`✅ Loaded ${creatorsResult.data.listCreators.items.length} creators`)
+        if (creatorsData?.listCreators?.items) {
+          setCreators(creatorsData.listCreators.items)
+          console.log(`✅ Loaded ${creatorsData.listCreators.items.length} creators`)
         } else {
           console.warn('⚠️ No creators in response')
         }
@@ -103,6 +88,10 @@ export default function SocialBee() {
           errorMessage = 'Network error. Check your connection.'
         } else if (err.message?.includes('AppSync') || err.message?.includes('GraphQL')) {
           errorMessage = 'Backend error. Please try again later.'
+        } else if (err.message?.includes('404')) {
+          errorMessage = 'API endpoint not found. Please check AppSync configuration.'
+        } else if (err.message?.includes('ENOTFOUND') || err.message?.includes('getaddrinfo')) {
+          errorMessage = 'Cannot reach backend. AppSync API may be down.'
         } else {
           errorMessage = `${err.message || 'Failed to load feed'}`
         }
