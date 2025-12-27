@@ -59,14 +59,14 @@ export default function Header() {
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
-  // 🔒 Locked top nav: Home / Discover / Fan / Bestie / Admin
+  // Top navigation items with proper routing
   const navItems = useMemo(() => {
     return [
       { label: "Home", to: "/", gated: false },
-      { label: "Discover", to: "/fan/discover", gated: false },
-      { label: "Fan", to: "/fan", gated: false },
-      // Bestie is gated (login) — also optionally “premium”
-      { label: "Bestie", to: "/bestie", gated: true, premium: true },
+      { label: "Socialbee", to: "/discover", gated: false },
+      { label: "Fan", to: "/fan/home", gated: false },
+      // Bestie is gated (login) — also optionally "premium"
+      { label: "Bestie", to: "/bestie/home", gated: true, premium: true },
       // Admin is gated (login) — may be role-restricted
       { label: "Admin", to: "/admin", gated: true, adminOnly: true },
     ];

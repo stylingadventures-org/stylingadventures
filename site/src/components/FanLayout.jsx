@@ -22,22 +22,9 @@ export default function FanLayout() {
     { id: 'magazine', label: '🍵 Tea Magazine', path: '/fan/magazine' },
   ]
 
-  // BESTIE Tier pages (only visible when logged in as Bestie)
-  const bestiePages = [
-    { id: 'bestie-home', label: '💎 Bestie Hub', path: '/bestie/home' },
-    { id: 'bestie-closet', label: '👜 Bestie Closet', path: '/bestie/closet' },
-    { id: 'bestie-studio', label: '🎬 Studio', path: '/bestie/studio' },
-    { id: 'scene-club', label: '🎭 Scene Club', path: '/bestie/scene-club' },
-    { id: 'trends', label: '⭐ Trend Studio', path: '/bestie/trends' },
-    { id: 'stories', label: '📱 Stories', path: '/bestie/stories' },
-    { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox' },
-    { id: 'primebank', label: '🏦 Prime Bank', path: '/bestie/primebank' },
-  ]
-
-  // Show FAN pages always, plus BESTIE pages if logged in as Bestie
+  // Show FAN pages always. Bestie users use BestieLayout instead.
   const navItems = [
     ...fanPages,
-    ...(isLoggedIn && userTier === 'bestie' ? bestiePages : []),
     ...(isLoggedIn ? [{ id: 'profile', label: '👤 Profile', path: '/fan/profile' }] : []),
   ]
 
@@ -50,12 +37,12 @@ export default function FanLayout() {
       <aside className="fan-sidebar">
         <div className="sidebar-header">
           <div className="creator-avatar">
-            <span>{isLoggedIn && userTier === 'bestie' ? '💎' : '👑'}</span>
+            <span>👑</span>
           </div>
           <div className="creator-info">
             <h3>{userContext?.name || 'Fan Tier'}</h3>
             <p className="tier-badge">
-              {isLoggedIn ? (userTier === 'bestie' ? 'BESTIE' : 'FAN') : 'PUBLIC'}
+              {isLoggedIn ? 'FAN' : 'PUBLIC'}
             </p>
           </div>
         </div>

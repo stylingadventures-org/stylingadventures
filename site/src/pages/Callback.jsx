@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { handleOAuthCallback } from '../api/cognito'
+import { handleOAuthCallback, parseJwt, getCurrentUser } from '../api/cognito'
 
 export default function Callback() {
   const navigate = useNavigate()
@@ -44,8 +44,32 @@ export default function Callback() {
             // New signup → show role selection
             navigate('/choose-your-path', { replace: true })
           } else {
-            // Existing user login → go to home/dashboard
-            navigate('/dashboard', { replace: true })
+            // Existing user login → check user tier and route accordingly
+            const user = getCurrentUser()
+            if (user) {
+              // Parse JWT to get user tier/groups
+              const idTokenJwt = localStorage.getItem('id_token') || ''
+              const claims = parseJwt(idTokenJwt) || {}
+              const groups = claims['cognito:groups'] || []
+              
+              // Route based on user tier
+              if (groups.includes('BESTIE') || groups.includes('PRIME')) {
+                // Bestie user → go to bestie home
+                navigate('/bestie/home', { replace: true })
+              } else if (groups.includes('CREATOR')) {
+                // Creator user → go to creator cabinet
+                navigate('/creator/cabinet', { replace: true })
+              } else if (groups.includes('ADMIN')) {
+                // Admin user → go to admin dashboard
+                navigate('/admin', { replace: true })
+              } else {
+                // Fan or default user → go to fan home
+                navigate('/fan/home', { replace: true })
+              }
+            } else {
+              // Fallback
+              navigate('/dashboard', { replace: true })
+            }
           }
         }
       } catch (err) {

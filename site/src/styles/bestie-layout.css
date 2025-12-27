@@ -25,49 +25,48 @@
   max-width: 1200px;
 }
 
-/* RESPONSIVE LAYOUT */
+/* TABLET LAYOUT (768px - 1024px) */
 @media (max-width: 1024px) {
   .bestie-main {
     padding: 20px;
     margin: 15px;
+    border-radius: 10px;
   }
 }
 
+/* TABLET LAYOUT (480px - 768px) */
 @media (max-width: 768px) {
   .bestie-layout {
     flex-direction: column;
+    min-height: auto;
+    overflow-y: auto;
   }
 
   .bestie-main {
-    padding: 15px;
-    margin: 10px;
+    padding: 16px;
+    margin: 12px 0;
     border-radius: 8px;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 100%;
   }
 }
 
+/* MOBILE LAYOUT (< 480px) */
 @media (max-width: 480px) {
+  .bestie-layout {
+    flex-direction: column;
+    min-height: auto;
+  }
+
   .bestie-main {
     padding: 12px;
-    margin: 8px;
-    border-radius: 4px;
+    margin: 8px 0;
+    border-radius: 6px;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 100%;
   }
-}
-
-/* SCROLLBAR STYLING */
-.bestie-main::-webkit-scrollbar {
-  width: 8px;
-}
-
-.bestie-main::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 10px;
-}
-
-.bestie-main::-webkit-scrollbar-thumb {
-  background: #06b6d4;
-  border-radius: 10px;
-}
-
-.bestie-main::-webkit-scrollbar-thumb:hover {
-  background: #0891b2;
 }
