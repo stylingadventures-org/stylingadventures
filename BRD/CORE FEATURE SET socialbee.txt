@@ -1,0 +1,192 @@
+🧩 CORE FEATURE SET
+1️⃣ Master Profile (The Source of Truth)
+
+Inside SocialBee, every user has a Master Profile.
+
+Master Profile includes:
+
+Profile photo
+
+Display name
+
+Username
+
+Bio / description
+
+Brand colors (optional)
+
+Default thumbnails
+
+Link-in-bio style links
+
+This profile:
+
+Lives inside LaLaVerse / SocialBee
+
+Acts as the canonical identity
+
+2️⃣ Platform Mapping (Per Account Control)
+
+Each connected platform:
+
+Instagram
+
+TikTok
+
+Pinterest
+
+X
+
+YouTube
+
+etc.
+
+Has a mapping layer.
+
+Example:
+Field	SocialBee Master	Instagram	TikTok
+Profile photo	✅	Sync ON	Sync OFF
+Bio	✅	Sync ON	Sync ON
+Display name	✅	Sync OFF	Sync ON
+Link	✅	Sync ON	Sync ON
+
+Users choose per platform.
+
+This avoids fear and builds trust.
+
+3️⃣ Visual Preview Before Sync (Critical)
+
+Before pushing updates:
+
+“Here’s how your profile will look on Instagram / TikTok.”
+
+Side-by-side preview
+
+Warnings for:
+
+Character limits
+
+Cropping differences
+
+Unsupported fields
+
+This instantly makes SocialBee feel professional, not risky.
+
+4️⃣ Thumbnail & Visual Style Sync
+YES — thumbnails too 🔥
+
+Users can:
+
+Upload default thumbnail styles
+
+Choose:
+
+Square
+
+Vertical
+
+Horizontal
+
+Add:
+
+Title text
+
+Brand color overlay
+
+Emoji accent
+
+Save presets
+
+Then:
+
+SocialBee auto-applies them to posts
+
+Or offers “Use brand thumbnail” toggle per post
+
+This is brand recognition at scale.
+
+5️⃣ Tier-Based Access (Clean & Fair)
+StyleVerse™ (Free / Fan)
+
+Upload profile pic
+
+Set display name + bio
+
+Use inside LaLaVerse only
+
+The Style Floor™ (Bestie)
+
+Master Profile
+
+Manual sync (one-click push)
+
+Thumbnail presets
+
+Per-platform control
+
+The Scene™ (Pro)
+
+Auto-sync rules
+
+Scheduled brand updates
+
+Multi-profile brands
+
+Team access
+
+Brand consistency alerts:
+
+“Your TikTok bio is out of sync”
+
+🧭 UX FLOW (What Users Experience)
+
+Upload profile pic in SocialBee
+
+Write one bio
+
+Pick brand colors
+
+Connect platforms
+
+Toggle sync options
+
+Preview changes
+
+Push updates
+
+Result:
+
+“I look professional everywhere without thinking.”
+
+🧠 Why This Is a Brand Identity Game-Changer
+
+✔ Consistency = recognition
+✔ Recognition = trust
+✔ Trust = growth
+
+SocialBee becomes:
+
+“The place where your online identity lives.”
+
+Not just a posting tool.
+A brand OS.
+
+🔐 Safety & API Reality Check (Important)
+
+Some platforms:
+
+Limit profile updates
+
+Rate-limit changes
+
+Don’t allow full automation
+
+Solution:
+
+Graceful fallbacks
+
+Manual copy buttons
+
+“Copy bio” / “Download thumbnail”
+
+Even partial sync is valuable.
