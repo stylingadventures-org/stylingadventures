@@ -46,9 +46,11 @@ async function createApolloClient() {
     defaultOptions: {
       watchQuery: {
         fetchPolicy: 'cache-and-network',
+        errorPolicy: 'all', // Continue executing queries with errors
       },
       query: {
         fetchPolicy: 'network-only',
+        errorPolicy: 'all', // Return partial results even if there are errors
       },
     },
   })

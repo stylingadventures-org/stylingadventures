@@ -34,13 +34,23 @@ export async function graphqlQuery(query, variables = {}, token = null) {
 
     const data = await response.json()
 
+    // Log GraphQL errors for debugging
     if (data.errors) {
-      throw new Error(data.errors[0]?.message || 'GraphQL error')
+      console.warn('GraphQL Errors:', data.errors)
+      // Still throw error on critical failures
+      const criticalError = data.errors.find(e => e.extensions?.errorType === 'ValidationError' || e.extensions?.errorType === 'UnauthorizedException')
+      if (criticalError) {
+        throw new Error(criticalError.message || 'GraphQL validation or auth error')
+      }
+      // For other errors, log but return partial data if available
+      if (!data.data) {
+        throw new Error(data.errors[0]?.message || 'GraphQL error')
+      }
     }
 
     return data.data
   } catch (error) {
-    console.error('GraphQL error:', error)
+    console.error('GraphQL Request Error:', error.message)
     throw error
   }
 }
