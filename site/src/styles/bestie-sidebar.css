@@ -278,25 +278,30 @@
 @media (max-width: 768px) {
   .bestie-sidebar {
     width: 100%;
-    max-height: 120px;
+    height: auto;
+    max-height: none;
     flex-direction: row;
+    flex-wrap: wrap;
     padding: 12px;
     border-right: none;
     border-bottom: 2px solid var(--bestie-accent-cyan);
-    gap: 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    gap: 8px;
+    overflow-x: visible;
+    overflow-y: visible;
   }
   
   .bestie-sidebar .sidebar-header {
+    width: 100%;
     flex-shrink: 0;
-    margin-bottom: 0;
+    margin-bottom: 8px;
   }
   
   .bestie-sidebar .sidebar-nav {
+    width: 100%;
     flex-direction: row;
     gap: 8px;
     margin-bottom: 0;
+    flex-wrap: wrap;
   }
   
   .nav-section {
@@ -322,14 +327,23 @@
 
 @media (max-width: 480px) {
   .bestie-sidebar {
-    max-height: 100px;
-    padding: 8px;
+    width: 100%;
+    max-height: none;
+    height: auto;
+    padding: 12px;
+    border-right: none;
+    border-bottom: 2px solid var(--bestie-accent-cyan);
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   
   .bestie-sidebar .sidebar-header {
-    padding: 6px;
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
   }
-  
+
   .creator-avatar {
     width: 40px !important;
     height: 40px !important;
@@ -338,11 +352,18 @@
   
   .bestie-sidebar .sidebar-nav-item {
     padding: 6px 8px;
-    font-size: 10px;
+    font-size: 11px;
+    flex-grow: 1;
+    min-width: calc(50% - 4px);
   }
   
   .bestie-sidebar .creator-info h3 {
     font-size: var(--font-size-sm);
+  }
+
+  .bestie-sidebar .sidebar-footer {
+    width: 100%;
+    display: flex;
   }
 }
 

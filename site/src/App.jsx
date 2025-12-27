@@ -20,6 +20,7 @@ import UpgradeCreator from './pages/Upgrade/UpgradeCreator'
 
 // Pages
 import Home from './pages/Home'
+import Community from './pages/Community'
 import Discover from './pages/Discover'
 import CreatorProfile from './pages/CreatorProfile'
 import CreatorSettings from './pages/CreatorSettings'
@@ -94,6 +95,8 @@ function AppRoutes({ isAuthPage }) {
         <Route path="/signup/creator" element={<SignupCreator />} />
         
         {/* Public route pages with header/sidebar */}
+        <Route path="/community" element={<Community />} />
+        <Route path="/discover" element={<Discover />} />
         <Route path="/become-bestie" element={<BecomeBestie />} />
         <Route path="/creator/:id" element={<CreatorProfile />} />
         
