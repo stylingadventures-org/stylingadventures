@@ -1,0 +1,459 @@
+/* Platform Strip Component Styling */
+/* Horizontal pill navigation bar replacing Feed/Trending/Suggestions */
+
+/* ========================================
+   COLOR PALETTE & VARIABLES
+   ======================================== */
+
+:root {
+  /* Primary Colors */
+  --ps-pink-light: #ffe4f3;
+  --ps-pink-warm: #f9a8d4;
+  --ps-pink-hot: #ec4899;
+  --ps-purple-main: #a855f7;
+  --ps-purple-dark: #7e22ce;
+
+  /* Platform Brand Colors */
+  --ps-instagram: #e1306c;
+  --ps-tiktok: #000000;
+  --ps-pinterest: #e60023;
+  --ps-x: #000000;
+  --ps-youtube: #ff0000;
+
+  /* Neutral Colors */
+  --ps-white: #ffffff;
+  --ps-gray-light: #f5f5f5;
+  --ps-gray-border: #e5e5e5;
+  --ps-gray-text: #6b7280;
+  --ps-gray-dark: #1f2937;
+
+  /* Shadows & Effects */
+  --ps-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --ps-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --ps-glow-pink: 0 0 16px rgba(236, 72, 153, 0.25);
+
+  /* Spacing */
+  --ps-space-xs: 4px;
+  --ps-space-sm: 8px;
+  --ps-space-md: 12px;
+  --ps-space-lg: 16px;
+  --ps-space-xl: 20px;
+
+  /* Transitions */
+  --ps-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   MAIN CONTAINER
+   ======================================== */
+
+.platform-strip {
+  width: 100%;
+  background: var(--ps-white);
+  border-bottom: 1px solid var(--ps-gray-border);
+  box-shadow: var(--ps-shadow-sm);
+  padding: var(--ps-space-lg) var(--ps-space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ps-space-md);
+  position: sticky;
+  top: 60px; /* Below header */
+  z-index: 40;
+}
+
+/* ========================================
+   PILLS CONTAINER (SCROLLABLE)
+   ======================================== */
+
+.platform-pills-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+
+  /* Hide scrollbar but keep scrollable */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.platform-pills-container::-webkit-scrollbar {
+  display: none;
+}
+
+.platform-pills {
+  display: flex;
+  gap: var(--ps-space-md);
+  min-width: min-content;
+  padding: 0;
+  align-items: center;
+}
+
+/* ========================================
+   PILL BUTTONS
+   ======================================== */
+
+.platform-pill {
+  padding: var(--ps-space-md) var(--ps-space-lg);
+  border: 2px solid var(--ps-gray-border);
+  border-radius: 20px;
+  background: var(--ps-white);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: var(--ps-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  color: var(--ps-gray-dark);
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.platform-pill:hover:not(.locked):not(:disabled) {
+  border-color: var(--ps-pink-warm);
+  background: linear-gradient(135deg, #fce7f3 0%, var(--ps-white) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow-md);
+}
+
+/* Active State */
+.platform-pill.active {
+  background: linear-gradient(135deg, var(--ps-pink-hot) 0%, var(--ps-purple-main) 100%);
+  border-color: var(--ps-pink-hot);
+  color: var(--ps-white);
+  box-shadow: var(--ps-shadow-md), var(--ps-glow-pink);
+}
+
+/* Locked State */
+.platform-pill.locked,
+.platform-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--ps-gray-light);
+  border-color: var(--ps-gray-border);
+}
+
+.platform-pill.locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ========================================
+   PLATFORM-SPECIFIC COLORS (HOVER)
+   ======================================== */
+
+.platform-pill.color-instagram:not(.active):not(.locked):hover {
+  border-color: var(--ps-instagram);
+  background: rgba(225, 48, 108, 0.05);
+  color: var(--ps-instagram);
+}
+
+.platform-pill.color-tiktok:not(.active):not(.locked):hover {
+  border-color: var(--ps-tiktok);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.platform-pill.color-pinterest:not(.active):not(.locked):hover {
+  border-color: var(--ps-pinterest);
+  background: rgba(230, 0, 35, 0.05);
+  color: var(--ps-pinterest);
+}
+
+.platform-pill.color-x:not(.active):not(.locked):hover {
+  border-color: var(--ps-x);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.platform-pill.color-youtube:not(.active):not(.locked):hover {
+  border-color: var(--ps-youtube);
+  background: rgba(255, 0, 0, 0.05);
+  color: var(--ps-youtube);
+}
+
+.platform-pill.color-all-platforms:not(.active):not(.locked):hover {
+  border-color: var(--ps-purple-main);
+  background: rgba(168, 85, 247, 0.05);
+  color: var(--ps-purple-main);
+}
+
+/* ========================================
+   PILL CONTENT
+   ======================================== */
+
+.platform-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-block;
+}
+
+.platform-text {
+  display: none; /* Hidden by default, shown on hover/active */
+}
+
+.platform-pill:hover .platform-text,
+.platform-pill.active .platform-text {
+  display: inline-block;
+}
+
+.platform-lock {
+  font-size: 12px;
+  margin-left: 4px;
+  display: inline-block;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* ========================================
+   INFO ROW (CONNECTION STATUS)
+   ======================================== */
+
+.platform-info {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 24px;
+}
+
+.info-content {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-lg);
+}
+
+/* Connection Status */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  font-size: 12px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.status-badge.connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.disconnected {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.status-text {
+  color: var(--ps-gray-text);
+  font-size: 11px;
+}
+
+/* Tier Lock Info */
+.tier-lock-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-sm);
+  font-size: 12px;
+  padding: var(--ps-space-sm) var(--ps-space-md);
+  background: linear-gradient(135deg, #fce7f3 0%, #ffe4f3 100%);
+  border-radius: 6px;
+  color: var(--ps-purple-main);
+  font-weight: 600;
+}
+
+.lock-icon {
+  font-size: 14px;
+}
+
+.lock-text {
+  white-space: nowrap;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 1024px) {
+  .platform-strip {
+    padding: var(--ps-space-md) var(--ps-space-lg);
+  }
+
+  .platform-pill {
+    padding: var(--ps-space-sm) var(--ps-space-md);
+    font-size: 12px;
+  }
+
+  .platform-icon {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .platform-strip {
+    top: 56px; /* Adjust for mobile header */
+    padding: var(--ps-space-md);
+    gap: var(--ps-space-sm);
+  }
+
+  .platform-pills {
+    gap: var(--ps-space-sm);
+  }
+
+  .platform-pill {
+    padding: var(--ps-space-sm) var(--ps-space-md);
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .platform-text {
+    display: none !important;
+  }
+
+  .platform-pill .platform-icon {
+    margin: 0;
+  }
+
+  .info-content {
+    gap: var(--ps-space-md);
+    font-size: 11px;
+  }
+
+  .connection-status {
+    font-size: 10px;
+  }
+
+  .status-text {
+    display: none;
+  }
+
+  .tier-lock-info {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .lock-text {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .platform-strip {
+    padding: var(--ps-space-sm);
+    top: 52px;
+  }
+
+  .platform-pills {
+    gap: 4px;
+  }
+
+  .platform-pill {
+    padding: 6px 10px;
+    font-size: 10px;
+    border-width: 1px;
+  }
+
+  .platform-icon {
+    font-size: 12px;
+  }
+
+  .platform-lock {
+    font-size: 10px;
+  }
+
+  .info-content {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .connection-status {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .status-badge {
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  .tier-lock-info {
+    font-size: 10px;
+    padding: 3px 5px;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+.platform-pill:focus {
+  outline: 2px solid var(--ps-pink-hot);
+  outline-offset: 2px;
+}
+
+.platform-pill:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.platform-pill:focus-visible {
+  outline: 2px solid var(--ps-pink-hot);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-pill,
+  .platform-lock {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ========================================
+   DARK MODE
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+  .platform-strip {
+    background: #1a1a1a;
+    border-bottom-color: #333;
+  }
+
+  .platform-pill {
+    background: #2a2a2a;
+    border-color: #333;
+    color: #f0f0f0;
+  }
+
+  .platform-pill:hover:not(.locked):not(:disabled) {
+    background: #333;
+    border-color: var(--ps-pink-warm);
+  }
+
+  .platform-pill.active {
+    background: linear-gradient(135deg, var(--ps-pink-hot) 0%, var(--ps-purple-main) 100%);
+  }
+
+  .platform-pill.locked,
+  .platform-pill:disabled {
+    background: #333;
+    opacity: 0.5;
+  }
+
+  .status-text {
+    color: #aaa;
+  }
+
+  .tier-lock-info {
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--ps-pink-warm);
+  }
+}

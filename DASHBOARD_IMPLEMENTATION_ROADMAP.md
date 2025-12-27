@@ -1,4 +1,4 @@
-# LALAVERSE Dashboard - Implementation Roadmap
+![alt text](image.png)# LALAVERSE Dashboard - Implementation Roadmap
 
 ## 🚀 Current Status: FAN TIER COMPLETE ✅
 
