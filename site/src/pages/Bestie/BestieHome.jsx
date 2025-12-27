@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { StatsGrid, EngagementWidget, EarningsWidget, AchievementsWidget } from '../../components/StatsDisplay';
+import { useBestieStats } from '../../hooks/useBestieStats';
 import '../../styles/bestie-home.css';
 
 export default function BestieHome() {
-  const { user } = useAuth();
+  const { userContext } = useAuth();
+  const { stats } = useBestieStats();
   const [selectedTab, setSelectedTab] = useState('feed');
-
-  // Mock data for demonstration
-  const stats = {
-    stylingStreak: 42,
-    lookCount: 247,
-    collabCount: 18,
-    followerCount: 1250,
-    thisMonthEarnings: 0,
-  };
 
   const recentLooks = [
     { id: 1, title: 'Summer Casual', image: '☀️', likes: 342, collabs: 2 },
@@ -45,7 +39,7 @@ export default function BestieHome() {
       <div className="bestie-header">
         <div className="header-content">
           <div className="welcome-section">
-            <h1>Welcome back, {user?.email?.split('@')[0]}! 👋</h1>
+            <h1>Welcome back, {userContext?.name || userContext?.email?.split('@')[0] || 'Bestie'}! 👋</h1>
             <p>Your personal style hub is ready to explore</p>
           </div>
           <div className="header-actions">
@@ -59,37 +53,8 @@ export default function BestieHome() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">🔥</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.stylingStreak}</div>
-            <div className="stat-label">Day Streak</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">👗</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.lookCount}</div>
-            <div className="stat-label">Looks Created</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🤝</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.collabCount}</div>
-            <div className="stat-label">Collaborations</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">👥</div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.followerCount}</div>
-            <div className="stat-label">Followers</div>
-          </div>
-        </div>
-      </div>
+      {/* Real Stats Grid */}
+      <StatsGrid />
 
       {/* Quick Actions */}
       <div className="quick-actions-section">
@@ -139,6 +104,13 @@ export default function BestieHome() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Engagement & Analytics Widgets */}
+      <div className="widgets-row">
+        <EngagementWidget />
+        <EarningsWidget />
+        <AchievementsWidget />
       </div>
 
       {/* Tabs */}
