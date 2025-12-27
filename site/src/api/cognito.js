@@ -159,9 +159,11 @@ export async function authenticateUser(username, password) {
     const userPoolId = cfg.userPoolId
 
     console.log('🔐 Direct auth starting...')
+    console.log('🔐 Using config:', { region, clientId: clientId?.substring(0, 10) + '...', userPoolId })
+    console.log('🔐 Username input:', username)
 
-    // Call InitiateAuth API
-    const response = await fetch(
+    // Try InitiateAuth (standard auth flow)
+    let response = await fetch(
       `https://cognito-idp.${region}.amazonaws.com/`,
       {
         method: 'POST',
@@ -180,12 +182,69 @@ export async function authenticateUser(username, password) {
       }
     )
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.__type || 'Authentication failed')
+    console.log('🔐 InitiateAuth Response status:', response.status)
+    let data = await response.json()
+    console.log('🔐 InitiateAuth Response:', { status: response.status, keys: Object.keys(data) })
+
+    // If InitiateAuth fails, it might be because email is not registered as an alias
+    // In that case, we need to look up the user first and get their username
+    if (!response.ok && (data.__type === 'NotAuthorizedException' || data.__type === 'UserNotFoundException')) {
+      console.log('🔐 InitiateAuth failed, trying AdminInitiateAuth...')
+      
+      // Use AdminInitiateAuth which works with email as well
+      response = await fetch(
+        `https://cognito-idp.${region}.amazonaws.com/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-amz-json-1.1',
+            'X-Amz-Target': 'AWSCognitoIdentityProviderService.AdminInitiateAuth'
+          },
+          body: JSON.stringify({
+            UserPoolId: userPoolId,
+            ClientId: clientId,
+            AuthFlow: 'ADMIN_NO_SRP_AUTH',
+            AuthParameters: {
+              USERNAME: username,
+              PASSWORD: password
+            }
+          })
+        }
+      )
+
+      console.log('🔐 AdminInitiateAuth Response status:', response.status)
+      data = await response.json()
+      console.log('🔐 AdminInitiateAuth Response:', { status: response.status, keys: Object.keys(data) })
     }
 
-    const data = await response.json()
+    if (!response.ok) {
+      const errorData = data
+      console.error('🔐 Error response:', errorData)
+      
+      // Provide more helpful error messages
+      const errorType = errorData.__type
+      let errorMessage = 'Authentication failed'
+      
+      if (errorType === 'NotAuthorizedException') {
+        errorMessage = 'Invalid email or password. Please check your credentials.'
+      } else if (errorType === 'UserNotFoundException') {
+        errorMessage = 'No account found with this email address.'
+      } else if (errorType === 'UserNotConfirmedException') {
+        errorMessage = 'Email not verified. Please check your email to confirm your account.'
+      } else if (errorType === 'PasswordResetRequiredException') {
+        errorMessage = 'Password reset is required. Please use the forgot password option.'
+      } else if (errorType === 'TooManyRequestsException') {
+        errorMessage = 'Too many login attempts. Please try again later.'
+      } else if (errorType === 'InvalidParameterException') {
+        errorMessage = 'Authentication configuration error. Please contact support.'
+      } else if (errorData.message) {
+        errorMessage = errorData.message
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    console.log('🔐 Authentication response data:', { keys: Object.keys(data) })
 
     // Check if temporary password challenge is required
     if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
@@ -205,9 +264,14 @@ export async function authenticateUser(username, password) {
     }
 
     // Extract tokens
-    const idToken = data.AuthenticationResult.IdToken
-    const accessToken = data.AuthenticationResult.AccessToken
-    const refreshToken = data.AuthenticationResult.RefreshToken || ''
+    const idToken = data.AuthenticationResult?.IdToken
+    const accessToken = data.AuthenticationResult?.AccessToken
+    const refreshToken = data.AuthenticationResult?.RefreshToken || ''
+
+    if (!idToken || !accessToken) {
+      console.error('🔐 Missing tokens in response:', { idToken: !!idToken, accessToken: !!accessToken })
+      throw new Error('Authentication succeeded but tokens are missing. Please try again.')
+    }
 
     // Parse JWT to get user info
     const userData = parseJwt(idToken)
@@ -248,6 +312,7 @@ export async function completeNewPasswordChallenge(newPassword) {
     const cfg = await getConfig()
     const region = cfg.region || 'us-east-1'
     const clientId = cfg.clientId
+    const userPoolId = cfg.userPoolId
     
     const username = sessionStorage.getItem('cognito_username')
     const session = sessionStorage.getItem('cognito_session')
@@ -258,7 +323,8 @@ export async function completeNewPasswordChallenge(newPassword) {
 
     console.log('🔐 Completing NEW_PASSWORD_REQUIRED challenge...')
 
-    const response = await fetch(
+    // Try RespondToAuthChallenge first
+    let response = await fetch(
       `https://cognito-idp.${region}.amazonaws.com/`,
       {
         method: 'POST',
@@ -281,18 +347,56 @@ export async function completeNewPasswordChallenge(newPassword) {
       }
     )
 
+    console.log('🔐 RespondToAuthChallenge status:', response.status)
+    let data = await response.json()
+
+    // If that fails, try AdminRespondToAuthChallenge
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error('🔐 Challenge response error:', errorData)
-      throw new Error(errorData.__type || 'Failed to set new password')
+      console.log('🔐 RespondToAuthChallenge failed, trying AdminRespondToAuthChallenge...')
+      
+      response = await fetch(
+        `https://cognito-idp.${region}.amazonaws.com/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-amz-json-1.1',
+            'X-Amz-Target': 'AWSCognitoIdentityProviderService.AdminRespondToAuthChallenge'
+          },
+          body: JSON.stringify({
+            UserPoolId: userPoolId,
+            ClientId: clientId,
+            ChallengeName: 'NEW_PASSWORD_REQUIRED',
+            Session: session,
+            ChallengeResponses: {
+              USERNAME: username,
+              NEW_PASSWORD: newPassword,
+              userAttributes: {
+                email_verified: 'true'
+              }
+            }
+          })
+        }
+      )
+
+      console.log('🔐 AdminRespondToAuthChallenge status:', response.status)
+      data = await response.json()
     }
 
-    const data = await response.json()
+    if (!response.ok) {
+      const errorData = data
+      console.error('🔐 Challenge response error:', errorData)
+      throw new Error(errorData.__type || errorData.message || 'Failed to set new password')
+    }
 
     // Extract tokens
-    const idToken = data.AuthenticationResult.IdToken
-    const accessToken = data.AuthenticationResult.AccessToken
-    const refreshToken = data.AuthenticationResult.RefreshToken || ''
+    const idToken = data.AuthenticationResult?.IdToken
+    const accessToken = data.AuthenticationResult?.AccessToken
+    const refreshToken = data.AuthenticationResult?.RefreshToken || ''
+
+    if (!idToken || !accessToken) {
+      console.error('🔐 Missing tokens in response:', { idToken: !!idToken, accessToken: !!accessToken })
+      throw new Error('Password changed but tokens are missing. Please try login again.')
+    }
 
     // Parse JWT to get user info
     const userData = parseJwt(idToken)
