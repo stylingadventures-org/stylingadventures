@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { redirectToSignup, redirectToLogin, handleOAuthCallback, getCurrentUser, signOut, parseJwt } from '../api/cognito'
+import { useNavigate } from 'react-router-dom'
+import { redirectToSignup, handleOAuthCallback, getCurrentUser, signOut, parseJwt } from '../api/cognito'
 
 export const AuthContext = createContext(null)
 
@@ -26,6 +27,7 @@ function deriveRoles(claims) {
 }
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate()
   const [userContext, setUserContext] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -95,11 +97,11 @@ export function AuthProvider({ children }) {
   }
 
   const startLogin = async (selectedUserType = null) => {
-    // Store the selected user type in sessionStorage before redirecting to Cognito
+    // Store the selected user type in sessionStorage before navigating to login form
     if (selectedUserType) {
       sessionStorage.setItem('selectedUserType', selectedUserType.toUpperCase())
     }
-    await redirectToLogin()
+    navigate('/login')
   }
 
   const logout = () => {

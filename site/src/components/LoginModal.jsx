@@ -1,14 +1,17 @@
 import React from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import '../styles/login-modal.css'
 
 export const LoginModal = ({ isOpen, onClose }) => {
-  const { startLogin } = useAuth()
+  const navigate = useNavigate()
 
   if (!isOpen) return null
 
   const handleLogin = (userType) => {
-    startLogin(userType)
+    // Store selected user type and navigate to login form
+    sessionStorage.setItem('selectedUserType', userType.toUpperCase())
+    navigate('/login')
+    onClose()
   }
 
   return (

@@ -1,7 +1,6 @@
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LoginModal } from "./LoginModal";
 import logo from "../assets/logo.png";
 import "../styles/header.css";
 
@@ -10,7 +9,6 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -46,7 +44,7 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const openLogin = () => setShowLoginModal(true);
+  const openLogin = () => navigate('/login');
 
   const requireAuthOrLogin = (to) => {
     if (!isAuthenticated) {
@@ -269,8 +267,6 @@ export default function Header() {
           </div>
         )}
       </header>
-
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
     </>
   );
 }
