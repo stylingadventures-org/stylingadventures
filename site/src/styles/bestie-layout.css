@@ -2,6 +2,9 @@
 
 :root {
   --header-height: 60px;
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
 }
 
 .bestie-layout {
@@ -15,7 +18,7 @@
 /* BESTIE MAIN CONTENT AREA */
 .bestie-main {
   flex: 1;
-  padding: 24px;
+  padding: var(--spacing-md);
   overflow-y: auto;
   background: white;
   margin: 20px;
@@ -25,7 +28,7 @@
   max-width: 1200px;
 }
 
-/* TABLET LAYOUT (768px - 1024px) */
+/* DESKTOP LAYOUT (1024px+) */
 @media (max-width: 1024px) {
   .bestie-main {
     padding: 20px;
@@ -34,7 +37,23 @@
   }
 }
 
-/* TABLET LAYOUT (480px - 768px) */
+/* TABLET LAYOUT (900px - 1024px) - Sidebar transitions to horizontal */
+@media (max-width: 900px) {
+  .bestie-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .bestie-main {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* MOBILE LAYOUT (480px - 900px) */
 @media (max-width: 768px) {
   .bestie-layout {
     flex-direction: column;
@@ -43,9 +62,9 @@
   }
 
   .bestie-main {
-    padding: 16px;
-    margin: 12px 0;
-    border-radius: 8px;
+    padding: var(--spacing-sm);
+    margin: 0;
+    border-radius: 0;
     width: 100%;
     margin-left: 0;
     margin-right: 0;
@@ -53,20 +72,18 @@
   }
 }
 
-/* MOBILE LAYOUT (< 480px) */
+/* SMALL MOBILE LAYOUT (< 480px) */
 @media (max-width: 480px) {
   .bestie-layout {
     flex-direction: column;
-    min-height: auto;
+    min-height: calc(100vh - var(--header-height));
   }
 
   .bestie-main {
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
+    padding: var(--spacing-xs);
+    margin: 0;
+    border-radius: 0;
     width: 100%;
-    margin-left: 0;
-    margin-right: 0;
     max-width: 100%;
   }
 }
