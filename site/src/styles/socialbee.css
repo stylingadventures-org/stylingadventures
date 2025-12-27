@@ -756,6 +756,7 @@
     border-bottom: 1px solid var(--sb-border-light);
     overflow-x: auto;
     overflow-y: hidden;
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.08);
   }
 
   .sidebar-header {
@@ -763,6 +764,7 @@
     border-bottom: none;
     padding: 12px;
     white-space: nowrap;
+    min-width: fit-content;
   }
 
   .sidebar-header h2 {
@@ -774,6 +776,7 @@
     padding: 8px;
     gap: 0;
     flex: 1;
+    overflow-x: auto;
   }
 
   .nav-item {
@@ -783,6 +786,8 @@
     font-size: 12px;
     border-left: none;
     border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    min-width: fit-content;
   }
 
   .nav-item.active {
@@ -798,6 +803,395 @@
   .nav-icon {
     font-size: 20px;
   }
+
+  /* Hide right panel on tablet */
+  .socialbee-buzz {
+    display: none;
+  }
+
+  .socialbee-content {
+    flex-direction: column;
+  }
+
+  .socialbee-feed-wrapper {
+    width: 100%;
+  }
+
+  .feed-header {
+    padding: 16px;
+  }
+
+  .header-title h1 {
+    font-size: 24px;
+  }
+
+  .filters-section {
+    padding: 12px 16px;
+  }
+
+  .feed-timeline {
+    padding: 12px 16px;
+  }
+}
+
+/* Tablet - 768px */
+@media (max-width: 768px) {
+  .socialbee-container {
+    height: auto;
+  }
+
+  .socialbee-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--sb-border-light);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .sidebar-header {
+    border-right: 1px solid var(--sb-border-light);
+    border-bottom: none;
+    padding: 10px;
+    min-width: fit-content;
+  }
+
+  .sidebar-header h2 {
+    font-size: 13px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding: 6px;
+    gap: 0;
+    flex: 1;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    padding: 6px 8px;
+    border-radius: 0;
+    gap: 4px;
+    font-size: 11px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    min-width: fit-content;
+  }
+
+  .nav-item.active {
+    border-left: none;
+    border-bottom: 2px solid var(--sb-hot-pink);
+    background: transparent;
+  }
+
+  .nav-icon {
+    font-size: 18px;
+  }
+
+  .socialbee-buzz {
+    display: none;
+  }
+
+  .feed-header {
+    padding: 14px;
+  }
+
+  .header-title h1 {
+    font-size: 20px;
+  }
+
+  .header-title p {
+    font-size: 12px;
+  }
+
+  .filters-section {
+    padding: 10px 14px;
+  }
+
+  .feed-timeline {
+    padding: 10px 14px;
+  }
+}
+
+/* Small Mobile - 480px */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+
+  .socialbee-container {
+    flex-direction: column;
+    background: var(--sb-bg-white);
+  }
+
+  .socialbee-header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-left {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-left h1 {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .header-left p {
+    font-size: 11px;
+    margin: 0;
+    color: var(--sb-text-muted);
+  }
+
+  .create-post-btn {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* Sidebar as horizontal scrollable */
+  .socialbee-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--sb-border-light);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .sidebar-header {
+    padding: 8px 10px;
+    border-right: 1px solid var(--sb-border-light);
+    border-bottom: none;
+    min-width: fit-content;
+  }
+
+  .sidebar-header h2 {
+    font-size: 12px;
+    display: none;
+  }
+
+  .bee-logo {
+    font-size: 18px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding: 6px;
+    gap: 0;
+    flex: 1;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-item {
+    padding: 6px 8px;
+    border-radius: 0;
+    gap: 4px;
+    font-size: 10px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .nav-item.active {
+    border-left: none;
+    border-bottom: 2px solid var(--sb-hot-pink);
+    background: transparent;
+  }
+
+  .nav-icon {
+    font-size: 16px;
+    display: block;
+    margin: 0 auto 2px;
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  /* Hide right panel */
+  .socialbee-buzz {
+    display: none;
+  }
+
+  .socialbee-content {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .socialbee-feed-wrapper {
+    width: 100%;
+  }
+
+  .feed-header {
+    padding: 10px 12px;
+  }
+
+  .header-title h1 {
+    font-size: 18px;
+  }
+
+  .header-title p {
+    font-size: 11px;
+  }
+
+  .filters-section {
+    padding: 8px 12px;
+    overflow-x: auto;
+  }
+
+  .filter-chips {
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .filter-chip {
+    padding: 6px 10px;
+    font-size: 11px;
+    min-width: fit-content;
+    flex-shrink: 0;
+  }
+
+  .feed-timeline {
+    padding: 8px 12px;
+    gap: 12px;
+  }
+
+  .feed-post {
+    padding: 10px;
+    border-radius: 6px;
+  }
+
+  .feed-post:hover {
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.08);
+  }
+
+  .post-header {
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+
+  .platform-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .account-name {
+    font-size: 13px;
+  }
+
+  .timestamp {
+    font-size: 10px;
+  }
+
+  .post-content {
+    margin-bottom: 8px;
+  }
+
+  .post-caption {
+    font-size: 13px;
+    margin: 0 0 6px 0;
+  }
+
+  .post-media {
+    padding: 20px;
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+
+  .engagement-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .engagement-stat {
+    font-size: 12px;
+  }
+
+  .peek-toggle {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .comments-preview {
+    margin-top: 8px;
+    padding: 8px;
+  }
+
+  .comment-item strong {
+    font-size: 12px;
+  }
+
+  .comment-item p {
+    font-size: 12px;
+  }
+
+  .post-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    flex: 1;
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .empty-feed {
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .empty-feed p {
+    font-size: 13px;
+  }
+
+  .socialbee-loading {
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .socialbee-loading p {
+    font-size: 14px;
+  }
+
+  .socialbee-loading small {
+    font-size: 12px;
+  }
+
+  .socialbee-error {
+    padding: 20px;
+  }
+
+  .socialbee-error p {
+    font-size: 13px;
+  }
+
+  .socialbee-error ul {
+    padding-left: 20px;
+  }
+
+  .socialbee-error li {
+    font-size: 12px;
+  }
+}
 
   .sidebar-footer {
     display: none;

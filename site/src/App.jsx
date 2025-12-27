@@ -166,6 +166,9 @@ function AppRoutes({ isAuthPage }) {
           <Route path="discover" element={<Discover />} />
         </Route>
         
+        {/* PUBLIC - SocialBee (read-only for FAN, full features for BESTIE+) */}
+        <Route path="/socialbee" element={<SocialBee />} />
+        
         {/* BESTIE Tier Routes - PROTECTED, nested under BestieLayout */}
         <Route 
           path="/bestie" 
@@ -184,7 +187,6 @@ function AppRoutes({ isAuthPage }) {
           <Route path="trends" element={<TrendStudio />} />
           <Route path="stories" element={<BestieStories />} />
           <Route path="inbox" element={<BestieInbox />} />
-          <Route path="socialbee" element={<SocialBee />} />
           <Route path="master-profile" element={<MasterProfile />} />
           <Route path="primebank" element={<PrimeBank />} />
           <Route path="profile" element={<BestieProfile />} />
