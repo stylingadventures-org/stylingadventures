@@ -24,6 +24,7 @@ export default function BestieSidebar() {
     { id: 'trends', label: '⭐ Trend Studio', path: '/bestie/trends' },
     { id: 'stories', label: '📱 Stories', path: '/bestie/stories' },
     { id: 'socialbee', label: '🐝 SocialBee', path: '/bestie/socialbee', isNew: true },
+    { id: 'master-profile', label: '👑 Master Profile', path: '/bestie/master-profile', isNew: true },
     { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox' },
     { id: 'primebank', label: '🏦 Prime Bank', path: '/bestie/primebank' },
   ]
