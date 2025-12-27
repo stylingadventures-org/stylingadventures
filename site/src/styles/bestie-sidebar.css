@@ -118,6 +118,12 @@
   gap: var(--spacing-xs);
 }
 
+.nav-section:not(:first-child) {
+  padding-top: var(--spacing-md);
+  border-top: 2px solid rgba(6, 182, 212, 0.15);
+  margin-top: var(--spacing-md);
+}
+
 .section-title {
   margin: 0;
   padding: 0 var(--spacing-xs);
@@ -165,6 +171,9 @@
 /* BESTIE-SPECIFIC NAV ITEMS (Premium section) */
 .bestie-nav-item {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .bestie-nav-item::before {
@@ -179,6 +188,36 @@
 .bestie-nav-item:hover::before,
 .bestie-nav-item.active::before {
   opacity: 1;
+}
+
+/* NAV ITEM LABEL & BADGES */
+.nav-item-label {
+  flex: 1;
+  text-align: left;
+}
+
+.badge-new {
+  display: inline-block;
+  background: linear-gradient(135deg, #ec4899, #f97316);
+  color: white;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 /* SIDEBAR FOOTER */

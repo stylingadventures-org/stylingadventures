@@ -7,9 +7,13 @@ export default function BestieSidebar() {
   const navigate = useNavigate()
   const { userContext, logout } = useAuth()
 
+  // New features (show "NEW" badge)
+  const newFeatures = ['inbox', 'achievements']
+
   // Determine if this is a Bestie exclusive page
   const isBestiePage = (path) => path.startsWith('/bestie')
   const isActive = (path) => location.pathname === path
+  const isNewFeature = (id) => newFeatures.includes(id)
 
   // FAN Tier pages (visible to all)
   const fanPages = [
@@ -29,7 +33,7 @@ export default function BestieSidebar() {
     { id: 'scene-club', label: '🎭 Scene Club', path: '/bestie/scene-club' },
     { id: 'trends', label: '⭐ Trend Studio', path: '/bestie/trends' },
     { id: 'stories', label: '📱 Stories', path: '/bestie/stories' },
-    { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox' },
+    { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox', isNew: true },
     { id: 'primebank', label: '🏦 Prime Bank', path: '/bestie/primebank' },
   ]
 
@@ -64,14 +68,16 @@ export default function BestieSidebar() {
 
         {/* PREMIUM SECTION */}
         <div className="nav-section">
-          <h4 className="section-title">PREMIUM</h4>
+          <h4 className="section-title">✨ PREMIUM</h4>
           {bestiePages.map((item) => (
             <button
               key={item.id}
               className={`sidebar-nav-item bestie-nav-item ${isActive(item.path) ? 'active' : ''}`}
               onClick={() => navigate(item.path)}
+              title={item.isNew ? 'Just added!' : 'Bestie exclusive feature'}
             >
-              {item.label}
+              <span className="nav-item-label">{item.label}</span>
+              {item.isNew && <span className="badge-new">NEW</span>}
             </button>
           ))}
         </div>
