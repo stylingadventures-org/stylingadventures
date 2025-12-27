@@ -147,6 +147,82 @@ export async function redirectToLogin() {
 }
 
 /**
+ * Direct Cognito authentication using InitiateAuth (USER_PASSWORD_AUTH)
+ * Bypasses the broken hosted UI login page
+ */
+export async function authenticateUser(username, password) {
+  try {
+    const cfg = await getConfig()
+    const region = cfg.region || 'us-east-1'
+    const clientId = cfg.clientId
+    const userPoolId = cfg.userPoolId
+
+    console.log('🔐 Direct auth starting...')
+
+    // Call InitiateAuth API
+    const response = await fetch(
+      `https://cognito-idp.${region}.amazonaws.com/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth'
+        },
+        body: JSON.stringify({
+          ClientId: clientId,
+          AuthFlow: 'USER_PASSWORD_AUTH',
+          AuthParameters: {
+            USERNAME: username,
+            PASSWORD: password
+          }
+        })
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.__type || 'Authentication failed')
+    }
+
+    const data = await response.json()
+
+    // Extract tokens
+    const idToken = data.AuthenticationResult.IdToken
+    const accessToken = data.AuthenticationResult.AccessToken
+    const refreshToken = data.AuthenticationResult.RefreshToken || ''
+
+    // Parse JWT to get user info
+    const userData = parseJwt(idToken)
+
+    // Store tokens
+    localStorage.setItem('id_token', idToken)
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('refresh_token', refreshToken)
+
+    const tokens = {
+      idToken,
+      accessToken,
+      refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + (data.AuthenticationResult.ExpiresIn || 3600),
+      sub: userData.sub,
+      email: userData.email
+    }
+
+    localStorage.setItem('cognito_tokens', JSON.stringify(tokens))
+
+    console.log('🔐 Direct auth successful!')
+    return {
+      success: true,
+      tokens,
+      userData
+    }
+  } catch (error) {
+    console.error('🔐 Direct auth error:', error)
+    throw error
+  }
+}
+
+/**
  * Handle OAuth callback and exchange code for tokens
  * Uses PKCE to securely exchange authorization code for tokens without backend secret
  */

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authenticateUser } from '../api/cognito'
 import '../styles/auth.css'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { startLogin } = useAuth()
+  const { checkAuth } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -15,26 +18,25 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // Existing user (not new signup)
-      sessionStorage.setItem('isNewSignup', 'false')
-      
-      // Redirect to Cognito hosted UI for login
-      await startLogin()
-    } catch (err) {
-      setError(err.message)
-      setLoading(false)
-    }
-  }
+      // Direct Cognito authentication (bypasses broken hosted UI)
+      const result = await authenticateUser(username, password)
 
-  const handleSocialLogin = async (provider) => {
-    setError(null)
-    setLoading(true)
-
-    try {
-      sessionStorage.setItem('isNewSignup', 'false')
-      await startLogin()
+      if (result.success) {
+        console.log('✓ Login successful')
+        
+        // Trigger auth context to re-check user
+        window.dispatchEvent(new CustomEvent('authChanged'))
+        
+        // Give browser time to process localStorage updates
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Check auth and navigate
+        await checkAuth()
+        navigate('/dashboard', { replace: true })
+      }
     } catch (err) {
-      setError(err.message)
+      console.error('Login error:', err)
+      setError(err.message || 'Login failed. Please check your credentials.')
       setLoading(false)
     }
   }
@@ -57,16 +59,38 @@ export default function Login() {
 
         {/* Form */}
         <form onSubmit={handleLogin} className="auth-form">
-          <p style={{ color: '#666', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-            Click below to sign in with Cognito
-          </p>
+          <div className="form-group">
+            <label htmlFor="username">Email</label>
+            <input
+              type="email"
+              id="username"
+              placeholder="your@email.com"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
 
           <button
             type="submit"
             className="auth-btn auth-btn-primary"
             disabled={loading}
           >
-            {loading ? '⏳ Loading...' : 'Sign In'}
+            {loading ? '⏳ Signing in...' : 'Sign In'}
           </button>
         </form>
 
@@ -75,19 +99,19 @@ export default function Login() {
           <span>Or</span>
         </div>
 
-        {/* Social Buttons */}
+        {/* Social Buttons (Placeholder) */}
         <div className="auth-socials">
           <button
             className="auth-btn auth-btn-social"
-            onClick={() => handleSocialLogin('google')}
-            disabled={loading}
+            disabled
+            title="Coming soon"
           >
             <span>🔍</span> Google
           </button>
           <button
             className="auth-btn auth-btn-social"
-            onClick={() => handleSocialLogin('apple')}
-            disabled={loading}
+            disabled
+            title="Coming soon"
           >
             <span>🍎</span> Apple
           </button>

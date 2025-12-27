@@ -113,6 +113,7 @@ export function AuthProvider({ children }) {
       userContext,
       loading,
       error,
+      checkAuth,
       startSignup,
       startLogin,
       logout,
