@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardRouter } from './pages/DashboardRouter'
 import FanLayout from './components/FanLayout'
+import BestieLayout from './components/BestieLayout'
 import Header from './components/Header'
 import './App.css'
 
@@ -160,19 +161,28 @@ function AppRoutes({ isAuthPage }) {
           <Route path="discover" element={<Discover />} />
         </Route>
         
-        {/* BESTIE Tier Routes */}
-        <Route path="/bestie/home" element={<ProtectedRoute roles={['bestie']}><BestieHome /></ProtectedRoute>} />
-        <Route path="/bestie/closet" element={<ProtectedRoute roles={['bestie']}><BestieCloset /></ProtectedRoute>} />
-        <Route path="/bestie/studio" element={<ProtectedRoute roles={['bestie']}><BestieStudio /></ProtectedRoute>} />
-        <Route path="/bestie/challenges" element={<ProtectedRoute roles={['bestie']}><BestieChallenges /></ProtectedRoute>} />
-        <Route path="/bestie/vote" element={<ProtectedRoute roles={['bestie']}><BestieVote /></ProtectedRoute>} />
-        <Route path="/bestie/scene-club" element={<ProtectedRoute roles={['bestie']}><SceneClub /></ProtectedRoute>} />
-        <Route path="/bestie/trends" element={<ProtectedRoute roles={['bestie']}><TrendStudio /></ProtectedRoute>} />
-        <Route path="/bestie/stories" element={<ProtectedRoute roles={['bestie']}><BestieStories /></ProtectedRoute>} />
-        <Route path="/bestie/inbox" element={<ProtectedRoute roles={['bestie']}><BestieInbox /></ProtectedRoute>} />
-        <Route path="/bestie/primebank" element={<ProtectedRoute roles={['bestie']}><PrimeBank /></ProtectedRoute>} />
-        <Route path="/bestie/profile" element={<ProtectedRoute roles={['bestie']}><BestieProfile /></ProtectedRoute>} />
-        <Route path="/bestie/achievements" element={<ProtectedRoute roles={['bestie']}><AchievementCenter /></ProtectedRoute>} />
+        {/* BESTIE Tier Routes - PROTECTED, nested under BestieLayout */}
+        <Route 
+          path="/bestie" 
+          element={
+            <ProtectedRoute roles={['bestie']}>
+              <BestieLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="home" element={<BestieHome />} />
+          <Route path="closet" element={<BestieCloset />} />
+          <Route path="studio" element={<BestieStudio />} />
+          <Route path="challenges" element={<BestieChallenges />} />
+          <Route path="vote" element={<BestieVote />} />
+          <Route path="scene-club" element={<SceneClub />} />
+          <Route path="trends" element={<TrendStudio />} />
+          <Route path="stories" element={<BestieStories />} />
+          <Route path="inbox" element={<BestieInbox />} />
+          <Route path="primebank" element={<PrimeBank />} />
+          <Route path="profile" element={<BestieProfile />} />
+          <Route path="achievements" element={<AchievementCenter />} />
+        </Route>
         
         {/* Bestie redirect - /bestie goes to /bestie/home */}
         <Route path="/bestie" element={<BestieHomeRedirect />} />

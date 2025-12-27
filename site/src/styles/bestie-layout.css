@@ -1,0 +1,73 @@
+/* ===== BESTIE LAYOUT STYLING ===== */
+
+:root {
+  --header-height: 60px;
+}
+
+.bestie-layout {
+  display: flex;
+  min-height: calc(100vh - var(--header-height));
+  background: linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%);
+  width: 100%;
+  overflow: hidden;
+}
+
+/* BESTIE MAIN CONTENT AREA */
+.bestie-main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background: white;
+  margin: 20px;
+  border-radius: 12px;
+  width: 100%;
+  min-width: 0;
+  max-width: 1200px;
+}
+
+/* RESPONSIVE LAYOUT */
+@media (max-width: 1024px) {
+  .bestie-main {
+    padding: 20px;
+    margin: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .bestie-layout {
+    flex-direction: column;
+  }
+
+  .bestie-main {
+    padding: 15px;
+    margin: 10px;
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bestie-main {
+    padding: 12px;
+    margin: 8px;
+    border-radius: 4px;
+  }
+}
+
+/* SCROLLBAR STYLING */
+.bestie-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bestie-main::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+
+.bestie-main::-webkit-scrollbar-thumb {
+  background: #06b6d4;
+  border-radius: 10px;
+}
+
+.bestie-main::-webkit-scrollbar-thumb:hover {
+  background: #0891b2;
+}

@@ -78,7 +78,7 @@ export default function FanLayout() {
           </p>
           {!isLoggedIn && (
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/login')}
               style={{
                 width: '100%',
                 padding: '8px 12px',
