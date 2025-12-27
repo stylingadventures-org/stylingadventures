@@ -162,8 +162,8 @@ export async function authenticateUser(username, password) {
     console.log('🔐 Using config:', { region, clientId: clientId?.substring(0, 10) + '...', userPoolId })
     console.log('🔐 Username input:', username)
 
-    // Try InitiateAuth (standard auth flow)
-    let response = await fetch(
+    // Cognito InitiateAuth with USER_PASSWORD_AUTH flow
+    const response = await fetch(
       `https://cognito-idp.${region}.amazonaws.com/`,
       {
         method: 'POST',
@@ -183,39 +183,8 @@ export async function authenticateUser(username, password) {
     )
 
     console.log('🔐 InitiateAuth Response status:', response.status)
-    let data = await response.json()
-    console.log('🔐 InitiateAuth Response:', { status: response.status, keys: Object.keys(data) })
-
-    // If InitiateAuth fails, it might be because email is not registered as an alias
-    // In that case, we need to look up the user first and get their username
-    if (!response.ok && (data.__type === 'NotAuthorizedException' || data.__type === 'UserNotFoundException')) {
-      console.log('🔐 InitiateAuth failed, trying AdminInitiateAuth...')
-      
-      // Use AdminInitiateAuth which works with email as well
-      response = await fetch(
-        `https://cognito-idp.${region}.amazonaws.com/`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-amz-json-1.1',
-            'X-Amz-Target': 'AWSCognitoIdentityProviderService.AdminInitiateAuth'
-          },
-          body: JSON.stringify({
-            UserPoolId: userPoolId,
-            ClientId: clientId,
-            AuthFlow: 'ADMIN_NO_SRP_AUTH',
-            AuthParameters: {
-              USERNAME: username,
-              PASSWORD: password
-            }
-          })
-        }
-      )
-
-      console.log('🔐 AdminInitiateAuth Response status:', response.status)
-      data = await response.json()
-      console.log('🔐 AdminInitiateAuth Response:', { status: response.status, keys: Object.keys(data) })
-    }
+    const data = await response.json()
+    console.log('🔐 InitiateAuth Response:', { status: response.status, keys: Object.keys(data), type: data.__type })
 
     if (!response.ok) {
       const errorData = data
@@ -323,8 +292,8 @@ export async function completeNewPasswordChallenge(newPassword) {
 
     console.log('🔐 Completing NEW_PASSWORD_REQUIRED challenge...')
 
-    // Try RespondToAuthChallenge first
-    let response = await fetch(
+    // Respond to the password challenge
+    const response = await fetch(
       `https://cognito-idp.${region}.amazonaws.com/`,
       {
         method: 'POST',
@@ -348,39 +317,7 @@ export async function completeNewPasswordChallenge(newPassword) {
     )
 
     console.log('🔐 RespondToAuthChallenge status:', response.status)
-    let data = await response.json()
-
-    // If that fails, try AdminRespondToAuthChallenge
-    if (!response.ok) {
-      console.log('🔐 RespondToAuthChallenge failed, trying AdminRespondToAuthChallenge...')
-      
-      response = await fetch(
-        `https://cognito-idp.${region}.amazonaws.com/`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-amz-json-1.1',
-            'X-Amz-Target': 'AWSCognitoIdentityProviderService.AdminRespondToAuthChallenge'
-          },
-          body: JSON.stringify({
-            UserPoolId: userPoolId,
-            ClientId: clientId,
-            ChallengeName: 'NEW_PASSWORD_REQUIRED',
-            Session: session,
-            ChallengeResponses: {
-              USERNAME: username,
-              NEW_PASSWORD: newPassword,
-              userAttributes: {
-                email_verified: 'true'
-              }
-            }
-          })
-        }
-      )
-
-      console.log('🔐 AdminRespondToAuthChallenge status:', response.status)
-      data = await response.json()
-    }
+    const data = await response.json()
 
     if (!response.ok) {
       const errorData = data

@@ -11,9 +11,9 @@
 
   "uploadsCdn": "https://d3fghn37bcpbig.cloudfront.net",
 
-  "userPoolId": "us-east-1_ibGaRX7ry",
-  "userPoolWebClientId": "6qvke3hfg6utjbavkehgo4tf73",
-  "clientId": "6qvke3hfg6utjbavkehgo4tf73",
+  "userPoolId": "us-east-1_aXLKIxbqK",
+  "userPoolWebClientId": "7u9k85rh5h74eretn9hlsme0rl",
+  "clientId": "7u9k85rh5h74eretn9hlsme0rl",
 
   "identityPoolId": "us-east-1:c73ff0f8-f70b-4eb4-93b8-9397ba61e7f8",
   "cognitoDomainPrefix": "sa-dev-637423256673",
