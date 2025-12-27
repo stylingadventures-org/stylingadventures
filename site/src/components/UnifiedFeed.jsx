@@ -121,13 +121,13 @@ const UnifiedFeed = ({
     }
   ]
 
-  const displayPosts = posts.length > 0 ? posts : mockPosts
+  const displayPosts = posts && posts.length > 0 ? posts : []
 
   // Filter by platform
   const filteredPosts =
     currentPlatform === 'all'
       ? displayPosts
-      : displayPosts.filter(post => post.platforms.includes(currentPlatform))
+      : displayPosts.filter(post => post.platforms && post.platforms.includes(currentPlatform))
 
   const getTierColor = (tier) => {
     const tierMap = {

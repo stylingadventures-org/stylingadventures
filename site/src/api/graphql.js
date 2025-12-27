@@ -281,3 +281,68 @@ export const ADD_EPISODE_COMMENT = `
     }
   }
 `
+
+// ========================================
+// SocialBee / Closet Feed Queries
+// ========================================
+
+export const CLOSET_FEED = `
+  query ClosetFeed($sort: ClosetFeedSort, $limit: Int, $nextToken: String) {
+    closetFeed(sort: $sort, limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        ownerId
+        ownerSub
+        title
+        mediaKey
+        rawMediaKey
+        category
+        subcategory
+        colorTags
+        season
+        vibes
+        notes
+        visibility
+        status
+        audience
+        favoriteCount
+        coinValue
+        createdAt
+        updatedAt
+      }
+      nextToken
+    }
+  }
+`
+
+// Get creator info for a specific closet item
+export const GET_CREATOR_INFO = `
+  query GetCreatorInfo($id: ID!) {
+    getCreator(id: $id) {
+      id
+      displayName
+      handle
+      avatarUrl
+      tier
+      followers
+    }
+  }
+`
+
+// List all creators for the SocialBee platform (to show top creators/feed sources)
+export const LIST_CREATORS_FOR_FEED = `
+  query ListCreators($limit: Int, $nextToken: String) {
+    listCreators(limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        displayName
+        handle
+        avatarUrl
+        tier
+        followers
+        posts
+      }
+      nextToken
+    }
+  }
+`
