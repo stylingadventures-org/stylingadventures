@@ -2,7 +2,8 @@
   "env": "dev",
   "region": "us-east-1",
 
-  "appsyncUrl": "https://z6cqsgghgvg3jd5vyv3xpyia7y.appsync-api.us-east-1.amazonaws.com/graphql",
+  "appsyncUrl": "https://dbcwd5l3qbh45fmanzpyvp6v4i.appsync-api.us-east-1.amazonaws.com/graphql",
+  "appsyncApiKey": "da2-qou2vcqhh5hmnfqcaieqlkfevi",
 
   "redirectUri": "https://stylingadventures.com/callback",
   "logoutUri": "https://stylingadventures.com/",
