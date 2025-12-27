@@ -4,8 +4,9 @@
  * Note: Components using this must have access to AuthContext (user & tokens)
  */
 
-const STRIPE_PUBLISHABLE_KEY = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_TEST_KEY';
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api';
+// Use import.meta.env for Vite (not process.env which is Node.js only)
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_TEST_KEY';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 /**
  * Initiates a Stripe Checkout session for tier upgrade
