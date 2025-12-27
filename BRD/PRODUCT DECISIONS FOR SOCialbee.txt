@@ -1,0 +1,209 @@
+🔒 LOCKED PRODUCT DECISIONS FOR SOCIALBEE™
+1️⃣ Color Scheme — LOCK THIS
+✅ Use Styling Adventures brand colors
+
+NOT gold/black/yellow bee colors.
+
+Why (important):
+
+Your brand is already distinctive (soft pink → hot pink → purple).
+
+Bee/yellow would feel like a separate SaaS, not part of LaLaVerse.
+
+Bee imagery works best as metaphor + accents, not palette takeover.
+
+🎨 Final Color Strategy
+
+Use bee concepts, not bee colors.
+
+Primary UI palette
+
+#ffe4f3 → background washes, cards
+
+#f9a8d4 → surfaces, hover states
+
+#ec4899 → CTAs, active states
+
+#a855f7 → highlights, progress, premium features
+
+Bee accents
+
+Small honey dots
+
+Hex outlines
+
+Subtle hex grid backgrounds at low opacity
+
+Microcopy (“Buzz”, “Hive”, “Honey”)
+
+🚫 No yellow UI.
+🚫 No black-heavy dashboards.
+
+2️⃣ Icon Style — HYBRID (LOCKED)
+✅ Platform icons stay platform-authentic
+
+(TikTok logo, IG logo, Pinterest, etc.)
+
+✅ Bee accents for system actions
+
+Hive Feed icon → hex / layered cards
+
+Buzz Inbox → notification bubble
+
+Honey (content) → sparkle / drop icon
+
+Automations → subtle hex/gear combo
+
+Rule
+
+Content = platform icon
+
+System = bee-inspired abstraction
+
+This avoids confusion and keeps trust high.
+
+3️⃣ Layout Preference — RESPONSIVE 3-COLUMN (LOCKED)
+Desktop / Tablet
+[ Sidebar ] [ Hive Feed / Composer ] [ Context Panel ]
+
+Mobile
+Top tabs:
+Hive | Create | Inbox | Me
+
+
+Why
+
+Social tools are inherently multi-pane
+
+Your users are creators → desktop-heavy
+
+Mobile still works, but not mobile-only
+
+🚫 Do NOT build mobile-first only
+🚫 Do NOT hide features behind too many taps
+
+🚀 MVP SCOPE (REALISTIC + STRATEGIC)
+Platforms for MVP — LOCKED
+
+Start with 2 platforms, not 3.
+
+🥇 Phase 1
+
+Instagram
+
+TikTok
+
+Why:
+
+Your audience lives there
+
+Strong visual overlap with Styling Adventures
+
+Clear upgrade incentive
+
+🥈 Phase 2
+
+Pinterest (perfect for fashion + closet)
+
+YouTube Shorts
+
+🚫 Skip Twitter/X at launch (less aligned with fashion/visual DNA)
+
+Core Feature Priority — LOCKED MVP ORDER
+MVP v1 (Launchable, safe, fast)
+
+✅ Connect accounts
+✅ Unified feed view (Hive Feed)
+✅ Draft composer
+✅ Manual export (“Copy caption / Download asset”)
+✅ Tier gating visible but not frustrating
+
+🚫 No auto-publishing yet
+
+MVP v1.5
+
+✅ API posting for 1 platform (Instagram or TikTok)
+✅ Scheduling (internal calendar)
+✅ Basic analytics (likes, views, saves)
+
+MVP v2
+
+✅ Crossposting rules
+✅ Inbox
+✅ Automations (The Scene™)
+
+🧠 DATA & ARCHITECTURE — HYBRID (LOCKED)
+✅ Hybrid approach (best decision)
+
+Mock data for UI now
+
+Real API hooks designed but not enforced
+
+Why
+
+You can ship UI immediately
+
+You can demo to users/investors
+
+You avoid platform approval hell early
+
+Account Storage (recommended)
+
+DB table: connected_accounts
+
+user_id
+
+platform
+
+account_name
+
+scope
+
+connection_level (view / publish / assisted)
+
+Tokens:
+
+Stored encrypted
+
+AWS Secrets Manager (yes, later)
+
+Stub now
+
+Tier-Based Access — VERY IMPORTANT DECISION
+🔒 Decision: SocialBee is INCLUDED in Bestie
+
+But…
+
+Add SocialBee Pro as:
+
+Tier 3
+
+Or add-on upgrade
+
+Access model
+Tier	SocialBee Access
+Fan	View-only (Hive Feed preview)
+Bestie	Create + Drafts + Manual export
+Scene / Pro	API posting, scheduling, analytics, automations
+
+This avoids:
+
+Feature overload for Fans
+
+Confusing pricing
+
+Cannibalizing Bestie value
+
+📱 Mobile — Responsive First (LOCKED)
+
+Must work on phone
+
+Optimized for tablet + desktop
+
+Mobile = consumption + quick actions
+
+Desktop = creation + scheduling
+
+Think:
+
+“Check on phone, create on desktop.”

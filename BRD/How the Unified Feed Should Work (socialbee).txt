@@ -1,0 +1,208 @@
+How the Unified Feed Should Work (Conceptually)
+Think of it as:
+
+TikTok feed × Creator dashboard × Inbox-lite
+
+🧩 LAYER 1 — Core Timeline (Default View)
+✅ YES: Timeline-style feed (LOCK THIS)
+
+Vertical scroll
+
+Mixed platforms
+
+Feels familiar (TikTok/IG energy)
+
+Visual-first
+
+Each feed card shows:
+
+Platform icon + account name
+
+Content preview (image/video thumbnail)
+
+Caption (collapsed → expand)
+
+Engagement summary:
+
+❤️ Likes
+
+💬 Comments count
+
+🔁 Shares
+
+👁 Views (if available)
+
+Status badge:
+
+Posted
+
+Scheduled
+
+Draft
+
+Timestamp
+
+👉 This gives immediate “social dopamine”
+👉 Fans feel at home
+👉 Besties feel powerful
+
+🧩 LAYER 2 — Engagement Peek (Inline, not overwhelming)
+🔒 DO NOT show full comments by default
+
+Instead:
+
+Each post card has:
+
+“View Buzz (12)” button
+
+Or expandable bottom drawer
+
+When expanded:
+
+Top 3–5 comments/replies
+
+Reply box (if allowed by API)
+
+“Open full thread” → side panel
+
+This keeps:
+
+Feed clean
+
+Performance fast
+
+Brain uncluttered
+
+🧩 LAYER 3 — Buzz Panel (Right Column / Slide-in)
+🔒 Engagement lives here (not inside the feed)
+
+Buzz Panel shows:
+
+Latest comments
+
+Mentions
+
+Replies needing response
+
+Emoji reactions
+
+DMs (where allowed)
+
+This gives you:
+
+Inbox zero vibes
+
+Clear separation between scrolling and responding
+
+🧩 LAYER 4 — Platform Fidelity (VERY IMPORTANT)
+
+You should NOT fake platform UX completely.
+
+Instead:
+
+TikTok posts still feel like TikTok
+
+IG posts feel like IG
+
+Pinterest feels grid-like when filtered
+
+How:
+
+Platform-specific micro-layouts
+
+Native iconography
+
+Aspect ratios preserved
+
+But:
+
+Interaction model stays unified
+
+🚫 What NOT to Do (Avoid These Traps)
+
+❌ Do NOT dump all comments under every post
+❌ Do NOT try to recreate full TikTok app 1:1
+❌ Do NOT mix inbox + feed fully
+❌ Do NOT force users into tabs for every interaction
+
+This is where most “all-in-one social tools” fail.
+
+🔐 Tier-Based Experience (Very Clean)
+FAN (StyleVerse™)
+
+View-only Hive Feed
+
+Scroll + filter
+
+No replies
+
+No posting
+
+BESTIE (The Style Floor™)
+
+Full Hive Feed
+
+Comment/reply where allowed
+
+Drafts + posting
+
+Engagement peek
+
+SCENE™ (Pro)
+
+Everything above
+
+Full Buzz Inbox
+
+Priority mentions
+
+Engagement analytics
+
+Automation triggers
+
+🧭 Default View Recommendation (LOCK THIS)
+
+When a user opens SocialBee:
+
+[ Sidebar ]
+- Hive Feed (active)
+- Create
+- Buzz
+- Calendar
+- Analytics (locked if needed)
+
+[ Main ]
+- Timeline feed (scrollable)
+
+[ Right Panel ]
+- Buzz preview
+- Platform filters
+- Account switcher
+
+
+This immediately communicates:
+
+“This is social media — but smarter.”
+
+🧠 UX Copy (use this language)
+
+Hive Feed → “Everything you’ve posted, everywhere”
+
+Buzz → “What people are saying”
+
+Honey → “Your content”
+
+Stings → “Needs attention”
+
+Scene → “What’s trending & why”
+
+🧪 MVP Recommendation (so you don’t overbuild)
+MVP v1 Feed Includes:
+
+✅ Timeline of posts
+✅ Engagement counts
+✅ Expandable comments preview
+🚫 No DMs yet
+🚫 No advanced threading
+
+You can fake depth visually while APIs catch up.

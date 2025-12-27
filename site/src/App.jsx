@@ -54,6 +54,7 @@ import BestieInbox from './pages/Bestie/BestieInbox'
 import PrimeBank from './pages/Bestie/PrimeBank'
 import BestieProfile from './pages/Bestie/BestieProfile'
 import AchievementCenter from './pages/Bestie/AchievementCenter'
+import SocialBee from './pages/SocialBee'
 
 function App() {
   // Routes that should NOT show header/sidebar (auth pages)
@@ -182,6 +183,7 @@ function AppRoutes({ isAuthPage }) {
           <Route path="trends" element={<TrendStudio />} />
           <Route path="stories" element={<BestieStories />} />
           <Route path="inbox" element={<BestieInbox />} />
+          <Route path="socialbee" element={<SocialBee />} />
           <Route path="primebank" element={<PrimeBank />} />
           <Route path="profile" element={<BestieProfile />} />
           <Route path="achievements" element={<AchievementCenter />} />

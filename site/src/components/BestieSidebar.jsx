@@ -23,7 +23,8 @@ export default function BestieSidebar() {
     { id: 'scene-club', label: '🎭 Scene Club', path: '/bestie/scene-club' },
     { id: 'trends', label: '⭐ Trend Studio', path: '/bestie/trends' },
     { id: 'stories', label: '📱 Stories', path: '/bestie/stories' },
-    { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox', isNew: true },
+    { id: 'socialbee', label: '🐝 SocialBee', path: '/bestie/socialbee', isNew: true },
+    { id: 'inbox', label: '💬 Inbox', path: '/bestie/inbox' },
     { id: 'primebank', label: '🏦 Prime Bank', path: '/bestie/primebank' },
   ]
 
