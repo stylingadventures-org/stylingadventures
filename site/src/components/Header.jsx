@@ -63,7 +63,7 @@ export default function Header() {
   const navItems = useMemo(() => {
     return [
       { label: "Home", to: "/", gated: false },
-      { label: "Socialbee", to: "/community", gated: false },
+      { label: "Socialbee", to: "/socialbee", gated: false },
       { label: "Fan", to: "/fan/home", gated: false },
       // Bestie is gated (login) — also optionally "premium"
       { label: "Bestie", to: "/bestie/home", gated: true, premium: true },
