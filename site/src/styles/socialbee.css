@@ -22,7 +22,8 @@
 /* Main Container - 3 Column Layout */
 .socialbee-container {
   display: flex;
-  height: 100%;
+  flex-direction: row;
+  min-height: 100vh;
   background: linear-gradient(135deg, var(--sb-primary-pink) 0%, var(--sb-bg-light) 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
@@ -565,6 +566,23 @@
 }
 
 /* ===== RIGHT PANEL - BUZZ ===== */
+.socialbee-content {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  min-width: 0;
+  gap: 0;
+}
+
+.socialbee-feed-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--sb-bg-light);
+}
+
 .socialbee-buzz {
   width: 260px;
   background: var(--sb-bg-white);
