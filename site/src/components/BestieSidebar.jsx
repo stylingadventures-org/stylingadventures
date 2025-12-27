@@ -15,16 +15,6 @@ export default function BestieSidebar() {
   const isActive = (path) => location.pathname === path
   const isNewFeature = (id) => newFeatures.includes(id)
 
-  // FAN Tier pages (visible to all)
-  const fanPages = [
-    { id: 'home', label: '🏠 Home', path: '/fan/home' },
-    { id: 'episodes', label: '✨ Episodes', path: '/fan/episodes' },
-    { id: 'styling', label: '👗 Styling', path: '/fan/styling' },
-    { id: 'closet', label: "❤️ Lala's Closet", path: '/fan/closet' },
-    { id: 'blog', label: '📝 Blog', path: '/fan/blog' },
-    { id: 'magazine', label: '🍵 Tea Magazine', path: '/fan/magazine' },
-  ]
-
   // BESTIE Tier pages (premium exclusive)
   const bestiePages = [
     { id: 'bestie-home', label: '💎 Bestie Hub', path: '/bestie/home' },
@@ -52,20 +42,6 @@ export default function BestieSidebar() {
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {/* PUBLIC SECTION */}
-        <div className="nav-section">
-          <h4 className="section-title">PUBLIC</h4>
-          {fanPages.map((item) => (
-            <button
-              key={item.id}
-              className={`sidebar-nav-item ${isActive(item.path) ? 'active' : ''}`}
-              onClick={() => navigate(item.path)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
         {/* PREMIUM SECTION */}
         <div className="nav-section">
           <h4 className="section-title">✨ PREMIUM</h4>
@@ -85,8 +61,8 @@ export default function BestieSidebar() {
         {/* PROFILE */}
         <div className="nav-section">
           <button
-            className={`sidebar-nav-item ${isActive('/fan/profile') ? 'active' : ''}`}
-            onClick={() => navigate('/fan/profile')}
+            className={`sidebar-nav-item ${isActive('/bestie/profile') ? 'active' : ''}`}
+            onClick={() => navigate('/bestie/profile')}
           >
             👤 Profile
           </button>
