@@ -8,17 +8,17 @@
  */
 
 import Stripe from 'stripe';
-import AWS from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
-const cognito = new AWS.CognitoIdentityServiceProvider();
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' })
+);
 
 // Pricing configuration
-const PRICING = {
+const PRICING: Record<string, any> = {
   BESTIE: {
     monthly: { amount: 999, currency: 'usd', interval: 'month' },
     annual: { amount: 9999, currency: 'usd', interval: 'year' },
@@ -32,7 +32,7 @@ const PRICING = {
 /**
  * Lambda handler for creating Stripe checkout sessions
  */
-export const handler = async (event) => {
+export const handler = async (event: any): Promise<any> => {
   console.log('[Checkout] Event received:', JSON.stringify(event));
 
   try {
@@ -64,7 +64,7 @@ export const handler = async (event) => {
     });
 
     // Create or retrieve Stripe customer
-    let customer;
+    let customer: Stripe.Customer;
     try {
       // Search for existing customer
       const customers = await stripe.customers.list({
@@ -73,7 +73,7 @@ export const handler = async (event) => {
       });
 
       if (customers.data.length > 0) {
-        customer = customers.data[0];
+        customer = customers.data[0] as Stripe.Customer;
         console.log('[Checkout] Found existing customer:', customer.id);
       } else {
         // Create new customer
@@ -83,10 +83,10 @@ export const handler = async (event) => {
             cognitoUserId: userId,
             tier: tier,
           },
-        });
+        }) as Stripe.Customer;
         console.log('[Checkout] Created new customer:', customer.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Checkout] Customer lookup failed:', error);
       throw error;
     }
@@ -131,7 +131,7 @@ export const handler = async (event) => {
         url: session.url,
       }),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Checkout] Error:', error.message);
 
     return {
@@ -147,7 +147,7 @@ export const handler = async (event) => {
 /**
  * Get or create Stripe product for tier
  */
-async function getOrCreateProduct(tier) {
+async function getOrCreateProduct(tier: string): Promise<Stripe.Product> {
   const productName = `Styling Adventures - ${tier} Tier`;
   
   try {
@@ -157,7 +157,7 @@ async function getOrCreateProduct(tier) {
     });
 
     if (products.data.length > 0) {
-      return products.data[0];
+      return products.data[0] as Stripe.Product;
     }
 
     // Create new product
@@ -170,8 +170,8 @@ async function getOrCreateProduct(tier) {
     });
 
     console.log('[Checkout] Created product:', product.id);
-    return product;
-  } catch (error) {
+    return product as Stripe.Product;
+  } catch (error: any) {
     console.error('[Checkout] Product creation error:', error);
     throw error;
   }
@@ -180,7 +180,11 @@ async function getOrCreateProduct(tier) {
 /**
  * Get or create Stripe price for tier + billing cycle
  */
-async function getOrCreatePrice(productId, tier, billingCycle) {
+async function getOrCreatePrice(
+  productId: string,
+  tier: string,
+  billingCycle: string
+): Promise<Stripe.Price> {
   const pricing = PRICING[tier][billingCycle];
   
   try {
@@ -192,12 +196,12 @@ async function getOrCreatePrice(productId, tier, billingCycle) {
     });
 
     const existingPrice = prices.data.find(
-      p => p.recurring?.interval === pricing.interval &&
+      (p: any) => p.recurring?.interval === pricing.interval &&
            p.unit_amount === pricing.amount
     );
 
     if (existingPrice) {
-      return existingPrice;
+      return existingPrice as Stripe.Price;
     }
 
     // Create new price
@@ -206,7 +210,7 @@ async function getOrCreatePrice(productId, tier, billingCycle) {
       unit_amount: pricing.amount,
       currency: pricing.currency,
       recurring: {
-        interval: pricing.interval,
+        interval: pricing.interval as any,
         interval_count: 1,
       },
       metadata: {
@@ -216,8 +220,8 @@ async function getOrCreatePrice(productId, tier, billingCycle) {
     });
 
     console.log('[Checkout] Created price:', price.id);
-    return price;
-  } catch (error) {
+    return price as Stripe.Price;
+  } catch (error: any) {
     console.error('[Checkout] Price creation error:', error);
     throw error;
   }
@@ -226,8 +230,8 @@ async function getOrCreatePrice(productId, tier, billingCycle) {
 /**
  * Product descriptions
  */
-function getProductDescription(tier) {
-  const descriptions = {
+function getProductDescription(tier: string): string {
+  const descriptions: Record<string, string> = {
     BESTIE: 'Expanded closet, challenges, collaborations, and analytics',
     CREATOR: 'Full monetization, creator studio, revenue tracking, and brand partnerships',
   };

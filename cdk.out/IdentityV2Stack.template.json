@@ -290,7 +290,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-637423256673-us-east-1",
-     "S3Key": "a2b81f5f8da32a2db0eeea9a303b29112fca2221d812a337cd75268a2859e70f.zip"
+     "S3Key": "a33925b53b9fe5a1abcf7cf8f5cc7016dc72305fd354362bfc382ef3993d1fdd.zip"
     },
     "Environment": {
      "Variables": {
@@ -326,7 +326,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "IdentityV2Stack/PreTokenGenerationFn/Resource",
-    "aws:asset:path": "asset.a2b81f5f8da32a2db0eeea9a303b29112fca2221d812a337cd75268a2859e70f",
+    "aws:asset:path": "asset.a33925b53b9fe5a1abcf7cf8f5cc7016dc72305fd354362bfc382ef3993d1fdd",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }

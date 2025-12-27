@@ -1,5 +1,6 @@
 schema: "./appsync/schema.graphql"
-documents: "site/src/**/*.graphql"
+# Skip documents since queries are defined in TypeScript files, not .graphql files
+documents: []
 
 generates:
   site/src/generated/graphql.ts:
